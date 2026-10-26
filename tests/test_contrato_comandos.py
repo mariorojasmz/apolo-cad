@@ -198,7 +198,7 @@ CAMPOS: dict[str, str] = {
     "join_bolted": "name a b size count patron spacing norma criterio madera",
     "layout_tablero": (
         "name ubicacion gabinete position position.x position.y position.z rotation rotation.x "
-        "rotation.y rotation.z bisagra reserva ambiente_C overrides"
+        "rotation.y rotation.z bisagra reserva ambiente_C ventilacion_m3h overrides"
     ),
     "mirror_feature": "feature plane offset",
     "pattern_circular": (

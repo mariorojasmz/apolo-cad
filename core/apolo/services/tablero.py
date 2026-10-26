@@ -197,6 +197,22 @@ def armados(doc) -> list[tuple[str, object, object, object]]:
     return out
 
 
+def plan_con_gabinete(doc, cid: str, gabinete: str):
+    """(Layout, Armado) del layout `cid` con OTRO gabinete (F3: el siguiente que se sugiere si el
+    tablero se calienta), la misma `plan` del executor; CommandError si no entra."""
+    from apolo.commands.registry import validate_params
+    from apolo.commands.state import ExecContext, RegenState
+    from apolo.commands.tablero import dispositivos, plan
+    from apolo.doc.carril import es_carril, lectura
+
+    cmd = next(c for c in doc.commands if c.get("id") == cid)
+    variables = dict(doc.variables_raw)
+    p = validate_params(LAYOUT, {**dict(cmd.get("params") or {}), "gabinete": gabinete}, variables)
+    ctx = ExecContext(RegenState(variables=variables), {}, lectura(cmd, [c for c in doc.commands if es_carril(c)]))
+    lay, arm, _ = plan(p, dispositivos(ctx, p.ubicacion))
+    return lay, arm
+
+
 def _diametros(m) -> tuple[dict, list[str]]:
     """{conductor id: Ø exterior en mm} y lo supuesto: la ref del conductor; un hilo de cable o
     un conductor con sólo su sección, el Ø del conductor suelto del catálogo de esa sección."""

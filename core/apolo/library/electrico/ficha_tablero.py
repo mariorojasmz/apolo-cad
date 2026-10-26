@@ -41,6 +41,9 @@ Bloques (todas las cotas en mm):
 - `bornes` (F2, D4): {arriba, abajo, frente: [ids], fuente}: la cara de cada borne de ESTA ref
   cuando su línea no sigue el patrón de su familia (`bornes_pos.py`); `fuente` dice de dónde
   sale (la línea del fabricante o «supuesto»). Un borne que no nombra sigue el de la familia.
+- `prensaestopas` (F3, D7): {rosca, rango_mm: [mín, máx], llave_mm, fuente}: el Ø de cable que
+  sujeta y sella (EN 62444), la entrecara del hexágono (lo que ocupa en la placa pasacables) y el
+  documento del fabricante de donde salen (`prensaestopas.py` elige por el Ø del cable).
 """
 
 from __future__ import annotations
@@ -62,7 +65,8 @@ CARAS_ACOPLE = ("frente", "abajo", "arriba", "izquierda", "derecha")
 #: Tolerancia de `delante + detras = depth` en una caja.
 TOL_FONDO_MM = 0.5
 
-_CLAVES = ("gabinete", "apoyo", "puerta", "acopla_a", "riel", "canaleta", "bornes")
+_CLAVES = ("gabinete", "apoyo", "puerta", "acopla_a", "riel", "canaleta", "bornes", "prensaestopas")
+_CLAVES_PRENSA = ("rosca", "rango_mm", "llave_mm", "fuente")
 #: las caras de un borne que una ref puede declarar (`bornes`); la puerta y la bornera son de familia
 CARAS_BORNE = ("arriba", "abajo", "frente")
 _CLAVES_GABINETE = ("placa_util_mm", "fondo_util_mm", "placa_fondo_mm", "espesor_mm",
@@ -130,6 +134,19 @@ class CarasBornes:
 
 
 @dataclass(frozen=True)
+class FichaPrensa:
+    """`tablero.prensaestopas`: el rango de Ø de cable que sujeta (mm) y su hexágono."""
+    rosca: str
+    min_mm: float
+    max_mm: float
+    llave_mm: float
+    fuente: str
+
+    def admite(self, d_mm: float) -> bool:
+        return self.min_mm - 1e-9 <= d_mm <= self.max_mm + 1e-9
+
+
+@dataclass(frozen=True)
 class FichaTablero:
     apoyo: str | None = None
     gabinete: InteriorGabinete | None = None
@@ -138,6 +155,7 @@ class FichaTablero:
     riel: FichaRiel | None = None
     canaleta: FichaCanaleta | None = None
     bornes: CarasBornes | None = None
+    prensaestopas: FichaPrensa | None = None
 
 
 def apoyo_de(familia: str | None, ficha: FichaTablero | None) -> str | None:
@@ -361,6 +379,23 @@ def _caras_bornes(err: _Err, crudo, montaje: str | None, ids: tuple[str, ...] | 
     return CarasBornes(tuple(caras), fuente)
 
 
+def _prensa(err: _Err, crudo) -> FichaPrensa:
+    _claves(err, "prensaestopas", crudo, _CLAVES_PRENSA)
+    _faltan(err, "prensaestopas", crudo, _CLAVES_PRENSA)
+    rango = crudo["rango_mm"]
+    if not (isinstance(rango, list) and len(rango) == 2):
+        raise err("prensaestopas.rango_mm", f"se espera [mín, máx] en mm, llegó {rango!r}")
+    lo = _mm(err, "prensaestopas.rango_mm[0]", rango[0])
+    hi = _mm(err, "prensaestopas.rango_mm[1]", rango[1])
+    if lo >= hi:
+        raise err("prensaestopas.rango_mm", f"el mínimo {lo:g} no es menor que el máximo {hi:g}")
+    fuente = str(crudo["fuente"]).strip()
+    if not fuente:
+        raise err("prensaestopas.fuente", "vacía: el documento del fabricante de donde sale el rango")
+    return FichaPrensa(str(crudo["rosca"]).strip(), lo, hi, _mm(err, "prensaestopas.llave_mm", crudo["llave_mm"]),
+                       fuente)
+
+
 def parse_tablero(crudo, ref: str, *, familia: str | None = None, params: dict | None = None,
                   montaje: str | None = None, bornes: tuple[str, ...] | None = None) -> FichaTablero | None:
     """Bloque `tablero:` del YAML → `FichaTablero` validada (None si no hay bloque).
@@ -389,4 +424,5 @@ def parse_tablero(crudo, ref: str, *, familia: str | None = None, params: dict |
                   if crudo.get("canaleta") is not None else None),
         bornes=(_caras_bornes(err, crudo["bornes"], montaje, bornes)
                 if crudo.get("bornes") is not None else None),
+        prensaestopas=_prensa(err, crudo["prensaestopas"]) if crudo.get("prensaestopas") is not None else None,
     )

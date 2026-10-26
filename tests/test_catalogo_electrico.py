@@ -83,7 +83,8 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     # + 20 de V8.9 F7b (accesorios de aire, detector magnético, fotocélula réflex y reflector)
     # + 2 de plc-en-el-lazo F1d1 (el panel de operador y el cable de red)
     # + 1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR)
-    assert len(CATALOG) == 451
+    # + 5 prensaestopas M16–M40 (V8.5 F3)
+    assert len(CATALOG) == 456
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS + DIFERENCIALES)

@@ -169,6 +169,10 @@ REVISA = {
     "llenado de canaleta": "el llenado de cada canaleta del tablero armado",
     "sale del tablero sin cable": "que lo que sale del tablero armado vaya dentro de un cable",
     "largo declarado vs ruteado": "los largo_m declarados contra lo ruteado o lo medido",
+    "calentamiento del tablero": "la temperatura del aire en el tablero armado (IEC 60890) contra la máxima "
+                                 "de cada aparato",
+    "prensaestopas": "que cada cable que sale del tablero armado tenga su prensaestopas por su Ø (EN 62444)",
+    "aparato fuera del tablero armado": "que todo aparato de tablero esté en la ubicación de un tablero armado",
     "cable de campo incompleto": "los extremos de cada cable con recorrido (por)",
     "cable de campo contra lo que gira": "la distancia de cada cable de campo a lo que gira",
     "altura de los mandos": "la altura de cada mando sobre el nivel de servicio (0,6–1,7 m)",
@@ -186,7 +190,8 @@ def _corridas(doc, m, supuesto_altura) -> list[str]:
     vivos = bool(layouts(doc))
     con_por = any(c.por and c.id for c in m.cables)
     if vivos:
-        out += ["llenado de canaleta", "sale del tablero sin cable"]
+        out += ["llenado de canaleta", "sale del tablero sin cable", "calentamiento del tablero", "prensaestopas",
+                "aparato fuera del tablero armado"]
     if vivos or con_por:
         out.append("largo declarado vs ruteado")
     if con_por:
@@ -371,7 +376,10 @@ def filas_bom(doc) -> list[dict]:
     from . import cables_campo
     from .tablero import dibujados, largos, ruteos
 
+    from . import tablero_prensas
+
     m = modelo(doc)
     tableros = ruteos(doc, m)
+    prensas = tablero_prensas.cuenta([tablero_prensas.del_tablero(doc, m, t) for t in tableros])
     return filas_electricas(m, frozenset(dibujados(doc, m)), largos(tableros),
-                            cables_campo.largos(cables_campo.recorridos(doc, m, tableros)))
+                            cables_campo.largos(cables_campo.recorridos(doc, m, tableros)), prensas)

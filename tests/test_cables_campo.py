@@ -209,7 +209,7 @@ def test_el_panel_del_tablero_lista_el_cable_con_su_largo(piloto):
     assert not any(it["clave"].startswith("cable") for it in p["items"])
     giro = next(it for it in p["detalle"]["bien"] if it["clave"] == "cables-giro")
     assert giro["conductores"] == [v["comando"]] and "10 mm" in giro["detalle"]
-    assert p["veredicto"]["frase"] == "2 cosas por revisar"  # lo de la piloto, sin sumar nada
+    assert p["veredicto"]["frase"] == "1 cosa por corregir y 2 por revisar"  # lo de la piloto (F3: el calor), sin sumar nada
     (sin,) = paneles(piloto)
     assert "recorrido" not in sin["detalle"]["cables"][0]
 

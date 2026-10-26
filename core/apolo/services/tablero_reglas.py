@@ -14,6 +14,12 @@ Sólo con un `layout_tablero` vivo (sin él, el ERC de siempre):
 Cada regla tiene su SELECTOR (`llenas`, `salen_sin_cable`, `declarados_que_no_cuadran`): el
 ERC de aquí y el panel del visor (`tablero_panel.py`, F3b) leen lo mismo (D15). El llamador
 sostiene STATE_LOCK.
+
+F3 (D6, D7, D10) suma, con un tablero armado: «calentamiento del tablero» (`tablero_calor.reglas`:
+error si el aire pasa la máxima de un aparato, aviso si el método no lo cubre), «prensaestopas»
+(`tablero_prensas.reglas`: aviso si un cable que sale no entra en ninguno o no entran en la placa)
+y «aparato fuera del tablero armado» (`sin_tablero`: un aparato de montaje din, placa o puerta cuya
+ubicación no tiene layout).
 """
 
 from __future__ import annotations
@@ -200,4 +206,46 @@ def reglas(doc, m=None) -> list[dict]:
     filas: list[dict] = []
     for t in tableros:
         filas += _llenado(t) + _sale(t) + _declarados(t)
-    return filas + (_cortos(doc, m, tableros) if tableros else [])
+    if not tableros:
+        return filas
+    from . import tablero_calor, tablero_prensas
+
+    prensas = {t.cid: tablero_prensas.del_tablero(doc, m, t) for t in tableros}
+    return (filas + _cortos(doc, m, tableros) + tablero_calor.reglas(doc, m, tableros)
+            + tablero_prensas.reglas(tableros, prensas) + _sin_tablero(m, tableros))
+
+
+#: los montajes de lo que va DENTRO de un tablero (`ficha_datos.TABLERO`)
+_DE_TABLERO = ("din", "placa", "puerta")
+
+
+def sin_tablero(m, tableros) -> list:
+    """Los dispositivos que van dentro de un tablero (montaje din, placa o puerta) cuya ubicación no
+    tiene un layout vivo, en un documento que sí arma alguno (D10): no se dibujan, no calientan
+    ningún tablero ni entran a su ruteo."""
+    from apolo.library.catalog import CATALOG
+
+    armadas = {t.ubicacion for t in tableros}
+    out = []
+    for d in m.dispositivos:
+        comp = CATALOG.get(d.ref)
+        e = comp.electrico if comp is not None else None
+        if e is None or e.montaje not in _DE_TABLERO or e.simbolo == "gabinete" or d.ubicacion in armadas:
+            continue
+        out.append(d)
+    return out
+
+
+def _sin_tablero(m, tableros) -> list[dict]:
+    import json
+
+    validas = ", ".join(sorted({t.ubicacion for t in tableros}))
+    return [{"regla": "aparato fuera del tablero armado", "estado": "aviso",
+             "detalle": (f"{d.designacion} ({d.ref}) va dentro de un tablero y "
+                         + (f"su ubicación {d.ubicacion} no tiene layout_tablero" if d.ubicacion else
+                            "no tiene ubicación")
+                         + f": no se dibuja ni cuenta en el ruteo ni en el calentamiento de {validas}. "
+                         f"Si va en uno de ellos: edit_command('{d.id}', "
+                         f"{json.dumps({'ubicacion': sorted({t.ubicacion for t in tableros})[0]})})"),
+             "recomendacion": "Cada aparato de tablero lleva la ubicación del tablero donde va (IEC 81346 «+»).",
+             "norma": NORMA, "elementos": [d.designacion]} for d in sin_tablero(m, tableros)]

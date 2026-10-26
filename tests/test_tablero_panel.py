@@ -7,7 +7,7 @@ fuente del panel (`GET /api/tablero/{ubicacion}`) y de `get_circuit tablero=true
 - El recorrido de cada conductor en el MUNDO: mide lo mismo que el ruteo (menos las reservas) y
   sigue al gabinete cuando se mueve o gira.
 - La regla del veredicto es la de `ui/src/diseno/atencion.ts::veredictoDe`.
-- El calentamiento sale SIN EVALUAR (F3 espera la norma), con las pérdidas declaradas.
+- El calentamiento (F3, IEC 60890) y los prensaestopas: sus cuentas en `tests/test_tablero_calor.py`.
 """
 
 from __future__ import annotations
@@ -65,18 +65,20 @@ def _largo(polilinea) -> float:
 def test_el_panel_de_la_piloto(piloto):
     p = panel(piloto, "+TAB1")
     assert p["armado"] and p["ubicacion"] == "+TAB1"
-    assert p["veredicto"]["severidad"] == "aviso"
-    assert p["veredicto"]["frase"] == "2 cosas por revisar"
+    # F3: el calentamiento por IEC 60890 se pasa (falla) y va primero (tests/test_tablero_calor.py)
+    assert p["veredicto"]["severidad"] == "falla"
+    assert p["veredicto"]["frase"] == "1 cosa por corregir y 2 por revisar"
     assert p["veredicto"]["nota"] == "Caja de 500 × 400 mm · 12 aparatos · 33 conductores".replace(
         " × ", " × ").replace(" mm", " mm").replace("2 ap", "2 ap").replace("3 co", "3 co")
-    assert [it["clave"] for it in p["items"]] == ["largos", "sin-cable", "calentamiento"]
-    largos, sueltos, calor = p["items"]
+    assert [it["clave"] for it in p["items"]] == ["calentamiento", "largos", "sin-cable"]
+    calor, largos, sueltos = p["items"]
     # los mismos hallazgos que el ERC (F2): 10 largos a mano y los 4 hilos sueltos de la red
     assert largos["valor"] == 10 and largos["unidad"] == "" and len(largos["conductores"]) == 10
     assert largos["frase"].startswith("Conductores con un largo puesto a mano")
     assert sueltos["valor"] == 4 and len(sueltos["conductores"]) == 4
     assert all(f.startswith(p["comando"] + "_") for f in largos["piezas"] + sueltos["piezas"])
-    assert calor["severidad"] == "sin_evaluar" and "valor" not in calor  # nunca un número inventado
+    assert calor["severidad"] == "falla" and calor["unidad"] == "°C" and calor["valor"] == 98
+    assert calor["tecnico"].startswith("+TAB1 pierde")  # la fila del ERC, plegada
     assert p["puerta"] == {"junta": f"{p['comando']}_puerta", "pieza": f"{p['comando']}_puerta",
                            "min_deg": 0.0, "max_deg": 110.0, "bisagra": "izquierda"}
     bien = {it["clave"]: it for it in p["detalle"]["bien"]}
@@ -88,9 +90,11 @@ def test_el_panel_de_la_piloto(piloto):
     assert len(det["canaletas"]) == 8 and all(c["pieza"] for c in det["canaletas"])
     assert {c["nombre"] for c in det["canaletas"]} >= {"Canaleta de arriba", "Canaleta de abajo",
                                                        "Canaleta de la izquierda", "Canaleta de la derecha"}
-    assert det["calentamiento"]["estado"] == "sin_evaluar"
-    assert det["calentamiento"]["perdidas_W"] > 90  # el variador solo pierde 90 W (F0 § 5)
+    assert det["calentamiento"]["estado"] == "falla"
+    assert det["calentamiento"]["perdidas"]["aparatos_W"] == 128.0  # el variador solo pierde 90 W (F0 § 5)
+    assert det["calentamiento"]["perdidas_W"] > 128.0  # + los conductores (I²R)
     assert "-S1" in det["calentamiento"]["sin_dato"]
+    assert [x["ref"] for x in det["prensaestopas"]["prensas"]] == ["PRENSA-M16"] * 3 + ["PRENSA-M20"]
     for it in p["items"] + det["bien"]:  # todas las piezas que se señalan existen
         assert all(f in piloto.scene for f in it["piezas"]), it
 

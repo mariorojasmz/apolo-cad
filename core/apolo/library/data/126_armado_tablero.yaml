@@ -100,6 +100,52 @@ components:
     params: {width: 9.5, depth: 35, height: 47}
     weight: 0.01
     specs: {riel: "TH35", ancho_mm: 9.5, linea_referencia: "orden de Schneider Linergy / Siemens 8WH / Chint", cotas_verificadas: false, cost: 0.6}
+  # ── prensaestopas de plástico, rosca métrica (EN 62444; V8.5 F3, D7) ─────────────────────
+  # `tablero.prensaestopas`: el rango de Ø de cable que sujeta y sella y la entrecara del
+  # hexágono, de la ficha de la línea de referencia (LAPP SKINTOP ST-M, poliamida, RAL 7001). La
+  # caja del builder es la envolvente (hexágono × largo total): no se dibuja en el tablero (F3 lo
+  # elige y lo compra; la geometría, si hace falta, es otra fase). Rangos que se solapan: se elige
+  # la MENOR rosca cuyo rango contiene el Ø (`library/electrico/prensaestopas.py`).
+  - ref: PRENSA-M16
+    name: Prensaestopas M16×1,5 (cable Ø4–10)
+    description: Prensaestopas de poliamida M16×1,5 con contratuerca, IP68, para cable redondo de Ø4 a Ø10 mm (EN 62444); se monta en la placa pasacables del gabinete. Verificar con el proveedor.
+    builder: box
+    params: {width: 19, depth: 19, height: 34}
+    tablero: {prensaestopas: {rosca: "M16x1,5", rango_mm: [4, 10], llave_mm: 19, fuente: &skintop "LAPP, catálogo en línea SKINTOP® ST-M (products.lappgroup.com/online-catalogue/cable-glands/skintop-cable-glands-plastic-metric/standard/skintop-st-m.html, consultado 2026-10-26), tabla de artículos RAL 7001: 53111010 M16 4–10 / SW 19 / largo 34; 53111020 M20 6–13 / 25 / 37; 53111030 M25 8–17 / 30 / 40; 53111040 M32 9–21 / 36 / 47; 53111050 M40 16–28 / 46 / 52 mm; IP66, IP68 5 bar, IP69, −40…100 °C; ficha DB53111000EN (24.01.2025): descarga de tracción cat. A según DIN EN 62444"}}
+    weight: 0.006
+    specs: {rosca: "M16x1,5", rango_cable_mm: "4–10", norma: "EN 62444", material: poliamida, proteccion: IP68, linea_referencia: "orden de LAPP SKINTOP ST-M (53111010)", cotas_verificadas: true, cost: 0.8}
+  - ref: PRENSA-M20
+    name: Prensaestopas M20×1,5 (cable Ø6–13)
+    description: Prensaestopas de poliamida M20×1,5 con contratuerca, IP68, para cable redondo de Ø6 a Ø13 mm (EN 62444); se monta en la placa pasacables del gabinete. Verificar con el proveedor.
+    builder: box
+    params: {width: 25, depth: 25, height: 37}
+    tablero: {prensaestopas: {rosca: "M20x1,5", rango_mm: [6, 13], llave_mm: 25, fuente: *skintop}}
+    weight: 0.009
+    specs: {rosca: "M20x1,5", rango_cable_mm: "6–13", norma: "EN 62444", material: poliamida, proteccion: IP68, linea_referencia: "orden de LAPP SKINTOP ST-M (53111020)", cotas_verificadas: true, cost: 1.0}
+  - ref: PRENSA-M25
+    name: Prensaestopas M25×1,5 (cable Ø8–17)
+    description: Prensaestopas de poliamida M25×1,5 con contratuerca, IP68, para cable redondo de Ø8 a Ø17 mm (EN 62444); se monta en la placa pasacables del gabinete. Verificar con el proveedor.
+    builder: box
+    params: {width: 30, depth: 30, height: 40}
+    tablero: {prensaestopas: {rosca: "M25x1,5", rango_mm: [8, 17], llave_mm: 30, fuente: *skintop}}
+    weight: 0.015
+    specs: {rosca: "M25x1,5", rango_cable_mm: "8–17", norma: "EN 62444", material: poliamida, proteccion: IP68, linea_referencia: "orden de LAPP SKINTOP ST-M (53111030)", cotas_verificadas: true, cost: 1.4}
+  - ref: PRENSA-M32
+    name: Prensaestopas M32×1,5 (cable Ø9–21)
+    description: Prensaestopas de poliamida M32×1,5 con contratuerca, IP68, para cable redondo de Ø9 a Ø21 mm (EN 62444); se monta en la placa pasacables del gabinete. Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 36, height: 47}
+    tablero: {prensaestopas: {rosca: "M32x1,5", rango_mm: [9, 21], llave_mm: 36, fuente: *skintop}}
+    weight: 0.025
+    specs: {rosca: "M32x1,5", rango_cable_mm: "9–21", norma: "EN 62444", material: poliamida, proteccion: IP68, linea_referencia: "orden de LAPP SKINTOP ST-M (53111040)", cotas_verificadas: true, cost: 2.2}
+  - ref: PRENSA-M40
+    name: Prensaestopas M40×1,5 (cable Ø16–28)
+    description: Prensaestopas de poliamida M40×1,5 con contratuerca y junta tórica, IP68, para cable redondo de Ø16 a Ø28 mm (EN 62444); se monta en la placa pasacables del gabinete. Verificar con el proveedor.
+    builder: box
+    params: {width: 46, depth: 46, height: 52}
+    tablero: {prensaestopas: {rosca: "M40x1,5", rango_mm: [16, 28], llave_mm: 46, fuente: *skintop}}
+    weight: 0.04
+    specs: {rosca: "M40x1,5", rango_cable_mm: "16–28", norma: "EN 62444", material: poliamida, proteccion: IP68, linea_referencia: "orden de LAPP SKINTOP ST-M (53111050)", cotas_verificadas: true, cost: 3.5}
   - ref: TAPA-BORNE-2.5-4
     name: Tapa final de borne 2,5–4 mm²
     description: Tapa final para la última cara abierta de una bornera de bornes de paso o de tierra de 2,5 y 4 mm² (ancho 5,2–6,2). Verificar con el proveedor.

@@ -293,7 +293,8 @@ def test_el_cable_de_red_entra_sin_hilos_y_el_erc_no_dice_nada(armado):
 
     d, *_ = armado
     assert [c.designacion for c in d.electrico.cables if c.ref == CABLE] == ["-W3"]
-    malas = [r for r in chequeo(d).get("reglas", []) if r["estado"] != "ok"
+    # el calentamiento (V8.5 F3) nombra a -P2 entre los que se pasan: es del tablero, no del cable
+    malas = [r for r in chequeo(d).get("reglas", []) if r["estado"] != "ok" and r["regla"] != "calentamiento del tablero"
              and re.search(r"-P2|-W3|HMI|RJ45", r["detalle"])]
     assert malas == []
     fila = next(f for f in filas_bom(d) if f["ref"] == CABLE)

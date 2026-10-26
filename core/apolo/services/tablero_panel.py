@@ -17,22 +17,23 @@ DÓNDE (los ids de las piezas que encuadra la cámara).
 - `puerta`: la junta de D5 que mueve el deslizador, con lo que revisó el executor.
 - `detalle`: lo que está bien (`bien`), aparatos, canaletas con su llenado, conductores con su
   largo y, con `recorridos`, su recorrido en coordenadas de MUNDO (mm; una polilínea por tramo,
-  con la puerta cerrada); el calentamiento SIN EVALUAR (F3 espera las curvas de IEC/TR 60890:
-  nunca un número inventado) con las pérdidas declaradas, que sí son dato.
+  con la puerta cerrada); el calentamiento por IEC 60890 (F3, `tablero_calor.py`: la temperatura
+  a media altura y arriba, cada aparato contra su máxima, la ventilación sugerida; «sin evaluar»
+  sólo fuera del método, nunca un número inventado) y los prensaestopas (`tablero_prensas.py`).
+  Sus ítems los redacta `tablero_atencion.py`, con la fila del ERC en `tecnico`.
 - Los cables de CAMPO que salen del tablero (F4b): sus ítems, lo que cumple y su fila del detalle
   (`cables`) salen de `cables_campo.vista` contados por `tablero_cables.py`; aquí no se recalculan.
 """
 
 from __future__ import annotations
 
-from . import tablero_cables
+from . import tablero_atencion, tablero_cables, tablero_calor, tablero_prensas
 from .errors import ServiceError
 from .tablero import LAYOUT, layouts, pieza_canaleta, ruteos
 
 FRASE_BIEN = "El tablero cumple"
-#: lo único que queda es «sin evaluar» (el calentamiento, hasta F3): cumple lo que se revisó
+#: lo único que queda es «sin evaluar» (p. ej. un calentamiento fuera del método): cumple lo revisado
 FRASE_PARCIAL = "El tablero cumple lo que revisamos"
-MOTIVO_CALOR = "Todavía no calculamos la temperatura dentro del tablero (IEC/TR 60890). No damos una cifra estimada."
 NBSP = " "  # entre una cifra y su unidad: la línea no los separa
 PESO = {"falla": 0, "aviso": 1, "sin_evaluar": 2, "bien": 3}
 
@@ -185,8 +186,6 @@ def _items(doc, t, piezas: dict[str, str]) -> tuple[list[dict], list[dict]]:
             piezas=sorted({f for r in sueltos for f in _extremos(r, piezas)}), conductores=[r.id for r in sueltos],
             detalle="Afuera del tablero un conductor suelto no está protegido: pídele al agente que lo lleve "
                     "dentro de un cable."))
-    atender.append(item("calentamiento", "sin_evaluar", "Falta evaluar el calentamiento", detalle=MOTIVO_CALOR,
-                         piezas=[f"{cid}_gabinete"]))
     total = sum(r.largo_mm for r in t.ruteo.rutas) / 1000.0
     if t.ruteo.rutas:
         bien.append(item("largo", "bien", "Conductores dentro del tablero", valor=round(total, 1), unidad="m",
@@ -194,23 +193,16 @@ def _items(doc, t, piezas: dict[str, str]) -> tuple[list[dict], list[dict]]:
     return atender, bien
 
 
-def _calentamiento(m, u: str) -> dict:
-    from apolo.library.catalog import CATALOG
-
-    total, sin_dato = 0.0, []
-    for d in m.dispositivos:
-        if d.ubicacion != u:
-            continue
-        comp = CATALOG.get(d.ref)
-        e = comp.electrico if comp is not None else None
-        if e is None or e.simbolo == "gabinete":
-            continue
-        if e.perdidas_W is None:
-            sin_dato.append(d.designacion)
-        else:
-            total += float(e.perdidas_W) * int(d.cantidad or 1)
-    return {"estado": "sin_evaluar", "motivo": MOTIVO_CALOR, "perdidas_W": round(total, 1),
-            "sin_dato": sin_dato}
+def _calentamiento(ev: dict) -> dict:
+    """El detalle del calentamiento (F3): la evaluación de `tablero_calor` con las claves que la UI
+    ya leía (`estado`, `motivo`, `perdidas_W`, `sin_dato`)."""
+    p = ev["perdidas"]
+    out = {**{k: v for k, v in ev.items() if k != "perdidas"}, "perdidas_W": p["total_W"],
+           "perdidas": p, "sin_dato": p["sin_dato"]}
+    if ev.get("estado") == "sin_evaluar":  # la frase para la persona; el texto crudo, aparte
+        out.update(motivo=tablero_atencion.MOTIVOS.get(ev.get("causa"), tablero_atencion.MOTIVO_SIN_METODO),
+                   tecnico=ev.get("motivo"))
+    return out
 
 
 def _conductor(r, piezas, mundo) -> dict:
@@ -279,8 +271,16 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
     atender, bien = _items(doc, t, piezas)
     cables, sup_cables = _cables(doc, m, todos, u)
     atender_c, bien_c = tablero_cables.items(cables)
-    atender += atender_c  # el orden por severidad (abajo) deja el calentamiento sin evaluar al final
+    atender += atender_c  # el orden por severidad (abajo) deja lo sin evaluar al final
     bien += bien_c
+    # F3: el calentamiento (IEC 60890) y los prensaestopas, de las mismas cuentas que el ERC
+    ev = tablero_calor.evaluacion(doc, m, t)
+    fila = next(iter(tablero_calor.reglas(doc, m, [t], {t.cid: ev})), None)
+    gab = f"{t.cid}_gabinete"
+    for a, b in (tablero_atencion.calor(ev, gab, piezas, fila["detalle"] if fila else None),
+                 tablero_atencion.prensaestopas(prensas := tablero_prensas.del_tablero(doc, m, t), gab)):
+        atender += a
+        bien += b
     i = t.armado.interior
     comp = CATALOG.get(t.layout.gabinete)
     mundo = _a_mundo(t) if recorridos else None
@@ -306,7 +306,8 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
             "canaletas": _canaletas(t),
             "conductores": [_conductor(r, piezas, mundo) for r in t.ruteo.rutas],
             "cables": tablero_cables.filas_detalle(cables, recorridos=recorridos),
-            "calentamiento": _calentamiento(m, u),
+            "calentamiento": _calentamiento(ev),
+            "prensaestopas": prensas,
             "supuestos": list(t.supuestos) + list(t.ruteo.avisos) + sup_cables,
         },
     }

@@ -46,6 +46,8 @@ class LayoutTableroParams(BaseModel):
     - `bisagra`: «izquierda»/«derecha» vista de frente (vacío = la del catálogo).
     - `reserva`: riel libre por fila (0,2 = 20 %, criterio de diseño).
     - `ambiente_C`: temperatura del ambiente (hipótesis del calentamiento, V8.5 F3).
+    - `ventilacion_m3h`: el ventilador con filtro que declaras cuando el ERC dice que el tablero se
+      calienta (su caudal efectivo, el que sugiere el ERC); 0 = cerrado. No cambia la geometría.
     - `overrides` (D8), por designación: {"-Q1": {"fila": 2, "orden": 1}}, `posicion`
       {u, v} (mm desde la esquina inferior izquierda de la placa útil vista de frente) o, en un
       accesorio, `acopla`. Una designación que no es de la ubicación se rechaza con la lista.
@@ -70,6 +72,9 @@ class LayoutTableroParams(BaseModel):
                            description="fracción libre por fila (criterio de diseño)")
     ambiente_C: float = Field(35.0, ge=-30, le=70, title="Ambiente (°C)",
                               description="hipótesis del calentamiento (F3)")
+    ventilacion_m3h: float = Field(0.0, ge=0, le=5000, title="Ventilación forzada (m³/h)",
+                                   description="caudal EFECTIVO (con los filtros) del ventilador del "
+                                               "tablero; 0 = gabinete cerrado (lo lee el calentamiento)")
     overrides: dict[str, dict] = Field(
         default_factory=dict, title="Overrides por designación",
         description='{"-Q1": {"fila": 2, "orden": 1}} | {"posicion": {"u": 0, "v": 0}} | {"acopla": "-Q3"}',

@@ -13,6 +13,7 @@ suman lo que el tablero compra y la escena no tiene, sin duplicar:
     no se inventa); un puente o un conductor sin `tipo` no se compra por metro (el sin tipo avisa);
   - un conductor dentro de un cable no se compra aparte: se compra el CABLE, por metro, igual;
     sin `largo_m`, con el CALCULADO por su recorrido de campo (`add_cable.por`, V8.5 F4);
+  - el PRENSAESTOPAS de cada cable que sale de un tablero armado (V8.5 F3, D7), por pieza;
   - los tubos de aire (`add_tubo`, V8.9 D1) por METRO y por ref con su `largo_m` declarado; los
     que no lo tienen, en una fila «sin largo» con aviso, como los conductores. Un dispositivo de
     aire sin pieza (cilindro, válvula, FRL) entra como cualquier dispositivo;
@@ -122,13 +123,16 @@ def _racores(modelo, directos: set[int]) -> list[dict]:
 
 
 def filas_electricas(modelo, dibujados: frozenset = frozenset(),
-                     ruteados: dict | None = None, cables_calculados: dict | None = None) -> list[dict]:
+                     ruteados: dict | None = None, cables_calculados: dict | None = None,
+                     prensaestopas: dict | None = None) -> list[dict]:
     """Las filas de BOM del `ModeloElectrico` (vacía si no hay carril), en orden estable:
     dispositivos por ref, cables y conductores por ref. `dibujados` = las designaciones que un
     `layout_tablero` dibujó en la escena (V8.5): cuentan por su cuerpo, como una `pieza`.
     `ruteados` = {id del conductor: m} que salen del RUTEO de un tablero armado (V8.5 F2: los de
     dentro, sueltos y sin largo declarado): se compran por ese largo; el declarado manda (D3).
-    `cables_calculados` = {id del add_cable: m} de su recorrido de campo (V8.5 F4), igual."""
+    `cables_calculados` = {id del add_cable: m} de su recorrido de campo (V8.5 F4), igual.
+    `prensaestopas` = {ref: cantidad} de los que eligió cada tablero armado para los cables que salen
+    (V8.5 F3, D7, D9): se compran por pieza, junto a los dispositivos."""
     if modelo is None:
         return []
     filas: list[dict] = []
@@ -138,6 +142,9 @@ def filas_electricas(modelo, dibujados: frozenset = frozenset(),
         if d.pieza or d.designacion in dibujados or comp is None or (comp.specs or {}).get("suministro"):
             continue
         por_ref[d.ref] = por_ref.get(d.ref, 0) + (d.cantidad if d.bornera else 1)
+    for ref, n in (prensaestopas or {}).items():
+        if CATALOG.get(ref) is not None:
+            por_ref[ref] = por_ref.get(ref, 0) + n
     filas += [_fila(CATALOG[ref], n) for ref, n in sorted(por_ref.items())]
     cables: dict[str, list] = {}
     cables_ruteo: dict[str, list] = {}

@@ -107,7 +107,8 @@ def test_all_new_families_present():
     assert len(refs_in_category("tensores_trotadora")) == 2
     assert len(refs_in_category("variadores")) == 2  # 1.5 kW + 2.2 kW (NMRV-090 de la faja 38)
     # + gabinetes 6040 y 8060 (V8.1 D6) + 10 del armado: rieles, canaletas, tope y tapa (V8.5 F1a)
-    assert len(refs_in_category("tableros")) == 13
+    # + 5 prensaestopas M16–M40 (V8.5 F3)
+    assert len(refs_in_category("tableros")) == 18
     # + 8 pulsadores, selectores y pilotos Ø22 (V8.1 D6) + la seta en caja (seta-de-emergencia D4)
     # + las setas 2NC, el interruptor de resguardo y su lengüeta (mandos-de-seguridad D1, D2)
     assert len(refs_in_category("mandos")) == 15
@@ -146,8 +147,8 @@ def test_all_new_families_present():
     # +27 del catálogo neumático (V8.9 F1a) +8 diferenciales (F1b de datos-de-corte)
     # +20 de V8.9 F7b (3 reguladores de caudal, 3 silenciadores, 11 racores, detector magnético,
     # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
-    # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR)
-    assert len(CATALOG) == 451
+    # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR); +5 prensaestopas M16–M40 (V8.5 F3)
+    assert len(CATALOG) == 456
 
 
 def test_door_sliding_hardware():

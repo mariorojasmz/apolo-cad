@@ -155,8 +155,9 @@ def test_get_circuit_con_tablero_resume_la_piloto(piloto, tool):
                             "cables_de_campo": len(panel["detalle"]["cables"])}
     # cada ítem con su motivo y los conductores que toca; sin lo que es de la cámara del visor
     assert [it["clave"] for it in t["items"]] == [it["clave"] for it in panel["items"]]
-    largos = t["items"][0]
-    assert largos["conductores"] == panel["items"][0]["conductores"] and largos["detalle"]
+    i = next(k for k, it in enumerate(panel["items"]) if it["clave"] == "largos")  # F3: el calor va primero
+    largos = t["items"][i]
+    assert largos["conductores"] == panel["items"][i]["conductores"] and largos["detalle"]
     assert not any("piezas" in it for it in t["items"] + t["bien"])
     # el detalle entero, a pedido: lo de siempre, igual que el REST
     assert json.loads(tool("get_circuit", tablero=True, completo=True)) == rest
