@@ -176,3 +176,59 @@ comercial» y «requisitos sin nada»).
 
 Suite completa (`-n auto`): exit 0, 0 fallas. `ruff check core tests scripts`: exit 0. Sin cambios
 en `ui/`.
+
+### F2 (2026-10-25, base 712a9bd)
+
+Hecho: D5–D7 y la parte de `set_scenario` de D8. Un escenario declara `ajustes: {designación:
+{campo: valor}}`; `services/escenario_ajustes.py` los valida contra el tablero y el snapshot
+(`cosim_snapshot`) los pone encima de los del `add_device` en una COPIA del `ModeloElectrico`
+(`dataclasses.replace`: el del documento es inmutable y no se toca). El snapshot con
+`{"-T2": {"sobrecarga_s": 1}}` de prueba es el MISMO (dispositivos y red hacia el worker) que el de
+un documento con ese ajuste en su `add_device`; el atasco parcial de 650 N·m dispara el variador
+por sobrecarga a 7,4 s con el ajuste y no dispara sin él.
+
+Decisiones tomadas al implementar (vetables):
+
+- **F2-a — `ajustes` vive DENTRO del dict del escenario, no al lado en `EscenarioIn`.** El
+  contrato decía «`EscenarioIn` gana `ajustes`»; leído el código, el escenario es UN dict que se
+  guarda tal cual (`doc.escenarios[n]["escenario"]`), se firma entero (`hash_escenario`) y viaja
+  igual inline (`simulate(escenario={…})`, `test_plc`, la sesión en vivo, que lo copia de su base).
+  Dentro, D6 sale sola: los ajustes entran a SU hash y un escenario sin ellos es byte-igual (no se
+  inserta `"ajustes": {}` al guardar). Al lado habría pedido otro campo guardado, otro hash y otro
+  camino para cada uno de esos clientes. Por eso `EscenarioIn` y el schema de `set_scenario` no
+  cambian: sólo su docstring (golden).
+- **F2-b — Al declarar, 400 sólo si el tablero ya existe**; sin tablero, se validan al correrlo
+  (el aviso «todavía no declara tablero» de siempre). Con tablero, una designación desconocida es
+  400 (no aviso, como una acción): un ajuste mal dirigido no hace nada en silencio. El texto suma
+  «son ajustes de PRUEBA … los del proyecto van en add_device.ajustes».
+- **F2-c — Misma validación que `add_device`**: `validar_ajustes` contra la ficha `modelo` del
+  aparato (rangos, tipos, opcionales del tipo como `STO_categoria`) y, en uno de aire,
+  `commands/neumatica_eval._ajustes` (rangos de la ficha neumática + su lado eléctrico). Se importa
+  el privado en vez de copiarlo: una sola regla.
+- **F2-d — Los ajustes obligatorios que faltan se miden sobre el PROYECTO**, antes de aplicar los
+  de prueba: un escenario no completa un tablero incompleto (el ERC seguiría pidiéndolos).
+- **F2-e — El resultado los lista como `ajustes_de_prueba`** `[{dispositivo, ajuste, valor,
+  proyecto}]` (`proyecto` = el del `add_device`, o el de la ficha si no lo fija), en la respuesta y
+  en el resultado guardado, sólo si hubo (sin ellos, byte-igual), más una hipótesis por ajuste
+  («… es un ajuste de PRUEBA de este escenario (el proyecto: 60); el documento no cambia»). Un
+  deducido de la pieza que el escenario pisa deja de figurar como deducido.
+- **F2-f — D7 tenía una fuga en el núcleo**: la memoria del aire (`neumatica.lecturas`) toma el
+  tiempo de carrera del escenario NOMINAL; uno con ajustes de prueba (otra presión regulada)
+  podía serlo. `_sano` lo cuenta como de falla (sólo si no hay otro). El manual de puesta en
+  marcha y las cifras eléctricas que lee una extensión (`medidas_electricas.cifras`) no se tocan:
+  el resultado trae `ajustes_de_prueba` para que la extensión lo salte (F3).
+- **F2-g — `COSIM_EPOCH` no sube** (sólo la huella; `services/escenario_ajustes.py` entra a sus
+  `ARCHIVOS`). Evidencia: 5 escenarios del banco (marcha con cajas, seta y atasco parcial por
+  variador; marcha y atasco parcial en directo) corridos con el código de 712a9bd y con la rama
+  dan la MISMA huella, hipótesis, finales, claves del resultado y del compacto, hash de escenario y
+  firma de los dos documentos.
+
+Tests: `tests/test_ajustes_escenario.py` (nuevo: forma, validación como `add_device` con sus
+cuatro errores y sin efecto parcial, sin tablero, la copia y el valor del proyecto, el hash de un
+escenario de la base como literal calculado en 712a9bd y su resultado vigente, el vencimiento sólo
+del escenario cuyo ajuste cambió, la memoria del aire, el snapshot igual al del `add_device` y el
+integral por la API: el atasco falla sin ajustes y pasa con ellos, `ajustes_de_prueba` en la
+respuesta y en el guardado, `add_device`, modelo, circuito y firma intactos);
+`tests/test_cosim_epoch.py` (huella + `ARCHIVOS`); golden MCP re-congelado tras revisar el diff
+(sólo el docstring de `set_scenario`) y el caso «escenario con ajustes de prueba» en
+`scripts/golden_mcp_casos.py`.
