@@ -1,4 +1,11 @@
-"""Exportador SVG de la lámina."""
+"""Exportador SVG de la lámina.
+
+La letra sale del MISMO tamaño que en el PDF (V8.9, «Últimos cortes y letra del SVG»): todo
+texto de los papeles se mide contra el PDF (`tabla.ancho_mm`), que escribe una etiqueta de
+tamaño `size` a `size × 2,45 pt` de em (0,864·size mm) con DejaVu Sans. El SVG escribía
+`font-size = size` (em de `size` mm, 16 % más) con Segoe UI (de otra altura de mayúscula). Ahora
+el em es el del PDF (`tabla.em_mm`) y la fuente, DejaVu Sans con Verdana de respaldo (Vera, de
+la que sale DejaVu, copia sus métricas: misma mayúscula, ancho mediana +1,4 %, p95 +4,9 %)."""
 
 from __future__ import annotations
 
@@ -8,8 +15,11 @@ from xml.sax.saxutils import escape
 from ..library.materials import hatch_pattern
 from .esquema import GROSOR_SIMBOLO_MM, LLENO, NEGRO, PILOTAJE, SIMBOLO, trazos_mm
 from .sheet import SheetModel
+from .tabla import em_mm
 
 _TRAZO, _HUECO = trazos_mm()
+#: La fuente del PDF (la de matplotlib) y, donde no esté instalada, la de métricas más cercanas.
+FUENTE_SVG = "DejaVu Sans, Verdana, sans-serif"
 
 # patrones de rayado de sección por material (tile en userSpaceOnUse, mm)
 HATCH_DEFS = (
@@ -45,7 +55,7 @@ def sheet_to_svg(model: SheetModel) -> str:
 
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {model.width} {model.height}" '
-        f'width="{model.width}mm" height="{model.height}mm" font-family="Segoe UI, Arial, sans-serif">',
+        f'width="{model.width}mm" height="{model.height}mm" font-family="{FUENTE_SVG}">',
         f'<rect x="0" y="0" width="{model.width}" height="{model.height}" fill="#fdfdfb"/>',
         HATCH_DEFS,
     ]
@@ -110,7 +120,7 @@ def sheet_to_svg(model: SheetModel) -> str:
         x, y = lab.x, h - lab.y
         transform = f' transform="rotate(-{lab.rotation:g} {x:.2f} {y:.2f})"' if lab.rotation else ""
         parts.append(
-            f'<text x="{x:.2f}" y="{y:.2f}" font-size="{lab.size}" fill="#16181d" '
+            f'<text x="{x:.2f}" y="{y:.2f}" font-size="{em_mm(lab.size):.3f}" fill="#16181d" '
             f'text-anchor="{ANCHORS.get(lab.anchor, "middle")}"{transform}>{escape(lab.text)}</text>'
         )
     parts.append("</svg>")

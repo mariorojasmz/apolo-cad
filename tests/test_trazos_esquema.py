@@ -98,8 +98,10 @@ def _firma_dxf(m: SheetModel) -> str:
 
 
 # firmas del código ANTERIOR a la F2 (sacadas en 72f7c01): si cambian, cambió el aspecto de una
-# lámina mecánica que no usa los trazos nuevos
-FIRMA_SVG = "b95b95ff73f031d9433cb5276c990ce1f54ed2f673b973c8462d4b2e42a3569f"
+# lámina mecánica que no usa los trazos nuevos. La del SVG se re-congeló con la letra del PDF
+# (V8.9, «Últimos cortes y letra del SVG»: comparado línea a línea contra 5592b27, cambian sólo el
+# `font-family` de la raíz y el `font-size` de los 2 textos; antes b95b95ff…3569f)
+FIRMA_SVG = "f3c651a111a39ea042eb26b33a924ac67880e8515fd541946df47d449dcfc676"
 FIRMA_PDF = "06194a2ca4cf365eb082198cbd067b4ac1a40aab3b7659bd4ae9763694b56f00"
 FIRMA_DXF = "dcfb72ae2b56c2d7db7dd9da965ed9eec5fc3094485c7a9e5395e9fd21a7385d"
 
@@ -165,8 +167,9 @@ def test_una_lamina_mecanica_no_crea_la_capa_del_esquema():
 
 
 # firmas de la lámina de esquema de la F2 sacadas ANTES de sumar el trazo cortado (V8.9 F5, sobre
-# ec8d294): un estilo nuevo no cambia una lámina de esquema que no lo usa
-FIRMA_ESQUEMA_SVG = "059fcd504306f4e042b068ee2cce230c15316cb63d665e1931ee2a360d49e134"
+# ec8d294): un estilo nuevo no cambia una lámina de esquema que no lo usa. La del SVG, re-congelada
+# con la letra del PDF (cambia sólo el `font-family` de la raíz: no tiene textos; antes 059fcd50…)
+FIRMA_ESQUEMA_SVG = "cf6b6412435e7888027dc39e24ca19106d46ee536bab10ac8563f825e29692ed"
 FIRMA_ESQUEMA_PDF = "f1694ea03541bad472b29fa9801b4cae6972a3475cff3fef4ca3cb281960ba0c"
 FIRMA_ESQUEMA_DXF = "ade921a69a98604efe878eec1ff6eb984757b85b32371f9e64aa27cfda2d47cc"
 

@@ -22,7 +22,7 @@ from functools import lru_cache
 
 from .sheet import Label, Line, SheetModel
 
-PT_POR_MM_ETIQUETA = 2.45  # `pdf.py`: fontsize = Label.size × 2.45
+PT_POR_MM_ETIQUETA = 2.45  # fontsize del PDF = Label.size × 2,45 pt (`pdf.py` la lee de aquí)
 MM_POR_PT = 25.4 / 72.0
 PAD_X = 1.4      # mm a cada lado del texto dentro de la celda
 PAD_Y = 1.1      # mm arriba y abajo
@@ -53,8 +53,13 @@ def ancho_mm(texto: str, size: float) -> float:
     return w * 72.0 / DPI_MEDIDA * MM_POR_PT * HOLGURA_ANCHO
 
 
+def em_mm(size: float) -> float:
+    """El em (mm) con que el PDF escribe una etiqueta de tamaño `size`; el SVG usa el mismo."""
+    return size * PT_POR_MM_ETIQUETA * MM_POR_PT
+
+
 def alto_linea_mm(size: float) -> float:
-    return size * PT_POR_MM_ETIQUETA * MM_POR_PT * INTERLINEA
+    return em_mm(size) * INTERLINEA
 
 
 def _trozos(palabra: str, ancho: float, size: float) -> list[str]:

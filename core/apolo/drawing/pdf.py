@@ -16,6 +16,7 @@ from .esquema import (
     pt,
 )
 from .sheet import SheetModel
+from .tabla import PT_POR_MM_ETIQUETA
 
 # patrón de rayado matplotlib por material
 PDF_HATCH = {"ansi31": "////", "madera": "xxxx", "vidrio": "||||"}
@@ -113,7 +114,7 @@ def _figure(model: SheetModel):
             lab.x,
             lab.y,
             lab.text,
-            fontsize=lab.size * 2.45,  # mm → pt aprox
+            fontsize=lab.size * PT_POR_MM_ETIQUETA,  # mm → pt (el SVG usa el mismo em)
             ha=HA.get(lab.anchor, "center"),
             va="baseline",
             rotation=lab.rotation,
