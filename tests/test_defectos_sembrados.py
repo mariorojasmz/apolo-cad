@@ -246,6 +246,13 @@ def sin_guardas(d):
     _editar_faja(d, guardas=False)
 
 
+def cuna_de_entrada_sin_guarda(d):
+    """puerta-sin-sobrediseno F2 (D3–D4, D8): con el sentido DECLARADO sólo cuenta la cuña de
+    entrada de cada tambor; sin guardas, ésa queda al alcance y la puerta tiene que verlo."""
+    d.set_requirements({**(d.requirements or {}), "sentido_transporte": [1, 0, 0]})
+    _editar_faja(d, guardas=False)
+
+
 def sin_cierres(d):
     """La v5 de create_belt_conveyor sin sus cierres = la v4 TAL CUAL (F6): sin la guarda inferior
     bajo la ranura banda ↔ larguero (35 mm, abierta por abajo entre las guardas de los tambores),
@@ -314,6 +321,8 @@ DEFECTOS = (
             {"consumibles.reemplazables": FALLA}),
     Defecto("sin_guardas", "faja", sin_guardas, {"riesgos.partes_moviles": FALLA}),
     Defecto("sin_cierres", "faja", sin_cierres, {"riesgos.partes_moviles": FALLA}),
+    Defecto("cuna_de_entrada_sin_guarda", "faja", cuna_de_entrada_sin_guarda,
+            {"riesgos.partes_moviles": FALLA}),
     Defecto("resguardo_sin_declarar", "faja", resguardo_sin_declarar,
             {"diseno.soluciones_por_funcion": FALLA}),
 )
@@ -384,6 +393,25 @@ def test_la_tornilleria_asentada_no_cae_en_la_gravedad_de_las_puertas():
     api.DOC = d
     rep = TestClient(api.app).post("/api/delivery-check", json={"con_gravedad": True}).json()
     assert rep["veredicto"] == "VERDE", rep
+
+
+# ------------------------------------------------------------------ la cuña de entrada (v7)
+def test_con_sentido_declarado_la_cuna_de_entrada_sin_guarda_falla():
+    """El defecto `cuna_de_entrada_sin_guarda` falla POR la cuña de entrada: cada peligro de cuña
+    se sondea en un solo borde del arco (3 puntos a lo ancho, no 6) con el sentido del requisito,
+    y al menos uno queda al alcance."""
+    from apolo.services.calidad_seguridad import controles_seguridad
+
+    d = _base("faja")
+    cuna_de_entrada_sin_guarda(d)
+    r = controles_seguridad(d, electrico=False)
+    it = r["items"][0]
+    cunas = [p for p in r["peligros"] if p.get("cuna")]
+    assert cunas and all(len(p["objetivos"]) == 3 for p in cunas)
+    ev = {p["id"]: p for p in it["evidencia"]["peligros"]}
+    assert all(ev[p["id"]]["sentido"] == "cuña de entrada; sentido: requisito sentido_transporte"
+               for p in cunas)
+    assert it["estado"] == FALLA and any(ev[p["id"]]["estado"] == FALLA for p in cunas)
 
 
 # ------------------------------------------------------------------ el hueco de las rectas (F6)

@@ -69,7 +69,11 @@ sale de la tabla 3.3 («no_juzgados: barra») y, si es roscada, se juzga su rosc
 (≥ k·d, VDI 2230). El eje Ø25 «roscado p/ perno» del tensor daba un falso FALLA (e = 12 < 15,6):
 ahí el perno tira según su eje y no aplasta una pared de chapa. v6 (balance-de-producto D9):
 entra `funcion.flujo_de_producto`: una máquina que mueve producto (productos en sus escenarios, o
-bandas con tablero) prueba su balance al ritmo nominal en un escenario de flujo.
+bandas con tablero) prueba su balance al ritmo nominal en un escenario de flujo. v7
+(puerta-sin-sobrediseno D3–D4): con el sentido de marcha conocido (escenario, requisito
+`sentido_transporte` o la plantilla `create_belt_conveyor`; nunca con `reversible`)
+`riesgos.partes_moviles` sondea sólo la cuña de ENTRADA de cada tambor —donde la banda llega y
+converge—, no la de salida.
 """
 
 from __future__ import annotations
@@ -80,7 +84,7 @@ from typing import Callable
 from . import puerta as p
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "6"
+VERSION_REGISTRO = "7"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]

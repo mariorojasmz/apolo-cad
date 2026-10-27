@@ -321,7 +321,11 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   se descarta: es `riesgos.electrico`). Las sondas rectas no ven lo que se alcanza doblando el
   brazo: `alcance.py` + `services/calidad_codo.py` (la mano ≤ 230 mm, juzgada por
   `sondas.veredicto`). Umbrales y calibración: [plan](../../../docs/plans/puerta-de-publicacion.md)
-  § F3 y § F6.
+  § F3 y § F6. Con el sentido de marcha conocido sólo se sondea la cuña de ENTRADA de cada
+  tambor (`seguridad/cuna_entrada.py` sobre la línea media del lazo; el sentido, en
+  `services/calidad_cunas.py`: escenario > requisito `sentido_transporte` > plantilla; con
+  `reversible` o sin fuente, las dos): nunca del nombre ni del giro de la junta.
+  [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D3–D4)
 - **Distancia al borde de un agujero de perno** (`borde_agujero.py`, EN 1993-1-8 tabla 3.3): la
   MISMA medida para la puerta (`calidad/bordes.py`) y `join_bolted` criterio 5. Canto = donde la
   pieza tiene el espesor de la chapa (no la esquina de un tubo, el talón de un ángulo ni un eje);

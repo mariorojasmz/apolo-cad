@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); faltan D11 (avisos justificables), F1 (el tensor cuenta lo que estira el lazo y suma los tensores), F2 (sólo la cuña de ENTRADA cuando se conoce el sentido), F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F2 (sólo la cuña de ENTRADA cuando se conoce el sentido, registro v7) mergeada; faltan D11 (avisos justificables), F1 (el tensor cuenta lo que estira el lazo y suma los tensores), F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -230,3 +230,55 @@ menor sobrediseño posible; sólo el 2 lo verifiqué contra el código, los dem�
 10. Banda sin fin sin aceptar el vulcanizado en sitio; acceso de herramienta sólo con llave de boca.
 
 Cada uno entra como fase propia (después de F3) o se descarta con su porqué, a la vista de Mario.
+### F2 (2026-10-26)
+
+Qué entró:
+- `library/seguridad/cuna_entrada.py` (puro): el lazo de la línea media en el sentido de marcha
+  (el ramal superior = el tramo recto más largo con la normal hacia afuera a < 60° de la
+  vertical, avanza en el sentido de transporte), la LLEGADA a cada tambor (primer punto del tramo
+  en contacto, con los tramos rectos densificados a ≤ r/10: un desvío también tiene vértices) y el
+  borde del arco más cercano a ella.
+- `services/calidad_cunas.py`: el sentido de cada banda (D3) y la sección del sólido de la banda
+  en el plano ⟂ al eje de los tambores (`seccion_plano`, como la marcha visual); `cunas(…, hacia)`
+  deja sólo el borde de entrada. Cuesta 62 ms en la faja de motor central.
+- Requisitos `sentido_transporte` (vector de 3, texto «1, 0, 0» o eje con signo «+X»; se guarda
+  unitario; un mal formado se rechaza al declarar) y `reversible` (sí/no). Docstring de
+  `set_requirements` (golden re-congelado: sólo `list_tools`).
+- Evidencia: cada peligro de cuña lleva `sentido` («cuña de entrada; sentido: escenario «X»» |
+  «requisito sentido_transporte» | «plantilla create_belt_conveyor (c1): de la cola al motriz» |
+  «desconocido: las dos cuñas» | «reversible (requisito): las dos cuñas») y su texto suma
+  «(cuña de entrada)».
+- `VERSION_REGISTRO` 6 → 7. Los cuatro testigos públicos se re-congelaron SÓLO por la versión:
+  ningún veredicto por ítem se movió (la faja de la plantilla ahora declara su sentido y sus
+  guardas cubren las cuñas de entrada; `sin_cierres` sigue en FALLA por ellas). Defecto sembrado
+  `cuna_de_entrada_sin_guarda`: con el requisito +X y sin guardas, FALLA por la cuña de entrada
+  (3 puntos por tambor, no 6).
+
+Decisiones (vetables):
+- **La plantilla no se tocó**: su sentido sale de los centros de SUS dos tambores en la escena
+  (cola → motriz: la cabeza motriz tira), así sigue a un giro o traslado posterior y el executor
+  no cambia (sin `version` ni epoch). Una faja de plantilla dentro de un `insert_project` no se
+  reconoce (command_id sintético): las dos cuñas.
+- Dos escenarios que declaran sentidos distintos para la misma banda = desconocido (las dos).
+  `reversible` gana a toda fuente. El requisito vale para todas las bandas de la máquina.
+- Si la llegada queda a < 2° de diferencia entre los dos bordes, o el sentido forma > 60° con el
+  ramal superior, o la sección no da lazo: las dos cuñas, y la evidencia dice por qué.
+
+Medido en la faja de motor central de la F0 (copia en memoria, base en sólo lectura). El sentido
+es +X: la cola en x = 0, la cabeza en x = 2000 con la «Guarda de transferencia de cabeza» más
+allá (x ≈ 2073), el motriz en x = 1000 entre los desvíos de x = 889 y 1111. Las llegadas salen
+donde deben: a la cola por ABAJO, a la cabeza por ARRIBA, al desvío (+X) arriba del lado +X, al
+motriz y al desvío (−X) del lado por donde sube o baja la banda; los cinco tambores con una cuña.
+Para ver la otra cuña se declaró −X (la «entrada» de −X es la salida real):
+
+| pieza quitada | sentido +X (cuñas de entrada) | sentido −X (= las de salida) |
+|---|---|---|
+| ninguna | OK (7 peligros) | OK |
+| «Deflector anti-pellizco de cabeza (-Y)» (c644) | **FALLA**: 1 sonda con el brazo doblado llega a la cuña de ENTRADA de la cabeza | OK |
+| «Guarda de transferencia de cabeza» (c426) | **OK** | FALLA: 1 sonda recta llega a la cuña de SALIDA de la cabeza |
+| «Guarda lateral de cabeza (-Y)» (c427) | OK | OK |
+
+≈ 14–16 s por corrida de `controles_seguridad` (sin ERC) en la laptop. Con el sentido declarado:
+el deflector hace falta (entrada); la guarda de transferencia sólo resguardaba la cuña de salida
+y, para `resguardo_iso13857`, sobra (F3 dirá si sirve a otro ítem: la transferencia de producto
+no se modela como peligro); la guarda lateral no bloquea ninguna de las dos, como en la F0.

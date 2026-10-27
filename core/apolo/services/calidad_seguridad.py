@@ -236,6 +236,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
     from apolo.library.seguridad.peligros import resultado_peligro, tabla_riesgos
 
     from .calidad_codo import BandaEmpujable
+    from .calidad_cunas import DESCONOCIDO, llegadas
     from .calidad_sondas import Trazador, cunas, evaluar_peligro
 
     t0 = time.perf_counter()
@@ -245,11 +246,20 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
     tr = Trazador(dc["solidos"]) if peligros else None
     empuje = BandaEmpujable(dc) if peligros and banda_empujable else None  # se empuja (F6)
     resultados, sondas_de = {}, {}
+    entradas = llegadas(doc, {**an, "peligros": peligros}) if peligros else {}
     for p in peligros:
         if p.get("cuna"):
             b, t = p["cuna"]["banda"], p["cuna"]["tambor"]
-            c = cunas(dc["solidos"][b], piezas[b].caja, piezas[t].caja, piezas[t].redondo)
+            ent = entradas.get(p["id"]) or {"hacia": None, "sentido": DESCONOCIDO}
+            c = cunas(dc["solidos"][b], piezas[b].caja, piezas[t].caja, piezas[t].redondo,
+                      ent["hacia"])
             p["objetivos"] = c["puntos"]
+            p["sentido"] = ent["sentido"]
+            if ent["hacia"] is not None and c.get("cuna") == "entrada":
+                p["peligro"] += " (cuña de entrada)"
+            elif ent["hacia"] is not None and c["puntos"]:
+                p["sentido"] = (f"las dos cuñas: ningún borde del arco queda claro como el de "
+                                f"entrada ({ent['sentido'].split('; ', 1)[-1]})")
             if not c["puntos"]:
                 p["motivo"] = c.get("motivo")
         sondas, ms = evaluar_peligro(tr, p, dc["caja"], dc["z_piso"], n_direcciones,

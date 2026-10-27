@@ -12,9 +12,12 @@ estructura, el equipo, las chumaceras, los rodamientos de catálogo, la tornille
 lo anclado ni un eje fijo.
 
 Peligros (cada uno con su conjunto de piezas peligrosas y sus puntos objetivo de las sondas):
-- **atrapamiento banda ↔ tambor** (punto de entrada): las dos cuñas de cada tambor que la banda
-  abraza (los puntos los calcula `services`, que sabe dónde la banda toca el tambor; el sentido
-  de marcha no se conoce → las dos cuñas cuentan);
+- **atrapamiento banda ↔ tambor** (punto de entrada): la cuña de cada tambor que la banda
+  abraza donde la banda LLEGA en el sentido de marcha (ISO 12100 anexo B: en la de salida se
+  separan). Los puntos los calcula `services` (`calidad_sondas.cunas`, que sabe dónde la banda
+  toca el tambor, y `calidad_cunas`, que sabe el sentido: escenario, requisito
+  `sentido_transporte` o plantilla; plan puerta-sin-sobrediseno D3–D4); sin sentido conocido, o
+  con `reversible`, las dos cuñas cuentan;
 - **transmisión** (cadena ↔ piñón: atrapamiento; piñones, poleas o acoples sin flexible:
   enganche): cada grupo conexo de transmisión, con el centro de cada pieza;
 - **extremo de eje giratorio** (enganche): los dos extremos axiales del cuerpo que contiene un
@@ -199,7 +202,8 @@ def resultado_peligro(peligro: dict, sondas: list[dict], ms: float,
             "n_alcanzan": len(alcanzan), **({"n_brazo_doblado": doblado} if doblado else {}),
             "fallas": alcanzan[:max_evidencias],
             "bloqueado_por": resguardos, "ms": round(ms),
-            **({"motivo": peligro["motivo"]} if peligro.get("motivo") else {})}
+            **({"motivo": peligro["motivo"]} if peligro.get("motivo") else {}),
+            **({"sentido": peligro["sentido"]} if peligro.get("sentido") else {})}
 
 
 def tabla_riesgos(peligros: list[dict], resultados: dict[str, dict], piezas: dict[str, Pieza],

@@ -32,6 +32,15 @@ FICHA: tuple[str, ...] = ("carga_kg", "ancho_producto_mm", "desarmable", "instal
 
 INSTALACIONES: tuple[str, ...] = ("piso", "anclado", "móvil")
 
+#: El sentido de marcha (plan puerta-sin-sobrediseno, D3): hacia dónde avanza el ramal de CARGA de
+#: la banda, un vector [x, y, z] (se guarda unitario). Con él la puerta de publicación resguarda
+#: sólo la cuña de ENTRADA de cada tambor; `reversible` (sí/no, por defecto no) vuelve a las dos.
+SENTIDO = "sentido_transporte"
+REVERSIBLE = "reversible"
+_EJES = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
+_COMO_SENTIDO = (f"El requisito '{SENTIDO}' es un vector [x, y, z] no nulo (p. ej. [1, 0, 0]) o un "
+                 "eje con signo («+X», «-Y»): hacia dónde avanza el ramal de carga de la banda")
+
 ASUMIDOS = "asumidos"
 
 _SI = {"si", "sí", "true", "1", "yes", "s"}
@@ -100,10 +109,38 @@ def _instalacion(value) -> str:
     raise ValueError(f"El requisito 'instalacion' debe ser uno de: {', '.join(INSTALACIONES)}")
 
 
+def vector_sentido(value) -> list[float]:
+    """`sentido_transporte` → [x, y, z] unitario. Acepta una lista de 3 números, su texto
+    («1, 0, 0», «[1 0 0]»: así lo reenvía el panel) o un eje con signo («+X», «-y»). Lanza
+    `ValueError` con el texto accionable."""
+    comps = value
+    if isinstance(value, str):
+        texto = value.strip().lower().replace(" ", "")
+        if texto.lstrip("+-") in _EJES and len(texto) - len(texto.lstrip("+-")) <= 1:
+            signo = -1.0 if texto.startswith("-") else 1.0
+            return [signo * c for c in _EJES[texto.lstrip("+-")]]
+        comps = [p for p in value.strip().strip("[]()").replace(";", ",").replace(",", " ").split()]
+    if not isinstance(comps, (list, tuple)) or len(comps) != 3 or \
+            any(isinstance(c, bool) for c in comps):
+        raise ValueError(_COMO_SENTIDO)
+    try:
+        v = [float(c) for c in comps]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(_COMO_SENTIDO) from exc
+    norma = sum(c * c for c in v) ** 0.5
+    if not norma > 1e-9 or norma == float("inf"):
+        raise ValueError(_COMO_SENTIDO)
+    return [round(c / norma, 6) + 0.0 for c in v]
+
+
 def _valor(key: str, value):
     """Un valor ya desenvuelto (sin `{valor, asumido}`) → su forma guardada."""
     if key in NUMERICAS:
         return _numero(key, value)
+    if key == SENTIDO:
+        return vector_sentido(value)
+    if key == REVERSIBLE:
+        return _si_no(key, value)
     if key == "desarmable":
         return _si_no(key, value)
     if key == "instalacion":

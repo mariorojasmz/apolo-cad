@@ -2355,7 +2355,7 @@
  },
  {
   "name": "set_requirements",
-  "description": "Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).\nClaves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:\nproducto, entorno, normativa, notas. Con esto `engineering_check()` y `calc_report()`\nfuncionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.\n`comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;\nreemplaza el dict, {} borra); sin `fields`, los requisitos no se tocan.",
+  "description": "Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).\nClaves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:\nproducto, entorno, normativa, notas. Sentido de marcha: sentido_transporte [x, y, z]\n(hacia dónde avanza el ramal de carga; la puerta resguarda sólo la cuña de ENTRADA de\ncada tambor) y reversible (sí/no: las dos cuñas). Con esto `engineering_check()` y\n`calc_report()` funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.\n`comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;\nreemplaza el dict, {} borra); sin `fields`, los requisitos no se tocan.",
   "inputSchema": {
    "properties": {
     "fields": {

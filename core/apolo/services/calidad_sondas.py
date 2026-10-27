@@ -152,12 +152,23 @@ def _u(redondo, theta: float):
     return v
 
 
-def cunas(banda_solidos, banda_caja, tambor_caja, redondo) -> dict:
-    """Los puntos de las dos cuñas de un tambor que la banda abraza: el arco de contacto se
+def theta(redondo, p) -> float:
+    """El ángulo de `p` alrededor del eje del tambor, en la convención de `_u`."""
+    i, j = (k for k in range(3) if k != redondo.eje)
+    return math.atan2(p[j] - redondo.centro[j], p[i] - redondo.centro[i])
+
+
+def cunas(banda_solidos, banda_caja, tambor_caja, redondo, hacia=None) -> dict:
+    """Los puntos de las cuñas de un tambor que la banda abraza: el arco de contacto se
     busca con puntos a r + 1 mm DENTRO de la banda (cada 5°); en cada borde del arco la banda
     se separa por la tangente y la cuña queda del lado de afuera del arco, a φ = acos(r/(r+g))
     del borde, a radio r + g/2. Tres estaciones a lo ancho (centro y ±15 mm de los bordes).
-    → {puntos, arco_grados, bordes} o {puntos: [], motivo}."""
+    `hacia`: el punto 3D donde la banda LLEGA al tambor en el sentido de marcha
+    (`calidad_cunas`); con él sólo cuenta el borde más cercano —la cuña de ENTRADA
+    (puerta-sin-sobrediseno D4)—; sin él, o si no se puede elegir, las dos.
+    → {puntos, arco_grados, bordes, cuna: "entrada" | "las dos"} o {puntos: [], motivo}."""
+    from apolo.library.seguridad.cuna_entrada import borde_de_entrada
+
     a = redondo.eje
     lo = max(banda_caja[0][a], tambor_caja[0][a])
     hi = min(banda_caja[1][a], tambor_caja[1][a])
@@ -188,6 +199,11 @@ def cunas(banda_solidos, banda_caja, tambor_caja, redondo) -> dict:
             bordes.append((math.radians((k + 0.5) * PASO_ARCO_GRADOS), +1.0))
         elif not dentro[k] and dentro[sig]:
             bordes.append((math.radians((k + 0.5) * PASO_ARCO_GRADOS), -1.0))
+    n_bordes, cuna = len(bordes), "las dos"
+    if hacia is not None:
+        k = borde_de_entrada([b[0] for b in bordes], theta(redondo, hacia))
+        if k is not None:
+            bordes, cuna = [bordes[k]], "entrada"
     puntos = []
     for th_t, s in bordes:
         u = _u(redondo, th_t + s * phi)
@@ -196,7 +212,7 @@ def cunas(banda_solidos, banda_caja, tambor_caja, redondo) -> dict:
             q[a] = e
             puntos.append(tuple(q[i] + (r + GAP_CUNA_MM / 2.0) * u[i] for i in range(3)))
     return {"puntos": puntos, "arco_grados": sum(dentro) * PASO_ARCO_GRADOS,
-            "bordes": len(bordes)}
+            "bordes": n_bordes, "cuna": cuna}
 
 
 def evaluar_peligro(tr: Trazador, peligro: dict, caja, z_piso: float,

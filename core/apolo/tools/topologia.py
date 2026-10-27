@@ -55,8 +55,10 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         """Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).
         Claves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,
         alto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:
-        producto, entorno, normativa, notas. Con esto `engineering_check()` y `calc_report()`
-        funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.
+        producto, entorno, normativa, notas. Sentido de marcha: sentido_transporte [x, y, z]
+        (hacia dónde avanza el ramal de carga; la puerta resguarda sólo la cuña de ENTRADA de
+        cada tambor) y reversible (sí/no: las dos cuñas). Con esto `engineering_check()` y
+        `calc_report()` funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.
         `comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;
         reemplaza el dict, {} borra); sin `fields`, los requisitos no se tocan."""
         if fields is None and comercial is None:
