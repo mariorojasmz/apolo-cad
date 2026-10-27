@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 y F1 hechas en la rama wip/bloqueo-de-vastago (2026-10-26, suite completa verde, sin mergear): falta revisarla y mergearla; después F2 (la faja con desviador por MCP con BLOQ-VAST-20-S y su 3/2 en la cadena de la seta), F3 (símbolo ISO 1219 y fila propia en el panel) y F4 (cilindro con bloqueo integrado; ficha con tiempos y B10d)
+nota: F0 y F1 mergeadas (2026-10-26): 7 refs de bloqueo (Festo KEC/KEC-S/KPE), cámara de liberación en la co-simulación, ERC y memoria; COSIM_EPOCH sigue en 9. Falta F2 (la faja con desviador por MCP con BLOQ-VAST-20-S y su 3/2 en la cadena de la seta), F3 (símbolo ISO 1219 y fila propia en el panel) y F4 (cilindro con bloqueo integrado; ficha con tiempos y B10d)
 descripcion: el cilindro lleva un bloqueo de vástago de catálogo que muerde el vástago por resorte cuando la seta le quita el aire; la co-simulación lo frena y lo sostiene (o lo ve deslizar) y el ERC revisa su retención, que bloquee sin aire y que la seta lo corte
 ---
 
