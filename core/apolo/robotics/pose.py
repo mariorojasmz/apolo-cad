@@ -100,4 +100,9 @@ def posed_shapes(doc, joint_values: dict[str, float]) -> tuple[dict, list[str]]:
             continue
         loc = feature_location(doc.joints, joint_values, fid, by_child, cache)
         out[fid] = (loc * feat.shape) if loc is not None else feat.shape
+    # una cadena de izaje no es rígida: se rehace desde sus amarres posados (plan cadena-de-izaje D6)
+    from .pose_izaje import posar_cadenas_izaje
+
+    warnings += posar_cadenas_izaje(
+        doc, out, lambda f: feature_location(doc.joints, joint_values, f, by_child, cache))
     return out, warnings

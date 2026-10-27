@@ -83,6 +83,9 @@ PISTAS: dict[str, str] = {
     "create_chain": (
         "Arma una cadena de rodillos entre dos piñones ya colocados, con eslabones pares y cada rodillo en su diente."
     ),
+    "create_hoist_chain": (
+        "Cuelga una pieza de una cadena que pasa por sus piñones, con sus dos amarres atornillados."
+    ),
     "create_weldment": (
         "Crea un bastidor soldado de perfiles con su lista de corte, con esquinas a tope o a inglete."
     ),

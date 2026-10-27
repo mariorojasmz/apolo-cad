@@ -123,6 +123,10 @@ CAMPOS: dict[str, str] = {
         "rotation rotation.x rotation.y rotation.z"
     ),
     "create_group": "name members parent role",
+    "create_hoist_chain": (
+        "name cadena pinones pieza_a pieza_b extremo_a extremo_a.x extremo_a.y extremo_a.z "
+        "extremo_b extremo_b.x extremo_b.y extremo_b.z sentido eslabones fase"
+    ),
     "create_pneumatic_cylinder": (
         "name ref carrera position position.x position.y position.z eje puertos montaje empujador "
         "empujador.ancho empujador.alto empujador.espesor"
@@ -284,6 +288,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "create_extrude_poly": (1, "1b52acc21ee53008"),
     "create_frame": (1, "d8387fb3400cbec1"),
     "create_group": (1, "450675e65cecac8a"),
+    # plan cadena-de-izaje F1: comando nuevo; la geometría vive en library/izaje*.py (regla D10)
+    "create_hoist_chain": (1, "37e867a301d0f479"),
     "create_pneumatic_cylinder": (1, "bb680c70c129efc1"),  # V8.9 F2: comando nuevo
     "create_revolve": (1, "1688dc48118c2a15"),
     "create_robot_arm": (1, "c4ceee70195b1ad0"),

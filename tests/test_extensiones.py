@@ -1,7 +1,7 @@
 """Los puntos de extensión del núcleo (plan nucleo-abierto-extensiones-privadas, F1a: D3, D12,
 A1–A7) con la extensión FALSA de `tests/ext_prueba/`:
 
-- apagadas (`APOLO_EXTENSIONES=0`, lo que fija `conftest.py`), el núcleo queda idéntico: 62
+- apagadas (`APOLO_EXTENSIONES=0`, lo que fija `conftest.py`), el núcleo queda idéntico: 63
   comandos, 92 tools y 393 refs, sin nada en `GET /api/health`;
 - cargada (`APOLO_EXTENSIONES_EXTRA`), cada punto: comando con prefijo en el MISMO `REGISTRY`
   (regenera, lo ve la vista persona con su pestaña), ruta, tool (MCP por stdio y el registro del
@@ -70,7 +70,7 @@ def test_apagadas_el_nucleo_queda_identico(extensiones_aisladas, monkeypatch):
     monkeypatch.setenv("APOLO_EXTENSIONES", "0")
     monkeypatch.setenv(EXTRA, "ext_prueba:EXTENSION")  # aunque la pidan
     assert extensiones_aisladas.cargar() == [] and extensiones_aisladas.descubrir() == []
-    assert len(REGISTRY) == 62 and len(CATALOG) == 469  # +7 de bloqueo-de-vastago, +6 de amortiguador-externo, +20 de V8.9 F7b, +2 de plc-en-el-lazo F1d1, +1 de V8.9 F8, +5 de V8.5 F3
+    assert len(REGISTRY) == 63 and len(CATALOG) == 469  # +1 comando de cadena-de-izaje F1; +7 de bloqueo-de-vastago, +6 de amortiguador-externo, +20 de V8.9 F7b, +2 de plc-en-el-lazo F1d1, +1 de V8.9 F8, +5 de V8.5 F3
     assert len(asyncio.run(mcp_server.mcp.list_tools())) == 92
     assert extensiones_aisladas.routers() == [] and extensiones_aisladas.webui() is None
 
@@ -119,7 +119,7 @@ def test_cada_punto_entra_al_registro_del_nucleo(con_prueba):
     from apolo.library.electrico.ficha import TIPOS_MODELO
     from ext_prueba.modelos import Lampara
 
-    assert "prueba.hola" in REGISTRY and len(REGISTRY) == 63 and "prueba.hola" in PISTAS
+    assert "prueba.hola" in REGISTRY and len(REGISTRY) == 64 and "prueba.hola" in PISTAS
     assert PESTANAS["prueba"] == {"orden": 90, "rotulo": "Prueba"}
     assert CATALOG["prueba.caja"].category == "prueba_catalogo" and len(CATALOG) == 470  # 469 del núcleo + 1
     assert CATEGORIES[-1] == "prueba_catalogo"
@@ -131,7 +131,7 @@ def test_cada_punto_entra_al_registro_del_nucleo(con_prueba):
     rutas = [r.path for router in con_prueba.routers() for r in router.routes]
     assert rutas[0] == "/api/prueba/hola" and "/api/prueba/caja" in rutas  # F1d: la fachada
     assert con_prueba.cargar() == con_prueba.estado()  # idempotente: no carga dos veces
-    assert len(REGISTRY) == 63
+    assert len(REGISTRY) == 64
 
 
 def test_al_salir_el_nucleo_queda_como_estaba(monkeypatch):
@@ -305,7 +305,7 @@ def test_lo_que_no_cumple_no_se_carga_y_dice_por_que(extensiones_aisladas, monke
     (e,) = extensiones_aisladas.cargar()  # nunca lanza
     assert e["cargada"] is False and motivo in e["motivo"], e
     # todo o nada: ni su catálogo ni su modelo (que se suman ANTES que los comandos) quedaron
-    assert len(REGISTRY) == 62 and "prueba.caja" not in CATALOG and "prueba.lampara" not in MODELOS
+    assert len(REGISTRY) == 63 and "prueba.caja" not in CATALOG and "prueba.lampara" not in MODELOS
     assert extensiones_aisladas.routers() == []
 
 

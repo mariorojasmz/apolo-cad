@@ -169,6 +169,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   previas), nunca uno cargado, porque desarmaría su otro lazo. `eslabones` fijo tolera
   +0.05 mm sobre el exacto; `=centros_cadena(p, za, zb, L)` lo calcula para colocar los piñones
   antes. Default = v1. [plan](../../../docs/plans/plantilla-rodillos-cadena.md)
+- `create_hoist_chain` (`exec_izaje.py`) es la cadena ABIERTA de izaje: valida todo (rayo de la
+  varilla, hueco del ancla) ANTES de mutar —una carga tolerante no deshace media cadena—, taladra
+  la pieza de amarre y cuelga anclas y tuercas con `fija`; la FK la reconoce por su `mesh_key`
+  «izaje|…» y sus anclas por `{id}_pasador_a|b` (renombrarlos la deja rígida). Geometría en
+  `library/izaje*.py`: la huella D11 no la ve. [plan](../../../docs/plans/cadena-de-izaje.md)
 - `create_roller_conveyor` es COMPUESTO (`composite=True`): corre executors del registro con
   ids `{cmd}_{sufijo}` (command_id sintético, como `insert_project`: la puerta revisa
   interferencias ENTRE sus piezas). Cotas en `library/rodillos_cadena*.py` (motriz, guardas,

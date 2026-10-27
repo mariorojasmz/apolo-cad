@@ -108,7 +108,8 @@ backend: se mantiene ≤ 10 KB.
 
 - La FK (`pose.py::posed_shapes`) mueve SÓLO los hijos declarados de cada junta, sin flood por
   fijadores: un cuerpo rígido multi-pieza se completa con juntas `fija` o con
-  `add_joint(arrastrar=true)` ([commands](commands/CLAUDE.md)).
+  `add_joint(arrastrar=true)` ([commands](commands/CLAUDE.md)). La cadena de izaje no es rígida:
+  `pose_izaje.py` la rehace desde sus anclas posadas ([plan](../../docs/plans/cadena-de-izaje.md)).
 - `posed_shapes` IGNORA nombres de junta desconocidos: quien reciba `joint_values` del agente
   los valida contra `DOC.joints` antes (lo hacen `set_motion` y el `pose_fn` de los contratos);
   si no, un typo pasa verde como «pose de diseño». [V6.8](../../docs/plans/V6.8-mcp-fluidez.md)

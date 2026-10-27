@@ -71,6 +71,8 @@ from .exec_componente import SELLOS as SELLOS_COMPONENTE, _exec_insert_component
 from .exec_rodillos import _exec_create_drive_roller, _exec_create_take_up
 from .models_componente import InsertComponentParams
 from .exec_transmision import _exec_create_chain
+from .exec_izaje import _exec_create_hoist_chain  # plan cadena-de-izaje
+from .models_izaje import CreateHoistChainParams
 from .exec_uniones import _exec_fasten
 from .exec_union import _exec_join_bolted, sellar as _sellar_join_bolted
 from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
@@ -234,6 +236,8 @@ REGISTRY: dict[str, CommandSpec] = {
             _exec_create_drive_roller, version=2,  # v2: «Anillo Seeger DIN 472-Ø» (F6)
         ),
         CommandSpec("create_chain", "Cadena", "biblioteca", CreateChainParams, _exec_create_chain, version=2),
+        CommandSpec("create_hoist_chain", "Cadena de izaje", "biblioteca", CreateHoistChainParams,
+                    _exec_create_hoist_chain),
         CommandSpec("create_weldment", "Bastidor", "biblioteca", CreateWeldmentParams, _exec_create_weldment),
         CommandSpec("create_frame", "Esqueleto", "biblioteca", CreateFrameParams, _exec_create_frame),
         CommandSpec(
