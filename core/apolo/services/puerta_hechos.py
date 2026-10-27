@@ -34,7 +34,8 @@ _GIRO = ("giratoria", "continua")
 _VIGA_MIN_MM = 300.0  # un perfil horizontal más corto no trabaja como viga
 #: clase de cada peligro de `peligros_mecanicos` (por el prefijo de su id)
 _CLASE_PELIGRO = {"atrapamiento": "cuna_banda_tambor", "transmision": "transmision",
-                  "extremo_eje": "extremo_eje", "giro": "pieza_giratoria"}
+                  "extremo_eje": "extremo_eje", "giro": "pieza_giratoria",
+                  "salida_motor": "salida_motorreductor"}
 
 
 def _n(d: dict) -> dict:
@@ -78,6 +79,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from apolo.library.materials import piece_role
 
     from . import marcha_ejemplo
+    from .calidad_juntas import clasificar
     from .calidad_pernos import tipo_de_tornilleria
     from .calidad_tensores import lazos_banda
     from .electrico import tiene_carril
@@ -105,7 +107,9 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     rodantes = {f: _RODANTES[c.category] for f, c in comps.items()
                 if c is not None and c.category in _RODANTES}
     motores = [f for f, c in comps.items() if c is not None and c.category in _MOTORES]
-    giran = [j["child"] for j in doc.joints.values() if j.get("type") in _GIRO]
+    # lo que gira accionado (una bisagra de servicio no es apoyo rotativo: `calidad_juntas`)
+    accionadas = {n for n, c in clasificar(doc).items() if c["accionada"]}
+    giran = [j["child"] for n, j in doc.joints.items() if j.get("type") in _GIRO and n in accionadas]
     vigas = 0
     for f, c in comps.items():
         if c is not None and c.cuttable:

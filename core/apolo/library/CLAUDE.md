@@ -337,6 +337,12 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   `services/calidad_cunas.py`: escenario > requisito `sentido_transporte` > plantilla; con
   `reversible` o sin fuente, las dos): nunca del nombre ni del giro de la junta.
   [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D3–D4)
+- **Peligro = lo ACCIONADO** (F3b del mismo plan): una junta de giro sin motor, cilindro, resorte
+  ni escenario que la mueva es de SERVICIO (`services/calidad_juntas.py`: la puerta del tablero,
+  una tapa con bisagra) y no es peligro, pero se mueve (`moviles`). El acople y la salida del
+  motorreductor sí lo son (`seguridad/transmision_rigida.py`). Resguardo = la guarda que paró una
+  sonda o la declarada en `funciones` (`resguardo`), no toda «tapa»; el piso es el apoyo de lo
+  anclado, no un perno de anclaje.
 - **Distancia al borde de un agujero de perno** (`borde_agujero.py`, EN 1993-1-8 tabla 3.3): la
   MISMA medida para la puerta (`calidad/bordes.py`) y `join_bolted` criterio 5. Canto = donde la
   pieza tiene el espesor de la chapa (no la esquina de un tubo, el talón de un ángulo ni un eje);

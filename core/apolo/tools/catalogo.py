@@ -154,6 +154,8 @@ FUERA_DEL_CHAT: dict[str, str] = {
                          "el chat valida con delivery_check"),
     "set_justifications": ("acepta avisos y sobrantes de la puerta de publicación, que tampoco "
                            "está en el chat: es del modelador por MCP y de la fábrica"),
+    "set_functions": ("declara la solución por función que lee la puerta de publicación, que "
+                      "tampoco está en el chat: es del modelador por MCP y de la fábrica"),
     "get_simulation": _FAT,
     "get_scenarios": _FAT,
     "set_scenario": _FAT,

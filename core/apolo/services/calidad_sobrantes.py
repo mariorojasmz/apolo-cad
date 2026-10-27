@@ -139,13 +139,15 @@ def _arrastra(c: str, quitadas: set, uniones: list[dict], hardware: set, jb: dic
 
 
 def _dc_sin(dc: dict, q: set) -> dict:
+    from .calidad_seguridad import z_piso
+
     piezas = {i: p for i, p in dc["piezas"].items() if i not in q}
     if piezas:
         lo = tuple(min(p.caja[0][k] for p in piezas.values()) for k in range(3))
         hi = tuple(max(p.caja[1][k] for p in piezas.values()) for k in range(3))
     else:
         lo = hi = (0.0, 0.0, 0.0)
-    return {**dc, "piezas": piezas, "caja": (lo, hi), "z_piso": lo[2],
+    return {**dc, "piezas": piezas, "caja": (lo, hi), "z_piso": z_piso(piezas, lo[2]),
             "solidos": {i: s for i, s in dc["solidos"].items() if i not in q},
             "uniones": [u for u in dc["uniones"] if u["a"] not in q and u["b"] not in q],
             "juntas": [j for j in dc["juntas"] if j.get("parent") not in q

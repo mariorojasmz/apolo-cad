@@ -375,7 +375,7 @@ def put_tensores(body: TensoresIn) -> dict:
 
 
 class FuncionesIn(BaseModel):
-    funciones: list = []
+    funciones: list | dict = []  # también {funcion: {...}} (`calidad/funciones._normalizar`)
 
 
 @router.get("/api/funciones")

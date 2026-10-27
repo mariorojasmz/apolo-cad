@@ -278,6 +278,15 @@ def sin_cierres(d):
     _editar_faja(d, cierres=False)
 
 
+def acople_sin_guarda(d):
+    """F3b de puerta-sin-sobrediseno: el acople motor ↔ eje motriz gira expuesto si se saca su
+    guarda (antes no era peligro: la plantilla tenía que justificarla). La plantilla no se puede
+    recortar pieza a pieza: se quita de la escena con sus uniones, como haría `remove_commands`."""
+    g = _id(d, "Faja de banda · Guarda del acople")
+    d.scene.pop(g)
+    d.fasteners = {k: f for k, f in d.fasteners.items() if g not in (f.get("a"), f.get("b"))}
+
+
 def resguardo_sin_declarar(d):  # D15: nadie dijo por qué las guardas son así
     d.funciones = [f for f in d.funciones if f["funcion"] != "resguardo"]
 
@@ -357,6 +366,7 @@ DEFECTOS = (
     Defecto("sin_cierres", "faja", sin_cierres, {"riesgos.partes_moviles": FALLA}),
     Defecto("cuna_de_entrada_sin_guarda", "faja", cuna_de_entrada_sin_guarda,
             {"riesgos.partes_moviles": FALLA}),
+    Defecto("acople_sin_guarda", "faja", acople_sin_guarda, {"riesgos.partes_moviles": FALLA}),
     Defecto("resguardo_sin_declarar", "faja", resguardo_sin_declarar,
             {"diseno.soluciones_por_funcion": FALLA}),
     Defecto("guarda_redundante", "faja", guarda_redundante, {"diseno.sin_sobrantes": FALLA}),

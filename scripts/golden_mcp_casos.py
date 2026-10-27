@@ -395,6 +395,10 @@ RUTAS = [
     ("POST", r"/api/puerta-publicacion", _encolado("jpu")),
     ("PUT", r"/api/justificadas", J({"ok": True, "justificadas": [
         {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"}]})),
+    ("PUT", r"/api/funciones", J({"ok": True, "funciones": [
+        {"funcion": "accionamiento", "solucion": "motorreductor sinfín de eje hueco",
+         "descartadas": [{"solucion": "coaxial con cadena", "motivo": "una cadena más que resguardar"}],
+         "piezas": []}]})),
     ("POST", r"/api/assembly/stability", J({"n_grounded": 2, "n_dynamic": 1, "fell": [],
                                             "estables": ["c1"], "settled": True,
                                             "mensaje": "ok", "frames": [1, 2]})),
@@ -638,6 +642,14 @@ CASOS = [
         {"regla": "salud · degradado", "porque": "no aplica"}]}, rutas={
         ("PUT", r"/api/justificadas"): J({"detail": "justificadas[0].porque: explica por qué se "
                                                     "acepta en al menos 20 caracteres"}, 400)}),
+    caso("funciones", "set_functions", {"funciones": [
+        {"funcion": "accionamiento", "solucion": "motorreductor sinfín de eje hueco",
+         "descartadas": [{"solucion": "coaxial con cadena", "motivo": "una cadena más que resguardar"}]}]}),
+    caso("función sin descartadas → 400", "set_functions", {"funciones": [
+        {"funcion": "accionamiento", "solucion": "motorreductor", "descartadas": []}]}, rutas={
+        ("PUT", r"/api/funciones"): J({"detail": "funciones[0].descartadas: al menos una alternativa "
+                                                 "descartada {solucion, motivo}: una solución sin "
+                                                 "alternativas no es una decisión"}, 400)}),
     caso("gravedad", "gravity_test"),
     caso("gravedad con gif", "gravity_test", {"with_autodetect": True, "exclude": ["c3"],
                                               "seconds": 1.5, "path": "gravedad.gif"}),

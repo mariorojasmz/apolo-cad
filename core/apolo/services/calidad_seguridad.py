@@ -1,8 +1,10 @@
 """Seguridad para la puerta de publicación (plan puerta-de-publicacion, F3, D4): lee el documento,
 extrae datos puros y corre los controles de `library/seguridad/`.
 
-- `datos_calidad(doc)`: piezas (rol, catálogo, caja, redondez, anclaje), juntas, uniones
-  declaradas, sólidos y la caja de la máquina — lo comparte la reparabilidad.
+- `datos_calidad(doc)`: piezas (rol, catálogo, caja, redondez, anclaje), juntas (las de giro sin
+  accionar, marcadas `servicio`: `calidad_juntas.py`), uniones declaradas, sólidos, la caja de la
+  máquina y el PISO (`z_piso`: el apoyo de lo anclado, no un perno de anclaje que entra en la
+  losa) — lo comparte la reparabilidad.
 - `analisis(doc, contexto)`: la DETECCIÓN (qué gira, los peligros, las guardas, las piezas de
   desgaste) sin sondas ni barridos. Con el `contexto` de una corrida de la puerta
   (`puerta_publicacion.Contexto`) se calcula UNA vez y la comparten los detectores
@@ -76,7 +78,9 @@ def datos_calidad(doc) -> dict:
         piezas[fid] = Pieza(fid, f.name or fid, rol, cat, comp.name if comp else None, caja,
                             redondo_de_caja(caja), fid in anclas)
         solidos[fid] = sols
-    juntas = [dict(j) for j in doc.joints.values()]
+    from .calidad_juntas import juntas_marcadas
+
+    juntas, servicio = juntas_marcadas(doc)
     uniones = [{"a": u["a"], "b": u["b"], "kind": u.get("kind", "perno"),
                 "name": u.get("name", "")} for u in doc.fasteners.values()
                if u.get("a") in piezas and u.get("b") in piezas]
@@ -86,7 +90,21 @@ def datos_calidad(doc) -> dict:
     else:
         lo = hi = (0.0, 0.0, 0.0)
     return {"piezas": piezas, "juntas": juntas, "uniones": uniones, "solidos": solidos,
-            "caja": (lo, hi), "z_piso": lo[2]}
+            "caja": (lo, hi), "z_piso": z_piso(piezas, lo[2]),
+            "servicio": servicio & set(piezas)}
+
+
+def z_piso(piezas: dict, z_min: float) -> float:
+    """El piso: el apoyo más bajo de lo ANCLADO (`ground`) que no es tornillería; sin anclajes, lo
+    más bajo que no es tornillería. Un perno de anclaje entra en la losa: tomarlo por piso dejaba
+    entrar las sondas por debajo de ella (F3b punto 5)."""
+    from apolo.library.seguridad.modelo import es_tornilleria
+
+    for cuales in (lambda p: p.anclada and not es_tornilleria(p), lambda p: not es_tornilleria(p)):
+        zs = [p.caja[0][2] for p in piezas.values() if cuales(p)]
+        if zs:
+            return min(zs)
+    return z_min
 
 
 def _tocan(sa, sb) -> bool:
@@ -167,15 +185,20 @@ def _analizar(dc: dict) -> dict:
     from apolo.library.reparabilidad import piezas_de_desgaste
     from apolo.library.seguridad.guardas import revisar_guardas
     from apolo.library.seguridad.modelo import clase_flexible
-    from apolo.library.seguridad.peligros import giratorias, peligros_mecanicos
+    from apolo.library.seguridad.peligros import cuerpos, giro, peligros_mecanicos
+
+    from .calidad_salidas import peligros_de_salida
 
     piezas, juntas, uniones = dc["piezas"], dc["juntas"], dc["uniones"]
     tocan = tambores_de_banda(dc)
-    gira = giratorias(piezas, juntas, uniones, {i for ids in tocan.values() for i in ids})
+    gira, acoples = giro(piezas, juntas, uniones, {i for ids in tocan.values() for i in ids})
     tambores = _tambor_por_cuerpo(tocan, piezas, gira, juntas, uniones)
-    moviles = gira | {i for i, p in piezas.items() if clase_flexible(p)}
+    # lo que mueve la mano (una junta de servicio) se mueve: no es resguardo fijo ni ancla un cable
+    moviles = gira | {i for i, p in piezas.items() if clase_flexible(p)} | dc.get("servicio", set())
+    peligros = (peligros_mecanicos(piezas, juntas, uniones, gira, tambores, acoples)
+                + peligros_de_salida(dc, cuerpos(gira, juntas, uniones)))
     return {"dc": dc, "tocan": tocan, "gira": gira, "tambores": tambores, "moviles": moviles,
-            "peligros": peligros_mecanicos(piezas, juntas, uniones, gira, tambores),
+            "acoples": sorted(acoples), "peligros": peligros,
             "guardas": revisar_guardas(piezas, uniones, moviles),
             "desgaste": piezas_de_desgaste(piezas)}
 
@@ -221,6 +244,36 @@ def _con_brazo_doblado(tr, dc: dict, peligros: list[dict], sondas: dict, resulta
                                                 resultados[p["id"]]["ms"] + ms)
     return {"peligros": len(pendientes), "voxel_mm": round(campo.paso, 1),
             "ms_campo": round(ms_campo)}
+
+
+def resguardos(rg: dict, resultados: dict, servicio: set, declarados: set) -> dict:
+    """Las guardas que de verdad RESGUARDAN (F3b punto 2): las que pararon alguna sonda de un
+    peligro detectado, o las declaradas en la función «resguardo» (`doc.funciones`). Una «tapa»
+    que no cubre nada (la de una bornera dentro del tablero) no es resguardo: el rol «guarda» sale
+    del nombre. Una SOLDADA es cerramiento permanente (ISO 14120 §3.2 lo admite) si a cada peligro
+    que cubre también se llega por un resguardo MÓVIL —el cuerpo de una junta de servicio: la boca
+    de inspección de la tapa soldada de un tanque—; detrás de otra guarda atornillada sigue siendo
+    FALLA (la regla de la puerta para el mantenimiento: F0b, hallazgo 3, va en fase propia).
+    → {**rg, guardas: [las que cuentan], no_resguardan: [{ids, nombre}]}."""
+    bloq = {pid: set(r.get("bloqueado_por") or ()) for pid, r in resultados.items()}
+    cubre = {}
+    for g in rg["guardas"]:
+        ids = set(g["ids"])
+        cubre[g["nombre"], tuple(g["ids"])] = sorted(pid for pid, b in bloq.items() if b & ids)
+    abren = set(servicio)
+    cuentan, fuera = [], []
+    for g in rg["guardas"]:
+        suyos = cubre[g["nombre"], tuple(g["ids"])]
+        if not suyos and not set(g["ids"]) & declarados:
+            fuera.append({"ids": g["ids"], "nombre": g["nombre"]})
+            continue
+        g = {**g, "cubre": suyos}
+        if g["soldadas"] and not g["moviles"] and suyos and all(
+                (bloq[pid] - set(g["ids"])) & abren for pid in suyos):
+            g.update(estado="OK", motivo="cerramiento permanente (soldado, ISO 14120 §3.2): a lo "
+                     "que cubre se llega por un resguardo móvil")
+        cuentan.append(g)
+    return {**rg, "guardas": cuentan, "no_resguardan": fuera}
 
 
 def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
@@ -291,12 +344,16 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
                                 f"({_alcanzan(resultados[p['id']])})"
                                 for p in malos[:6]) or f"{len(peligros)} peligros resguardados")
 
-    rg = an["guardas"]
+    declarados = {i for f in (getattr(doc, "funciones", None) or [])
+                  if f.get("funcion") == "resguardo" for i in f.get("piezas") or ()}
+    rg = resguardos(an["guardas"], resultados, dc.get("servicio", set()), declarados)
     tit_g = "La guarda fija se quita sólo con herramienta (atornillada, no soldada ni apoyada)"
     modo_g = "guarda que se quita a mano, que no se puede quitar, o que gira con la máquina"
     if not rg["guardas"]:
         it_g = item(ID_GUARDA, tit_g, "NO_APLICA", modo_g, G.NORMA,
-                    {"motivo": "el modelo no tiene guardas", **rg})
+                    {"motivo": ("ninguna guarda cubre un peligro detectado ni está declarada como "
+                                "resguardo") if rg["no_resguardan"] else "el modelo no tiene guardas",
+                     **rg})
     else:
         malas = [g for g in rg["guardas"] if g["estado"] != "OK"]
         it_g = item(ID_GUARDA, tit_g, "FALLA" if malas else "OK", modo_g, G.NORMA, rg,

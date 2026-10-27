@@ -1,7 +1,9 @@
 """Peligros mecánicos DERIVADOS del modelo (ISO 12100, 6.2/anexo B) y la tabla de riesgos.
 
 Qué gira (`giratorias`), por este orden de señales:
-1. hija de una junta `giratoria` o `continua`;
+1. hija de una junta `giratoria` ACCIONADA o `continua` (`de_giro`: la junta de SERVICIO —la
+   bisagra que sólo mueve la mano, marcada `servicio` por `services/calidad_juntas.py`— no es
+   peligro: ISO 12100, la parte móvil accionada; plan puerta-sin-sobrediseno F3b);
 2. rol «gira» (`roles.rol_union`: tambor, rodillo, polea, piñón…), catálogo `rodillos`,
    `tambores` o `transmision` (no flexible);
 3. eje (rol «eje») que NO es fijo: fijo = «fijo» en el nombre o atornillado/soldado directo a la
@@ -9,7 +11,8 @@ Qué gira (`giratorias`), por este orden de señales:
 4. pieza REDONDA que toca una banda (el tubo de un tambor de desvío sin rol en el nombre);
 y se propaga por juntas `fija` (padre → hija) y por soldadura/pegado, sin entrar nunca en la
 estructura, el equipo, las chumaceras, los rodamientos de catálogo, la tornillería, lo flexible,
-lo anclado ni un eje fijo.
+lo anclado ni un eje fijo. Después, el ACOPLE (`transmision_rigida.acoples_rigidos`: lo que une
+sin soldar dos cuerpos que giran, o uno con un motorreductor) gira con ellos.
 
 Peligros (cada uno con su conjunto de piezas peligrosas y sus puntos objetivo de las sondas):
 - **atrapamiento banda ↔ tambor** (punto de entrada): la cuña de cada tambor que la banda
@@ -20,6 +23,8 @@ Peligros (cada uno con su conjunto de piezas peligrosas y sus puntos objetivo de
   con `reversible`, las dos cuñas cuentan;
 - **transmisión** (cadena ↔ piñón: atrapamiento; piñones, poleas o acoples sin flexible:
   enganche): cada grupo conexo de transmisión, con el centro de cada pieza;
+- **salida del motorreductor** (enganche, `transmision_rigida`): donde un eje que gira entra o
+  sale de la caja de un motorreductor (el cubo del eje hueco); sus puntos, de `services`;
 - **extremo de eje giratorio** (enganche): los dos extremos axiales del cuerpo que contiene un
   eje giratorio o un tambor de catálogo (eje integral);
 - **pieza giratoria** (enganche): un cuerpo hijo de junta que no es nada de lo anterior.
@@ -44,6 +49,11 @@ _JUNTAS_GIRO = ("giratoria", "continua")
 MAX_OBJETIVOS = 64
 
 
+def de_giro(j: dict) -> bool:
+    """¿La junta hace girar a su hija como PELIGRO? Giratoria o continua, salvo la de servicio."""
+    return j.get("type") in _JUNTAS_GIRO and not j.get("servicio")
+
+
 def eje_fijo(p: Pieza, piezas: dict[str, Pieza], uniones: list[dict], hijas_giro: set) -> bool:
     if p.rol != "eje" or p.id in hijas_giro:
         return False
@@ -60,8 +70,16 @@ def eje_fijo(p: Pieza, piezas: dict[str, Pieza], uniones: list[dict], hijas_giro
 
 def giratorias(piezas: dict[str, Pieza], juntas: list[dict], uniones: list[dict],
                tocan_banda: set[str] = frozenset()) -> set[str]:
-    """Los ids de lo que gira (reglas en el docstring del módulo)."""
-    hijas_giro = {j["child"] for j in juntas if j.get("type") in _JUNTAS_GIRO}
+    """Los ids de lo que gira (reglas en el docstring del módulo), acoples incluidos."""
+    return giro(piezas, juntas, uniones, tocan_banda)[0]
+
+
+def giro(piezas: dict[str, Pieza], juntas: list[dict], uniones: list[dict],
+         tocan_banda: set[str] = frozenset()) -> tuple[set[str], set[str]]:
+    """(lo que gira, los acoples que se sumaron a ello)."""
+    from .transmision_rigida import acoples_rigidos
+
+    hijas_giro = {j["child"] for j in juntas if de_giro(j)}
     fijos = {i for i, p in piezas.items() if eje_fijo(p, piezas, uniones, hijas_giro)}
 
     def bloquea(p: Pieza) -> bool:
@@ -89,7 +107,9 @@ def giratorias(piezas: dict[str, Pieza], juntas: list[dict], uniones: list[dict]
         for m in adj.get(n, ()):
             if m in piezas and m not in gira and not bloquea(piezas[m]):
                 pila.append(m)
-    return gira
+    cuerpo_de = {i: frozenset(c) for c in cuerpos(gira, juntas, uniones) for i in c}
+    acoples = acoples_rigidos(piezas, uniones, gira, cuerpo_de)
+    return gira | acoples, acoples
 
 
 def cuerpos(gira: set[str], juntas: list[dict], uniones: list[dict]) -> list[set[str]]:
@@ -106,8 +126,8 @@ def _solapan(a, b, tol: float = 1.0) -> bool:
     return all(a[0][i] - tol <= b[1][i] and b[0][i] - tol <= a[1][i] for i in range(3))
 
 
-def _es_transmision(p: Pieza, gira: set[str]) -> bool:
-    if clase_flexible(p) == "transmision":
+def _es_transmision(p: Pieza, gira: set[str], acoples: set[str]) -> bool:
+    if clase_flexible(p) == "transmision" or p.id in acoples:
         return True
     return p.id in gira and (p.categoria == "transmision" or bool(_TRANSMISION_RE.search(p.nombre)))
 
@@ -130,11 +150,13 @@ def _extremos(cuerpo: set[str], piezas: dict[str, Pieza]) -> list[tuple]:
 
 
 def peligros_mecanicos(piezas: dict[str, Pieza], juntas: list[dict], uniones: list[dict],
-                       gira: set[str], tambores_de_banda: dict[str, list[str]]) -> list[dict]:
+                       gira: set[str], tambores_de_banda: dict[str, list[str]],
+                       acoples: set[str] = frozenset()) -> list[dict]:
     """Los peligros mecánicos del modelo. Cada uno: {id, peligro, tipo, piezas (lo que hace
     daño: el rayo que lo toca ALCANZA), objetivos (puntos que buscan las sondas) y, en las
     cuñas, `cuna` = {banda, tambor} para que `services` calcule los puntos}.
-    `tambores_de_banda`: {banda: [piezas redondas que la banda abraza]}."""
+    `tambores_de_banda`: {banda: [piezas redondas que la banda abraza]}; `acoples`: los de `giro`.
+    La salida del motorreductor la suma `services` (sus puntos son de OCCT)."""
     out: list[dict] = []
     bodies = cuerpos(gira, juntas, uniones)
     cuerpo_de = {i: c for c in bodies for i in c}
@@ -149,7 +171,7 @@ def peligros_mecanicos(piezas: dict[str, Pieza], juntas: list[dict], uniones: li
                         "piezas": sorted(cuerpo), "objetivos": None, "forman": [banda],
                         "cuna": {"banda": banda, "tambor": t}})
 
-    trans = {i for i, p in piezas.items() if _es_transmision(p, gira)}
+    trans = {i for i, p in piezas.items() if _es_transmision(p, gira, acoples)}
     adj = vecinos([u for u in uniones if u["a"] in trans and u["b"] in trans])
     flex = sorted(i for i in trans if clase_flexible(piezas[i]) == "transmision")
     for f in flex:  # cadena ↔ piñón que se tocan sin unión declarada
@@ -168,7 +190,7 @@ def peligros_mecanicos(piezas: dict[str, Pieza], juntas: list[dict], uniones: li
                     "piezas": sorted(grupo), "objetivos": objetivos})
         usados |= grupo
 
-    hijas = {j["child"] for j in juntas if j.get("type") in _JUNTAS_GIRO}
+    hijas = {j["child"] for j in juntas if de_giro(j)}
     for c in bodies:
         if any(piezas[i].rol == "eje" or piezas[i].categoria == "tambores" for i in c):
             puntos = _extremos(c, piezas)

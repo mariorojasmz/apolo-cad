@@ -18,7 +18,10 @@ from .stability import convex_hull_2d, hull_margin_mm
 
 
 def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None,
-                    belt_radial_n: float | None = None) -> list[dict]:
+                    belt_radial_n: float | None = None, declarados: dict | None = None) -> list[dict]:
+    """`declarados` (una máquina que no es transportador, F3b de puerta-sin-sobrediseno):
+    {rpm, fuente, p_n?}: las rpm DECLARADAS y la carga radial equivalente por rodamiento
+    (`carga_rodamiento_n`); sin carga declarada no se inventa: aviso sin cálculo."""
     from ..catalog import CATALOG
 
     catalog = catalog if catalog is not None else CATALOG
@@ -29,6 +32,16 @@ def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None,
             bearings.append((fid, f, comp))
     if not bearings:
         return []
+    if declarados:
+        rpm = declarados["rpm"]
+        if not declarados.get("p_n"):
+            return [_check(
+                "vida L10 de rodamientos", "aviso",
+                f"Hay {len(bearings)} rodamiento(s) con C_kN y {rpm:g} rpm ({declarados['fuente']}), "
+                "pero ninguna carga sobre ellos declarada — L10 no calculable sin inventarla.",
+                "Declara carga_rodamiento_n (carga radial equivalente P por rodamiento, N) en los "
+                "requisitos.",
+            )]
     if not rpm:
         return [_check(
             "vida L10 de rodamientos", "aviso",
@@ -38,7 +51,11 @@ def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None,
         )]
     checks: list[dict] = []
     n = len(bearings)
-    if belt_radial_n and belt_radial_n > 0:
+    if declarados:
+        p_kn = float(declarados["p_n"]) / 1000.0
+        carga_P_txt = f"{p_kn:.3f} kN (= carga_rodamiento_n declarada, por rodamiento)"
+        det_reparto = f"carga declarada; rpm: {declarados['fuente']}"
+    elif belt_radial_n and belt_radial_n > 0:
         # en una faja la carga radial DOMINANTE del rodamiento es la TENSIÓN DE BANDA
         # (T1+T2)/2 por eje — el peso del producto lo lleva la mesa/cama, no los
         # rodamientos. Ignorarla daba una L10 fantasiosa (cientos de millones de horas).

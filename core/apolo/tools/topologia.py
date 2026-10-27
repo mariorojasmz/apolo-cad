@@ -57,7 +57,9 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         alto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:
         producto, entorno, normativa, notas. Sentido de marcha: sentido_transporte [x, y, z]
         (hacia dónde avanza el ramal de carga; la puerta resguarda sólo la cuña de ENTRADA de
-        cada tambor) y reversible (sí/no: las dos cuñas). Con esto `engineering_check()` y
+        cada tambor) y reversible (sí/no: las dos cuñas). Vida L10 de una máquina que no es
+        transportador: rpm_salida y carga_rodamiento_n (carga radial P por rodamiento, N). Las
+        funciones y sus alternativas NO van aquí: set_functions. Con esto `engineering_check()` y
         `calc_report()` funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.
         `comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;
         reemplaza el dict, {} borra); sin `fields`, los requisitos no se tocan."""

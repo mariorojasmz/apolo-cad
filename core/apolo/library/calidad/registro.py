@@ -81,6 +81,9 @@ LAZO (carrera × |Σ d·ê_k| de los ramales de su tambor: 2 en una cola con 180
 del lazo (uno por tambor); nombra los que no hacen falta como nota.
 v8 (puerta-sin-sobrediseno D5–D11): entra `diseno.sin_sobrantes` y un AVISO justificado por escrito
 (`justificadas`) deja de bloquear `entrega.semaforo`, `riesgos.electrico` e `ingenieria.reglas`.
+v9 (F3b, máquinas que no son fajas): una bisagra de servicio no es peligro; el acople y la salida
+del motorreductor sí; resguardo = lo que cubre un peligro (o declarado), y el soldado con acceso
+por otro lado es cerramiento; el piso es el apoyo de lo anclado; la L10 lee las rpm declaradas.
 """
 
 from __future__ import annotations
@@ -92,7 +95,7 @@ from . import puerta as p
 from . import sobrantes as so
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "8"
+VERSION_REGISTRO = "9"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]
@@ -228,7 +231,8 @@ MAPA_SEGURIDAD = {
         hay("partes_moviles", "pieza o estructura sin partes móviles"), "partes_moviles"),
     "riesgos.resguardos_desmontables_con_herramienta": General(
         "Los resguardos fijos sólo se quitan con herramienta", "seguridad",
-        ("seguridad.guarda*",), hay("resguardos", "sin resguardos"), "resguardos"),
+        ("seguridad.guarda*",), hay("resguardos", "sin resguardos"), "resguardos",
+        vacio_ok=("seguridad.guarda_con_herramienta",)),  # «tapas» que no cubren nada (F3b)
     "consumibles.reemplazables": General(
         "Cada pieza de desgaste o consumible se cambia sin cortar uniones permanentes "
         "(también los lazos cerrados, que deben salir de sus apoyos)", "montaje",

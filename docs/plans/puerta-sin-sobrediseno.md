@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) hechas; faltan F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -173,6 +173,11 @@ física y la norma piden, y que nada detecta una pieza de protección que sobra.
   metadato `justificadas` con su endpoint, la evidencia (qué peligro dejaba de cubrir cada pieza
   o «ninguno»); `publication_gate` lo muestra (golden). Verifica: guarda redundante = FALLA, par
   que cubre el mismo hueco = una sola sobrante, justificada = OK; costo medido.
+- **F3b — falsos positivos y huecos en máquinas que no son fajas (M).** Lo que dieron una
+  mezcladora, un tanque con agitador y un elevador modelados por MCP: bisagras de servicio como
+  peligro, «tapas» como resguardo, la L10 sin las rpm declaradas, las funciones sin canal, el piso
+  bajo la losa, el acople y la salida del motorreductor sin peligro, las poses de reposo
+  (§ Bitácora F3b).
 - **F4 — adelgazar la faja de motor central (S, por MCP, fuera del núcleo).** Declarar el sentido,
   sacar las UCT (la cola vuelve a apoyos fijos si los tres tensores alcanzan), sacar lo que F3
   diga que sobra, puerta aprobada y `delivery_check` VERDE; antes/después de masa y costo.
@@ -429,3 +434,98 @@ Hallazgos (fase propia, no se tocaron):
   `scripts/testigos.py`); toda faja de plantilla tendrá que hacer lo mismo hasta que se decida si
   sobran o si falta el peligro.
 - En la de rodillos sobra la «tapa del extremo» de la guarda de la transmisión (13 g).
+
+### F3b (2026-10-27): falsos positivos y huecos en máquinas que no son fajas
+
+Medido sobre una foto de las tres máquinas de esta noche (las bases, en sólo lectura; las siguen
+usando otros procesos: la revisión medida es la del momento), `controles_seguridad` sin el ERC y
+`controlar_vida_util`, con el código de `main` (antes) y el de la rama (después):
+
+| | mezcladora de paletas (219 sólidos) | tanque con agitador (120) | elevador de cajas (255) |
+|---|---|---|---|
+| peligros antes | extremo de eje 1, pieza giratoria 2 | transmisión 1, extremo 1, giratoria 2 | transmisión 2, extremo 2, giratoria 1 |
+| peligros después | extremo 1, salida del motorreductor 1 | transmisión 1, extremo 1, salida 1 | transmisión 2, extremo 2, salida 1 |
+| `partes_moviles` antes | FALLA: pilotos de la puerta del tablero (238 sondas), bisagra de la tapa de carga (110) | FALLA: tapa de la boca (53), pilotos (229) | FALLA: cadenas (10 y 15), eje loco (5), pilotos (149) |
+| `partes_moviles` después | FALLA: salida del NMRV (138) | FALLA: salida del NMRV (117) | FALLA: cadenas (10 y 15), eje loco (5) |
+| `resguardos_…` antes | FALLA (tapa de la bornera, «sólo apoyada») | FALLA (tapa plana soldada; bornera) | FALLA (bornera) |
+| `resguardos_…` después | OK, 2 (no resguardan: bornera, tapa de ranura lado motor) | OK, 3 (la tapa plana es cerramiento: la boca de inspección cubre lo mismo) | OK, 1 (no resguarda: bornera) |
+| L10 antes | SIN_EVALUAR «sin rpm» | SIN_EVALUAR «sin rpm» | SIN_EVALUAR «sin rpm» |
+| L10 después | SIN_EVALUAR: 43 rpm (variable), sin carga declarada | 200 rpm (requisito), sin carga | 42,25 rpm (variable), sin carga |
+| piso (`z_piso`) | −70 → 0 (los pernos de anclaje M12×100 entran en la losa) | 0 → 0 | 0 → 0 |
+| segundos | 6,5 → 7,5 | 5,8 → 6,0 | 44,1 → 36,3 |
+
+Qué entró, por punto:
+1. **La junta de servicio** (`services/calidad_juntas.py`): una junta de giro está ACCIONADA si es
+   `continua`, si un escenario la acopla a un motor o a un cilindro, si su padre es un actuador de
+   catálogo (motorreductor, cilindro, amortiguador o resorte de gas) o si su cuerpo hijo está unido
+   a uno. Si no, es de servicio: `peligros.de_giro` no la toma y lo que cuelga de ella no gira (los
+   mandos de la puerta del tablero, la tapa de carga y la de la boca), pero su cuerpo sigue en
+   `moviles` (no es resguardo fijo, no se le ata un cable). También sale de la familia D15
+   «apoyo rotativo». Test: `test_puerta_f3b` (bisagra = sin peligro; continua, escenario y
+   actuador = peligro).
+2. **Resguardo** (`calidad_seguridad.resguardos`): el ítem juzga sólo las guardas que pararon una
+   sonda de un peligro detectado o las declaradas en la función `resguardo` de `funciones`; las
+   demás van en `no_resguardan`. Una soldada es cerramiento permanente (ISO 14120 §3.2) si a cada
+   peligro que cubre también se llega por un resguardo MÓVIL (el cuerpo de una junta de servicio);
+   detrás de una guarda atornillada sigue en FALLA. Sin guardas que resguarden, el control da
+   NO_APLICA y el general lo da por cumplido (`vacio_ok`). Tests puros y uno con una «Tapa final de
+   bornera» que no cubre nada; el defecto `guarda_soldada` sigue en FALLA.
+3. **L10 con lo declarado** (`engineering_rules.rodamientos_declarados`): sin transportador, las
+   rpm salen del requisito `rpm_salida`, la variable `rpm_salida`, las variables `rpm_motor` /
+   `ratio_red` o el `rpm_salida` del motorreductor de catálogo (si todos coinciden); la carga, sólo
+   del requisito nuevo `carga_rodamiento_n` (P equivalente por rodamiento). Sin ella, aviso que lo
+   dice («L10 no calculable sin inventarla») y SIN_EVALUAR. Requisitos nuevos `rpm_salida` y
+   `carga_rodamiento_n` (numéricos); docstring de `set_requirements`.
+4. **Funciones**: `funciones` en `set_requirements` es 400 que apunta a la tool NUEVA
+   `set_functions` (`PUT /api/funciones`, que ya existía sin tool). El validador acepta además la
+   forma {funcion: {…}} y los sinónimos que escribieron los modeladores (`alternativas`,
+   `alternativa`): los textos de la mezcladora y del tanque, que hoy rebotan, entran (4 funciones
+   cada uno). La puerta lee `doc.funciones`, como antes; el texto viejo del requisito no se migra
+   (puente implícito: no).
+5. **El piso** (`calidad_seguridad.z_piso`): el apoyo más bajo de lo ANCLADO que no es tornillería
+   (sin anclajes, lo más bajo que no es tornillería), también en la copia de la prueba de
+   sobrantes. En la foto del elevador el piso ya estaba en 0 (las sondas a la cadena entran por el
+   piso a z = 0, por debajo de la máquina: llegan a ≈ 190 mm del suelo, peligro real); el −25 del
+   modelador sale de una revisión con anclajes bajo la losa, como los −70 de la mezcladora.
+6. **El acople y la salida del motorreductor** (`library/seguridad/transmision_rigida.py`,
+   `services/calidad_salidas.py`): gira el acople que une SIN soldar dos cuerpos que giran o uno con
+   un motorreductor (el «Acople flexible» de la plantilla); la salida es peligro nuevo
+   (`salida_motor`): donde un eje que gira cruza la caja de un motorreductor, puntos a r + 3 mm del
+   eje, 1 mm afuera de la cara REAL de la caja (rayos contra sus sólidos), con la caja como
+   «forman» (no estrecha el haz). En las tres máquinas el cubo del eje hueco del NMRV queda
+   expuesto en la mezcladora (lado libre: el eje termina 20 mm dentro del cubo) y en el tanque
+   (arriba y bajo la caja); en el elevador está resguardado. Defecto sembrado nuevo
+   `acople_sin_guarda` (la faja testigo sin su «Guarda del acople»: FALLA).
+7. **Poses de reposo: propuesta, no implementado.** Medido (una corrida de `controles_seguridad`
+   sobre la copia posada por pose): mezcladora con la tapa de carga a 95° 11,5 s (las paletas al
+   alcance: 2 sondas al extremo del eje), compuerta a 200 mm 11,3 s (nada cambia); tanque con la
+   boca a 100° 7,5 s (1 sonda al acople); elevador con la plataforma arriba 54,4 s (cadenas 10 → 15
+   y 15 → 22). Cada pose cuesta una corrida entera y en dos de las tres lo que aparece es una tapa
+   ENCLAVADA abierta: con ella abierta la máquina para (ISO 14119), no es peligro. Propuesta para su
+   fase: poses = las de reposo de `delivery_poses` más los extremos de las juntas ACCIONADAS que no
+   giran (cilindros, plataformas); se excluye la pose con una junta de servicio abierta si su
+   cuerpo lleva la lengüeta de un enclavamiento (lo verifica la fase de mandos de seguridad); y se
+   re-trazan sólo los peligros a ≤ 1080 mm de lo que la pose movió (la localidad de D7).
+
+`VERSION_REGISTRO` 8 → 9. Testigos re-congelados: sólo cambió la versión, y la firma de la faja
+porque su `.apolo` se rehízo sin la justificación de la «Guarda del acople» (ahora la pide el
+acople: no sobra); ningún veredicto por ítem se movió. Golden MCP re-congelado: la tool
+`set_functions` (y su 400) y el docstring de `set_requirements`.
+
+Decisiones tomadas en la implementación (vetables):
+- **Accionada sin mirar nombres**: continua, escenario, actuador padre o unido al cuerpo hijo. Un
+  brazo motorizado declarado `giratoria` sin escenario ni actuador modelado sale de servicio (falso
+  negativo posible): se cierra declarando su escenario o modelando el actuador.
+- **Resguardo por las sondas RECTAS**: las del brazo doblado no dicen qué las paró, así que una
+  guarda que sólo para el brazo doblado no se juzga (si es soldada, pasa). Conservador en el
+  sentido de no frenar; la prueba de sobrantes sigue usando `revisar_guardas` entero (lo
+  conservador ahí es llamarla necesaria).
+- **La L10 fuera de un transportador no usa `carga_kg`**: es el producto (550 kg de líquido en el
+  tanque), no lo que carga el rodamiento de un agitador; repartirla entre sus rodamientos daba,
+  en una cuenta a mano, del orden de 10⁴ h: una FALLA falsa. Sin `carga_rodamiento_n`, SIN_EVALUAR.
+- **La salida del motorreductor se busca en la cara real**: la caja del NMRV incluye el motor
+  cruzado al eje, que sobresale del reductor. Un eje que termina dentro del cubo deja el cubo
+  abierto: peligro; un eje que lo atraviesa también (gira junto a la cara). La «Tapa del eje hueco
+  del reductor» que la F3 halló sobrante en la faja de motor central debería pedirla ahora este
+  peligro (no medido: esa faja no está en esta máquina; lo verá la F4).
+

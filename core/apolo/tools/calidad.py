@@ -1,6 +1,7 @@
 """Tools MCP de la puerta de PUBLICACIÓN: `publication_gate` (plan puerta-de-publicacion, F1; `POST
-/api/puerta-publicacion`, como job: corre la gravedad y la marcha del video) y `set_justifications`
-(plan puerta-sin-sobrediseno D6/D11; `PUT /api/justificadas`: metadato, sin job).
+/api/puerta-publicacion`, como job: corre la gravedad y la marcha del video), `set_justifications`
+(plan puerta-sin-sobrediseno D6/D11; `PUT /api/justificadas`) y `set_functions` (D15 de la
+puerta; `PUT /api/funciones`, F3b de puerta-sin-sobrediseno): metadatos, sin job.
 
 Cliente fino como el resto; vive fuera de `mcp_server.py` (trinquete de tamaño), que la registra al
 final con `registrar(mcp, esperar, api)`: `esperar` es su `_submit_and_wait` y `api` su `_api`,
@@ -32,7 +33,7 @@ def resumir(r: dict) -> dict:
 
 
 def registrar(mcp, esperar, api=None) -> None:
-    """Registra `publication_gate` y `set_justifications` en `mcp` (el del servidor que corre)."""
+    """Registra `publication_gate`, `set_justifications` y `set_functions` en `mcp`."""
 
     @mcp.tool()
     def publication_gate(completo: bool = False) -> str:
@@ -69,4 +70,17 @@ def registrar(mcp, esperar, api=None) -> None:
         modelo; justifica sólo lo que de verdad no aplica (nunca agregues una pieza para callar un
         aviso). Metadato: no entra al log ni al deshacer."""
         r = api("PUT", "/api/justificadas", json={"justificadas": justificadas})
+        return json.dumps(r.json(), ensure_ascii=False)
+
+    @mcp.tool()
+    def set_functions(funciones: list[dict]) -> str:
+        """Declara la SOLUCIÓN de cada función de la máquina y lo que se descartó (lo exige
+        diseno.soluciones_por_funcion de la puerta de publicación; reemplaza la lista entera,
+        `[]` la borra). Cada entrada: {funcion, solucion, descartadas: [{solucion, motivo}] (≥ 1),
+        piezas?: [ids], nota?}. `funcion` es una familia del modelo —transmision_flexible,
+        apoyo_rotativo, accionamiento, resguardo, estructura— o un nombre propio con las `piezas`
+        que la resuelven (las piezas de la familia la cubren). Las piezas de «resguardo» cuentan
+        como resguardo declarado. NO va en set_requirements. Metadato: no entra al log ni al
+        deshacer."""
+        r = api("PUT", "/api/funciones", json={"funciones": funciones})
         return json.dumps(r.json(), ensure_ascii=False)

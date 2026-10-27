@@ -74,10 +74,8 @@ FUNCIONES_FAJA = [
 # ------------------------------------------------------------------ recetas de los públicos
 #: D6 de puerta-sin-sobrediseno: lo que la plantilla trae y la puerta no pide, con su porqué (la
 #: medición está en la bitácora del plan, § F3; corregir la plantilla o el modelo de peligros es
-#: otra fase).
+#: otra fase). La «Guarda del acople» ya no: desde la F3b el acople es peligro y ella lo resguarda.
 JUSTIFICADAS_FAJA = [
-    {"pieza": "c1_guarda_acople", "porque": "cubre el acople motor ↔ eje motriz, que gira: la "
-     "puerta no lo modela como peligro (no es pieza propia del modelo)"},
     {"pieza": "c1_guarda_inf2_1", "porque": "cierra por abajo la ranura banda ↔ larguero del lado "
      "+Y, como su par del −Y: la plantilla cierra los dos lados por simetría"},
     {"pieza": "c1_guarda_inf2_2", "porque": "cierra por abajo la ranura banda ↔ larguero del lado "

@@ -12,6 +12,11 @@ La puerta (`diseno.soluciones_por_funcion`) exige que cada FAMILIA de función q
 alternativa descartada y su motivo. Una función cubre una familia si su `funcion` es el nombre de
 la familia o si alguna de sus `piezas` es de esa familia. Una pieza estática suelta no tiene
 familias: NO_APLICA.
+
+Se declara con `PUT /api/funciones` (tool `set_functions`), nunca como requisito. Entra también
+como objeto {funcion: {solucion, descartadas}} y con los sinónimos que escribe un agente
+(`alternativas` por `descartadas`, `alternativa` por `solucion` en cada descartada): se guarda en
+la forma de arriba (F3b de puerta-sin-sobrediseno).
 """
 
 from __future__ import annotations
@@ -33,8 +38,27 @@ def _texto(valor, donde: str) -> str:
     return valor.strip()[:300]
 
 
+def _normalizar(valor):
+    """El objeto {funcion: {...}} → lista, y los sinónimos a sus claves (sin pisar la propia)."""
+    if isinstance(valor, dict) and valor and all(isinstance(v, dict) for v in valor.values()):
+        valor = [{"funcion": k, **v} for k, v in valor.items()]
+    if not isinstance(valor, list):
+        return valor
+    out = []
+    for f in valor:
+        if isinstance(f, dict) and "alternativas" in f and "descartadas" not in f:
+            f = {("descartadas" if k == "alternativas" else k): v for k, v in f.items()}
+        if isinstance(f, dict) and isinstance(f.get("descartadas"), list):
+            f = {**f, "descartadas": [
+                {("solucion" if k == "alternativa" and "solucion" not in d else k): v
+                 for k, v in d.items()} if isinstance(d, dict) else d for d in f["descartadas"]]}
+        out.append(f)
+    return out
+
+
 def validar_funciones(valor) -> list[dict]:
     """El metadato validado; `ValueError` con la corrección (no se guarda a medias)."""
+    valor = _normalizar(valor)
     if not isinstance(valor, list):
         raise ValueError("funciones es una lista de {funcion, solucion, descartadas, piezas}")
     out = []

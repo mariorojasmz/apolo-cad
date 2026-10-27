@@ -57,6 +57,7 @@ def structure_engineering_check(
     rpm: float | None = None,
     belt_radial_n: float | None = None,
     default_material: str | None = None,
+    rodamientos: dict | None = None,
 ) -> list[dict]:
     """Chequeo estructural del ensamblaje completo (no exige que sea una faja).
     Devuelve reglas en el MISMO formato que conveyor_engineering_check."""
@@ -74,7 +75,7 @@ def structure_engineering_check(
     }
     checks: list[dict] = []
     checks += _fastener_checks(scene, graph, masses, fasteners, catalog)
-    checks += _bearing_checks(scene, catalog, carga_kg, rpm, belt_radial_n)
+    checks += _bearing_checks(scene, catalog, carga_kg, rpm, belt_radial_n, rodamientos)
     checks += _fit_checks(scene, fasteners, joints, mates, catalog)
     checks += _buckling_checks(scene, masses, catalog, carga_kg)
     checks += _tipping_check(scene, grounds, catalog, carga_kg, default_material)

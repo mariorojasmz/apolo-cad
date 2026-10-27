@@ -4448,6 +4448,101 @@
   ]
  },
  {
+  "caso": "funciones",
+  "tool": "set_functions",
+  "args": {
+   "funciones": [
+    {
+     "funcion": "accionamiento",
+     "solucion": "motorreductor sinfín de eje hueco",
+     "descartadas": [
+      {
+       "solucion": "coaxial con cadena",
+       "motivo": "una cadena más que resguardar"
+      }
+     ]
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"funciones\": [{\"funcion\": \"accionamiento\", \"solucion\": \"motorreductor sinfín de eje hueco\", \"descartadas\": [{\"solucion\": \"coaxial con cadena\", \"motivo\": \"una cadena más que resguardar\"}], \"piezas\": []}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/funciones",
+    "query": [],
+    "cuerpo": {
+     "funciones": [
+      {
+       "funcion": "accionamiento",
+       "solucion": "motorreductor sinfín de eje hueco",
+       "descartadas": [
+        {
+         "solucion": "coaxial con cadena",
+         "motivo": "una cadena más que resguardar"
+        }
+       ]
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "función sin descartadas → 400",
+  "tool": "set_functions",
+  "args": {
+   "funciones": [
+    {
+     "funcion": "accionamiento",
+     "solucion": "motorreductor",
+     "descartadas": []
+    }
+   ]
+  },
+  "error": "Error executing tool set_functions: Apolo rechazó la operación (400): funciones[0].descartadas: al menos una alternativa descartada {solucion, motivo}: una solución sin alternativas no es una decisión",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/funciones",
+    "query": [],
+    "cuerpo": {
+     "funciones": [
+      {
+       "funcion": "accionamiento",
+       "solucion": "motorreductor",
+       "descartadas": []
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "gravedad",
   "tool": "gravity_test",
   "args": {},

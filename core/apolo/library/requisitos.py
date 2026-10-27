@@ -24,6 +24,9 @@ NUMERICAS: tuple[str, ...] = (
     "carga_kg", "largo_paquete_mm", "ancho_paquete_mm", "alto_paquete_mm",
     "velocidad_m_s", "inclinacion_deg", "temperatura_c", "tipo_cambio", "ancho_producto_mm",
     "peso_paquete_kg", "paquetes_por_minuto", "fugas_aire_pct",
+    # la vida L10 de una máquina que no es transportador (F3b de puerta-sin-sobrediseno): las rpm
+    # del eje de salida y la carga radial equivalente P por rodamiento, en N
+    "rpm_salida", "carga_rodamiento_n",
 )
 
 #: Las claves de la ficha del encargo (D1), en el orden en que se piden.
@@ -42,6 +45,11 @@ _COMO_SENTIDO = (f"El requisito '{SENTIDO}' es un vector [x, y, z] no nulo (p. e
                  "eje con signo («+X», «-Y»): hacia dónde avanza el ramal de carga de la banda")
 
 ASUMIDOS = "asumidos"
+#: La solución por función (D15 de la puerta de publicación) es un metadato propio, no un requisito.
+FUNCIONES = "funciones"
+_COMO_FUNCIONES = ("'funciones' no es un requisito: declara la solución de cada función con "
+                   "set_functions (PUT /api/funciones): [{funcion, solucion, descartadas: "
+                   "[{solucion, motivo}], piezas}] — la puerta de publicación lee ése")
 
 _SI = {"si", "sí", "true", "1", "yes", "s"}
 _NO = {"no", "false", "0", "n"}
@@ -145,6 +153,8 @@ def _valor(key: str, value):
         return _si_no(key, value)
     if key == "instalacion":
         return _instalacion(value)
+    if key == FUNCIONES:
+        raise ValueError(_COMO_FUNCIONES)
     if key == "entorno" and not isinstance(value, str):
         raise ValueError("El requisito 'entorno' es texto (p. ej. «interior, polvo»)")
     if isinstance(value, (str, int, float, bool)):

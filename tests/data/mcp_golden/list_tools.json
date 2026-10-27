@@ -2355,7 +2355,7 @@
  },
  {
   "name": "set_requirements",
-  "description": "Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).\nClaves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:\nproducto, entorno, normativa, notas. Sentido de marcha: sentido_transporte [x, y, z]\n(hacia dónde avanza el ramal de carga; la puerta resguarda sólo la cuña de ENTRADA de\ncada tambor) y reversible (sí/no: las dos cuñas). Con esto `engineering_check()` y\n`calc_report()` funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.\n`comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;\nreemplaza el dict, {} borra); sin `fields`, los requisitos no se tocan.",
+  "description": "Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).\nClaves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:\nproducto, entorno, normativa, notas. Sentido de marcha: sentido_transporte [x, y, z]\n(hacia dónde avanza el ramal de carga; la puerta resguarda sólo la cuña de ENTRADA de\ncada tambor) y reversible (sí/no: las dos cuñas). Vida L10 de una máquina que no es\ntransportador: rpm_salida y carga_rodamiento_n (carga radial P por rodamiento, N). Las\nfunciones y sus alternativas NO van aquí: set_functions. Con esto `engineering_check()` y\n`calc_report()` funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.\n`comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;\nreemplaza el dict, {} borra); sin `fields`, los requisitos no se tocan.",
   "inputSchema": {
    "properties": {
     "fields": {
@@ -4204,6 +4204,40 @@
     "result"
    ],
    "title": "set_justificationsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_functions",
+  "description": "Declara la SOLUCIÓN de cada función de la máquina y lo que se descartó (lo exige\ndiseno.soluciones_por_funcion de la puerta de publicación; reemplaza la lista entera,\n`[]` la borra). Cada entrada: {funcion, solucion, descartadas: [{solucion, motivo}] (≥ 1),\npiezas?: [ids], nota?}. `funcion` es una familia del modelo —transmision_flexible,\napoyo_rotativo, accionamiento, resguardo, estructura— o un nombre propio con las `piezas`\nque la resuelven (las piezas de la familia la cubren). Las piezas de «resguardo» cuentan\ncomo resguardo declarado. NO va en set_requirements. Metadato: no entra al log ni al\ndeshacer.",
+  "inputSchema": {
+   "properties": {
+    "funciones": {
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Funciones",
+     "type": "array"
+    }
+   },
+   "required": [
+    "funciones"
+   ],
+   "title": "set_functionsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_functionsOutput",
    "type": "object"
   }
  },

@@ -72,14 +72,56 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
     from .transmision_rules import chain_rules
     from .vigas_rules import beam_rules
 
+    rpm = (conveyor or {}).get("rpm_motor")
+    declarados = None if rpm else rodamientos_declarados(doc)
     rules = structure_engineering_check(
         doc.scene, doc.fasteners, doc.grounds, doc.joints, doc.mates,
         carga_kg=carga or 0.0,
-        rpm=(conveyor or {}).get("rpm_motor"),
+        rpm=rpm,
         belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
         default_material=doc.default_material(),  # la masa de mass-properties (F6)
+        rodamientos=declarados,
     )
     rules += beam_rules(doc, carga)
     rules += chain_rules(doc)
     rules += fea_rules(doc)
     return rules
+
+
+def _num(v) -> float | None:
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return x if x > 0 else None
+
+
+def rodamientos_declarados(doc) -> dict | None:
+    """Lo que la vida L10 de una máquina que NO es transportador lee de lo declarado (F3b de
+    puerta-sin-sobrediseno; con transportador, sus rpm y su tensión de banda, como siempre) →
+    {rpm, fuente, p_n?} o None sin rpm. Las rpm, en este orden: el requisito `rpm_salida`, la
+    variable `rpm_salida`, las variables `rpm_motor` / `ratio_red`, y el `rpm_salida` de catálogo
+    del motorreductor (si todos dicen lo mismo). La carga sólo del requisito `carga_rodamiento_n`
+    (la carga radial equivalente por rodamiento): `carga_kg` es el producto, no lo que carga un
+    rodamiento de un agitador o un eje de izaje, y no se reparte a ciegas."""
+    from apolo.library.catalog import CATALOG
+
+    req, var = doc.requirements or {}, doc.variables_resolved or {}
+    rpm, fuente = _num(req.get("rpm_salida")), "requisito rpm_salida"
+    if rpm is None:
+        rpm, fuente = _num(var.get("rpm_salida")), "variable rpm_salida"
+    if rpm is None and _num(var.get("rpm_motor")) and _num(var.get("ratio_red")):
+        rpm = _num(var["rpm_motor"]) / _num(var["ratio_red"])
+        fuente = "variables rpm_motor / ratio_red"
+    if rpm is None:
+        de_catalogo = {_num((c.specs or {}).get("rpm_salida")) for f in doc.scene.values()
+                       if (c := CATALOG.get(getattr(f, "component", None) or "")) is not None
+                       and c.category in ("motorreductores", "motorreductores_sinfin")}
+        if len(de_catalogo) == 1 and None not in de_catalogo:
+            rpm, fuente = de_catalogo.pop(), "rpm_salida del motorreductor de catálogo"
+    if rpm is None:
+        return None
+    out = {"rpm": rpm, "fuente": fuente}
+    if _num(req.get("carga_rodamiento_n")):
+        out["p_n"] = _num(req["carga_rodamiento_n"])
+    return out
