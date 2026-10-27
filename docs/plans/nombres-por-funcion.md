@@ -648,3 +648,28 @@ Suite completa (`-n auto`): un solo rojo, `test_electrico_servicios::test_con_ca
 (esperaba VERDE con el arranque directo sin rótulos). No se relajó: ahora comprueba el aviso y el
 fixture declara sus rótulos (`tablero_electrico.con_rotulos`) para dar VERDE. Re-corrida verde;
 ruff limpio.
+
+### F6 — la mezcladora real, por MCP (2026-10-27)
+
+Un `claude -p` con sólo las tools `apolo-cad` corrió sobre una API de flota (copia de la
+mezcladora, base propia): 2 min, 14 turnos, 0,97 USD.
+- Antes: `interfaz.nombres_por_funcion` FALLA con 13 casos (lo que daban A8 y F2).
+- UN `edit_batch` sobre 20 `add_device`: los 13 del ítem, más -K2/-K3 y -RZ1…-RZ5. Las claves de
+  `estados` («0»/«I» del selector, «14»/«12» de la válvula) entraron a la primera.
+- Después: el ítem queda OK y la puerta APROBADA (v12: 29 OK, 0 FALLA, 0 SIN_EVALUAR).
+  «Nombres por función» sale OK en `delivery_check` (AMARILLO por otros 3 avisos que ya
+  estaban).
+
+**Lo que encontró:**
+- Por MCP, el detalle nombraba 4 aparatos «y 9 más», sin sugerencia. **Corregido**:
+  `tools/calidad.resumir` trae los `casos` por aparato (hasta 20, con motivo y sugerencia).
+- El nombre de -RZ1/-RZ2 (caudal de apertura o de cierre) sale distinto en el muestrario y en el
+  modelador. Queda a verificar contra el sentido del aire en el esquema.
+- `scripts/flota.py parar` dio un falso «QUEDA ALGO»: contó procesos del sistema (pid reciclado,
+  `suyo` en True sin hora de creación). Pasa al backlog.
+- Los `estados` de una electroválvula salieron como verbos («Abre la compuerta») y el visor
+  muestra estados («Compuerta cerrada»). Los dos se leen bien; la description de `add_device`
+  da verbos de ejemplo.
+
+Falta el gate final: Mario abre «Mandos» con la mezcladora con nombres
+(`C:\t\f6\mezcladora-con-nombres.apolo`).

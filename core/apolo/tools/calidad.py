@@ -17,12 +17,27 @@ from .cosim import _recibo
 
 #: Lo que el agente lee de cada ítem que no pasó (la evidencia completa, con `completo=true`).
 _DEL_ITEM = ("id", "familia", "estado", "titulo", "detalle", "piezas")
+#: De cada caso por aparato de la evidencia, lo que dice QUÉ corregir (nombres-por-funcion F6: el
+#: detalle nombraba 4 aparatos «y 9 más» y el agente no veía ni los otros ni su sugerencia).
+_DEL_CASO = ("designacion", "tipo", "motivo", "sugerencia", "rotulo")
+MAX_CASOS = 20
+
+
+def _pendiente(i: dict) -> dict:
+    out = {**{k: i.get(k) for k in _DEL_ITEM}, "piezas": (i.get("piezas") or [])[:12]}
+    casos = [c for c in ((i.get("evidencia") or {}).get("casos") or [])
+             if isinstance(c, dict) and c.get("designacion")]
+    if casos:
+        out["casos"] = [{k: c[k] for k in _DEL_CASO if c.get(k)} for c in casos[:MAX_CASOS]]
+        if len(casos) > MAX_CASOS:
+            out["casos_omitidos"] = len(casos) - MAX_CASOS
+    return out
 
 
 def resumir(r: dict) -> dict:
-    """Lo accionable: el veredicto, los conteos y SÓLO los ítems aplicables que no están OK."""
-    pendientes = [{**{k: i.get(k) for k in _DEL_ITEM}, "piezas": (i.get("piezas") or [])[:12]}
-                  for i in r.get("items", []) if i.get("estado") in ("FALLA", "SIN_EVALUAR")]
+    """Lo accionable: el veredicto, los conteos y SÓLO los ítems aplicables que no están OK; de un
+    ítem con casos por aparato (`designacion`), cada caso con su motivo y su sugerencia."""
+    pendientes = [_pendiente(i) for i in r.get("items", []) if i.get("estado") in ("FALLA", "SIN_EVALUAR")]
     out = {k: r.get(k) for k in ("aprobado", "conteos", "por_familia", "firma",
                                  "version_registro")}
     out["pendientes"] = pendientes

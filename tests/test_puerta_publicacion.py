@@ -450,3 +450,17 @@ def test_la_tool_resume_lo_que_falta():
     corto = resumir(r)
     assert [x["id"] for x in corto["pendientes"]] == ["b"] and corto["aprobado"] is False
     assert "evidencia" not in corto["pendientes"][0]
+
+
+def test_la_tool_lista_cada_caso_por_aparato_con_su_sugerencia():
+    """nombres-por-funcion F6: el detalle nombraba 4 aparatos «y 9 más»; el resumen trae los casos."""
+    from apolo.tools.calidad import MAX_CASOS, resumir
+
+    casos = [{"designacion": f"-S{k}", "tipo": "pulsador", "motivo": "sin rótulo", "piezas": ["c1"],
+              "sugerencia": "Marcha" if k == 1 else None} for k in range(1, MAX_CASOS + 4)]
+    item = {"id": "interfaz.nombres_por_funcion", "estado": FALLA, "evidencia": {"casos": casos}}
+    (p,) = resumir({"items": [item]})["pendientes"]
+    assert len(p["casos"]) == MAX_CASOS and p["casos_omitidos"] == 3
+    assert p["casos"][0] == {"designacion": "-S1", "tipo": "pulsador", "motivo": "sin rótulo",
+                             "sugerencia": "Marcha"}
+    assert "piezas" not in p["casos"][0] and "sugerencia" not in p["casos"][1]

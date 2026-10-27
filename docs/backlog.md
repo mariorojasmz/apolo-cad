@@ -107,6 +107,10 @@ Del montaje de los amortiguadores (amortiguador-externo F2, 2026-10-26):
 
 ## Rendimiento y concurrencia
 
+- **`flota.py parar` da un falso «QUEDA ALGO»** (F6 de nombres-por-funcion, 2026-10-27): cuenta
+  procesos del sistema como hijos (`flota_so.arbol` → `suyo` da True cuando no puede leer la
+  hora de creación, y un pid reciclado mete procesos ajenos). La API sí había muerto.
+
 Origen: revisión de [V6.2e](plans/V6.2e-fixes-revision.md) (§ Bajas).
 
 - `RenderSnapshot` guarda `Vector` de build123d: convertir a `np.ndarray` por pureza y perf.
