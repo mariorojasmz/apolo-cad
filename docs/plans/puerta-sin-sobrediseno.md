@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; faltan F0b (auditar los umbrales de los 30 ítems), F1 (el tensor cuenta lo que estira el lazo y suma los tensores), F2 (sólo la cuña de ENTRADA cuando se conoce el sentido), F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); faltan D11 (avisos justificables), F1 (el tensor cuenta lo que estira el lazo y suma los tensores), F2 (sólo la cuña de ENTRADA cuando se conoce el sentido), F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -128,6 +128,14 @@ física y la norma piden, y que nada detecta una pieza de protección que sobra.
   más estricto que X porque …»). Las que dependen del servicio (vida L10, factor de servicio) se
   calculan con el servicio DECLARADO en los requisitos (horas por día, choques), no con una cifra
   fija para toda máquina. Lo que la auditoría encuentre exagerado entra como fase propia.
+- **D11 — Un aviso se corrige o se JUSTIFICA, no se calla con una pieza.** Hoy un aviso es FALLA
+  sin salida en `entrega.semaforo` (`calidad/puerta.py::semaforo_entrega`, decisión D2 del plan de
+  la puerta), `riesgos.electrico` (`puerta.py::erc`) y `ingenieria.reglas`
+  (`calidad/vida_util.py`, salvo las «informativas»). Verificado: la única forma de aprobar un aviso
+  que no aplica es agregar algo (un perno en un barreno, un silenciador, un refuerzo). Con el mismo
+  metadato `justificadas` de D6 (`[{regla o pieza, porque}]`), un aviso justificado por escrito
+  pasa; un ERROR nunca se justifica. Es la regla que ya rige para el modelador («cada AMARILLO
+  corregido o justificado») llevada a la puerta.
 - **D8 — `VERSION_REGISTRO` sube a 7** y los testigos se re-congelan a propósito; cada cambio con
   su defecto sembrado (`tests/test_defectos_sembrados.py`): tensor de cola con 180° que aprueba
   con la mitad de la carrera de hoy, tres tensores que suman, cuña de salida sin guarda con
@@ -199,3 +207,26 @@ sin el ERC, ≈ 21–25 s por corrida en la laptop; resultados en la tabla de «
 de la banda (sección del sólido) mide 4738 mm; tensores reconocidos: tres `create_take_up` de
 24 mm (cabeza y desvíos) y dos `UCT205-150` de 150 mm agregados en las rondas de corrección. La
 fidelidad de la cinta animada (D13 de la marcha) da OK sobre esa copia (desvío 4,4 mm).
+
+### F0b (2026-10-26, auditoría de sólo lectura)
+
+Informe completo fuera del repo (orquestador). El registro tiene 30 ítems. Hallazgos, de mayor a
+menor sobrediseño posible; sólo el 2 lo verifiqué contra el código, los demás se verifican en su fase:
+
+1. `riesgos.partes_moviles`: el brazo doblado (sonda de 20 mm que dobla el codo en cualquier
+   punto) juzga toda abertura > 20 mm como ranura aunque sea cuadrada o redonda (ISO 13857 da otra
+   tabla para esas); sin tope de altura de alcance; bisagras y palancas a mano y todo extremo de eje
+   cuentan como peligro.
+2. **Aviso = FALLA** sin salida (D11, verificado).
+3. Una guarda soldada es FALLA (ISO 14120 admite la soldadura en el resguardo fijo) y el rol
+   «guarda» sale del nombre.
+4. FEA: FS ≥ 2 sobre el σ de von Mises PICO (las singularidades de la malla piden costillas).
+5. Vuelco con margen del 10 % sin fuente y sin mirar si la máquina va anclada.
+6. L10 ≥ 20 000 h fija para toda máquina, con la carga del tambor puesta en todos los rodamientos.
+7. Motor: márgenes apilados (μ 0,33, ×1,3, arranque 1,6 contra el par nominal); la cifra de AGMA
+   1,25 es la de carga uniforme de más de 10 h/día.
+8. Cadena: servicio «moderado» por defecto + FS 1,2 + avisos geométricos.
+9. Pandeo con K = 2 y FS 3; soldaduras al 0,7 del admisible.
+10. Banda sin fin sin aceptar el vulcanizado en sitio; acceso de herramienta sólo con llave de boca.
+
+Cada uno entra como fase propia (después de F3) o se descarta con su porqué, a la vista de Mario.
