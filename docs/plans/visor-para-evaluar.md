@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F4 hechas en la rama wip/visor-para-evaluar (sin mergear); falta la revisión de diseño a ciegas de «Pruebas» y del diálogo «Planos», que Mario pruebe «Abrir» del tablero en su faja con desviador y la F5 (aligerar las ocultas: 245 MB de SVG a 369 piezas)
+nota: F0–F4 hechas en la rama wip/visor-para-evaluar (sin mergear); falta la revisión de diseño a ciegas (F6), que Mario pruebe «Abrir» y el clic con la puerta abierta en su faja con desviador, y la F5 (las ocultas pesan 241 MB de SVG a 400 piezas; componer una casilla nueva aún toma ~6 s de STATE_LOCK; las láminas por pieza del juego siguen bajo el lock)
 descripcion: el visor muestra el veredicto de las pruebas de la máquina, encuadra el tablero de frente y a la vista, y los planos se calculan sin congelar Apolo
 ---
 
@@ -18,6 +18,9 @@ desviador neumático (2026-10-26) encontró tres huecos, que la sesión coordina
 3. «Planos» pide `GET /api/drawing.svg` del modelo entero; tarda y congela el visor. Y, ampliado
    por Mario: «marcar una casilla demora, y quitarla demora otra vez». Tampoco hay cómo pedir el
    JUEGO de planos de taller desde el visor («no sabía cómo ver un plano de taller»).
+4. Después, también de Mario: con la puerta del tablero ABIERTA no se puede elegir con clic ninguna
+   pieza de toda la máquina (D16). Y el juego de taller en DXF, para no depender del ODA File
+   Converter que pide el DWG (D12).
 
 ## El problema / lo que hay hoy
 
@@ -122,15 +125,16 @@ desviador neumático (2026-10-26) encontró tres huecos, que la sesión coordina
   `jobs.avance({hechas, total, fase})` (hilo-local del worker); `GET /api/jobs/{id}` lo devuelve
   en `progreso`. Sin `origen` ni avance, todo byte-idéntico.
 - **D10. El diálogo pide `GET /api/drawing/lamina`**: lista al instante si ya está (o si sólo
-  cambió una casilla: compone en el momento, ~2 s, sin HLR) o un job con su progreso («Calculando
+  cambió una casilla: compone en el momento, sin HLR: de 1 a 9 s a 369 piezas, F5) o un job con su progreso («Calculando
   las vistas · 1 de 4 listas»). Mientras tanto muestra la lámina ANTERIOR (en gris, «el plano
   anterior») o, si no hay, la isométrica sombreada (`render.png`, unos segundos). Las descargas
   SVG/DXF/PDF se habilitan cuando la lámina está (ya sale de la caché).
 - **D11. «Regenerar» se quita**: la lámina sigue a la firma del modelo; regenerar algo idéntico no
   aportaba (sólo vencía la caché del navegador).
 - **D12. El juego de planos de taller entra al diálogo** con su nombre («Juego de planos de taller:
-  una lámina por pieza, con la lista de corte y la cédula de herraje»), en PDF y, si
-  `health.dwg.disponible`, DWG; los dos como job (`?async=true&origen=visor`, `drawingset.dwg`
+  una lámina por pieza, con la lista de corte y la cédula de herraje»), en PDF, en DXF (un ZIP con
+  un DXF por lámina, `GET /api/drawingset.dxf`: no necesita el ODA File Converter) y, si
+  `health.dwg.disponible`, en DWG; los tres como job (`?async=true&origen=visor`, `drawingset.dwg`
   gana el modo job) con su progreso (`sheet_set(avance=)`: «Lámina 12 de 57») y la descarga al
   terminar. Su conjunto lee el HLR de la caché (`planos.precalcular`, fuera del lock y en
   procesos); las láminas por pieza siguen bajo el lock (F5).
@@ -152,6 +156,17 @@ desviador neumático (2026-10-26) encontró tres huecos, que la sesión coordina
   más alta; si todas están tapadas, la pedida (manda el frente) con lo que tapa al 12 % de
   opacidad, hasta el próximo encuadre o hasta cerrar el panel (`apolo:restaurar-atenuadas`).
   El panel «Tablero» pide `frente` + `despejar` al abrir la puerta y `despejar` en sus ítems.
+  El frente sale de la pose de DISEÑO de la pieza (`userData.baseMatrix`): con la puerta ya
+  abierta, la normal girada miraba desde el costado.
+- **D16. Lo que la UI mueve se elige donde se VE, y en una pose apretar sobre una pieza la
+  selecciona.** Lo encontró Mario: con la puerta del tablero abierta no se elegía NINGUNA pieza de
+  la máquina. No era una tapa invisible (el rayo veía la puerta abierta): con una junta fuera de
+  cero, `manipular.ts` mandaba el apretar sobre una pieza al RECUADRO; su `preventDefault` en el
+  pointerdown suprime el mousedown, el clic de `seleccion.ts` veía un arrastre viejo y salía, y el
+  recuadro de 0 px no elegía nada. Ahora `interaccion/alApretar.ts` decide (en pose o bloqueada:
+  seleccionar, nunca recuadro), el recuadro mide las esquinas de la malla en su pose vista y todo
+  pick pone al día la matriz de mundo antes del rayo (`piezasBajo`: una junta recién movida que
+  todavía no se dibujó).
 
 ## Alternativas descartadas
 
@@ -182,11 +197,20 @@ desviador neumático (2026-10-26) encontró tres huecos, que la sesión coordina
 - **F3 (`drawing` + `api`, M, hecha)**: caché del HLR, HLR en procesos, lámina por firma, el
   endpoint del visor y el juego como job (D6–D8, D10, D12). Tests: `tests/test_planos_visor.py`.
 - **F4 (`ui`, S, hecha)**: el diálogo «Planos» (D10–D12). Tests: `ui/src/panels/planos.test.ts`.
-- **F5 (`drawing`, M, pendiente)**: aligerar las ocultas (245 MB de SVG con ocultas a 369 piezas:
-  el navegador no lo muestra con gusto) y las láminas por pieza del juego fuera del lock (hoy su
-  HLR, pieza por pieza, es lo que queda bajo `STATE_LOCK`: 13 s de toma máxima en el banco).
-  Medir antes: qué aristas ocultas son (roscas, interiores de rodamientos) y si una tolerancia de
-  discretización o deduplicar baja el tamaño sin cambiar la lámina visible.
+- **F5 (`drawing` + `api`, M, pendiente)**, con lo que midió la F3:
+  - aligerar las ocultas: 245 MB de SVG a 369 piezas, 241 MB a 403 (el navegador las recibe pero
+    no las muestra con gusto; su JSON de vuelta del worker se lee con el GIL tomado: parte de los
+    8 s de la lectura más lenta al abrir). Medir qué aristas son (roscas, interiores de
+    rodamientos) y si deduplicar o una tolerancia de discretización baja el tamaño sin cambiar la
+    lámina visible;
+  - componer una combinación nueva de casillas toma ~6 s de `STATE_LOCK` a 369 piezas (llevar las
+    polilíneas de la caché al papel en Python): componer las vistas fuera del lock con el modelo ya
+    extraído;
+  - las láminas por pieza del juego siguen con su HLR bajo el lock (19 s de lectura más lenta con
+    el conjunto ya calculado): la misma caché y los mismos procesos, pieza por pieza.
+- **F4b (`ui` + `api`, S, hecha)**: el clic con la puerta abierta (D16) y el juego en DXF (D12).
+  Tests: `ui/src/viewport/interaccion/alApretar.test.ts`, `encuadreLibre.test.ts` (frente con la
+  puerta abierta), `tests/test_planos_visor.py` (el ZIP de DXF).
 - **F6 (verificación, pendiente)**: revisión de diseño a ciegas de «Pruebas» y del diálogo
   «Planos» (capturas del muestrario, ancho y angosto); Mario abre el tablero de su faja con
   desviador y mira «Planos» en ella.
@@ -203,8 +227,8 @@ desviador neumático (2026-10-26) encontró tres huecos, que la sesión coordina
 
 - **El worker del HLR en una instalación sin `python -m` utilizable** (un empaquetado
   congelado): respaldo en el proceso con aviso en el log (D6), como el render sin OpenGL.
-- **Memoria**: 4 procesos con las formas del modelo (≈ 1 GB a 369 piezas, medido en el banco) y
-  la caché de 4 escenas en la API. Mitigación: `PARALELO` y `TOPE` en sus módulos.
+- **Memoria**: hasta 4 procesos con las formas del modelo y la caché de 4 escenas en la API (no
+  se midió el pico). Mitigación: `PARALELO` y `TOPE` en sus módulos; medirlo en la F5.
 - **Un documento que cambia mientras calcula**: la lámina se compone con lo nuevo (una vuelta
   más del pedido; si vuelve a cambiar, el HLR que falte se hace bajo el lock, como antes). Test.
 - **Lo atenuado queda translúcido si el panel no avisa**: vuelve con el próximo encuadre; el
@@ -214,15 +238,42 @@ desviador neumático (2026-10-26) encontró tres huecos, que la sesión coordina
 
 ### F0–F4 (2026-10-26)
 
-Ver § El problema para la medición de antes. Después, de punta a punta contra una API real
-(uvicorn, banco de 369 piezas, otra sesión de pruebas compartiendo la máquina), con una sonda en
-OTRO proceso que lee `GET /api/scene/summary` cada segundo:
+Ver § El problema para la F0. Medido después de punta a punta contra una API real (uvicorn) con el
+banco de 369 piezas; ANTES con el código de `baba86d` sobre una copia de la misma base. La
+«lectura más lenta del visor» es la de una sonda en OTRO proceso que pide `GET /api/scene/summary`
+cada segundo (lo que siente el visor: el lock y también el GIL). Otra sesión compartía la máquina:
+el reloj de pared es la red gruesa; lo que importa es la proporción.
 
-(la tabla se completa con `scratchpad/banco_e2e.py`; ver el reporte de la fase)
+| paso | antes | después | lectura más lenta del visor, antes → después |
+|---|---|---|---|
+| abrir «Planos» (4 vistas) | 280,3 s | 229,6 s (un job; se ve la isométrica sombreada en ~8 s) | ~280 s → 8,1 s |
+| marcar «líneas ocultas» | 345,6 s (F0) | 8,8 s | todo → 6,5 s |
+| desmarcar «líneas ocultas» | ~277 s | 6,4 s (0 s la segunda vez) | todo → 7,7 s |
+| marcar «BOM» | 77,1 s | 1,3 s | ~77 s → 0 s |
+| desmarcar «BOM» | 289,4 s | 6,3 s (0 s la segunda vez) | ~289 s → 6,6 s |
+| marcar «corte A-A» (otra pasada) | 237,7 s (F0) | 17,6 s | todo → 8,6 s |
+| desmarcar el corte · volver a marcarlo | ~277 s · ~238 s | 0,0 s · 0,0 s | — → 0 s |
+| juego de planos PDF (57 láminas) | 77,6 s sólo las láminas, todo bajo el lock | 102,4 s con el PDF, el conjunto ya calculado | ~78 s → 19,0 s |
 
-- Primer intento: HLR sobre copias `BRepBuilderAPI_Copy` en un HILO con `HLR_LOCK`. Los tests y la
-  sonda de lock (hilo del mismo proceso) daban verde: lock máximo 1,5 s mientras calculaba 333 s.
-  En el visor real, `health` no respondió en 120 s. Causa raíz: el GIL, que la sonda en hilo no
-  puede ver. Se pasó a procesos (D6); la sonda pasó a otro proceso.
-- La copia BinTools sale igual byte a byte en la lámina (con ocultas, BOM y corte); el marco de
-  las vistas se toma de las originales: la copia sin malla tiene otro bbox óptimo.
+En el visor real (proyecto de demostración: el banco + el tablero de la piloto, 403 piezas,
+diálogo «Planos»): marcar «BOM» 1,4 s y desmarcarlo 0,1 s; marcar «líneas ocultas» 2,6 s (su SVG,
+241 MB: F5).
+
+- **Primer intento**: HLR sobre copias `BRepBuilderAPI_Copy` en un HILO con `HLR_LOCK`. Los tests y
+  una sonda de lock en un hilo del mismo proceso daban verde (lock máximo 1,5 s mientras calculaba
+  333 s). En el visor real, `GET /api/health` no respondió en 120 s y `GET /api/pruebas` tardó
+  85 s. Causa raíz: el HLR de OCCT no suelta el GIL, y una sonda en un hilo no puede ver su propia
+  detención. Se pasó a procesos (D6) y la sonda, a otro proceso.
+- La copia viaja en BinTools sin malla (1,5 s bajo el lock a 369 piezas) y la lámina sale igual
+  byte a byte con ocultas, BOM y corte; el marco se toma de las originales (la copia sin malla
+  tiene otro bbox óptimo). Las 4 vistas en paralelo: el perfil solo tarda ~210 s, por eso abrir
+  baja poco (280 → 230 s): lo que cambia es que el visor no se congela.
+- Encuadre: en el banco de demostración el tablero quedaba tapado por el motor y la faja larga
+  (captura 02); con `frente` + `despejar` se ve de frente, a la izquierda del cajón (03); con una
+  mampara de 3 × 2 m delante, ninguna vista cercana está libre y la mampara se atenúa (05).
+- Pruebas: el panel lee el estado y el balance de `escenarios`; su vacío dice qué va a aparecer y
+  cómo empezar. «Correr» se probó con el job (cola de la co-simulación); el avance estimado se ve
+  en el muestrario (06).
+- D16 (el clic con la puerta abierta): reproducido en el preview (con la puerta a 110° el clic no
+  elegía nada; un rayo de prueba sí veía la puerta abierta), arreglado y verificado: se eligen la
+  puerta, sus mandos y cada aparato del interior (07).

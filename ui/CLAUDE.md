@@ -369,6 +369,10 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 - Agarrar y mover: el pointerdown selecciona y arma un `movePick` pendiente; el arrastre real
   empieza al superar `DRAG_THRESHOLD_PX = 5` (= umbral de `onClick`). Bajo el umbral es un clic:
   no mueve ni commitea.
+  En una POSE (una junta fuera de cero: la puerta del tablero abierta) apretar sobre una pieza la
+  SELECCIONA (`interaccion/alApretar.ts`), nunca va al recuadro: su `preventDefault` suprime el
+  mousedown y el clic no elegía nada en toda la máquina. Todo pick pasa por `piezasBajo` (pone al
+  día la matriz de mundo: lo que la UI movió se elige donde se ve). [visor-para-evaluar](../docs/plans/visor-para-evaluar.md) D16
 - Tiradores de caja (`handles.ts::boxDimsFromBbox`): dims desde el BBOX, sanando cotas borradas
   (la caja se auto-sana al primer estirón vía `merge`). Excluye cajas ROTADAS (cota numérica que
   no cuadra con su eje → OBB pendiente) y PARAMÉTRICAS (cota `"=expr"`: no romper el vínculo).
