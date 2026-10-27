@@ -77,7 +77,9 @@ columnas de perfil de catálogo (Euler/Johnson, K de AISC) y deja justificar las
 cable multipolar llega a un borne de tierra en sus dos extremos, IEC 60204-1 §8.2.1): un elevador
 aprobado en v14 con 13 cables 5G de PE suelto ahora falla; v16 (lo-que-se-mueve F1)
 `transmision_flexible.de_su_comando` (la cadena por `insert_component` falla) y, en las poses que
-no son la de diseño, el `fasten` entre piezas que mueven juntas distintas deja de tapar su choque.
+no son la de diseño, el `fasten` entre piezas que mueven juntas distintas deja de tapar su choque;
+entra también la capacidad de la cadena de izaje (cadena-de-izaje F2a), que dimensiona el pasador
+de sus amarres en `union.dimensionadas`.
 """
 
 from __future__ import annotations
