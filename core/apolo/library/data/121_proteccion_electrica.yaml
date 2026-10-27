@@ -92,8 +92,9 @@ components:
   - ref: ITM-C6-3P
     name: ITM 3P C6
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 6 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
-    builder: box
+    builder: interruptor_modular
     params: {width: 54, depth: 75, height: 90}
+    zonas: &zonas_itm {cuerpo: plastico_ral7035, bornes: niquelado, palanca: plastico_negro, placa: {acabado: plastico_blanco, fijo: true}, clip: plastico_negro}
     weight: 0.37
     specs: {In_A: 6, curva: C, polos: 3, Icn_kA: 6, modulos_DIN: 3, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 30}
     electrico: &itm_3p
@@ -110,8 +111,9 @@ components:
   - ref: ITM-C10-3P
     name: ITM 3P C10
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 10 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
-    builder: box
+    builder: interruptor_modular
     params: {width: 54, depth: 75, height: 90}
+    zonas: *zonas_itm
     weight: 0.37
     specs: {In_A: 10, curva: C, polos: 3, Icn_kA: 6, modulos_DIN: 3, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 30}
     electrico:
@@ -124,8 +126,9 @@ components:
   - ref: ITM-C16-3P
     name: ITM 3P C16
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 16 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
-    builder: box
+    builder: interruptor_modular
     params: {width: 54, depth: 75, height: 90}
+    zonas: *zonas_itm
     weight: 0.37
     specs: {In_A: 16, curva: C, polos: 3, Icn_kA: 6, modulos_DIN: 3, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 32}
     electrico:
@@ -138,8 +141,9 @@ components:
   - ref: ITM-C20-3P
     name: ITM 3P C20
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 20 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
-    builder: box
+    builder: interruptor_modular
     params: {width: 54, depth: 75, height: 90}
+    zonas: *zonas_itm
     weight: 0.37
     specs: {In_A: 20, curva: C, polos: 3, Icn_kA: 6, modulos_DIN: 3, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 34}
     electrico:
@@ -152,8 +156,9 @@ components:
   - ref: ITM-C2-2P
     name: ITM 2P C2
     description: Interruptor termomagnético (ITM) de 2 polos, curva C, 2 A, 6 kA (IEC 60898-1), para el mando a 220 V entre dos fases en la red sin neutro (p. ej. la entrada de la fuente de 24 VDC). Verificar con el proveedor.
-    builder: box
+    builder: interruptor_modular
     params: {width: 36, depth: 75, height: 90}
+    zonas: *zonas_itm
     weight: 0.25
     specs: {In_A: 2, curva: C, polos: 2, Icn_kA: 6, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 22}
     electrico: &itm_2p
@@ -176,8 +181,9 @@ components:
   - ref: ITM-C6-2P
     name: ITM 2P C6
     description: Interruptor termomagnético (ITM) de 2 polos, curva C, 6 A, 6 kA (IEC 60898-1), para circuitos a 220 V entre dos fases en la red sin neutro. Verificar con el proveedor.
-    builder: box
+    builder: interruptor_modular
     params: {width: 36, depth: 75, height: 90}
+    zonas: *zonas_itm
     weight: 0.25
     specs: {In_A: 6, curva: C, polos: 2, Icn_kA: 6, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 22}
     electrico:
@@ -190,8 +196,9 @@ components:
   - ref: ITM-C2-1PN
     name: ITM 1P+N C2
     description: Interruptor termomagnético (ITM) 1P+N, curva C, 2 A, 6 kA (IEC 60898-1), para circuitos fase-neutro de una red CON neutro (380/220 V); el polo N se maniobra pero no se protege. Verificar con el proveedor.
-    builder: box
+    builder: interruptor_modular
     params: {width: 36, depth: 75, height: 90}
+    zonas: *zonas_itm
     weight: 0.22
     specs: {In_A: 2, curva: C, polos: "1P+N", Icn_kA: 6, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iC60N 1P+N / Siemens 5SL6 1P+N", cotas_verificadas: false, cost: 20}
     electrico: &itm_1pn
@@ -215,8 +222,9 @@ components:
   - ref: ITM-C6-1PN
     name: ITM 1P+N C6
     description: Interruptor termomagnético (ITM) 1P+N, curva C, 6 A, 6 kA (IEC 60898-1), para circuitos fase-neutro de una red CON neutro (380/220 V); el polo N se maniobra pero no se protege. Verificar con el proveedor.
-    builder: box
+    builder: interruptor_modular
     params: {width: 36, depth: 75, height: 90}
+    zonas: *zonas_itm
     weight: 0.22
     specs: {In_A: 6, curva: C, polos: "1P+N", Icn_kA: 6, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iC60N 1P+N / Siemens 5SL6 1P+N", cotas_verificadas: false, cost: 20}
     electrico:
@@ -240,8 +248,9 @@ components:
   - ref: DIF-2P-25A-30MA-A
     name: Diferencial 2P 25 A 30 mA clase A
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 30 mA, clase A (IEC 61008-1), riel DIN; protección de personas contra contactos. Se compone con un ITM. Verificar con el proveedor.
-    builder: box
-    params: {width: 36, depth: 75, height: 90}
+    builder: interruptor_modular
+    params: {width: 36, depth: 75, height: 90, tipo: diferencial}
+    zonas: &zonas_dif {cuerpo: plastico_ral7035, bornes: niquelado, palanca: plastico_negro, placa: {acabado: plastico_blanco, fijo: true}, clip: plastico_negro, prueba: plastico_gris}
     weight: 0.2
     specs: {In_A: 25, IDn_mA: 30, clase_residual: A, polos: 2, modulos_DIN: 2, frecuencia_ficha: "50/60 Hz", linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (2P, clase A)", cotas_verificadas: false, cost: 45}
     electrico: &diferencial_2p
@@ -264,8 +273,9 @@ components:
   - ref: DIF-2P-25A-300MA-A
     name: Diferencial 2P 25 A 300 mA clase A
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 300 mA, clase A (IEC 61008-1), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
-    builder: box
-    params: {width: 36, depth: 75, height: 90}
+    builder: interruptor_modular
+    params: {width: 36, depth: 75, height: 90, tipo: diferencial}
+    zonas: *zonas_dif
     weight: 0.2
     specs: {In_A: 25, IDn_mA: 300, clase_residual: A, polos: 2, modulos_DIN: 2, frecuencia_ficha: "50/60 Hz", linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (2P, clase A)", cotas_verificadas: false, cost: 50}
     electrico:
@@ -275,8 +285,9 @@ components:
   - ref: DIF-2P-25A-30MA-B
     name: Diferencial 2P 25 A 30 mA clase B
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 30 mA, clase B (IEC 61008-1 / IEC 62423, detecta también la corriente de falla continua lisa de un variador), riel DIN. Se compone con un ITM. Verificar con el proveedor.
-    builder: box
-    params: {width: 36, depth: 75, height: 90}
+    builder: interruptor_modular
+    params: {width: 36, depth: 75, height: 90, tipo: diferencial}
+    zonas: *zonas_dif
     weight: 0.25
     specs: {In_A: 25, IDn_mA: 30, clase_residual: B, polos: 2, modulos_DIN: 2, frecuencia_ficha: "50 Hz", a_confirmar: "apto a 60 Hz: la ficha leída (Schneider iID B-SI) es de 50 Hz y la red de Lima es de 60 Hz; pedir al proveedor un clase B con ficha a 60 Hz", linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (2P)", cotas_verificadas: false, cost: 220}
     electrico:
@@ -286,8 +297,9 @@ components:
   - ref: DIF-2P-25A-300MA-B
     name: Diferencial 2P 25 A 300 mA clase B
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 300 mA, clase B (IEC 61008-1 / IEC 62423), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
-    builder: box
-    params: {width: 36, depth: 75, height: 90}
+    builder: interruptor_modular
+    params: {width: 36, depth: 75, height: 90, tipo: diferencial}
+    zonas: *zonas_dif
     weight: 0.25
     specs: {In_A: 25, IDn_mA: 300, clase_residual: B, polos: 2, modulos_DIN: 2, frecuencia_ficha: "50 Hz", a_confirmar: "apto a 60 Hz: la ficha leída (Schneider iID B-SI) es de 50 Hz y la red de Lima es de 60 Hz; pedir al proveedor un clase B con ficha a 60 Hz", linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (2P)", cotas_verificadas: false, cost: 230}
     electrico:
@@ -297,8 +309,9 @@ components:
   - ref: DIF-4P-40A-30MA-A
     name: Diferencial 4P 40 A 30 mA clase A
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 30 mA, clase A (IEC 61008-1), riel DIN, para una red 380/220 V con neutro. Se compone con un ITM. Verificar con el proveedor.
-    builder: box
-    params: {width: 72, depth: 75, height: 90}
+    builder: interruptor_modular
+    params: {width: 72, depth: 75, height: 90, tipo: diferencial}
+    zonas: *zonas_dif
     weight: 0.4
     specs: {In_A: 40, IDn_mA: 30, clase_residual: A, polos: 4, modulos_DIN: 4, frecuencia_ficha: "50/60 Hz", linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (4P, clase A)", cotas_verificadas: false, cost: 85}
     electrico: &diferencial_4p
@@ -327,8 +340,9 @@ components:
   - ref: DIF-4P-40A-300MA-A
     name: Diferencial 4P 40 A 300 mA clase A
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 300 mA, clase A (IEC 61008-1), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
-    builder: box
-    params: {width: 72, depth: 75, height: 90}
+    builder: interruptor_modular
+    params: {width: 72, depth: 75, height: 90, tipo: diferencial}
+    zonas: *zonas_dif
     weight: 0.4
     specs: {In_A: 40, IDn_mA: 300, clase_residual: A, polos: 4, modulos_DIN: 4, frecuencia_ficha: "50/60 Hz", linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (4P, clase A)", cotas_verificadas: false, cost: 90}
     electrico:
@@ -338,8 +352,9 @@ components:
   - ref: DIF-4P-40A-30MA-B
     name: Diferencial 4P 40 A 30 mA clase B
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 30 mA, clase B (IEC 61008-1 / IEC 62423, detecta también la corriente de falla continua lisa de un variador trifásico), riel DIN. Se compone con un ITM. Verificar con el proveedor.
-    builder: box
-    params: {width: 72, depth: 75, height: 90}
+    builder: interruptor_modular
+    params: {width: 72, depth: 75, height: 90, tipo: diferencial}
+    zonas: *zonas_dif
     weight: 0.45
     specs: {In_A: 40, IDn_mA: 30, clase_residual: B, polos: 4, modulos_DIN: 4, frecuencia_ficha: "50 Hz", a_confirmar: "apto a 60 Hz: la ficha leída (Schneider iID B-SI) es de 50 Hz y la red de Lima es de 60 Hz; pedir al proveedor un clase B con ficha a 60 Hz", linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (4P)", cotas_verificadas: false, cost: 380}
     electrico:
@@ -349,8 +364,9 @@ components:
   - ref: DIF-4P-40A-300MA-B
     name: Diferencial 4P 40 A 300 mA clase B
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 300 mA, clase B (IEC 61008-1 / IEC 62423), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
-    builder: box
-    params: {width: 72, depth: 75, height: 90}
+    builder: interruptor_modular
+    params: {width: 72, depth: 75, height: 90, tipo: diferencial}
+    zonas: *zonas_dif
     weight: 0.45
     specs: {In_A: 40, IDn_mA: 300, clase_residual: B, polos: 4, modulos_DIN: 4, frecuencia_ficha: "50 Hz", a_confirmar: "apto a 60 Hz: la ficha leída (Schneider iID B-SI) es de 50 Hz y la red de Lima es de 60 Hz; pedir al proveedor un clase B con ficha a 60 Hz", linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (4P)", cotas_verificadas: false, cost: 390}
     electrico:
@@ -361,8 +377,9 @@ components:
   - ref: GM-1-1.6A
     name: Guardamotor 1-1,6 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 1-1,6 A clase 10 + disparo magnético, para motores de ~0,25-0,37 kW a 220 V. Verificar con el proveedor.
-    builder: box
+    builder: guardamotor
     params: {width: 45, depth: 80, height: 89}
+    zonas: &zonas_gm {cuerpo: plastico_ral7035, bornes: niquelado, mando: plastico_negro, ajuste: {acabado: plastico_blanco, fijo: true}, placa: {acabado: plastico_blanco, fijo: true}, clip: plastico_negro}
     weight: 0.26
     specs: {Ir_min_A: 1.0, Ir_max_A: 1.6, clase: 10, Ii_A: 20.8, linea_referencia: "orden de Schneider TeSys GV2ME06 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 45}
     electrico: &guardamotor
@@ -380,8 +397,9 @@ components:
   - ref: GM-1.6-2.5A
     name: Guardamotor 1,6-2,5 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 1,6-2,5 A clase 10 + disparo magnético, para motores de ~0,55 kW a 220 V. Verificar con el proveedor.
-    builder: box
+    builder: guardamotor
     params: {width: 45, depth: 80, height: 89}
+    zonas: *zonas_gm
     weight: 0.26
     specs: {Ir_min_A: 1.6, Ir_max_A: 2.5, clase: 10, Ii_A: 32.5, linea_referencia: "orden de Schneider TeSys GV2ME07 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 45}
     electrico:
@@ -390,8 +408,9 @@ components:
   - ref: GM-2.5-4A
     name: Guardamotor 2,5-4 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 2,5-4 A clase 10 + disparo magnético, para motores de ~0,75 kW a 220 V. Verificar con el proveedor.
-    builder: box
+    builder: guardamotor
     params: {width: 45, depth: 80, height: 89}
+    zonas: *zonas_gm
     weight: 0.26
     specs: {Ir_min_A: 2.5, Ir_max_A: 4.0, clase: 10, Ii_A: 52, linea_referencia: "orden de Schneider TeSys GV2ME08 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 48}
     electrico:
@@ -400,8 +419,9 @@ components:
   - ref: GM-4-6.3A
     name: Guardamotor 4-6,3 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 4-6,3 A clase 10 + disparo magnético, para motores de ~1,1-1,5 kW a 220 V. Verificar con el proveedor.
-    builder: box
+    builder: guardamotor
     params: {width: 45, depth: 80, height: 89}
+    zonas: *zonas_gm
     weight: 0.26
     specs: {Ir_min_A: 4.0, Ir_max_A: 6.3, clase: 10, Ii_A: 81.9, linea_referencia: "orden de Schneider TeSys GV2ME10 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 50}
     electrico:
@@ -410,8 +430,9 @@ components:
   - ref: GM-6-10A
     name: Guardamotor 6-10 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 6-10 A clase 10 + disparo magnético, para motores de ~2,2 kW a 220 V. Verificar con el proveedor.
-    builder: box
+    builder: guardamotor
     params: {width: 45, depth: 80, height: 89}
+    zonas: *zonas_gm
     weight: 0.26
     specs: {Ir_min_A: 6.0, Ir_max_A: 10.0, clase: 10, Ii_A: 130, linea_referencia: "orden de Schneider TeSys GV2ME14 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 55}
     electrico:

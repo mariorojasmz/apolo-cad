@@ -48,8 +48,9 @@ components:
   - ref: CONT-9A-24VDC
     name: Contactor 9 A AC-3 bobina 24 VDC
     description: Contactor tripolar 9 A en AC-3 (2,2 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC para mando desde PLC o fuente de 24 V. Verificar con el proveedor.
-    builder: box
+    builder: contactor
     params: {width: 45, depth: 93, height: 77}
+    zonas: &zonas_cont {cuerpo: plastico_ral7035, bornes: niquelado, indicador: plastico_negro, placa: {acabado: plastico_blanco, fijo: true}, clip: plastico_negro}
     weight: 0.42
     specs: {Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, bobina: "24 VDC", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D09BD / Siemens SIRIUS 3RT2016", cotas_verificadas: false, cost: 40}
     electrico: &contactor_dc
@@ -68,8 +69,9 @@ components:
   - ref: CONT-9A-220VAC
     name: Contactor 9 A AC-3 bobina 220 VAC
     description: Contactor tripolar 9 A en AC-3 (2,2 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz para mando a 220 V entre fases. Verificar con el proveedor.
-    builder: box
+    builder: contactor
     params: {width: 45, depth: 86, height: 77}
+    zonas: *zonas_cont
     weight: 0.32
     specs: {Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, bobina: "220 VAC 60 Hz", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D09M7 / Siemens SIRIUS 3RT2016", cotas_verificadas: false, cost: 25}
     electrico: &contactor_ac
@@ -86,8 +88,9 @@ components:
   - ref: CONT-12A-24VDC
     name: Contactor 12 A AC-3 bobina 24 VDC
     description: Contactor tripolar 12 A en AC-3 (3 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC. Verificar con el proveedor.
-    builder: box
+    builder: contactor
     params: {width: 45, depth: 93, height: 77}
+    zonas: *zonas_cont
     weight: 0.42
     specs: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina: "24 VDC", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D12BD / Siemens SIRIUS 3RT2017", cotas_verificadas: false, cost: 45}
     electrico:
@@ -96,8 +99,9 @@ components:
   - ref: CONT-12A-220VAC
     name: Contactor 12 A AC-3 bobina 220 VAC
     description: Contactor tripolar 12 A en AC-3 (3 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz. Verificar con el proveedor.
-    builder: box
+    builder: contactor
     params: {width: 45, depth: 86, height: 77}
+    zonas: *zonas_cont
     weight: 0.32
     specs: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina: "220 VAC 60 Hz", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D12M7 / Siemens SIRIUS 3RT2017", cotas_verificadas: false, cost: 30}
     electrico:
@@ -106,8 +110,9 @@ components:
   - ref: CONT-18A-24VDC
     name: Contactor 18 A AC-3 bobina 24 VDC
     description: Contactor tripolar 18 A en AC-3 (4 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC. Verificar con el proveedor.
-    builder: box
+    builder: contactor
     params: {width: 45, depth: 93, height: 77}
+    zonas: *zonas_cont
     weight: 0.42
     specs: {Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, bobina: "24 VDC", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D18BD / Siemens SIRIUS 3RT2018", cotas_verificadas: false, cost: 55}
     electrico:
@@ -117,8 +122,9 @@ components:
   - ref: CONT-18A-220VAC
     name: Contactor 18 A AC-3 bobina 220 VAC
     description: Contactor tripolar 18 A en AC-3 (4 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz. Verificar con el proveedor.
-    builder: box
+    builder: contactor
     params: {width: 45, depth: 86, height: 77}
+    zonas: *zonas_cont
     weight: 0.32
     specs: {Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, bobina: "220 VAC 60 Hz", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D18M7 / Siemens SIRIUS 3RT2018", cotas_verificadas: false, cost: 40}
     electrico:
@@ -151,8 +157,9 @@ components:
   - ref: RELE-INT-24VDC
     name: Relé de interfaz 1 conmutado 24 VDC
     description: Relé de interfaz enchufable de 6,2 mm, bobina 24 VDC (A1 +), 1 contacto conmutado 6 A 250 VAC (11 común, 12 NC, 14 NA), para separar una salida del PLC de una carga a 220 V. Verificar con el proveedor.
-    builder: box
+    builder: rele_interfaz
     params: {width: 6.2, depth: 80, height: 90}
+    zonas: &zonas_rele {cuerpo: plastico_ral7035, bornes: niquelado, rele: plastico_negro, clip: plastico_negro}
     weight: 0.035
     specs: {bobina: "24 VDC", contacto: "1 conmutado 6 A 250 VAC", ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact PLC-RSC-24DC/21 / Finder 38.51", cotas_verificadas: false, cost: 15}
     electrico: &rele_int
@@ -177,8 +184,9 @@ components:
   - ref: RELE-INT-230V
     name: Relé de interfaz 1 conmutado 230 V AC/DC
     description: Relé de interfaz enchufable de 6,2 mm, bobina 230 V AC/DC (admite los 220 VAC de Lima), 1 contacto conmutado 6 A 250 VAC (11 común, 12 NC, 14 NA). Verificar con el proveedor.
-    builder: box
+    builder: rele_interfaz
     params: {width: 6.2, depth: 80, height: 90}
+    zonas: *zonas_rele
     weight: 0.035
     specs: {bobina: "230 V AC/DC", contacto: "1 conmutado 6 A 250 VAC", ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact PLC-RSC-230UC/21 / Finder 38.51", cotas_verificadas: false, cost: 16}
     electrico:
@@ -252,8 +260,9 @@ components:
   - ref: PLC-14DI-10DO-24VDC
     name: PLC compacto 14 DI / 10 DO / 2 AI 24 VDC
     description: Controlador lógico programable compacto alimentado a 24 VDC con 14 entradas digitales (I0.0-I1.5, tipo sumidero, para sensores PNP), 10 salidas de transistor (Q0.0-Q1.1, 0,5 A) y 2 entradas analógicas 0-10 V. Verificar con el proveedor.
-    builder: box
+    builder: plc_compacto
     params: {width: 110, depth: 75, height: 100}
+    zonas: &zonas_plc {cuerpo: plastico_ral7035, tapas: plastico_antracita, ventana: pantalla, leds: {acabado: plastico_verde, fijo: true}, placa: {acabado: plastico_blanco, fijo: true}, clip: plastico_negro}
     weight: 0.42
     specs: {DI: 14, DO: 10, AI: 2, alimentacion: "24 VDC", salidas: "transistor 0,5 A", linea_referencia: "orden de Siemens S7-1200 CPU 1214C DC/DC/DC (6ES7214-1AG40-0XB0)", cotas_verificadas: false, cost: 420}
     electrico:

@@ -2,8 +2,9 @@
 `electrico` + `tablero` de cada ref. No importa el catálogo: lo recibe (`catalogo` = un mapa
 ref → `Component`), así la colocación sigue pura y testeable con fichas de prueba.
 
-Cotas: la caja de la ref en el marco de su builder, leída de los params de una `box`
-(width = X, depth = Y, height = Z) o, en otra familia, de `medir(ref) -> (dx, dy, dz)` (quien
+Cotas: la caja de la ref en el marco de su builder, leída de los params de una `box` o de un
+aparato con forma de su familia (`FAMILIAS_APARATO`: su envolvente es esa caja; width = X,
+depth = Y, height = Z) o, en otra familia, de `medir(ref) -> (dx, dy, dz)` (quien
 tiene OCCT pasa el bbox del catálogo). La cara de apoyo (`ficha_tablero.apoyo_de`) dice cuál
 de los tres ejes es el fondo: −Y (la caja) → ancho X, alto Z; −Z (la seta) → ancho X, alto Y.
 En un mando de puerta el fondo es lo de DETRÁS (`tablero.puerta.detras_mm`). D2: lo que no
@@ -15,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 
 from .colocacion_modelo import Acople, Aparato, ColocacionError, Gabinete, clase_de
-from .ficha_tablero import apoyo_de
+from .ficha_tablero import FAMILIAS_APARATO, apoyo_de
 from .referencias import sufijo_sugerencia
 
 Medir = Callable[[str], tuple[float, float, float]]
@@ -23,7 +24,7 @@ Medir = Callable[[str], tuple[float, float, float]]
 
 def _caja(ref: str, comp, medir: Medir | None) -> tuple[float, float, float] | None:
     p = comp.params or {}
-    if comp.familia == "box" and all(isinstance(p.get(k), (int, float)) for k in ("width", "depth", "height")):
+    if (comp.familia == "box" or comp.familia in FAMILIAS_APARATO) and all(isinstance(p.get(k), (int, float)) for k in ("width", "depth", "height")):
         return float(p["width"]), float(p["depth"]), float(p["height"])
     return tuple(float(x) for x in medir(ref)) if medir is not None else None
 

@@ -70,6 +70,12 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   (`builders_mandos.ZONA_DE_COLOR`: el `frente` del `mando_22`) lleva el acabado de su
   `specs.color` (`apariencia.ACABADO_DE_COLOR`, con el origen de cada tono) y `fijo`, o la ref no
   carga; un color nuevo entra en esa tabla. [pedidos-ii](../../../docs/plans/pedidos-de-extensiones-ii.md) (D-a)
+- **Aparatos de tablero** (`builders_aparatos.py` + `aparatos_forma.py`, por zonas): la forma
+  de su familia DENTRO de la envolvente exacta `width` × `depth` × `height` de la caja que eran
+  (nada sale: la colocación lee los params, `ficha_tablero.FAMILIAS_APARATO`). Se construyen UNA
+  vez por proceso (`unir_zonas(memo=True)`): su sólido se comparte, nunca se muta. Un detalle
+  nuevo son caras: mide construir + teselar antes de sumarlo; nada de booleanas en paralelo
+  (orden de caras). [plan](../../../docs/plans/aparatos-de-tablero-realistas.md)
 - Un param nuevo de un builder existente entra con el default que reproduce la geometría de
   antes (la seta `bloques=1`) y un test que la congela (volumen, caras, bbox): así no es bump.
   El interruptor de resguardo y su lengüeta son DOS refs (se compran aparte) del mismo builder.

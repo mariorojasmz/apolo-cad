@@ -20,11 +20,14 @@ import yaml
 from .acuerdos import validar_acuerdo
 from .builders_amortiguador import ANCLAS as _ANCLAS_AMORTIGUADOR
 from .builders_amortiguador import BUILDERS as _BUILDERS_AMORTIGUADOR
+from .builders_aparatos import BUILDERS as _BUILDERS_APARATOS
+from .builders_aparatos import ZONADOS as _ZONADOS_APARATOS
 from .builders import BUILDERS as _BUILDERS_BASE
 from .builders_fijacion import BUILDERS as _BUILDERS_FIJACION
 from .builders_mandos import ANCLAS as _ANCLAS_MANDOS
 from .builders_mandos import BUILDERS as _BUILDERS_MANDOS
-from .builders_mandos import ZONA_DE_COLOR, ZONADOS
+from .builders_mandos import ZONA_DE_COLOR
+from .builders_mandos import ZONADOS as _ZONADOS_MANDOS
 from .builders_neumatica import ANCLAS as _ANCLAS_NEUMATICA
 from .builders_neumatica import BUILDERS as _BUILDERS_NEUMATICA
 from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
@@ -72,9 +75,12 @@ def merge_anclas(builders: dict, *registros: dict) -> dict:
 
 BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION,
                           _BUILDERS_MANDOS, _BUILDERS_FIJACION, _BUILDERS_TABLERO,
-                          _BUILDERS_NEUMATICA, _BUILDERS_AMORTIGUADOR)
+                          _BUILDERS_NEUMATICA, _BUILDERS_AMORTIGUADOR, _BUILDERS_APARATOS)
 ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES, _ANCLAS_MANDOS,
                       _ANCLAS_NEUMATICA, _ANCLAS_AMORTIGUADOR)
+#: los builders que dan partes por zona: los mandos y los aparatos de tablero (plan
+#: aparatos-de-tablero-realistas D4)
+ZONADOS = _ZONADOS_MANDOS | _ZONADOS_APARATOS
 
 
 def _zonas_de(item: dict, builder_name: str, ref: str):
@@ -121,7 +127,7 @@ def _component_from_item(item: dict, category: str):
     anclas_fn = ANCLAS.get(builder_name)
     zonas = _zonas_de(item, builder_name, ref)
     if zonas is not None:  # el builder da {zona: forma}; build_component recibe el sólido
-        builder_fn = unir_zonas(builder_fn, zonas, ref)
+        builder_fn = unir_zonas(builder_fn, zonas, ref, memo=builder_name in _ZONADOS_APARATOS)
 
     specs = item.get("specs", {})
     validar_acuerdo(specs, ref)  # r1/r2/pendiente_ala de norma (plan perfiles-con-acuerdo D1)

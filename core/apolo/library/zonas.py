@@ -105,15 +105,24 @@ def zona_de_color(ref: str | None) -> str | None:
     return ZONA_DE_COLOR.get(comp.familia)
 
 
-def unir_zonas(builder_fn, zonas: tuple[Zona, ...], ref: str):
+def unir_zonas(builder_fn, zonas: tuple[Zona, ...], ref: str, *, memo: bool = False):
     """Envuelve un builder que devuelve `{zona: forma}` en uno que devuelve el SÓLIDO (lo que
     espera `build_component`) y deja la huella de sus caras. Las partes deben ser exactamente
-    las zonas del YAML; la prioridad entre caras coincidentes es el orden del YAML."""
+    las zonas del YAML; la prioridad entre caras coincidentes es el orden del YAML.
+
+    `memo=True` (los aparatos de tablero, plan aparatos-de-tablero-realistas D5): la ref se
+    construye UNA vez por proceso y cada llamada devuelve el mismo sólido (las booleanas de sus
+    detalles cuestan 0,07–0,33 s y un tablero las pediría en cada regenerate). Es seguro porque
+    ningún executor muta un shape en sitio (regla de la raíz): quien lo coloca hace una copia
+    ubicada que comparte el TShape, como una instancia."""
     from apolo.kernel.zonas import fusionar_zonas
 
     nombres = [z.nombre for z in zonas]
+    hechos: dict = {}
 
     def construir(length):
+        if memo and length in hechos:
+            return hechos[length]
         partes = builder_fn(length)
         if not isinstance(partes, dict) or set(partes) != set(nombres):
             dadas = sorted(partes) if isinstance(partes, dict) else type(partes).__name__
@@ -121,6 +130,8 @@ def unir_zonas(builder_fn, zonas: tuple[Zona, ...], ref: str):
                              f"declara {sorted(nombres)}")
         solido, por_cara = fusionar_zonas({n: partes[n] for n in nombres})
         construir.huella = _Huella(len(por_cara), float(solido.volume), por_cara)
+        if memo:
+            hechos[length] = solido
         return solido
 
     construir.huella = None  # la deja la primera construcción
