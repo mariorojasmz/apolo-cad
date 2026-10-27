@@ -88,6 +88,11 @@ está en `src/diseno/`; `useConfirmar` todavía NO existe: se propone en un plan
 - **Lo técnico suma detalle a pedido, no a la vista**: ids de pieza (`c45_2`), command ids,
   rutas, nombres de parámetros y JSON van en `<VerDetalle>`. Excepción deliberada: el árbol y
   el buscador muestran el id porque el usuario lo usa para hablar con el agente.
+- **Un aparato, un mando o una pieza se nombran por lo que HACEN** («Interruptor general»,
+  «Tapa del tanque»). La designación IEC (`-Q1`) o el id va detrás, chico y en tinta secundaria;
+  nunca solo, ni como lo principal. Quien entra de frente a probar no tiene que abrir el plano.
+  El nombre lo da el servidor, nunca una tabla de la UI.
+  [nombres-por-funcion](../docs/plans/nombres-por-funcion.md)
 
 ### Qué dice cada texto
 

@@ -74,6 +74,17 @@ def test_un_vastago_que_pandea_dice_sus_cifras_y_señala_el_cilindro(banco):
     assert "corregir" in p["veredicto"]["frase"] and p["veredicto"]["severidad"] == "falla"
 
 
+def test_el_aviso_de_esbeltez_sin_fy_no_dice_que_pandea():
+    """Un vástago corto sin fy sale AVISO (λ < LAMBDA_SIN_FY): con FS 109 el panel decía «pandea»."""
+    fila = {"regla": "pandeo del vástago", "estado": "aviso", "elementos": ["-MM1"],
+            "valor": {"F_adm_N": 9000.0, "F_N": 250.0, "fs": 109.0, "lambda": 45.0, "largo_mm": 60}}
+    frase, detalle = P._frase_memoria(fila)
+    assert "pandea" not in frase and frase == "Falta el límite elástico del vástago de -MM1"
+    assert "109" in detalle and "45" in detalle
+    frase_error, _ = P._frase_memoria({**fila, "estado": "error", "valor": {**fila["valor"], "fs": 1.7}})
+    assert frase_error.startswith("El vástago de -MM1 pandea")
+
+
 def test_el_detalle_por_cilindro(panel, banco):
     _d, cid = banco
     (c,) = panel["detalle"]["cilindros"]

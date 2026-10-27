@@ -133,6 +133,12 @@ def _frase_erc(regla: str, filas: list[dict]) -> tuple[str, str | None]:
 def _frase_memoria(f: dict) -> tuple[str, str | None]:
     regla, v = f["regla"], f.get("valor") or {}
     des = (f.get("elementos") or [""])[0]
+    if regla == "pandeo del vástago" and "F_adm_N" in v and f.get("estado") != "error":
+        # el aviso de λ bajo sin fy (calculo.pandeo_vastago): Euler puede sobreestimar, no pandea
+        return (f"Falta el límite elástico del vástago de {des}",
+                f"Es corto para la fórmula de Euler (λ = {n(v.get('lambda', 0), 0)}) y da un factor de seguridad "
+                f"de {n(v['fs'], 2)}; sin el límite elástico no se verifica con Johnson. Declara el material del "
+                "vástago.")
     if regla == "pandeo del vástago" and "F_adm_N" in v:
         return (f"El vástago de {des} pandea: admite {fuerza(v['F_adm_N'])} contra {fuerza(v['F_N'])}",
                 f"Con {n(v.get('largo_mm', 0), 0, 'mm')} libres el factor de seguridad queda en "
