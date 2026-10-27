@@ -10,7 +10,7 @@
 
 Coreografía de una corrida (D11): (a) bajo `STATE_LOCK`, el snapshot (`snapshot_cosim`), la firma
 del documento y el hash del escenario; (b) FUERA de todo lock, el worker en su proceso
-(`cosim.proceso`, que serializa con `COSIM_LOCK`); (c) el veredicto, puro; (d) bajo `STATE_LOCK`,
+(`cosim.proceso`, con cupos en `COSIM_LOCK`); (c) el veredicto, puro; (d) bajo `STATE_LOCK`,
 el resultado compacto al manifest SÓLO si el documento activo sigue siendo el del snapshot. Con
 `?async=true` la corrida va a `COSIM_JOBS` (su cola, una a la vez) y vuelve el recibo.
 Las trazas completas viven en memoria (`SIMULACIONES`, las últimas 8): nunca en el `.apolo`.

@@ -76,6 +76,9 @@ backend: [core/apolo](../CLAUDE.md).
   `cosim`, `plc` y la física SIN OCCT (`physics/dinamica_{integrador,arrastre,control,datos}`,
   `sensores`, `sim`): un import nuevo de ahí pasa el gate de `test_cosim_worker.py` o va al
   snapshot (`services/cosim_snapshot.py`). El resultado vuelve en JSON, nunca pickle.
+- **Varias corridas a la vez**: `proceso.COSIM_LOCK` es un semáforo de `APOLO_COSIM_PARALELO`
+  cupos (default mín(núcleos − 2, RAM/4 ÷ 512 MB, 4); 1 = en fila): nada puede depender de la
+  exclusión, cada corrida es su proceso. [cosim-en-paralelo](../../../docs/plans/cosim-en-paralelo.md)
 - **Un solo paso para el lote y el vivo**: `corrida.Corrida.intercambio` (V8.4). Lo que cambie el
   intercambio va AHÍ, nunca en una copia del bucle; una acción en vivo entra con
   `Agenda.inyectar` en el PRÓXIMO intercambio y su error es rechazo de esa acción (la corrida

@@ -74,7 +74,8 @@ def _avisar_job(cambio: dict) -> None:
 # la request. Vive en MEMORIA: un reload los pierde (son recibos, no datos).
 JOBS = JobStore(al_cambiar_estado=_avisar_job)
 # La co-simulación (V8.3 D11) tiene su PROPIA cola: una corrida dura minutos y en `JOBS` dejaría
-# esperando a las mutaciones. Un worker = una co-simulación a la vez; `GET /api/jobs/{id}` mira
+# esperando a las mutaciones. Un worker = un job a la vez (los cupos de `cosim.proceso.COSIM_LOCK`
+# los comparte con las corridas de una extensión); `GET /api/jobs/{id}` mira
 # las dos colas (el recibo es el mismo para el agente).
 COSIM_JOBS = JobStore(al_cambiar_estado=_avisar_job)
 # Los entregables largos (memoria, manual: plan manual-rapido F2) también tienen la suya: son

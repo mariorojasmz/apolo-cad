@@ -213,7 +213,10 @@ ARCHIVOS = (
 #: banco (empujador sano, su corte de aire, la biestable, el presostato y el desviador Ø63 de 5/3
 #: con la seta a media carrera) dan la MISMA huella, finales, hipótesis, avisos y eventos que en
 #: baba86d.
-HUELLA: tuple[int, str] = (9, "d152f592e03f43af")
+#: cosim-en-paralelo (sin subir): `COSIM_LOCK` pasa de lock a semáforo de `APOLO_COSIM_PARALELO`
+#: cupos (`cosim/proceso.py`); cada corrida sigue siendo su propio proceso con el mismo snapshot:
+#: 6 corridas a la vez de `flujo_nominal` de la faja 77 con desviador dan UNA sola huella.
+HUELLA: tuple[int, str] = (9, "fb1735a355daa7da")
 
 
 def archivos() -> list[Path]:

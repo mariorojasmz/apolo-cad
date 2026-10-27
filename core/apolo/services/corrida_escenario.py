@@ -7,7 +7,7 @@ pedidos-de-extensiones-iii, D1–D4): la API que una extensión usa para su prop
   escenario que el núcleo no toma es `EscenarioRechazado`, con el texto EXACTO del 400/404 que
   daría `POST /api/cosim/run`.
 - `correr_corrida(preparada)`: FUERA de todo lock. El worker en su proceso (`cosim.proceso`, que
-  pone las corridas en fila con `COSIM_LOCK`); devuelve su JSON tal cual (trazas, eventos, final,
+  deja correr `COSIM_PARALELO` a la vez con `COSIM_LOCK`); devuelve su JSON tal cual (trazas, eventos, final,
   hipótesis, resumen con la huella). Si el worker no devuelve resultado: `CorridaFallida`.
 
 Es el mismo camino que los pasos (a) y (b) de la API (`api/routers/cosim.py::_correr`), sin lo que
@@ -67,8 +67,8 @@ def preparar_corrida(doc, escenario, *, programas: list[dict] | None = None) -> 
 
 
 def correr_corrida(preparada: CorridaPreparada, *, timeout_s: float | None = None) -> dict:
-    """El resultado del worker para una corrida preparada. FUERA de todo lock; espera su turno
-    tras las demás corridas. `CorridaFallida` si el worker no devuelve resultado."""
+    """El resultado del worker para una corrida preparada. FUERA de todo lock; espera un cupo
+    de `COSIM_LOCK` (una extensión puede lanzar varias desde sus hilos). `CorridaFallida` si el worker no devuelve resultado."""
     from apolo.cosim.proceso import CosimError, correr_en_proceso
 
     try:
