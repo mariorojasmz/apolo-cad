@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; faltan F0b (auditar los umbrales de los 28 ítems), F1 (el tensor cuenta lo que estira el lazo y suma los tensores), F2 (sólo la cuña de ENTRADA cuando se conoce el sentido), F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; faltan F0b (auditar los umbrales de los 30 ítems), F1 (el tensor cuenta lo que estira el lazo y suma los tensores), F2 (sólo la cuña de ENTRADA cuando se conoce el sentido), F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -151,7 +151,7 @@ física y la norma piden, y que nada detecta una pieza de protección que sobra.
   3 × 24 mm). Falta: el `Δlazo` de cada tensor de esa faja con D1; qué cuña bloquea cada guarda;
   lo mismo en `create_belt_conveyor` por defecto y en 2 variantes (una grande), y el costo de una
   re-corrida por guarda.
-- **F0b — auditar los umbrales (S, sólo lectura).** Los 28 ítems de `calidad/registro.py`: la
+- **F0b — auditar los umbrales (S, sólo lectura).** Los 30 ítems de `calidad/registro.py`: la
   cifra de cada uno, su fuente y si pide más que ella (D10). Primeros sospechosos: vida
   L10 ≥ 20 000 h fija (es la de una máquina de 8 h/día a plena carga; una intermitente pide menos),
   factor de servicio ≥ 1,25 fijo (depende del tipo de carga) y FS de pandeo ≥ 3.
