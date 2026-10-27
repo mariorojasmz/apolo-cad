@@ -235,14 +235,29 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3",
                            async_, origen)
 
 
+@router.get("/api/drawingset.dxf")
+def drawingset_dxf(template: str = "generico", sheet: str = "A3",
+                   async_: bool = Query(False, alias="async"), origen: str | None = None) -> Response:
+    """Juego de planos en DXF: un ZIP con un DXF por lámina (como el DWG, sin necesitar el ODA
+    File Converter). Con `?async=true` va como JOB (plan visor-para-evaluar D12)."""
+    return _job_entregable("drawing_set_dxf", lambda proyecto: _juego_zip(proyecto, template, sheet, "dxf"),
+                           async_, origen)
+
+
 def _juego_dwg(proyecto, template: str, sheet: str) -> Response:
+    return _juego_zip(proyecto, template, sheet, "dwg")
+
+
+def _juego_zip(proyecto, template: str, sheet: str, formato: str) -> Response:
+    """El juego en un ZIP con un archivo por lámina (DWG o DXF: ninguno es multipágina)."""
     import io as _io
     import zipfile
 
-    from apolo.drawing import DwgError, sheet_set, sheet_to_dwg
+    from apolo.drawing import DwgError, sheet_set, sheet_to_dwg, sheet_to_dxf
 
     from .. import planos
 
+    escribir = sheet_to_dwg if formato == "dwg" else sheet_to_dxf
     planos.precalcular(proyecto)
     with STATE_LOCK:
         _mismo_proyecto(proyecto)
@@ -257,12 +272,14 @@ def _juego_dwg(proyecto, template: str, sheet: str) -> Response:
     try:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for i, page in enumerate(pages, start=1):
-                zf.writestr(f"{base}-hoja-{i:02d}.dwg", sheet_to_dwg(page))
+                datos = escribir(page)
+                zf.writestr(f"{base}-hoja-{i:02d}.{formato}",
+                            datos.encode("utf-8") if isinstance(datos, str) else datos)
     except DwgError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(
         content=buf.getvalue(), media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{base}-planos-dwg.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{base}-planos-{formato}.zip"'},
     )
 
 

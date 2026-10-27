@@ -96,6 +96,7 @@ export default function DrawingDialog() {
           ) : (
             <>
               <button onClick={() => void pedirJuego("pdf", sheet, setJuego)}>Juego de planos (PDF)</button>
+              <button onClick={() => void pedirJuego("dxf", sheet, setJuego)}>DXF</button>
               {dwg && <button onClick={() => void pedirJuego("dwg", sheet, setJuego)}>DWG</button>}
             </>
           )}

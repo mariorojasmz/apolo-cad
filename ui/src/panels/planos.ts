@@ -90,18 +90,21 @@ export function usePlano(query: string | null): EstadoPlano {
   return e;
 }
 
+export type FormatoJuego = "pdf" | "dxf" | "dwg";
+
 export interface EstadoJuego {
-  formato: "pdf" | "dwg" | null;
+  formato: FormatoJuego | null;
   encolado: boolean;
   progreso?: ProgresoJob;
   error: string | null;
 }
 
-/** Pide el juego de planos de taller como job (PDF o DWG) y lo baja al terminar. */
+/** Pide el juego de planos de taller como job (PDF, o un ZIP con un DXF o un DWG por lámina) y
+   lo baja al terminar. */
 export async function pedirJuego(
-  formato: "pdf" | "dwg", sheet: string, alCambiar: (e: EstadoJuego) => void,
+  formato: FormatoJuego, sheet: string, alCambiar: (e: EstadoJuego) => void,
 ): Promise<void> {
-  const ruta = formato === "pdf" ? "/api/drawingset.pdf" : "/api/drawingset.dwg";
+  const ruta = `/api/drawingset.${formato}`;
   alCambiar({ formato, encolado: true, error: null });
   try {
     const id = await encolar(`${ruta}?sheet=${sheet}&async=true&origen=visor`);

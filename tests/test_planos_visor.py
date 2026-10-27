@@ -223,3 +223,21 @@ def test_sin_worker_el_hlr_sale_en_el_proceso_y_lo_avisa(monkeypatch, caplog):
         p.calcular()
     assert "no arrancó" in caplog.text
     assert sheet_to_svg(compose_sheet(doc.scene, project_name="p")) == directa
+
+
+def test_el_juego_en_dxf_es_un_zip_con_un_dxf_por_lamina_sin_oda():
+    import io
+    import zipfile
+
+    api.DOC = _doc()
+    c = TestClient(api.app)
+    r = c.get("/api/drawingset.dxf?async=true&origen=visor")
+    assert r.status_code == 202
+    job = _esperar(c, r.json()["job_id"])
+    assert job["estado"] == "ok" and job["resultado"]["tipo"] == "application/zip"
+    zf = zipfile.ZipFile(io.BytesIO(c.get(job["resultado"]["archivo"]).content))
+    nombres = zf.namelist()
+    assert nombres and all(n.endswith(".dxf") for n in nombres)
+    assert b"SECTION" in zf.read(nombres[0])  # un DXF de verdad
+    directo = c.get("/api/drawingset.dxf")  # sin ?async, la respuesta de siempre
+    assert directo.status_code == 200 and directo.headers["content-type"] == "application/zip"
