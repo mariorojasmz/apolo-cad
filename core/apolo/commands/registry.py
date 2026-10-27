@@ -262,7 +262,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec("ground", "Anclaje a tierra", "ensamblaje", GroundParams, _exec_ground),
         CommandSpec(
             "join_bolted", "Unión atornillada", "ensamblaje", JoinBoltedParams, _exec_join_bolted,
-            al_crear=_sellar_join_bolted,
+            al_crear=_sellar_join_bolted, version=2,  # v2: el remache declara su Ø «Ø4.8» (F3f)
         ),
         CommandSpec(
             "create_group", "Grupo / sub-ensamblaje", "ensamblaje", CreateGroupParams,

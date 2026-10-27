@@ -78,7 +78,8 @@ def test_d1_tubo_cerrado_lleva_remache_ciego_que_no_toca_la_pared_de_enfrente():
     quitado = vol0 - doc.scene[t].shape.volume
     assert quitado == pytest.approx(2 * 3.14159 * 2.45 ** 2 * 3.2, rel=0.08)
     f = doc.fasteners[f"jb_{cid}"]
-    assert f["kind"] == "perno" and f["size"] is None and f["qty"] == 2
+    # el remache declara su Ø de cuerpo: la unión se dimensiona (puerta-sin-sobrediseno F3f)
+    assert f["kind"] == "perno" and f["size"] == "Ø4.8" and f["qty"] == 2
     assert f["fijacion"] == "Remache ciego Ø4.8×10 DIN 7337"
     _acceso_ok(doc)
 

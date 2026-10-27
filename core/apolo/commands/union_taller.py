@@ -224,6 +224,7 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
     from apolo.library.builders import hex_nut
     from apolo.library.catalog import CATALOG
     from apolo.library.engineering.bolts import hex_nut_mm
+    from apolo.library.engineering.remaches import designacion
     from apolo.library.fijacion import paso_grueso
     from apolo.library.herramientas import LARGO_LIBRE_COPA_MM
 
@@ -299,7 +300,10 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
             )
     if p.criterio >= 5 and fij.tipo != "tornillo_madera":
         _exigir_bordes(h, base, anadida, puntos, medidas, fij.d)
-    fijador = {"kind": "perno", "size": size if fij.tipo == "perno" else None,
+    # el remache ciego declara su Ø de cuerpo (DIN 7337, «Ø4.8»): se dimensiona como unión
+    # remachada (F3f de puerta-sin-sobrediseno); el tornillo para madera aún no tiene cálculo
+    fijador = {"kind": "perno", "size": (size if fij.tipo == "perno" else designacion(fij.d)
+                                         if fij.tipo == "remache" else None),
                "qty": len(puntos), "nota": p.name}
     if fij.tipo != "perno":
         fijador["fijacion"] = fij.nombre

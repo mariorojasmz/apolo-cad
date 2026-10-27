@@ -148,7 +148,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   «*agujero*»: pies y brida del cilindro), atornilla por ellos (`union_agujeros.py`). Un criterio
   nuevo, no un cambio del viejo: el que cambia qué inserta `join_bolted` es un número más. Lo pone el SELLO de entrada (`CommandSpec.al_crear`,
   `doc/sello.py`), con `madera` = las piezas de madera al crear: el replay y los edits no sellan,
-  por eso no hubo `version` ni epoch. Cambiar el criterio 1 rompe logs guardados.
+  por eso no hubo `version` ni epoch. Cambiar el criterio 1 rompe logs guardados. v2 (F3f de
+  puerta-sin-sobrediseno): el `fasten` de un remache declara su Ø («Ø4.8»), en todo criterio; misma
+  geometría, pero el checkpoint de la caché guarda los fasteners: un dato que cambia lo que el
+  executor deja en `RegenState` también sube la `version`.
   [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md) ·
   [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md)
 

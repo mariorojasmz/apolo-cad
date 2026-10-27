@@ -41,8 +41,9 @@ class FastenParams(BaseModel):
     b: str = Field(..., title="Sólido B", description=_CONJUNTO)
     kind: Literal["perno", "soldadura", "pegado", "contacto"] = Field("perno", title="Tipo de unión")
     size: str | None = Field(
-        None, pattern=r"^M\d{1,2}$", title="Métrica del perno",
-        description="solo kind='perno' (M3–M24, ISO 898-1); si falta, el chequeo la reporta como no "
+        None, pattern=r"^(M\d{1,2}|Ø\d{1,2}(\.\d)?)$", title="Métrica del perno",
+        description="solo kind='perno' (M3–M24, ISO 898-1); un REMACHE ciego declara su Ø de cuerpo "
+        "(DIN 7337: 'Ø3.2', 'Ø4', 'Ø4.8', 'Ø6.4'); si falta, el chequeo la reporta como no "
         "verificable",
     )
     qty: int | None = Field(None, ge=1, le=100, title="Nº de pernos de la unión")

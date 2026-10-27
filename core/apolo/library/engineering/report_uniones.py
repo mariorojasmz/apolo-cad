@@ -11,6 +11,7 @@ from ..materials import resolve_material, yield_strength
 from ..rules import _check
 from .bolts import TENSILE_AREA_MM2, bolt_shear_capacity_n
 from .loads import hanging_load_kg
+from .remaches import diametro as diametro_remache
 from .report_comun import G
 from .welds import weld_allowable_mpa, weld_throat_stress_mpa
 
@@ -21,6 +22,50 @@ def _weaker_yield(fa, fb, catalog) -> tuple[float, str]:
     mb = resolve_material(fb, catalog)
     ya, yb = yield_strength(ma), yield_strength(mb)
     return (ya, ma) if ya <= yb else (yb, mb)
+
+
+def _remachada(f: dict, label: str, load_kg: float | None, qty: int, qty_par: int) -> dict:
+    """La unión remachada (`size` «Ø4.8», DIN 7337): cortante de los remaches con la capacidad
+    de `remaches.capacidad_corte_n` (criterio declarado allí), como la de pernos."""
+    from .remaches import NORMA, capacidad_corte_n
+
+    size, nombre = f.get("size"), f"unión remachada · {f.get('name')}"
+    cap = capacidad_corte_n(size)
+    if cap is None:
+        return _check(nombre, "aviso", f"{label}: remache '{size}' fuera de tabla "
+                      "(DIN 7337: Ø3.2, Ø4, Ø4.8, Ø6.4).")
+    if load_kg is None:
+        return _check(nombre, "ok", f"{label}: {qty}× remache {size} en camino de carga "
+                      "redundante — favorable estructuralmente; el reparto no es determinable "
+                      "sin FEA, se asume compartido entre caminos.")
+    load_n = load_kg * G
+    util = load_n / (qty_par * cap) if cap > 0 else float("inf")
+    extra = f" ({qty_par} remaches totales en el par)" if qty_par > qty else ""
+    calc = {
+        "titulo": f"Unión remachada {f.get('name')}",
+        "entradas": {"masa colgante": f"{load_kg:.1f} kg (grafo de conectividad)",
+                     "carga": f"{load_n:.0f} N",
+                     "remaches": f"{qty_par}× ciego {size} DIN 7337, inoxidable A2{extra}",
+                     "capacidad/ud": f"{cap:.0f} N (0,6·Rm·A_cuerpo/1,25)"},
+        "formula": "u = F / (n · Fv)",
+        "sustitucion": f"u = {load_n:.0f} / ({qty_par}·{cap:.0f})",
+        "resultado": f"u = {util:.2f} ({util * 100:.0f}% de la capacidad a cortante)",
+        "criterio": "u ≤ 0.7 holgado · 0.7–1.0 justo · >1.0 sobrecargada",
+        "fs": round(1.0 / util, 2) if util > 0 else None,
+        "norma": NORMA,
+    }
+    hip = ["El aplastamiento de las chapas (EN 1993-1-3 tabla 8.1) no se calcula: la unión "
+           "declarada no trae el espesor de lo que remacha."]
+    det = (f"{label}: {load_kg:.1f} kg cuelgan de {qty_par}× remache {size} → utilización "
+           f"{util * 100:.0f}% a cortante.")
+    if util > 1.0:
+        r = _check(nombre, "error", det, "Sube el Ø del remache, añade remaches o pasa a perno "
+                   "con tuerca.", calc=calc)
+    elif util > 0.7:
+        r = _check(nombre, "aviso", det, "Margen justo: considera un remache más.", calc=calc)
+    else:
+        r = _check(nombre, "ok", det, calc=calc)
+    return {**r, "hipotesis": hip}
 
 
 def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
@@ -51,6 +96,10 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
             size, qty = f.get("size"), int(f.get("qty") or 1)
             if not size:
                 sin_size.append(str(f.get("name")))
+                continue
+            if diametro_remache(size) is not None:  # «Ø4.8»: unión remachada (F3f)
+                checks.append(_remachada(f, label, load_kg, qty,
+                                         max(pair_bolts[frozenset((a, b))], qty)))
                 continue
             if size.upper() not in TENSILE_AREA_MM2:
                 checks.append(_check(

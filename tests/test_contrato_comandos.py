@@ -314,7 +314,10 @@ VERSIONES: dict[str, tuple[int, str]] = {
     # v2: anclas de perfil abierto; criterio 2 (F6): un log viejo trae 1 → misma geometría y firma
     "insert_component": (2, "26b05f2f1a36a2ed"),
     "insert_project": (1, "01664975967281c6"),
-    "join_bolted": (1, "24fbb11752560dc0"),  # criterio 2 (union-en-perfil-hueco): un log viejo trae 1 → misma geometría y firma
+    # criterio 2 (union-en-perfil-hueco): un log viejo trae 1 → misma geometría y firma; v2
+    # (puerta-sin-sobrediseno F3f): el `fasten` de un remache declara su Ø («Ø4.8»; el checkpoint
+    # cacheado guarda los fasteners: sin la versión, un open caliente lo serviría sin tamaño)
+    "join_bolted": (2, "24fbb11752560dc0"),
     # V8.5 F1b: comando nuevo; v2 (pedidos-de-extensiones-ii D3): corta redondo toda ref con
     # `specs.agujero` (el cambio vive en tablero_geom.py, que la huella no ve); sólo huella
     # (trabas-de-modelado D7): pasa su cmd_id a `plan` para el mensaje de la reserva, misma geometría
