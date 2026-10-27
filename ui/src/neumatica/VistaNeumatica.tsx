@@ -100,7 +100,7 @@ function FichaCilindro({ c, nombre, onEncuadrar }: {
         <div className="tb-fila nm-cabeza">{cabeza}</div>
       )}
       <dl className="nm-cifras">
-        {c.fuerza && <><dt>Fuerza a {cifra(c.fuerza.p_bar, Number.isInteger(c.fuerza.p_bar) ? 0 : 1, "bar")}</dt><dd>{textoFuerza(c.fuerza).map((t) => <span key={t} className="nm-linea">{t}</span>)}</dd></>}
+        {c.fuerza && <><dt>Fuerza a{" "}{cifra(c.fuerza.p_bar, Number.isInteger(c.fuerza.p_bar) ? 0 : 1, "bar")}</dt><dd>{textoFuerza(c.fuerza).map((t) => <span key={t} className="nm-linea">{t}</span>)}</dd></>}
         {c.consumo && <><dt>Consumo de aire</dt><dd>{textoConsumo(c.consumo)}</dd></>}
         {t && <><dt>Tiempo de carrera</dt><dd>{t.cifras}<span className="nm-origen">{t.origen}</span></dd></>}
       </dl>

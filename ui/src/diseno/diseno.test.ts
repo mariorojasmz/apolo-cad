@@ -16,9 +16,9 @@ import { ITEMS_TABLERO } from "./muestrario/datos";
 
 describe("cifra", () => {
   it("coma decimal, espacio de miles, unidad separada y grados pegados", () => {
-    expect(cifra(1799, 0, "rpm")).toBe("1 799 rpm");
-    expect(cifra(3.814, 2, "A")).toBe("3,81 A");
-    expect(cifra(64, 0, "%")).toBe("64 %");
+    expect(cifra(1799, 0, "rpm")).toBe("1 799\u00a0rpm");
+    expect(cifra(3.814, 2, "A")).toBe("3,81\u00a0A");
+    expect(cifra(64, 0, "%")).toBe("64\u00a0%");
     expect(cifra(90, 0, "°")).toBe("90°");
     expect(cifra(-2.5, 1)).toBe("−2,5");
     expect(cifra(-0.001, 1)).toBe("0,0");
@@ -62,7 +62,7 @@ describe("veredicto e ítems de atención", () => {
       h(ItemsAtencion, { items: queAtender(ITEMS_TABLERO), rotulo: "Lo que pide atención en el tablero" })));
     expect(html).toContain(v.frase);
     expect(html).toContain('aria-live="polite"');
-    expect(html).toContain("64 %");
+    expect(html).toContain("64\u00a0%");
     expect(html).toContain('aria-label="Para revisar: ');
     expect(html).toContain('role="img" aria-label="Para corregir"'); // el ícono se dice, no sólo se ve
     const conAccion = queAtender(ITEMS_TABLERO).filter((x) => x.accion).length;
@@ -98,7 +98,7 @@ describe("deslizador", () => {
     expect(decimalesDelPaso(0.1)).toBe(1);
     expect(decimalesDelPaso(0.25)).toBe(2);
     expect(textoDeslizador(90, 1, "°")).toBe("90°");
-    expect(textoDeslizador(45.5, 0.5, "mm")).toBe("45,5 mm");
+    expect(textoDeslizador(45.5, 0.5, "mm")).toBe("45,5\u00a0mm");
     expect(textoDeslizador(0.333, 0.01)).toBe("0,33");
   });
   it("rótulo asociado y valor con unidad para el lector; compacto deja el rótulo en aria-label", () => {
@@ -109,7 +109,7 @@ describe("deslizador", () => {
     const compacto = renderToStaticMarkup(h(Deslizador, { compacto: true, rotulo: "Posición del corte", valor: 30, min: 0, max: 100, unidad: "%", onCambio: () => {} }));
     expect(compacto).not.toContain("<label");
     expect(compacto).toContain('aria-label="Posición del corte"');
-    expect(compacto).toContain('aria-valuetext="30 %"');
+    expect(compacto).toContain('aria-valuetext="30\u00a0%"');
   });
 });
 

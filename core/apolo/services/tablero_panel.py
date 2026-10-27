@@ -278,9 +278,9 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
     ev = tablero_calor.evaluacion(doc, m, t)
     fila = next(iter(tablero_calor.reglas(doc, m, [t], {t.cid: ev})), None)
     gab = f"{t.cid}_gabinete"
-    nombres = Nombres(doc, m)  # nombres-por-funcion F1: «Interruptor general (-Q1)», no «-Q1»
+    nombres = Nombres(doc, m)  # nombres-por-funcion F1/F5b: «el interruptor general (-Q1)», no «-Q1»
     for a, b in (tablero_atencion.calor(ev, gab, piezas, fila["detalle"] if fila else None,
-                                        nombre=nombres.con_designacion),
+                                        nombre=lambda des: nombres.con_designacion(des, frase=True)),
                  tablero_atencion.prensaestopas(prensas := tablero_prensas.del_tablero(doc, m, t), gab)):
         atender += a
         bien += b

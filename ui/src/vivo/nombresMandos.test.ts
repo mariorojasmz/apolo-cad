@@ -5,8 +5,8 @@ import { INICIO_DEMO } from "../diseno/muestrario/datosVivo";
 import { INICIAL, useVivo } from "./estado";
 import { CabezaAparato, FilaMando } from "./FilaMando";
 import {
-  designacionSecundaria, estadoJuntoAlBoton, gruposDeMandos, nombrePrincipal, segmentoLeido, segmentosDe, veredictoMandos,
-  type Leidas,
+  designacionSecundaria, estadoJuntoAlBoton, gruposDeMandos, muestraColorFisico, nombrePrincipal, segmentoLeido, segmentosDe,
+  veredictoMandos, type Leidas,
 } from "./nombresMandos";
 import { ListaMandos } from "./PanelMandos";
 import type { InicioVivo, MandoVivo } from "./protocolo";
@@ -98,13 +98,16 @@ describe("el veredicto (D12)", () => {
   const ini = INICIO_DEMO;
   const base = { "-Q1.cerrado": 1, "-S0.accionado": 0, "-B1.cerrado": 1, "-B4.cerrado": 1, "-K2.salidas": 1, "-K3.salidas": 1 };
 
-  it("en orden de bloqueo, sólo con lo leído; lo demás que bloquea va en la nota", () => {
-    expect(veredictoMandos(ini, leidas({ ...base, "-Q1.cerrado": 0, "-S0.accionado": 1 }))).toEqual(
-      { severidad: "aviso", frase: "Sin energía", nota: "Parada de emergencia presionada" });
+  it("el título es la causa leída y la nota, la acción siguiente de los mismos hechos (F5b)", () => {
+    expect(veredictoMandos(ini, leidas({ ...base, "-Q1.cerrado": 0, "-S0.accionado": 1 }))).toEqual({
+      severidad: "aviso", frase: "Sin energía", nota: "Enciende el interruptor general", paso: { designacion: "-Q1", clave: "cerrado" } });
+    expect(veredictoMandos(ini, leidas({ ...base, "-S0.accionado": 1, "-K2.salidas": 0 }))).toEqual({
+      severidad: "aviso", frase: "Parada de emergencia presionada", nota: "Libera la parada de emergencia", paso: { designacion: "-S0" } });
     expect(veredictoMandos(ini, leidas({ ...base, "-B1.cerrado": 0, "-K2.salidas": 0 }))).toEqual({
-      severidad: "aviso", frase: "Tapa del tanque abierta",
-      nota: "Seguridad de parada de emergencia y tapa del tanque corta la marcha" });
-    expect(veredictoMandos(ini, leidas({ ...base, "-B4.cerrado": 0 }))!.frase).toBe("Recipiente bajo la descarga: sin recipiente");
+      severidad: "aviso", frase: "Tapa del tanque abierta", nota: "Cierra la tapa del tanque", paso: { designacion: "-B1", clave: "cerrado" } });
+    // un estado declarado que no es «cerrado»: la acción lo dice con su nombre
+    expect(veredictoMandos(ini, leidas({ ...base, "-B4.cerrado": 0 }))).toMatchObject({
+      frase: "Recipiente bajo la descarga: sin recipiente", nota: "Pon el recipiente bajo la descarga en «Acoplado»" });
   });
 
   it("sin nada que bloquee: energía y seguridad habilitadas, nunca «lista para arrancar»", () => {
@@ -112,11 +115,53 @@ describe("el veredicto (D12)", () => {
     expect(veredictoMandos(ini, leidas({}))).toBeNull(); // nada leído todavía
   });
 
-  it("si cortan todos los relés, «La seguridad corta la marcha»; si sólo uno, cuál", () => {
-    const uno: Pick<InicioVivo, "mandos" | "dispositivos"> = { mandos: [], dispositivos: ini.dispositivos.filter((d) => d.designacion !== "-K3") };
-    expect(veredictoMandos(uno, leidas({ "-K2.salidas": 0 }))!.frase).toBe("La seguridad corta la marcha");
-    expect(veredictoMandos(ini, leidas({ ...base, "-K2.salidas": 0, "-K3.salidas": 0 }))!.frase).toBe("La seguridad corta la marcha");
-    expect(veredictoMandos(ini, leidas({ ...base, "-K3.salidas": 0 }))!.frase).toBe("Seguridad de recipiente bajo la descarga corta la marcha");
+  it("un relé que corta: «Seguridad sin rearmar» y «Rearma la seguridad», con el rearme como paso; nunca un relé con un verbo", () => {
+    for (const salidas of [{ "-K2.salidas": 0, "-K3.salidas": 0 }, { "-K3.salidas": 0 }]) {
+      expect(veredictoMandos(ini, leidas({ ...base, ...salidas }))).toEqual({
+        severidad: "aviso", frase: "Seguridad sin rearmar", nota: "Rearma la seguridad", paso: { designacion: "-S3" } });
+    }
+    const sinRearme: Pick<InicioVivo, "mandos" | "dispositivos"> = { mandos: [], dispositivos: ini.dispositivos };
+    expect(veredictoMandos(sinRearme, leidas({ "-K2.salidas": 0 }))!.paso).toBeUndefined();
+    const textos = [base, { ...base, "-K3.salidas": 0 }, { ...base, "-Q1.cerrado": 0 }, { ...base, "-B1.cerrado": 0 }]
+      .map((l) => veredictoMandos(ini, leidas(l))!).flatMap((v) => [v.frase, v.nota ?? ""]);
+    for (const t of textos) {
+      expect(t).not.toMatch(/corta la marcha|Lista para arrancar|lista para arrancar/);
+      expect(t).not.toContain("Seguridad de"); // el nombre de un relé, nunca con un verbo pegado
+    }
+  });
+});
+
+describe("el próximo paso y el estado de lo que se queda (F5b)", () => {
+  const html = (des: string, paso?: { designacion: string; clave?: string }) =>
+    renderToStaticMarkup(createElement(FilaMando, { m: mando(des), quieto: false, paso }));
+
+  it("el control que pide el veredicto va con el estilo primario del tema; ningún otro, y nada deshabilitado", () => {
+    expect(html("-S0", { designacion: "-S0" })).toMatch(/class="boton-mando[^"]* primary"/);
+    expect(html("-S0")).not.toContain("primary");
+    expect(html("-S3", { designacion: "-S3" })).toMatch(/class="boton-mando[^"]* primary"[^>]*>Presionar</);
+    // el segmento a elegir, sin tocar el marcado
+    const seg = renderToStaticMarkup(createElement(Segmentado, {
+      etiqueta: "Tapa", segmentos: segmentosDe(mando("-B1"))!, valor: "abierto", quieto: false, primario: "cerrado", alElegir: () => {} }));
+    expect(seg).toMatch(/class="primary"[^>]*>Cerrada</);
+    expect(seg).toMatch(/class="marcado"[^>]*>Abierta</);
+    expect(seg.match(/primary/g)).toHaveLength(1);
+    expect(seg).not.toContain("disabled");
+  });
+
+  it("el segmento no elegido no se ve deshabilitado: tinta plena; el elegido gana contraste", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync(new URL("./mandos.css", import.meta.url), "utf8");
+    const regla = (sel: string) => new RegExp(`${sel.replace(/[.()]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? "";
+    expect(regla(".segmentado button:not(.primary)")).toContain("color: var(--text)");
+    expect(css).not.toMatch(/\.segmentado button[^{]*\{[^}]*(--muted|opacity)/);
+    expect(regla(".segmentado button.marcado")).toMatch(/background: var\(--panel3\)/);
+    expect(regla(".segmentado button.marcado")).toMatch(/var\(--accent\)/);
+  });
+
+  it("el cuadrado del color físico sólo donde el color informa: pulsador y seta, no seccionador, resguardo ni selector", () => {
+    expect(INICIO_DEMO.mandos.filter(muestraColorFisico).map((m) => m.designacion)).toEqual(["-S0", "-S1", "-S2", "-S3"]);
+    for (const des of ["-Q1", "-B1", "-B4", "-S4"]) expect(html(des)).not.toContain("tapa-mando");
+    for (const des of ["-S0", "-S1"]) expect(html(des)).toContain("tapa-mando");
   });
 });
 

@@ -58,12 +58,12 @@ describe("lecturas", () => {
     expect(lecturasDe(ini, ["-M1.par_Nm"])).toEqual([]); // sin sus señales, nada
   });
 
-  it("formato con coma decimal y miles", () => {
-    expect(formatear(1799.42, { unidad: "rpm", decimales: 0 })).toBe("1 799 rpm");
-    expect(formatear(3.81, { unidad: "A", decimales: 1 })).toBe("3,8 A");
+  it("formato con coma decimal y miles; la unidad tras un espacio duro (F5b)", () => {
+    expect(formatear(1799.42, { unidad: "rpm", decimales: 0 })).toBe("1 799 rpm");
+    expect(formatear(3.81, { unidad: "A", decimales: 1 })).toBe("3,8 A");
     expect(formatear(7, { unidad: "", decimales: 0 })).toBe("7");
     expect(formatear(undefined, { unidad: "Hz", decimales: 1 })).toBe("—");
-    expect(formatear(-0.01, { unidad: "Hz", decimales: 1 })).toBe("0,0 Hz");
+    expect(formatear(-0.01, { unidad: "Hz", decimales: 1 })).toBe("0,0 Hz");
   });
 
   it("relé de seguridad: sus salidas en palabras y, si espera el ciclo, por qué no rearma", () => {

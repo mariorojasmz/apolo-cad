@@ -73,17 +73,17 @@ describe("árbol de señales", () => {
 
 describe("leer una señal por su nombre", () => {
   it("unidades por sufijo y sí/no por nombre", () => {
-    expect(leerValor(1799.4, medidaDe("-M1.rpm"))).toBe("1 799 rpm");
-    expect(leerValor(3.814, medidaDe("-M1.I_A"))).toBe("3,81 A");
-    expect(leerValor(60, medidaDe("-T2.f_Hz"))).toBe("60,0 Hz");
-    expect(leerValor(24.08, medidaDe("-M1.par_Nm"))).toBe("24,08 N·m");
-    expect(leerValor(1.2, medidaDe("c119.v_m_s"))).toBe("1,20 m/s");
-    expect(leerValor(12.5, medidaDe("-T2.termico_pct"))).toBe("12,5 %");
+    expect(leerValor(1799.4, medidaDe("-M1.rpm"))).toBe("1 799\u00a0rpm");
+    expect(leerValor(3.814, medidaDe("-M1.I_A"))).toBe("3,81\u00a0A");
+    expect(leerValor(60, medidaDe("-T2.f_Hz"))).toBe("60,0\u00a0Hz");
+    expect(leerValor(24.08, medidaDe("-M1.par_Nm"))).toBe("24,08\u00a0N·m");
+    expect(leerValor(1.2, medidaDe("c119.v_m_s"))).toBe("1,20\u00a0m/s");
+    expect(leerValor(12.5, medidaDe("-T2.termico_pct"))).toBe("12,5\u00a0%");
     expect(leerValor(1, medidaDe("-Q1.cerrado"))).toBe("Sí");
     expect(leerValor(0, medidaDe("-T2.rele_falla"))).toBe("No");
     expect(leerValor(1, medidaDe("-K1.%QX0.0"))).toBe("Sí");
     expect(leerValor(undefined, medidaDe("-M1.rpm"))).toBe("—");
-    expect(leerValor(-0.001, medidaDe("-M1.rpm"))).toBe("0 rpm");
+    expect(leerValor(-0.001, medidaDe("-M1.rpm"))).toBe("0\u00a0rpm");
   });
 
   it("el tipo del PLC manda: BOOL es sí/no, INT entero", () => {

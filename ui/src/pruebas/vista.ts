@@ -1,3 +1,4 @@
+import type { Severidad } from "../diseno/atencion";
 import { cifra } from "../diseno/cifra";
 import type { FilaPrueba, Incidencia } from "./tipos";
 
@@ -25,6 +26,23 @@ export function fechaCorta(iso: string | undefined, ahora: Date = new Date()): s
 /** El título de una prueba: el humanizado del servidor (D14); sin él, el id tal cual. */
 export function tituloPrueba(f: Pick<FilaPrueba, "nombre" | "titulo">): string {
   return f.titulo || f.nombre;
+}
+
+/** El estado de la fila (F5b): mientras corre (o espera su turno) dice eso, nunca el «Pasa» o el
+ *  «Falla» de la corrida vieja, con el semáforo neutro; si no, el del servidor. */
+export function estadoDeFila(f: Pick<FilaPrueba, "rotulo" | "severidad">, c?: Pick<Corrida, "estado" | "desde">):
+  { rotulo: string; severidad: Severidad } {
+  if (!c) return { rotulo: f.rotulo, severidad: f.severidad };
+  return { rotulo: c.estado === "encolado" || c.desde === null ? "En espera" : "Corriendo", severidad: "sin_evaluar" };
+}
+
+/** La línea bajo el título: la fecha y el balance de la última corrida; vencida, lo que toca
+ *  («Hay que volver a correrla»). Sin corrida, nada: el estado ya dice «Sin correr». Corriendo,
+ *  nada: la barra de progreso lo dice. */
+export function lineaBajo(f: Pick<FilaPrueba, "estado" | "fecha" | "balance">, ahora: Date, corriendo = false): string {
+  if (corriendo) return "";
+  if (f.estado === "vencido") return "Hay que volver a correrla";
+  return [fechaCorta(f.fecha, ahora), f.balance].filter(Boolean).join(" · ");
 }
 
 /** «12 s», «1 min 40 s», «4 min». */

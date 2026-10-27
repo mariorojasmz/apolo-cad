@@ -1,3 +1,4 @@
+import { nombreEnFrase } from "../diseno/nombres";
 import type { AparatoFallas, FallaCatalogo, InicioVivo, RamaVivo } from "./protocolo";
 
 /* «Simular falla» en la sesión viva (plan cosim-fallas D7), la parte pura: los rótulos de cada
@@ -233,11 +234,13 @@ export function armarFalla(o: Objetivo, f: FallaCatalogo, elegido: Elegido = {})
 export interface FallaActiva {
   /** Única en la lista: «-K1|soldado», «-A1|entrada_pegada I0.0», «r:-K1:13-14|pegado». */
   clave: string;
-  /** «contacto soldado en -K1». */
+  /** «contacto soldado en el contactor -KM1» (sin rótulo, «… en -KM1»). */
   frase: string;
-  /** Las dos partes de la frase: qué falla («contacto soldado») y dónde («-K1»). */
+  /** Las partes de la frase: qué falla («contacto soldado»), dónde por su nombre en minúscula de
+   *  frase («el contactor», o la designación sin rótulo) y la designación detrás, si el nombre manda. */
   que: string;
   donde: string;
+  designacion?: string;
   /** El evento que la quita (`quitar: true`). */
   quitar: EventoFalla;
 }
@@ -261,9 +264,14 @@ export function activasDe(
 ): FallaActiva[] {
   const tipos = new Map((inicio?.fallas ?? []).map((a) => [a.designacion, a.tipo]));
   const tiposRama = new Map((inicio?.ramas ?? []).map((r) => [r.id, r.tipo]));
-  // dónde, por su nombre (nombres-por-funcion D13); sin él, la designación o el id del servidor
-  const rotulos = new Map((inicio?.fallas ?? []).map((a) => [a.designacion, a.rotulo || a.designacion]));
-  const nombresRama = new Map((inicio?.ramas ?? []).map((r) => [r.id, r.nombre]));
+  // dónde, por su nombre dentro de la frase («el contactor -KM1», nombres-por-funcion D13 y F5b);
+  // sin rótulo, la designación o el id del servidor
+  const aparatos = new Map((inicio?.fallas ?? []).map((a) => [a.designacion, a]));
+  const lugar = (des: string): Pick<FallaActiva, "donde" | "designacion"> => {
+    const a = aparatos.get(des);
+    return a?.rotulo ? { donde: nombreEnFrase(a), designacion: des } : { donde: des };
+  };
+  const ramasPorId = new Map((inicio?.ramas ?? []).map((r) => [r.id, r]));
   const out: FallaActiva[] = [];
   for (const [senal, texto] of Object.entries(textos)) {
     if (!senal.endsWith(".averia") || !texto) continue;
@@ -277,8 +285,8 @@ export function activasDe(
       const v = valorParaQuitar(falla, arg, tipo);
       if (v !== undefined) quitar.valor = v;
       const que = nombreDe(falla, tipo, "dispositivo").frase(arg);
-      const donde = rotulos.get(des) ?? des;
-      out.push({ clave: `${des}|${etiqueta}`, frase: `${que} en ${donde}`, que, donde, quitar });
+      const l = lugar(des);
+      out.push({ clave: `${des}|${etiqueta}`, frase: fraseDe(que, l), que, ...l, quitar });
     }
   }
   for (const r of ramas) {
@@ -286,21 +294,31 @@ export function activasDe(
     const tipo = tiposRama.get(r.rama) ?? "contacto";
     const base = nombreDe(r.falla, tipo, "rama").frase();
     const como = r.falla === "pegado" ? (r.valor === false ? " abierto" : " cerrado") : "";
-    const { que, donde } = dondeRama(`${base}${como}`, r.rama, nombresRama.get(r.rama));
-    out.push({ clave: `r:${r.rama}|${r.falla}`, frase: `${que} en ${donde}`, que, donde,
+    const rama = ramasPorId.get(r.rama);
+    const { que, ...l } = dondeRama(`${base}${como}`, r.rama, rama?.nombre, rama?.dispositivo ? lugar(rama.dispositivo) : null);
+    out.push({ clave: `r:${r.rama}|${r.falla}`, frase: fraseDe(que, l), que, ...l,
       quitar: { tipo: "falla", rama: r.rama, falla: r.falla, quitar: true } });
   }
   return out;
 }
 
+function fraseDe(que: string, l: Pick<FallaActiva, "donde" | "designacion">): string {
+  return `${que} en ${l.donde}${l.designacion ? ` ${l.designacion}` : ""}`;
+}
+
 /** La falla de una rama dicha sin repetir «contacto» ni «cable»: el nombre del servidor es
  *  «Contacto 13-14 · <aparato>» o «Cable <de> → <a>» (`services/nombres_aparatos.py`), y queda
- *  «contacto 13-14 pegado cerrado en <aparato>», «cable cortado en <de> → <a>». Con otro nombre,
- *  tal cual; sin nombre (un servidor anterior), el id. */
-function dondeRama(que: string, id: string, nombre: string | undefined): { que: string; donde: string } {
+ *  «contacto 13-14 pegado cerrado en la seguridad de tapa -K2» (el aparato del contacto, como el de
+ *  una falla suya: `aparato`), «cable cortado en <de> → <a>». Con otro nombre, tal cual; sin
+ *  nombre (un servidor anterior), el id. */
+function dondeRama(que: string, id: string, nombre: string | undefined,
+  aparato: Pick<FallaActiva, "donde" | "designacion"> | null): { que: string; donde: string; designacion?: string } {
   if (!nombre || nombre === id) return { que, donde: id };
   const contacto = /^Contacto (\S+) · (.+)$/.exec(nombre);
-  if (contacto && que.startsWith("contacto")) return { que: que.replace(/^contacto/, `contacto ${contacto[1]}`), donde: contacto[2] };
+  if (contacto && que.startsWith("contacto")) {
+    const que2 = que.replace(/^contacto/, `contacto ${contacto[1]}`);
+    return aparato?.designacion ? { que: que2, ...aparato } : { que: que2, donde: nombreEnFrase({ designacion: "", rotulo: contacto[2] }) };
+  }
   const cable = /^Cable (.+)$/.exec(nombre);
   if (cable && que.startsWith("cable")) return { que, donde: cable[1] };
   return { que, donde: nombre };

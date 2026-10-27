@@ -1,5 +1,5 @@
 import type { Severidad } from "../diseno/atencion";
-import { designacionSecundaria, nombrePrincipal } from "../diseno/nombres";
+import { designacionSecundaria, nombreEnFrase, nombrePrincipal } from "../diseno/nombres";
 import { abreYCierra } from "./accionar";
 import type { InicioVivo, MandoVivo } from "./protocolo";
 
@@ -91,11 +91,20 @@ export function estadoJuntoAlBoton(m: MandoVivo, leidas: Leidas): string | null 
 
 // ── el veredicto (D12) ───────────────────────────────────────────────────────────────────────
 
+/** El mando que el veredicto pide tocar: su botón o, si se queda, el segmento a elegir (`clave`). */
+export interface PasoSiguiente {
+  designacion: string;
+  clave?: string;
+}
+
 export interface VeredictoMandos {
   severidad: Severidad;
+  /** La causa, leída de las señales: «Tapa del tanque abierta». */
   frase: string;
-  /** Lo demás que también bloquea, en el mismo orden. */
+  /** La acción siguiente, de los mismos hechos: «Cierra la tapa del tanque». */
   nota?: string;
+  /** El control de esa acción: va destacado (estilo primario) en su fila. */
+  paso?: PasoSiguiente;
 }
 
 /** «Tapa del tanque abierta»: el rótulo con el nombre de su estado (la concordancia la declara el
@@ -105,12 +114,23 @@ function conEstado(m: MandoVivo, clave: string, porDefecto: string): string {
   return `${nombrePrincipal(m)}${est.includes(" ") ? ":" : ""} ${est}`;
 }
 
+/** Cerrar un resguardo dicho con SU estado: «Cierra la tapa del tanque»; con un estado que no es
+ *  «cerrado» («Acoplado»), «Pon el recipiente bajo la descarga en «Acoplado»». */
+function accionCerrar(m: MandoVivo): string {
+  const est = m.estados?.cerrado || "Cerrado";
+  return /^cerrad[oa]s?$/i.test(est) ? `Cierra ${nombreEnFrase(m)}` : `Pon ${nombreEnFrase(m)} en «${est}»`;
+}
+
+interface Hecho extends Omit<VeredictoMandos, "severidad"> { nota: string }
+
 /** Lo que bloquea la marcha, SÓLO con hechos leídos de las señales y en orden de bloqueo: sin
- *  energía, parada de emergencia presionada, resguardo abierto, la seguridad corta la marcha. Sin
- *  nada de eso, «Energía y seguridad habilitadas»: nunca «lista para arrancar» (el permiso del PLC
- *  no se conoce). null si no hay nada que leer (sin esos aparatos o sin señales todavía). */
+ *  energía, parada de emergencia presionada, resguardo abierto, seguridad sin rearmar. La frase es
+ *  la causa del primero y la nota, su acción («Libera la parada de emergencia»); `paso`, el control
+ *  que la hace. Un relé nunca se nombra con un verbo pegado. Sin nada de eso, «Energía y seguridad
+ *  habilitadas»: nunca «lista para arrancar» (el permiso del PLC no se conoce). null si no hay nada
+ *  que leer (sin esos aparatos o sin señales todavía). */
 export function veredictoMandos(ini: Pick<InicioVivo, "mandos" | "dispositivos">, leidas: Leidas): VeredictoMandos | null {
-  const hechos: string[] = [];
+  const hechos: Hecho[] = [];
   let leido = false;
   const valor = (s: string) => {
     const v = leidas.valor(s);
@@ -118,24 +138,44 @@ export function veredictoMandos(ini: Pick<InicioVivo, "mandos" | "dispositivos">
     return v;
   };
   const de = (tipo: string) => ini.mandos.filter((m) => m.tipo === tipo);
-  if (de("seccionador").some((m) => { const v = valor(`${m.designacion}.cerrado`); return v !== undefined && v < 0.5; })) {
-    hechos.push("Sin energía");
+  for (const m of de("seccionador")) {
+    const v = valor(`${m.designacion}.cerrado`);
+    if (v !== undefined && v < 0.5 && !hechos.length) {
+      hechos.push({ frase: "Sin energía", nota: `Enciende ${nombreEnFrase(m)}`, paso: { designacion: m.designacion, clave: "cerrado" } });
+    }
   }
   for (const m of de("seta")) {
     const v = valor(`${m.designacion}.accionado`);
-    if (v !== undefined && v >= 0.5) hechos.push(conEstado(m, "presionada", "presionada"));
+    if (v !== undefined && v >= 0.5) {
+      hechos.push({ frase: conEstado(m, "presionada", "presionada"), nota: `Libera ${nombreEnFrase(m)}`,
+        paso: { designacion: m.designacion } });
+    }
   }
   for (const m of de("resguardo")) {
     const v = valor(`${m.designacion}.cerrado`);
-    if (v !== undefined && v < 0.5) hechos.push(conEstado(m, "abierto", "abierto"));
+    if (v !== undefined && v < 0.5) {
+      hechos.push({ frase: conEstado(m, "abierto", "abierto"), nota: accionCerrar(m),
+        paso: { designacion: m.designacion, clave: "cerrado" } });
+    }
   }
-  // la seguridad entera o, si sólo corta una parte, cuál (por su nombre)
-  const reles = ini.dispositivos.filter((d) => d.tipo === "rele_seguridad");
-  const cortan = reles.filter((k) => { const v = valor(`${k.designacion}.salidas`); return v !== undefined && v < 0.5; });
-  if (cortan.length && cortan.length === reles.length) hechos.push("La seguridad corta la marcha");
-  else for (const k of cortan) hechos.push(`${nombrePrincipal(k)} corta la marcha`);
+  // un relé que corta: la seguridad sin rearmar, y el paso es el mando que lo rearma (S34)
+  const cortan = ini.dispositivos.filter((d) => d.tipo === "rele_seguridad")
+    .filter((k) => { const v = valor(`${k.designacion}.salidas`); return v !== undefined && v < 0.5; })
+    .map((k) => k.designacion);
+  if (cortan.length) {
+    const rearme = ini.mandos.find((m) => m.rearma?.some((k) => cortan.includes(k)));
+    hechos.push({ frase: "Seguridad sin rearmar", nota: "Rearma la seguridad",
+      ...(rearme ? { paso: { designacion: rearme.designacion } } : {}) });
+  }
   if (!leido) return null;
   if (!hechos.length) return { severidad: "bien", frase: "Energía y seguridad habilitadas" };
-  const [frase, ...resto] = hechos;
-  return { severidad: "aviso", frase, ...(resto.length ? { nota: resto.join(" · ") } : {}) };
+  return { severidad: "aviso", ...hechos[0] };
+}
+
+// ── el color físico (F5b) ────────────────────────────────────────────────────────────────────
+
+/** El cuadrado del color de la tapa sólo donde el color informa: pulsador y seta (los pilotos,
+ *  con su lámpara). En el seccionador, el resguardo y el selector parecía una casilla sin marcar. */
+export function muestraColorFisico(m: Pick<MandoVivo, "tipo">): boolean {
+  return m.tipo === "pulsador" || m.tipo === "seta";
 }

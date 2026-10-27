@@ -30,7 +30,10 @@ export const PANEL_PRUEBAS: PanelPruebasOut = {
 export const DETALLE_PRUEBA: DetallePrueba = {
   ...PANEL_PRUEBAS.escenarios[0],
   n_aserciones: 2,
-  fallidas: [{ asercion: "-MM1.x_mm siempre > 190", cifra: "a los 3,4 s vale 12 mm: la compuerta abrió" }],
+  // como lo escribe `services/pruebas_frases.py` (F5b): en llano arriba; la expresión, a pedido
+  fallidas: [{ asercion: "-MM1.x_mm < 5 siempre", cifra: "deja de cumplirse en t = 3.4 s (vale 12)",
+    frase: "La carrera del cilindro de compuerta (-MM1) tenía que estar siempre por debajo de 5 mm",
+    paso: "A los 3,4 s estaba en 12 mm" }],
   incidencias: [],
 };
 

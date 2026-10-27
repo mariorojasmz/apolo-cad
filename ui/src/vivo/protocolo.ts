@@ -13,6 +13,9 @@ export interface NombreAparato {
   rotulo?: string;
   /** De dónde salió el rótulo: «declarado», «pieza», «derivado» o «tipo». */
   origen?: string;
+  /** El rótulo DENTRO de una frase, en minúscula y con su artículo: «el interruptor general»
+   *  (F5b; el género lo decide el servidor, nunca una tabla de la UI). */
+  en_frase?: string;
   /** «energia», «seguridad», «operacion», «pilotos» o «lecturas». */
   grupo?: string;
   /** El nombre de cada estado o posición, en el orden de su ficha («cerrado» → «Cerrada»). */
@@ -91,6 +94,8 @@ export interface AparatoFallas {
   /** El nombre por función (nombres-por-funcion F1); un servidor anterior no lo trae. */
   rotulo?: string;
   origen?: string;
+  /** «el contactor»: el rótulo dentro de una frase (F5b). */
+  en_frase?: string;
 }
 
 /** Un contacto (o un conductor con largo) que se puede pegar o cortar (D3, D6). */

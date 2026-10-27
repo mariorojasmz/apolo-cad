@@ -64,11 +64,12 @@ function Rama({ r, abierta, tipos, deTexto }: {
   return (
     <details className="rama-senales" open={abierta || undefined}>
       <summary>
-        {/* «Seguridad del recipiente · -K3»: lo que hace, con la designación detrás (nombres-por-funcion D13) */}
+        {/* «Seguridad del recipiente -K3»: lo que hace, con la designación detrás (nombres-por-funcion
+            D13). Sin la cuenta de señales a la derecha (F5b): en este panel la derecha es el VALOR, y
+            un número suelto ahí se leía como una lectura; se ven al abrir la fila. */}
         <span className="cabeza-aparato">
           <NombreAparato a={{ designacion: r.designacion ?? r.titulo, rotulo: r.designacion ? r.titulo : undefined }} />
         </span>
-        <span className="hint cuenta-senales">{r.senales.length}</span>
       </summary>
       <ul className="lista-senales">
         {r.senales.map((s) => deTexto.has(s)

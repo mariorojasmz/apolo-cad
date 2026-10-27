@@ -1,6 +1,6 @@
 import { cifra } from "../diseno/cifra";
 import type { ConNombre } from "../diseno/nombres";
-import type { CilindroDetalle, NombreNeumatico, PresionLinea, SimboloEsquema, ValvulaEsquema } from "./tipos";
+import type { CilindroDetalle, EsquemaNeumatico, NombreNeumatico, PresionLinea, SimboloEsquema, ValvulaEsquema } from "./tipos";
 
 /* La lógica pura del esquema vivo del panel «Neumática» (plan V8.9 D12): la presión de cada línea
    con las señales de la sesión viva, su color en la escala, en qué posición está cada válvula,
@@ -93,6 +93,32 @@ export function escalaEsquema(anchoPx: number, anchoMm: number, ampliado = false
   return Math.max(ampliado ? AMPLIADO_PX_MM : MIN_PX_MM, ajuste);
 }
 
+/** La vista del esquema [x, y, ancho, alto] (mm) agrandada para que ningún texto se corte en el
+ *  borde (F5b: «-RZ2» perdía su «2»): la lámina mide los textos a su alto y aquí crecen hasta
+ *  `MIN_TEXTO_PX`. El ancho de un texto se estima en 0,62 × su alto por carácter (cota alta de la
+ *  letra del tema); se ajusta dos veces, porque la escala depende del ancho que resulta. */
+export function vistaConTextos(vista: readonly number[], textos: EsquemaNeumatico["textos"], anchoPx: number,
+  ampliado = false): [number, number, number, number] {
+  let out: [number, number, number, number] = [vista[0], vista[1], vista[2], vista[3]];
+  for (let vuelta = 0; vuelta < 2; vuelta++) {
+    const k = escalaEsquema(anchoPx, out[2], ampliado);
+    let [x0, y0] = [vista[0], vista[1]];
+    let [x1, y1] = [vista[0] + vista[2], vista[1] + vista[3]];
+    for (const t of textos) {
+      if (t.clase === "detalle") continue; // los detalles no se dibujan en línea
+      const alto = altoTexto(t.alto, k);
+      const ancho = t.texto.length * alto * 0.62;
+      const ini = t.anclaje === "end" ? t.x - ancho : t.anclaje === "middle" ? t.x - ancho / 2 : t.x;
+      x0 = Math.min(x0, ini - 0.5);
+      x1 = Math.max(x1, ini + ancho + 0.5);
+      y0 = Math.min(y0, t.y - alto);
+      y1 = Math.max(y1, t.y + alto * 0.3);
+    }
+    out = [x0, y0, x1 - x0, y1 - y0];
+  }
+  return out;
+}
+
 /** Si vale la pena ofrecer «Ampliar»: ajustado al ancho se lee chico. */
 export function convieneAmpliar(anchoPx: number, anchoMm: number): boolean {
   return anchoMm > 0 && anchoPx / anchoMm < AMPLIADO_PX_MM * 0.9;
@@ -104,7 +130,7 @@ export function convieneAmpliar(anchoPx: number, anchoMm: number): boolean {
 export function rotuloCilindro(c: CilindroDetalle): string {
   const partes: string[] = [];
   if (c.diametro_mm) partes.push(`Ø${cifra(c.diametro_mm, 0, "mm")}${c.vastago_mm ? `, vástago ${cifra(c.vastago_mm, 0, "mm")}` : ""}`);
-  if (c.carrera_mm) partes.push(`carrera ${cifra(c.carrera_mm, 0, "mm")}`);
+  if (c.carrera_mm) partes.push(`carrera ${cifra(c.carrera_mm, 0, "mm")}`); // no se parte (F5b)
   return partes.join(" · ");
 }
 
@@ -146,9 +172,10 @@ export function textoConsumo(c: NonNullable<CilindroDetalle["consumo"]>): string
   return `${base} · ${cifra(c.NL_min, 1, "NL/min")}${c.ciclos_min ? ` a ${cifra(c.ciclos_min)} ciclos/min` : ""}`;
 }
 
-/** «Avance 0,093 s · retroceso 0,076 s», y de dónde sale. */
+/** «Avance 0,16 s · retroceso 0,19 s», y de dónde sale. */
 export function textoTiempo(t: NonNullable<CilindroDetalle["tiempo"]>): { cifras: string; origen: string } {
-  const cifras = `Avance ${cifra(t.avance_s, 3, "s")}${t.retroceso_s != null ? ` · retroceso ${cifra(t.retroceso_s, 3, "s")}` : ""}`;
+  // centésimas (F5b): «0,16 s»; las milésimas eran una precisión que el cálculo no tiene
+  const cifras = `Avance ${cifra(t.avance_s, 2, "s")}${t.retroceso_s != null ? ` · retroceso ${cifra(t.retroceso_s, 2, "s")}` : ""}`;
   const origen = t.origen === "medido" ? `medido en el escenario «${t.escenario ?? ""}»` : "estimado a mano, sin escenario que lo mueva";
   return { cifras, origen };
 }

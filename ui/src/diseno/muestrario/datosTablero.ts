@@ -70,7 +70,7 @@ const it = (p: Partial<ItemTablero> & Pick<ItemTablero, "clave" | "severidad" | 
 /** El calentamiento de la piloto (V8.5 F3): 157 W en la caja de 500 × 400 sin ventilar. */
 const CALOR = it({ clave: "calentamiento", severidad: "falla", frase: "El tablero se calienta de más",
   valor: 98, unidad: "°C", piezas: [PIEZA.gabinete, PIEZA.variador],
-  detalle: "Arriba llega a 98 °C y Interruptor general (-Q1) admite 50 °C. Ventílalo con al menos 33 m³/h.",
+  detalle: "Arriba llega a 98 °C y el interruptor general (-Q1) admite 50 °C. Ventílalo con al menos 33 m³/h.",
   tecnico: "+TAB1 pierde 156.9 W en Ae = 0.564 m²: el aire llega a 90 °C a media altura y 98 °C arriba (ambiente 35 °C)." });
 
 const CALOR_DETALLE = {
@@ -184,7 +184,7 @@ export const PANEL_EN_ORDEN: PanelTableroOut = {
     it({ clave: "cables-giro", severidad: "bien", frase: "Los cables de campo no tocan lo que gira", conductores: [W1.id],
       detalle: "Ninguno pasa a menos de 10 mm de una pieza que gira." }),
     it({ clave: "calentamiento", severidad: "bien", frase: "Temperatura arriba en el tablero", valor: 50, unidad: "°C",
-      piezas: [PIEZA.gabinete], detalle: "El más justo es Interruptor general (-Q1): 50 de 50 °C admisibles." }),
+      piezas: [PIEZA.gabinete], detalle: "El más justo es el interruptor general (-Q1): 50 de 50 °C admisibles." }),
     it({ clave: "prensaestopas", severidad: "bien", frase: "Prensaestopas", valor: 2, piezas: [PIEZA.gabinete],
       detalle: "Uno por cable que sale, en la cara de abajo: 2 M16." })],
     canaletas: [

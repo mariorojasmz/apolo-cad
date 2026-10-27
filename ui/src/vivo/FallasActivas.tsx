@@ -6,7 +6,7 @@ import { enviarEvento } from "./sesion";
 import "./vivo.css";
 
 /* Las fallas activas en la barra de la sesión viva (plan cosim-fallas D7): una línea arriba de
-   los controles, «Falla activa: contacto soldado en -K1» con «Quitar»; con varias, la cuenta y
+   los controles, «Falla activa: contacto soldado en el contactor -KM1» con «Quitar»; con varias, la cuenta y
    la lista al pedirla. Las de un aparato salen de `<des>.averia` (textos); las de una rama, de
    su ack (`fallas.ts`). Sin color nuevo: el ícono de aviso del tema y el texto. */
 
@@ -65,7 +65,10 @@ export default function FallasActivas({ alQuitar = enviarEvento, listaAbierta = 
   );
 }
 
-/** «contacto soldado en -K1», sin cortar la designación en sus guiones. */
+/** «contacto soldado en el contactor -KM1», sin cortar la designación en sus guiones: el nombre
+ *  se parte como texto; la designación (o, sin rótulo, lo único que hay) va entera. */
 function Frase({ a }: { a: FallaActiva }) {
-  return <>{a.que} en <span className="bv-donde">{a.donde}</span></>;
+  return a.designacion
+    ? <>{a.que} en {a.donde} <span className="bv-donde">{a.designacion}</span></>
+    : <>{a.que} en <span className="bv-donde">{a.donde}</span></>;
 }

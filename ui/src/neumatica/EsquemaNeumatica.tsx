@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import NombreAparato from "../diseno/NombreAparato";
 import { nombreEnLinea } from "../diseno/nombres";
 import {
-  altoTexto, colorPresion, conNombre, convieneAmpliar, detalleSimbolo, escalaEsquema, posicionDe, presionDe,
+  altoTexto, colorPresion, conNombre, convieneAmpliar, detalleSimbolo, escalaEsquema, posicionDe, presionDe, vistaConTextos,
   RAMPA_PRESION, SIN_PRESION, topeLeyenda, type Lector,
 } from "./esquema";
 import type { EsquemaNeumatico, NombreNeumatico, SimboloEsquema } from "./tipos";
@@ -45,7 +45,8 @@ export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegi
     return () => ro.disconnect();
   }, []);
   const [ampliado, setAmpliado] = useState(false);
-  const [vx, vy, vw, vh] = e.vista;
+  // la vista con lugar para los textos agrandados: ninguno se corta en el borde (F5b)
+  const [vx, vy, vw, vh] = vistaConTextos(e.vista, e.textos, ancho, ampliado);
   const k = escalaEsquema(ancho, vw, ampliado);
   const activas: [string, number[]][] = lector ? e.valvulas.flatMap((v) => {
     const pos = posicionDe(v, lector);

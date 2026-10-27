@@ -24,8 +24,8 @@ function acciones() {
 
 describe("panel Tablero", () => {
   it("escribe la cifra de cada ítem con coma decimal y su unidad", () => {
-    expect(cifraDe({ valor: 64, unidad: "%" })).toBe("64 %");
-    expect(cifraDe({ valor: 28.32, unidad: "m", decimales: 1 })).toBe("28,3 m");
+    expect(cifraDe({ valor: 64, unidad: "%" })).toBe("64\u00a0%");
+    expect(cifraDe({ valor: 28.32, unidad: "m", decimales: 1 })).toBe("28,3\u00a0m");
     expect(cifraDe({ valor: 110, unidad: "°" })).toBe("110°");
     expect(cifraDe({ valor: 10 })).toBe("10");
     expect(cifraDe({})).toBeUndefined();
@@ -73,7 +73,7 @@ describe("panel Tablero", () => {
   it("rótulo y largo de un conductor", () => {
     const c = PANEL_CON_FALLAS.detalle!.conductores[0];
     expect(rotuloConductor(c)).toBe(c.puntos.join(" → "));
-    expect(largoConductor({ ...c, largo_m: 0.4912 })).toBe("0,49 m");
+    expect(largoConductor({ ...c, largo_m: 0.4912 })).toBe("0,49\u00a0m");
   });
 
   it("dibuja sólo el conductor elegido y sólo si tiene recorrido", () => {
@@ -103,9 +103,9 @@ describe("panel Tablero", () => {
   });
 
   it("dice las pérdidas declaradas y cuántos aparatos no traen el dato", () => {
-    expect(perdidasDeclaradas(128, [])).toBe("Pérdidas declaradas de los aparatos: 128 W");
-    expect(perdidasDeclaradas(128, ["-S1"])).toBe("Pérdidas declaradas de los aparatos: 128 W (1 aparato no trae el dato)");
-    expect(perdidasDeclaradas(1280, ["-S1", "-S2"])).toContain("1 280 W (2 aparatos no traen el dato)");
+    expect(perdidasDeclaradas(128, [])).toBe("Pérdidas declaradas de los aparatos: 128\u00a0W");
+    expect(perdidasDeclaradas(128, ["-S1"])).toBe("Pérdidas declaradas de los aparatos: 128\u00a0W (1 aparato no trae el dato)");
+    expect(perdidasDeclaradas(1280, ["-S1", "-S2"])).toContain("1 280\u00a0W (2 aparatos no traen el dato)");
   });
 
   it("el calentamiento evaluado: temperaturas, la más justa, el ambiente y de dónde salen las pérdidas (F3)", () => {
@@ -120,7 +120,7 @@ describe("panel Tablero", () => {
     const ventilado = PANEL_EN_ORDEN.detalle!.calentamiento;
     expect(filasCalor(ventilado).map(([r]) => r)).toContain("Ventilador");
     expect(filasCalor({ estado: "sin_evaluar", motivo: "x", perdidas_W: 10, sin_dato: [] })).toEqual([]);
-    expect(perdidasCalor({ estado: "sin_evaluar", perdidas_W: 128, sin_dato: [] })).toBe("Pérdidas declaradas de los aparatos: 128 W");
+    expect(perdidasCalor({ estado: "sin_evaluar", perdidas_W: 128, sin_dato: [] })).toBe("Pérdidas declaradas de los aparatos: 128\u00a0W");
   });
 });
 
@@ -133,7 +133,7 @@ describe("la vista del panel", () => {
     expect(html).toContain("2 cosas por corregir y 4 por revisar");
     expect(html).toContain("Caja de 500 × 400 mm");
     expect(html.match(/class="ia-fila"/g)).toHaveLength(PANEL_CON_FALLAS.items.length);
-    expect(html).toContain("112 %");
+    expect(html).toContain("112\u00a0%");
     expect(html).toContain(">Abrir<");
     expect(html).toMatch(/<details class="tb-plegable"><summary>Detalle<\/summary><\/details>/); // nace plegado
     expect(html.indexOf("vd-frase")).toBeLessThan(html.indexOf("items-atencion"));

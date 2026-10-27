@@ -20,8 +20,8 @@ def _cifra(x: float) -> str:
 def calor(ev: dict, gabinete: str, piezas: dict[str, str], tecnico: str | None,
           nombre=None) -> tuple[list[dict], list[dict]]:
     """(lo que pide atención, lo que está bien) del calentamiento. `nombre(designación)` nombra al
-    aparato por su función («Interruptor general (-Q1)», plan nombres-por-funcion); sin él, la
-    designación."""
+    aparato por su función DENTRO de la frase («el interruptor general (-Q1)», plan
+    nombres-por-funcion F5b); sin él, la designación."""
     from .tablero_panel import item  # la forma del ítem es del panel (que importa este módulo)
 
     nombre = nombre or (lambda des: des)

@@ -81,6 +81,31 @@ def test_abrir_una_prueba_da_lo_que_fallo_y_el_producto_con_lugar_y_hora():
     assert r.status_code == 404 and "marcha" in r.json()["detail"]
 
 
+def test_lo_que_no_cumplio_en_llano_con_la_expresion_aparte():
+    """nombres-por-funcion F5b: arriba una frase llana; la expresión cruda queda en `asercion` y
+    `cifra` (la UI la pone en «Detalle técnico»). Lo que no se puede decir sin inventar, sin frase."""
+    from apolo.services.nombres_aparatos import Nombres
+    from apolo.services.pruebas_frases import lo_que_paso, lo_que_se_pedia
+    from tablero_electrico import dev
+
+    d = Document("frases")
+    d.execute_many([dev("PULS-22-VERDE-NA", "-S1", rotulo="Marcha"), dev("MOTOR-075", "-M1", "+CAMPO", rotulo="Motor de mezcla",
+                                                                  ajustes={"conexion": "triangulo"})])
+    n = Nombres(d)
+    assert lo_que_se_pedia("-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1", n) == (
+        "La velocidad del motor de mezcla (-M1) tenía que estar en 1700 rpm o más dentro de 3 s "
+        "desde que se pulsa la marcha (-S1)")
+    assert lo_que_se_pedia("-M1.I_A < 5 siempre", n) == (
+        "La corriente del motor de mezcla (-M1) tenía que estar siempre por debajo de 5 A")
+    assert lo_que_se_pedia("-M1.rpm == 0 al_final", n).endswith("tenía que terminar en 0 rpm")
+    assert lo_que_paso("deja de cumplirse en t = 3.4 s (vale 12.5)", "-M1.I_A < 5 siempre") == \
+        "A los 3,4 s estaba en 12,5 A"
+    assert lo_que_paso("al final vale 120", "-M1.rpm == 0 al_final") == "Terminó en 120 rpm"
+    for cruda in ("flujo.cuadra al_final", "-Q1.disparado nunca", "-K1.Main.cuenta == 10 al_final",
+                  "c1_banda.v_m_s > 0.1 siempre", "-X9.rpm > 1 siempre"):
+        assert lo_que_se_pedia(cruda, n) is None, cruda  # booleana, PLC, pieza o aparato desconocido
+
+
 def test_sin_escenarios_el_panel_esta_vacio():
     api.DOC = Document("vacio")
     assert TestClient(api.app).get("/api/pruebas").json() == {"veredicto": None, "escenarios": []}

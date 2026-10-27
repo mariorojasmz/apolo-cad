@@ -8,25 +8,34 @@
 .grupo-mandos + .grupo-mandos { margin-top: var(--sp-1); }
 
 /* el nombre (`.cabeza-aparato`, `.rotulo-aparato`, `.designacion-aparato`) vive en
-   `diseno/diseno.css`: lo comparten Tablero, Neumática y Señales */
-.cabeza-aparato .ayuda-btn { align-self: center; }
-.cabeza-aparato .ayuda-nota { flex-basis: 100%; }
+   `diseno/diseno.css`: lo comparten Tablero, Neumática y Señales. En la fila (F5b) arranca en
+   ancho 0 y crece: el control y su estado se quedan en la línea del nombre, a la derecha, y es el
+   NOMBRE el que se parte en dos líneas si no cabe (nunca más angosto que su palabra más larga:
+   no se monta sobre el control). */
+.lista-mandos > .fila-mando { flex-wrap: nowrap; }
+.fila-mando .cabeza-aparato { flex: 1 1 0; min-width: min-content; }
 
 /* el estado leído junto al botón («Liberada», «Falta rearmar») o del piloto; con su control, un
-   solo bloque a la derecha que en angosto baja entero */
+   solo bloque a la derecha. Si no entran lado a lado, el estado baja DEBAJO del control, y el
+   control se queda en la línea del nombre */
 .fila-mando-accion {
-  display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2);
-  flex: none; margin-left: auto; max-width: 100%;
+  display: flex; flex-wrap: wrap-reverse; align-items: center; justify-content: flex-end;
+  gap: var(--sp-1) var(--sp-2); flex: 0 1 auto; min-width: min-content; margin-left: auto;
 }
 .estado-mando { color: var(--muted); font-size: var(--fs-cuerpo); white-space: nowrap; }
 
-/* un mando que se queda: sus estados con nombre, marcado el que dice la señal */
+/* un mando que se queda: sus estados con nombre, marcado el que dice la señal (F5b): el marcado
+   gana contraste (fondo, anillo y peso); los otros, en tinta plena: se eligen, no están apagados.
+   El que pide el veredicto toma el `button.primary` del tema. */
 .segmentado {
   display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--bg2);
 }
 .segmentado button {
-  border: none; border-radius: 0; background: none; color: var(--muted);
-  font-size: var(--fs-cuerpo); padding: var(--sp-1) var(--sp-2); white-space: nowrap;
+  border: none; border-radius: 0; font-size: var(--fs-cuerpo); padding: var(--sp-1) var(--sp-2); white-space: nowrap;
 }
+.segmentado button:not(.primary) { background: none; color: var(--text); box-shadow: none; }
 .segmentado button + button { border-left: 1px solid var(--border); }
-.segmentado button.marcado { background: var(--accent-soft); color: var(--text); font-weight: var(--fw-medio); }
+.segmentado button.marcado {
+  background: var(--panel3); box-shadow: inset 0 0 0 1px var(--accent); font-weight: var(--fw-medio);
+}

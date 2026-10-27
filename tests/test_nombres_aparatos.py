@@ -23,6 +23,7 @@ from apolo.services import escenarios
 from apolo.services.electrico import circuito
 from apolo.services.nombres_aparatos import (
     Nombres,
+    en_frase,
     humanizar,
     limpiar_nombre_pieza,
     nombre_junta,
@@ -306,7 +307,8 @@ def test_la_tabla_del_vivo_suma_claves_sin_quitar_ninguna(mezcla):
     assert s3["rearma"] == ["-K2", "-K3"] and s3["grupo"] == "seguridad"
     assert s3["descripcion"] == "Además borra la falla de la compuerta"
     assert out["mandos"][1]["estados"] == {"cerrado": "Acoplado", "abierto": "Sin recipiente"}
-    assert set(out["fallas"][0]) == {"designacion", "tipo", "fallas", "rotulo", "origen"}
+    assert set(out["fallas"][0]) == {"designacion", "tipo", "fallas", "rotulo", "origen", "en_frase"}
+    assert out["fallas"][0]["en_frase"] == "la seguridad de parada de emergencia y tapa del tanque"
     assert out["ramas"][0]["nombre"] == "Contacto 13-14 · Seguridad de parada de emergencia y tapa del tanque"
     assert out["ramas"][1]["nombre"] == "Cable"  # sin ese conductor: el genérico, nunca el id
     assert out["juntas"][0]["nombre"] == "J x"
@@ -318,3 +320,38 @@ def test_un_cable_se_nombra_por_sus_extremos():
     ramas = n.ramas()
     assert ramas["-W1.1"] == "Cable Contactor → Motor"
     assert any(v == "Cable Red de suministro → Interruptor general" for v in ramas.values())
+
+
+# ── F5b: el nombre DENTRO de una frase ─────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("rotulo, esperado, de", [
+    ("Interruptor general", "el interruptor general", "del interruptor general"),
+    ("Tapa del tanque", "la tapa del tanque", "de la tapa del tanque"),
+    ("Seguridad de recipiente", "la seguridad de recipiente", "de la seguridad de recipiente"),
+    ("Fuente", "la fuente", "de la fuente"),
+    ("Red de suministro", "la red de suministro", "de la red de suministro"),
+    ("PLC", "el PLC", "del PLC"),
+    ("Cilindro de compuerta", "el cilindro de compuerta", "del cilindro de compuerta"),
+    ("Sistema de vacío", "el sistema de vacío", "del sistema de vacío"),
+])
+def test_en_frase_minuscula_con_su_articulo(rotulo, esperado, de):
+    assert en_frase(rotulo) == esperado and en_frase(rotulo, "de") == de
+    assert en_frase("Contactor", "a") == "al contactor" and en_frase("", "de") == ""
+
+
+def test_con_designacion_en_frase(mezcla):
+    n = Nombres(mezcla)
+    assert n.con_designacion("-Q1") == "Interruptor general (-Q1)"  # al inicio de una línea, como antes
+    assert n.con_designacion("-Q1", frase=True) == "el interruptor general (-Q1)"
+    assert n.con_designacion("-B1", frase=True, prep="de") == "de la tapa del tanque (-B1)"
+    assert n.con_designacion("-X9", frase=True, prep="de") == "de -X9"  # sin aparato: la designación
+
+
+def test_el_calentamiento_nombra_al_aparato_en_minuscula_de_frase(mezcla):
+    from apolo.services.tablero_atencion import NBSP, calor
+
+    n = Nombres(mezcla)
+    ev = {"estado": "ok", "T_arriba_C": 41.2, "peor": {"designacion": "-Q1", "T_C": 41, "T_max_C": 55}}
+    _, bien = calor(ev, "c1_gabinete", {}, None, nombre=lambda d: n.con_designacion(d, frase=True))
+    assert bien[0]["detalle"] == f"El más justo es el interruptor general (-Q1): 41 de 55{NBSP}°C admisibles."

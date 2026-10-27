@@ -115,8 +115,8 @@ function encendida(v: number | undefined): boolean {
   return v !== undefined && Number.isFinite(v) && v >= 0.5;
 }
 
-/** «1 799 rpm», «3,8 A», «—» si no hay valor. Coma decimal y espacio fino de miles. Una de sí o
- *  no, su palabra. */
+/** «1 799 rpm», «3,8 A», «—» si no hay valor. Coma decimal, espacio fino de miles y la unidad tras
+ *  un espacio duro (como `cifra`, F5b). Una de sí o no, su palabra. */
 export function formatear(valor: number | undefined, l: Pick<LineaLectura, "unidad" | "decimales" | "si" | "no">): string {
   if (valor === undefined || !Number.isFinite(valor)) return l.si !== undefined && l.no === "" ? "" : "—";
   if (l.si !== undefined) return valor >= 0.5 ? l.si : l.no ?? "";
@@ -124,5 +124,5 @@ export function formatear(valor: number | undefined, l: Pick<LineaLectura, "unid
   const miles = ent.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   const signo = valor < 0 && Number(Math.abs(valor).toFixed(l.decimales)) !== 0 ? "−" : "";
   const num = `${signo}${miles}${dec ? `,${dec}` : ""}`;
-  return l.unidad ? `${num} ${l.unidad}` : num;
+  return l.unidad ? `${num} ${l.unidad}` : num;
 }

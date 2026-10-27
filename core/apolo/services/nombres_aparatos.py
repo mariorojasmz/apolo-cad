@@ -104,6 +104,39 @@ def _lista(cosas: list[str]) -> str:
     return cosas[0] if len(cosas) == 1 else ", ".join(cosas[:-1]) + " y " + cosas[-1]
 
 
+#: el género de la primera palabra de un rótulo, para su artículo dentro de una frase: lo que no
+#: sigue la regla de la terminación (femenino en -a, -ción, -sión, -dad, -tad, -tud, -umbre)
+_FEMENINAS = {"red", "fuente", "llave", "base", "luz", "parte", "clase", "corriente", "tensión", "señal"}
+_MASCULINAS_EN_A = {"sistema", "programa", "problema", "tema", "esquema", "diagrama", "mapa", "día", "clima"}
+_TERMINA_FEMENINA = ("a", "ción", "sión", "dad", "tad", "tud", "umbre")
+
+
+def articulo(rotulo: str) -> str:
+    """El artículo del rótulo dentro de una frase: «el» interruptor general, «la» tapa del tanque,
+    «el» PLC (una sigla o un código: masculino), «los» pilotos. Por la primera palabra; no aprueba
+    nada: sólo escribe."""
+    p = (str(rotulo or "").split() or [""])[0]
+    if not p or not p[0].isalpha() or (len(p) > 1 and p[1].isupper()):
+        return "el"
+    w = p.lower()
+    if len(w) > 3 and w.endswith(("as", "os")):
+        return "las" if w.endswith("as") else "los"
+    if w in _MASCULINAS_EN_A:
+        return "el"
+    return "la" if w in _FEMENINAS or w.endswith(_TERMINA_FEMENINA) else "el"
+
+
+def en_frase(rotulo: str, prep: str = "") -> str:
+    """El rótulo dentro de una frase, en minúscula y con su artículo: «Interruptor general» → «el
+    interruptor general»; con `prep` «de» o «a», contraído («del …», «al …») o delante («de la …»)."""
+    if not rotulo:
+        return ""
+    art, texto = articulo(rotulo), _minuscula(rotulo)
+    if prep in ("de", "a") and art == "el":
+        return f"{'del' if prep == 'de' else 'al'} {texto}"
+    return " ".join(x for x in (prep, art, texto) if x)
+
+
 # ── el aparato ───────────────────────────────────────────────────────────────────────────────
 
 
@@ -159,6 +192,7 @@ class Nombres:
         self._analisis = None
         self._cadenas: dict = {}
         self._seguridad: set[str] | None = None
+        self._por_comando: dict | None = None  # {command_id: cuántas piezas creó}
 
     # ── la cadena serie (A11) ────────────────────────────────────────────────────────────────
 
@@ -232,7 +266,23 @@ class Nombres:
         """El nombre de la pieza ligada (D3.2), si la escribió alguien; vacío si no."""
         if not d.pieza or d.pieza in self.del_layout or d.pieza not in self.escena:
             return ""
-        return limpiar_nombre_pieza(getattr(self.escena[d.pieza], "name", "") or "", d.designacion)
+        f = self.escena[d.pieza]
+        nombre = getattr(f, "name", "") or ""
+        if " · " in nombre and self._piezas_del_comando(getattr(f, "command_id", None)) > 1:
+            # una PARTE de un aparato de varias piezas («Cilindro · Cuerpo»): el aparato es el tramo
+            # de antes, no la parte (F5b: «El cuerpo (-MM1) no regula…»)
+            nombre = nombre.rsplit(" · ", 1)[0]
+        return limpiar_nombre_pieza(nombre, d.designacion)
+
+    def _piezas_del_comando(self, cid) -> int:
+        if not cid:
+            return 0
+        if self._por_comando is None:
+            self._por_comando = {}
+            for g in self.escena.values():
+                k = getattr(g, "command_id", None)
+                self._por_comando[k] = self._por_comando.get(k, 0) + 1
+        return self._por_comando.get(cid, 0)
 
     def rotulo_de(self, des: str, *, derivar: bool = True) -> tuple[str, str]:
         """(rótulo, origen) del aparato `des` (la cadena D3)."""
@@ -276,10 +326,14 @@ class Nombres:
             return "operacion"
         return "pilotos" if t == "piloto" else "lecturas"
 
-    def con_designacion(self, des: str) -> str:
-        """«Interruptor general (-Q1)»: para una frase que nombra al aparato."""
+    def con_designacion(self, des: str, *, frase: bool = False, prep: str = "") -> str:
+        """«Interruptor general (-Q1)»: el aparato con su designación. Con `frase`, dentro de una
+        frase: en minúscula y con su artículo, «el interruptor general (-Q1)»; con `prep` («de»,
+        «a»), contraído: «del cilindro de compuerta (-MM1)». Sin rótulo, la designación."""
         r, _ = self.rotulo_de(des)
-        return f"{r} ({des})" if r else des
+        if not r:
+            return " ".join(x for x in (prep, des) if x)
+        return f"{en_frase(r, prep) if frase else r} ({des})"
 
     def fila(self, des: str) -> dict:
         """Lo que la tabla del vivo y los paneles suman a la fila del aparato (claves AGREGADAS)."""
@@ -287,7 +341,8 @@ class Nombres:
         if d is None:
             return {}
         r, origen = self.rotulo_de(des)
-        out: dict = {"rotulo": r, "origen": origen, "grupo": self.grupo_de(des)}
+        # `en_frase`: el rótulo dentro de una frase de la UI («contacto soldado en el contactor»)
+        out: dict = {"rotulo": r, "origen": origen, "en_frase": en_frase(r), "grupo": self.grupo_de(des)}
         est = self.estados_de(des)
         if est:
             out["estados"] = est
@@ -390,7 +445,7 @@ def nombres_en_tabla(tabla: dict, nombres: dict) -> dict:
             if lista == "valvulas" and f.get("designacion") in (nombres.get("posiciones") or {}):
                 extra["posiciones"] = nombres["posiciones"][f["designacion"]]
             if lista == "fallas":
-                extra = {k: v for k, v in extra.items() if k in ("rotulo", "origen")}
+                extra = {k: v for k, v in extra.items() if k in ("rotulo", "origen", "en_frase")}
             nuevas.append({**f, **{k: v for k, v in extra.items() if k not in f}})
         out[lista] = nuevas
     if tabla.get("ramas"):

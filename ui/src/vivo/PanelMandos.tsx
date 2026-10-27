@@ -130,10 +130,15 @@ function Tablero() {
   );
 }
 
-/** «Mandos»: el veredicto, la pista del 3D y cada mando con su control, en grupos si son más de 5. */
+/** «Mandos»: el veredicto, la pista del 3D y cada mando con su control, en grupos si son más de 5.
+ *  El veredicto (D12, F5b) dice la causa y la acción siguiente, y su control va destacado en su
+ *  fila (`paso`). */
 export function ListaMandos({ quieto }: { quieto: boolean }) {
-  const mandos = useVivo((s) => s.inicio?.mandos);
-  if (!mandos) return null;
+  const inicio = useVivo((s) => s.inicio);
+  const lecturas = useVivo((s) => s.lecturas);
+  const textos = useVivo((s) => s.textos);
+  const mandos = inicio?.mandos;
+  if (!inicio || !mandos) return null;
   if (!mandos.length) {
     return (
       <>
@@ -142,30 +147,25 @@ export function ListaMandos({ quieto }: { quieto: boolean }) {
       </>
     );
   }
+  const v = veredictoMandos(inicio, leidasDe({ lecturas, textos }));
+  const paso = v?.paso;
   return (
     <>
-      <VeredictoVivo />
+      {v && <Veredicto severidad={v.severidad} frase={v.frase} nota={v.nota} />}
       {mandos.some((m) => m.pieza) && <Pista>También los accionas con clic en el 3D.</Pista>}
       {gruposDeMandos(mandos).map((g) => (
         <div key={g.clave} className="grupo-mandos">
           <h3>{g.titulo}</h3>
           <ul className="lista-mandos">
-            {g.mandos.map((m) => <FilaMando key={m.designacion} m={m} quieto={quieto} />)}
+            {g.mandos.map((m) => (
+              <FilaMando key={m.designacion} m={m} quieto={quieto}
+                paso={paso?.designacion === m.designacion ? paso : undefined} />
+            ))}
           </ul>
         </div>
       ))}
     </>
   );
-}
-
-/** El veredicto de arriba: lo que bloquea la marcha, leído de las señales (D12). */
-function VeredictoVivo() {
-  const inicio = useVivo((s) => s.inicio);
-  const lecturas = useVivo((s) => s.lecturas);
-  const textos = useVivo((s) => s.textos);
-  if (!inicio) return null;
-  const v = veredictoMandos(inicio, leidasDe({ lecturas, textos }));
-  return v ? <Veredicto severidad={v.severidad} frase={v.frase} nota={v.nota} /> : null;
 }
 
 /** «Pilotos»: cada lámpara por lo que avisa, con su color físico y si está encendida. */
@@ -200,8 +200,11 @@ export function Lecturas() {
           return (
             <li key={l.designacion} className="fila-mando fila-lectura">
               <CabezaAparato a={l} />
+              {/* cada parte («Carrera 200 mm», «avance 6,0 bar») entera: si no cabe, baja la parte */}
               <span className="valor-lectura">
-                {textoLectura(l, (s) => lecturas[s])}
+                {textoLectura(l, (s) => lecturas[s]).split(" · ").map((p, i) => (
+                  <span key={i}>{i > 0 && " · "}<span className="parte-lectura">{p}</span></span>
+                ))}
               </span>
               {nota && <span className="hint nota-lectura">{nota}</span>}
               {falla && <span className="estado-aviso falla-lectura">Falla: {falla}</span>}

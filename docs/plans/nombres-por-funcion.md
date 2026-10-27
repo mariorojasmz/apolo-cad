@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado (D1–D18 vetables); fix «pandea», F0, F1, F2 (puerta v12 y entrega), F3 («Mandos») y F4 (resto de la UI) en main; siguen F5 (revisión a ciegas) y F6 (la mezcladora por MCP)
+nota: contrato aprobado (D1–D18 vetables); F0–F6 en main (puerta v12, Mandos y el resto de la UI, revisión a ciegas F5/F5b, la mezcladora real por MCP APROBADA); falta el gate final: Mario juzga «Mandos» en el visor
 descripcion: cada mando, piloto y sensor se ve por lo que HACE («Marcha», «Tapa del tanque»), con la designación chica al lado, y la puerta de publicación no aprueba una máquina cuyos mandos no tienen nombre
 ---
 
@@ -673,3 +673,70 @@ mezcladora, base propia): 2 min, 14 turnos, 0,97 USD.
 
 Falta el gate final: Mario abre «Mandos» con la mezcladora con nombres
 (`C:\t\f6\mezcladora-con-nombres.apolo`).
+
+### F5 — revisión a ciegas (2026-10-27)
+
+**El juez** (subagente sin contexto, capturas del muestrario a ancho de columna y a 420 px) puso, de 1
+a 5: **1: 4 · 2: 4 · 3: 3 · 4: 3 · 5: 3 · 6: 3 · 7: 3 · 8: 3**. Lo confirmado se corrigió en F5b, en
+una fase (UI + tres frases del servidor).
+
+**Corregido (F5b).**
+1. **Pruebas.** Mientras corre (o espera), la fila dice «Corriendo» / «En espera» con el semáforo neutro,
+   nunca el «Pasa»/«Falla» viejo (`vista.estadoDeFila`). «Todavía no se corrió» se quitó: el estado ya
+   dice «Sin correr». La vencida dice debajo «Hay que volver a correrla» (`lineaBajo`). «Lo que no
+   cumplió» lleva arriba una frase llana del SERVIDOR (`services/pruebas_frases.py`: «La carrera del
+   cilindro de compuerta (-MM1) tenía que estar siempre por debajo de 5 mm» y «A los 3,4 s estaba en
+   12 mm», claves AGREGADAS `frase` y `paso` en cada fallida); la expresión y su cifra crudas, en
+   «Detalle técnico» junto al id del escenario.
+2. **Veredicto de Mandos (D12).** El título es la causa leída («Sin energía», «Parada de emergencia
+   presionada», «Tapa del tanque abierta», «Seguridad sin rearmar») y la nota, la acción de los mismos
+   hechos («Enciende el interruptor general», «Libera la parada de emergencia», «Cierra la tapa del
+   tanque», «Rearma la seguridad»). Un relé ya no se nombra con un verbo pegado.
+3. **El próximo paso, destacado.** El veredicto trae `paso` (el mando y, si se queda, el segmento): ese
+   botón o segmento toma el `button.primary` del tema; ningún otro. Nada se deshabilita (D10).
+4. **Lo que se queda.** El segmento elegido gana fondo `--panel3`, anillo `--accent` y peso; los otros, en
+   `--text` (antes `--muted`: parecían apagados). El cuadrado del color físico sólo en pulsador y seta
+   (`muestraColorFisico`); los pilotos siguen con su lámpara.
+5. **Filas.** La fila de un mando no salta: el nombre arranca en ancho 0, crece y se parte en dos líneas
+   (nunca más angosto que su palabra más larga); si el estado y el control no entran lado a lado, el
+   estado baja DEBAJO del control, que se queda en la línea del nombre.
+6. **Lecturas y Señales.** Las lecturas son una grilla nombre (≥ la mitad) | valor a la derecha, que baja
+   por partes enteras («Carrera 200 mm» / «avance 6,0 bar»). La designación es texto corrido pegado a la
+   última palabra (`::before` con espacio duro; la ⓘ, pegada a ella): nunca huérfana. En «Señales» se
+   **quitó** la cuenta de la derecha: en ese panel la derecha es el VALOR y un número suelto se leía como
+   una lectura; las señales se ven al abrir la fila.
+7. **Frases del servidor.** `nombres_aparatos.en_frase` (artículo por la primera palabra, sigla
+   masculina) y `Nombres.con_designacion(frase=True, prep=…)`, la variante del helper de F1: «Falta el
+   límite elástico del vástago del cilindro de compuerta (-MM1)» (todas las frases de
+   `neumatica_panel`), «El más justo es el interruptor general (-Q1)», y la barra de fallas, «contacto
+   soldado en el contactor -KM1» con la clave AGREGADA `en_frase` de cada fila del `inicio`.
+8. **Neumática.** El tiempo de carrera con centésimas («0,16 s»). `cifra()` y `lecturas.formatear` unen
+   número y unidad con espacio duro (como `neumatica_panel.n` en el servidor) y «carrera 200 mm», «Fuerza
+   a 6 bar» no se parten. El esquema agranda su vista para los textos agrandados a la letra mínima
+   (`vistaConTextos`): «-RZ2» perdía su «2» en el borde.
+
+**Decisiones con criterio (vetables).**
+- **El género lo decide el servidor** (`en_frase`), no la UI: «el nombre lo da el servidor» (D13). La
+  regla es de terminación con dos listas cortas de excepciones (`fuente`, `red`… / `sistema`,
+  `programa`…); un rótulo que la engañe se lee raro, nunca miente. Sin `en_frase` (servidor anterior), la
+  UI pone el rótulo en minúscula sin artículo.
+- **Un resguardo cuyo estado cerrado no es «Cerrado»** («Acoplado») pide «Pon el recipiente bajo la
+  descarga en «Acoplado»»: el verbo no se deriva de un participio cualquiera.
+- **La nota dice UNA acción**, la del primer bloqueo: los demás aparecen al resolverlo. Antes la nota
+  listaba los otros bloqueos.
+- **La parte de un aparato de varias piezas no es su nombre**: el respaldo «pieza» (D3.2) de un cilindro
+  ligado a «Cilindro · Cuerpo» daba «El cuerpo (-MM1)…»; si el comando de la pieza creó varias, se usa
+  el tramo de antes («Cilindro»).
+- **Lo que no se dice en llano** (booleanas, variables del PLC, el balance de producto, una señal de una
+  pieza) queda con su expresión: una frase inventada sería peor que la cruda.
+- **La barra de fallas sin paréntesis** («el contactor -KM1»), como pidió la revisión; las frases del
+  servidor van con paréntesis («el interruptor general (-Q1)»). El cable de campo sigue «en Red de
+  suministro → Interruptor general»: su nombre es una ruta del servidor, no un aparato.
+
+**Rechazado, con su porqué.**
+- **Quitar las cajas de las filas**: es el patrón de lista agrupada del tema, el mismo de todos los
+  paneles; quitarlo en «Mandos» rompería la consistencia, no la jerarquía.
+- **Renombrar «Par» en Eventos**: es la magnitud correcta, con su unidad (N·m) al lado.
+
+**Para F6.** Mario juzga «Mandos» con la mezcladora real: los rótulos declarados por `edit_batch` y que
+`en_frase` lea bien sus géneros.

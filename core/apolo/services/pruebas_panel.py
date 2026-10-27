@@ -138,15 +138,43 @@ def _incidencias(doc, flujo: dict) -> list[dict]:
     return out
 
 
+def _nombres(doc):
+    """Los nombres por función del documento; sin tablero (o roto), None: la frase cae a la
+    designación."""
+    try:
+        from .nombres_aparatos import Nombres
+
+        return Nombres(doc)
+    except Exception:  # noqa: BLE001 — sin nombres, la frase llana igual se escribe
+        return None
+
+
+def _fallida(a: dict, nombres) -> dict:
+    """Una aserción que falló: la expresión y su cifra crudas (van a «Detalle técnico») y, si se
+    pueden decir en llano (`pruebas_frases`), la frase de lo que se pedía y la de lo que pasó."""
+    from .pruebas_frases import lo_que_paso, lo_que_se_pedia
+
+    out = {"asercion": a.get("asercion", ""), "cifra": a.get("detalle", "")}
+    frase = lo_que_se_pedia(out["asercion"], nombres)
+    if frase:
+        out["frase"] = frase
+        paso = lo_que_paso(out["cifra"], out["asercion"])
+        if paso:
+            out["paso"] = paso
+    return out
+
+
 def detalle(doc, nombre: str) -> dict:
     """Un escenario abierto: su fila, las aserciones que fallaron con su cifra (el `detalle` del
-    veredicto: «al final vale 3») y las incidencias del producto. Sin escenario → 404."""
+    veredicto: «al final vale 3») —y, en llano, `frase` y `paso` cuando se pueden decir— y las
+    incidencias del producto. Sin escenario → 404."""
     if nombre not in doc.escenarios:
         raise ServiceError(404, no_existe(doc, nombre))
     fila = _fila(doc, nombre, firma_documento(doc), {})
     res = doc.escenarios[nombre].get("resultado") or {}
-    fila["fallidas"] = [{"asercion": a.get("asercion", ""), "cifra": a.get("detalle", "")}
-                        for a in res.get("aserciones", []) if not a.get("pasa")]
+    malas = [a for a in res.get("aserciones", []) if not a.get("pasa")]
+    nombres = _nombres(doc) if malas else None
+    fila["fallidas"] = [_fallida(a, nombres) for a in malas]
     fila["incidencias"] = _incidencias(doc, res.get("flujo") or {})
     fila["n_aserciones"] = len(doc.escenarios[nombre]["escenario"].get("aserciones") or [])
     return fila

@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 import { aparatoDePieza, aparatosDeNeumatica } from "../visor/aparatoDePieza";
 import { APARATOS_MEZCLADORA, PANEL_CON_FALLAS } from "./muestrario/datosTablero";
 import { INICIO_DEMO } from "./muestrario/datosVivo";
-import { designacionSecundaria, nombreDeJunta, nombreEnLinea, nombrePrincipal, partesSecundarias } from "./nombres";
+import {
+  designacionSecundaria, nombreDeJunta, nombreEnFrase, nombreEnLinea, nombrePrincipal, partesSecundarias,
+} from "./nombres";
 
 /* El nombre de un aparato en todas las superficies (plan nombres-por-funcion F4): el rótulo del
    servidor primero, la designación detrás y chica; sin rótulo, la designación, nunca una tabla de
@@ -21,6 +23,19 @@ describe("rótulo primero, designación detrás", () => {
     expect(designacionSecundaria(k3)).toBe("-K3");
     expect(partesSecundarias(k3, "Relé de seguridad 2 canales")).toEqual(["-K3", "Relé de seguridad 2 canales"]);
     expect(nombreEnLinea(k3, "Relé de seguridad 2 canales")).toBe("Seguridad del recipiente · -K3 · Relé de seguridad 2 canales");
+  });
+
+  it("dentro de una frase: el `en_frase` del servidor; sin él, el rótulo en minúscula (la sigla queda) (F5b)", () => {
+    expect(nombreEnFrase({ designacion: "-KM1", rotulo: "Contactor", en_frase: "el contactor" })).toBe("el contactor");
+    expect(nombreEnFrase({ designacion: "-Q1", rotulo: "Interruptor general" })).toBe("interruptor general");
+    expect(nombreEnFrase({ designacion: "-K1", rotulo: "PLC" })).toBe("PLC");
+    expect(nombreEnFrase({ designacion: "-K1" })).toBe("-K1");
+  });
+
+  it("la designación se pega a la última palabra del nombre: nunca queda sola en su línea (F5b)", () => {
+    const css = fuente("diseno/diseno.css");
+    expect(css).toMatch(/\.designacion-aparato::before \{ content: "\\00a0"; \}/);
+    expect(css).toMatch(/\.cabeza-aparato \{ display: block;/);
   });
 
   it("sin rótulo (un servidor anterior), la designación es lo principal y el detalle la sigue", () => {

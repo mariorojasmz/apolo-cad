@@ -10,8 +10,10 @@ import { nombreEnLinea } from "../diseno/nombres";
 import {
   altoTexto, AMPLIADO_PX_MM, colorPresion, conNombre, convieneAmpliar, detalleSimbolo, elegidosPor, escalaEsquema,
   MIN_PX_MM, MIN_TEXTO_PX, pasoDe, posicionDe, presionDe, RAMPA_PRESION, rotuloCilindro, SIN_PRESION, textoConsumo,
-  textoFuerza, textoTiempo, topeLeyenda, type Lector,
+  textoFuerza, textoTiempo, topeLeyenda, vistaConTextos, type Lector,
 } from "./esquema";
+import MEZCLADORA from "../diseno/muestrario/neumaticaMezcladora.json";
+import type { PanelNeumaticaOut } from "./tipos";
 import {
   accionManual, alternarManual, ladosManual, manualPersona, nombrePosicion, posicionPersona, rotuloLado,
 } from "./manual";
@@ -65,8 +67,8 @@ describe("la escala de la presión", () => {
   });
 
   it("la leyenda dice su tope con unidad", () => {
-    expect(topeLeyenda(6)).toBe("6 bar");
-    expect(topeLeyenda(6.5)).toBe("6,5 bar");
+    expect(topeLeyenda(6)).toBe("6\u00a0bar");
+    expect(topeLeyenda(6.5)).toBe("6,5\u00a0bar");
   });
 });
 
@@ -111,7 +113,7 @@ describe("el esquema", () => {
   it("el cilindro por lo que hace, con su designación y sus medidas detrás", () => {
     const c = { designacion: "-MM1", ref: "x", piezas: [], diametro_mm: 32, vastago_mm: 12, carrera_mm: 200 };
     expect(nombreEnLinea(conNombre("-MM1", { "-MM1": { rotulo: "Cilindro de compuerta" } }), rotuloCilindro(c)))
-      .toBe("Cilindro de compuerta · -MM1 · Ø32 mm, vástago 12 mm · carrera 200 mm");
+      .toBe("Cilindro de compuerta · -MM1 · Ø32\u00a0mm, vástago 12\u00a0mm · carrera\u00a0200\u00a0mm");
   });
 
   it("se ajusta al ancho y, a pedido, se amplía a lo que se lee cómodo", () => {
@@ -128,13 +130,13 @@ describe("el esquema", () => {
 describe("el detalle de un cilindro", () => {
   it("escribe sus cifras como la UI", () => {
     expect(rotuloCilindro({ designacion: "-MM1", ref: "x", piezas: [], diametro_mm: 32, vastago_mm: 12, carrera_mm: 200 }))
-      .toBe("Ø32 mm, vástago 12 mm · carrera 200 mm");
+      .toBe("Ø32\u00a0mm, vástago 12\u00a0mm · carrera\u00a0200\u00a0mm");
     expect(textoFuerza({ F_avance_N: 482.5, F_avance_ef_N: 434.3, F_retroceso_N: 414.7, F_retroceso_ef_N: 373.2, p_bar: 6 }))
-      .toEqual(["Avance 483 N (434 N efectivos)", "Retroceso 415 N (373 N efectivos)"]);
-    expect(textoConsumo({ ciclo_NL: 2.2933, NL_min: 45.87, ciclos_min: 20 })).toBe("2,29 NL por ciclo · 45,9 NL/min a 20 ciclos/min");
-    expect(textoConsumo({ ciclo_NL: 2.2933 })).toBe("2,29 NL por ciclo");
+      .toEqual(["Avance 483\u00a0N (434\u00a0N efectivos)", "Retroceso 415\u00a0N (373\u00a0N efectivos)"]);
+    expect(textoConsumo({ ciclo_NL: 2.2933, NL_min: 45.87, ciclos_min: 20 })).toBe("2,29\u00a0NL por ciclo · 45,9\u00a0NL/min a 20 ciclos/min");
+    expect(textoConsumo({ ciclo_NL: 2.2933 })).toBe("2,29\u00a0NL por ciclo");
     const t = textoTiempo({ origen: "medido", escenario: "marcha", avance_s: 0.0934, retroceso_s: 0.0761 });
-    expect(t.cifras).toBe("Avance 0,093 s · retroceso 0,076 s");
+    expect(t.cifras).toBe("Avance 0,09\u00a0s · retroceso 0,08\u00a0s");
     expect(t.origen).toContain("«marcha»");
     expect(textoTiempo({ origen: "estimado", avance_s: 0.05 }).origen).toContain("estimado");
   });
@@ -149,8 +151,8 @@ describe("el aire de la barra", () => {
     expect(aireMedio(h, ["-AZ1.Q_Nl_min"], 10)).toBeCloseTo(500 / 11, 6);
     expect(aireMedio(h, [], 10)).toBeUndefined();
     expect(aireMedio(new Historia(8), ["-AZ1.Q_Nl_min"])).toBeUndefined();
-    expect(textoAire(45.87)).toBe("46 NL/min");
-    expect(textoAire(4.58)).toBe("4,6 NL/min");
+    expect(textoAire(45.87)).toBe("46\u00a0NL/min");
+    expect(textoAire(4.58)).toBe("4,6\u00a0NL/min");
   });
 });
 
@@ -198,9 +200,9 @@ describe("la sesión viva con aire", () => {
     expect(leerValor(0, medidaDe("-QM2.bobina14"))).toBe("Apagada");
     expect(leerValor(1, medidaDe("-QM2.bobina14"))).toBe("Encendida");
     expect(leerValor(1, medidaDe("-QM1.abierta"))).toBe("Abierta");
-    expect(leerValor(5.94, medidaDe("-MM1.pA_bar"))).toBe("5,94 bar");
-    expect(leerValor(12.34, medidaDe("-AZ1.Q_Nl_min"))).toBe("12,3 NL/min");
-    expect(leerValor(482.6, medidaDe("-MM1.F_N"))).toBe("483 N");
+    expect(leerValor(5.94, medidaDe("-MM1.pA_bar"))).toBe("5,94\u00a0bar");
+    expect(leerValor(12.34, medidaDe("-AZ1.Q_Nl_min"))).toBe("12,3\u00a0NL/min");
+    expect(leerValor(482.6, medidaDe("-MM1.F_N"))).toBe("483\u00a0N");
   });
 
   it("«Provocar atasco» sólo con un motor o una banda", () => {
@@ -235,10 +237,23 @@ describe("la sesión viva con aire", () => {
     expect(l.rotulo).toBeUndefined(); // sin rótulo del servidor, la fila muestra la designación (nombres-por-funcion D13)
     expect(l.soloElegida).toBe(true);
     const v: Record<string, number> = { "-MM1.x_mm": 199.6, "-MM1.pA_bar": 6, "-MM1.pB_bar": 0.04 };
-    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 200 mm · avance 6,0 bar · retroceso 0,0 bar");
+    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 200\u00a0mm · avance 6,0\u00a0bar · retroceso 0,0\u00a0bar");
     v["-MM1.x_mm"] = -0.8; // el tope blando de la junta lo pasa una fracción de mm
-    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 0 mm · avance 6,0 bar · retroceso 0,0 bar");
+    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 0\u00a0mm · avance 6,0\u00a0bar · retroceso 0,0\u00a0bar");
     v["-MM1.x_mm"] = 201.3; // y del otro lado, nunca más que la nominal
-    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 200 mm · avance 6,0 bar · retroceso 0,0 bar");
+    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 200\u00a0mm · avance 6,0\u00a0bar · retroceso 0,0\u00a0bar");
+  });
+});
+
+describe("ningún texto del esquema se corta en el borde (F5b)", () => {
+  it("la vista crece hasta el último carácter de «-RZ2», agrandado a la letra mínima", () => {
+    const e = (MEZCLADORA as unknown as PanelNeumaticaOut).esquema!;
+    for (const ancho of [240, 420, 900]) {
+      const [x, , w] = vistaConTextos(e.vista, e.textos, ancho);
+      const k = escalaEsquema(ancho, w);
+      const rz2 = e.textos.find((t) => t.texto === "-RZ2")!;
+      expect(rz2.x + rz2.texto.length * altoTexto(rz2.alto, k) * 0.6, `a ${ancho} px`).toBeLessThanOrEqual(x + w);
+      expect(x).toBeLessThanOrEqual(e.vista[0]); // nunca recorta lo que la lámina ya mostraba
+    }
   });
 });

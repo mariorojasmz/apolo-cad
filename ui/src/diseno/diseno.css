@@ -121,14 +121,16 @@ button.ia-fila:hover .ia-ir, button.ia-fila:focus-visible .ia-ir { opacity: 1; }
 
 /* El nombre de un aparato (`NombreAparato.tsx`, plan nombres-por-funcion D9): lo que hace en
    `--fw-medio`; detrás, la designación (nunca se corta) y un detalle, en `--fs-nota` y tinta
-   secundaria. El contenedor deja bajar la parte secundaria entera en angosto. */
-.cabeza-aparato {
-  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2); row-gap: var(--sp-1);
-  flex: 1 1 auto; min-width: 0;
-}
-.rotulo-aparato { color: var(--text); font-size: var(--fs-cuerpo); font-weight: var(--fw-medio); min-width: 0; }
+   secundaria. Es TEXTO corrido (F5b): si no cabe, se parte el nombre y la designación queda pegada
+   a su última palabra (el espacio duro de `::before`), nunca huérfana en su propia línea. */
+.cabeza-aparato { display: block; flex: 1 1 auto; min-width: 0; line-height: var(--lh-ajustado); }
+.rotulo-aparato { color: var(--text); font-size: var(--fs-cuerpo); font-weight: var(--fw-medio); }
 .designacion-aparato {
-  min-width: 0; color: var(--muted); font-size: var(--fs-nota); font-weight: var(--fw-nota);
+  margin-left: var(--sp-1); color: var(--muted); font-size: var(--fs-nota); font-weight: var(--fw-nota);
   font-variant-numeric: tabular-nums;
 }
+.designacion-aparato::before { content: "\00a0"; }
 .designacion-codigo { white-space: nowrap; }
+.cabeza-aparato .ayuda-btn { vertical-align: middle; margin-left: var(--sp-1); }
+/* la nota de la ⓘ abre como bloque debajo, con su texto partido (la designación no se corta) */
+.cabeza-aparato .ayuda-nota { white-space: normal; font-weight: var(--fw-cuerpo); }

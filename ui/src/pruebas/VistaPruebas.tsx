@@ -5,7 +5,7 @@ import IconoSeveridad from "../diseno/IconoSeveridad";
 import Veredicto from "../diseno/Veredicto";
 import { ROTULO_SEVERIDAD } from "../diseno/atencion";
 import VerDetalle from "../ui/VerDetalle";
-import { fechaCorta, progresoCorrida, textoIncidencia, tituloPrueba, type Corrida } from "./vista";
+import { estadoDeFila, lineaBajo, progresoCorrida, textoIncidencia, tituloPrueba, type Corrida } from "./vista";
 import type { DetallePrueba, FilaPrueba, Incidencia, PanelPruebasOut } from "./tipos";
 import "./pruebas.css";
 
@@ -57,26 +57,29 @@ export default function VistaPruebas({ panel, abierto, detalle, corridas, fallos
     <div className="pruebas">
       <Veredicto severidad={panel.veredicto.severidad} frase={panel.veredicto.frase} />
       <ul className="pr-lista" aria-label="Pruebas de la máquina">
-        {panel.escenarios.map((f) => (
-          <li key={f.nombre}>
-            <button type="button" className={`pr-fila${abierto === f.nombre ? " elegida" : ""}`}
-              aria-expanded={abierto === f.nombre} onClick={() => acciones.alternar(f.nombre)}
-              aria-label={`${tituloPrueba(f)}: ${ROTULO_SEVERIDAD[f.severidad]}, ${f.rotulo}`}>
-              <IconoSeveridad severidad={f.severidad} tamano={15} />
-              <span className="pr-nombre">{tituloPrueba(f)}</span>
-              <span className="pr-estado">{f.rotulo}</span>
-              <ChevronRight className="pr-ir" size={14} aria-hidden="true" />
-              <span className="pr-bajo">
-                {[fechaCorta(f.fecha, new Date(reloj)), f.balance].filter(Boolean).join(" · ") || "Todavía no se corrió"}
-              </span>
-            </button>
-            {corridas[f.nombre] && <Progreso c={corridas[f.nombre]} ahora={reloj} />}
-            {abierto === f.nombre && (
-              <Detalle fila={f} detalle={detalle} corriendo={!!corridas[f.nombre]} fallo={fallos[f.nombre]}
-                acciones={acciones} />
-            )}
-          </li>
-        ))}
+        {panel.escenarios.map((f) => {
+          // corriendo, el estado es «Corriendo», nunca el «Pasa»/«Falla» de la corrida vieja (F5b)
+          const est = estadoDeFila(f, corridas[f.nombre]);
+          const bajo = lineaBajo(f, new Date(reloj), !!corridas[f.nombre]);
+          return (
+            <li key={f.nombre}>
+              <button type="button" className={`pr-fila${abierto === f.nombre ? " elegida" : ""}`}
+                aria-expanded={abierto === f.nombre} onClick={() => acciones.alternar(f.nombre)}
+                aria-label={`${tituloPrueba(f)}: ${ROTULO_SEVERIDAD[est.severidad]}, ${est.rotulo}`}>
+                <IconoSeveridad severidad={est.severidad} tamano={15} />
+                <span className="pr-nombre">{tituloPrueba(f)}</span>
+                <span className="pr-estado">{est.rotulo}</span>
+                <ChevronRight className="pr-ir" size={14} aria-hidden="true" />
+                {bajo && <span className="pr-bajo">{bajo}</span>}
+              </button>
+              {corridas[f.nombre] && <Progreso c={corridas[f.nombre]} ahora={reloj} />}
+              {abierto === f.nombre && (
+                <Detalle fila={f} detalle={detalle} corriendo={!!corridas[f.nombre]} fallo={fallos[f.nombre]}
+                  acciones={acciones} />
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -98,6 +101,7 @@ function Progreso({ c, ahora }: { c: Corrida; ahora: number }) {
 function Detalle({ fila, detalle, corriendo, fallo, acciones }: {
   fila: FilaPrueba; detalle: DetallePrueba | null; corriendo: boolean; fallo?: string; acciones: AccionesPruebas;
 }) {
+  const crudas = (detalle?.fallidas ?? []).filter((a) => a.frase);
   return (
     <div className="pr-detalle">
       {fila.descripcion && <p className="pr-texto">{fila.descripcion}</p>}
@@ -113,10 +117,14 @@ function Detalle({ fila, detalle, corriendo, fallo, acciones }: {
             <section className="pr-seccion">
               <h4 className="pr-titulo">Lo que no cumplió</h4>
               <ul className="pr-filas">
+                {/* arriba, en llano (del servidor); la expresión cruda, en «Detalle técnico» (F5b).
+                    Lo que el servidor no puede decir en llano queda con su expresión */}
                 {detalle.fallidas.map((a) => (
                   <li key={a.asercion} className="pr-item pr-fallida">
-                    <span className="pr-asercion">{a.asercion}</span>
-                    <span className="pr-cifra">{a.cifra}</span>
+                    {a.frase
+                      ? <span className="pr-pedido">{a.frase}</span>
+                      : <span className="pr-asercion">{a.asercion}</span>}
+                    <span className="pr-cifra">{a.frase ? a.paso ?? a.cifra : a.cifra}</span>
                   </li>
                 ))}
               </ul>
@@ -154,10 +162,14 @@ function Detalle({ fila, detalle, corriendo, fallo, acciones }: {
         </button>
         <button type="button" onClick={() => acciones.enVivo(fila.nombre)}>Verla en vivo</button>
       </div>
-      {/* el id del escenario es para hablar con el agente: a pedido, nunca como título (D14) */}
-      {fila.titulo && fila.titulo !== fila.nombre && (
+      {/* el id del escenario y las expresiones crudas son para hablar con el agente: a pedido,
+          nunca como título (D14) ni arriba de la frase llana (F5b) */}
+      {((fila.titulo && fila.titulo !== fila.nombre) || crudas.length > 0) && (
         <VerDetalle resumen="Detalle técnico">
           <p className="pr-nota">Escenario <code>{fila.nombre}</code></p>
+          {crudas.map((a) => (
+            <p key={a.asercion} className="pr-nota"><code>{a.asercion}</code>: {a.cifra}</p>
+          ))}
         </VerDetalle>
       )}
     </div>

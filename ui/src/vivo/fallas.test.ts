@@ -215,7 +215,9 @@ describe("el panel de operador (plc-en-el-lazo D12)", () => {
 describe("con los nombres del servidor (nombres-por-funcion D13)", () => {
   const ini: Pick<InicioVivo, "fallas" | "ramas"> = {
     fallas: [{ designacion: "-K2", tipo: "rele_seguridad", rotulo: "Seguridad de tapa y seta", origen: "derivado",
-      fallas: [{ falla: "detenido", pide: "" }] }],
+      en_frase: "la seguridad de tapa y seta", fallas: [{ falla: "detenido", pide: "" }] },
+    { designacion: "-KM1", tipo: "contactor", rotulo: "Contactor", origen: "tipo", en_frase: "el contactor",
+      fallas: [{ falla: "soldado", pide: "" }] }],
     ramas: [
       { id: "-K2:13-14", tipo: "contacto", red: "mando", dispositivo: "-K2", nombre: "Contacto 13-14 · Seguridad de tapa y seta" },
       { id: "c160", tipo: "conductor", red: "potencia", nombre: "Cable Red de suministro → Interruptor general" },
@@ -224,20 +226,25 @@ describe("con los nombres del servidor (nombres-por-funcion D13)", () => {
 
   it("la lista nombra el aparato por lo que hace, con la designación detrás; el cable, por sus extremos", () => {
     expect(objetivosDe(ini).map((o) => o.nombre)).toEqual([
-      "Seguridad de tapa y seta · -K2", "Contacto 13-14 · Seguridad de tapa y seta", "Cable Red de suministro → Interruptor general"]);
+      "Seguridad de tapa y seta · -K2", "Contactor · -KM1", "Contacto 13-14 · Seguridad de tapa y seta",
+      "Cable Red de suministro → Interruptor general"]);
     // un servidor anterior: la designación o el id, nunca un nombre de tipo de la UI
     expect(objetivosDe(INICIO).find((o) => o.clave === "d:-K2")!.nombre).toBe("-K2");
     expect(objetivosDe(INICIO).find((o) => o.clave === "r:-W3")!.nombre).toBe("-W3");
   });
 
-  it("las activas dicen dónde por su nombre, sin repetir «contacto» ni «cable»", () => {
+  it("las activas dicen dónde por su nombre en minúscula de frase, con la designación detrás (F5b)", () => {
     const ramas: EventoFalla[] = [{ tipo: "falla", rama: "-K2:13-14", falla: "pegado", valor: true },
       { tipo: "falla", rama: "c160", falla: "abierto" }];
-    expect(activasDe({ "-K2.averia": "detenido" }, ini, ramas).map((a) => a.frase)).toEqual([
-      "relé detenido en Seguridad de tapa y seta",
-      "contacto 13-14 pegado cerrado en Seguridad de tapa y seta",
+    expect(activasDe({ "-K2.averia": "detenido", "-KM1.averia": "soldado" }, ini, ramas).map((a) => a.frase)).toEqual([
+      "relé detenido en la seguridad de tapa y seta -K2",
+      "contacto soldado en el contactor -KM1",
+      "contacto 13-14 pegado cerrado en la seguridad de tapa y seta -K2",
       "cable cortado en Red de suministro → Interruptor general",
     ]);
+    // sin `en_frase` (un servidor anterior): el rótulo en minúscula, nunca con mayúscula a media frase
+    const viejo = { ...ini, fallas: ini.fallas!.map(({ en_frase: _, ...a }) => a) };
+    expect(activasDe({ "-KM1.averia": "soldado" }, viejo)[0].frase).toBe("contacto soldado en contactor -KM1");
   });
 
   it("la UI no guarda nombres de tipo de aparato", async () => {

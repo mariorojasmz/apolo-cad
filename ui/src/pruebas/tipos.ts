@@ -46,7 +46,10 @@ export interface Incidencia {
 }
 
 export interface DetallePrueba extends FilaPrueba {
-  fallidas: { asercion: string; cifra: string }[];
+  /** Lo que no cumplió: la expresión y su cifra crudas («Detalle técnico») y, si el servidor la
+   *  puede decir en llano (`services/pruebas_frases.py`, F5b), lo que se pedía (`frase`) y lo que
+   *  pasó (`paso`). */
+  fallidas: { asercion: string; cifra: string; frase?: string; paso?: string }[];
   incidencias: Incidencia[];
   n_aserciones: number;
 }

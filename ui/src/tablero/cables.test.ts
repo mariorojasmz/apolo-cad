@@ -39,11 +39,11 @@ describe("cables de campo en el panel Tablero", () => {
 
   it("la fila dice de qué sale el largo, el puesto a mano y lo incompleto", () => {
     const w1 = PANEL_CON_FALLAS.detalle!.cables![0];
-    expect(largoCable(w1)).toMatch(/^\d,\d\d m$/);
+    expect(largoCable(w1)).toMatch(/^\d,\d\d\u00a0m$/);
     expect(partesCable(cable({ largo_m: 4.57, partes_m: { adentro: 0.379, afuera: 3.89, reserva: 0.3 } })))
-      .toBe("Dentro 0,38 m · afuera 3,89 m · reserva 0,30 m");
+      .toBe("Dentro 0,38\u00a0m · afuera 3,89\u00a0m · reserva 0,30\u00a0m");
     expect(partesCable(cable({ partes_m: { adentro: 0, afuera: 1, reserva: 0 }, declarado_m: 6, incompleto: true })))
-      .toBe("Recorrido incompleto · Dentro 0,00 m · afuera 1,00 m · reserva 0,00 m · Puesto a mano: 6,00 m");
+      .toBe("Recorrido incompleto · Dentro 0,00\u00a0m · afuera 1,00\u00a0m · reserva 0,00\u00a0m · Puesto a mano: 6,00\u00a0m");
     expect(largoCable(cable({ calculado: false, incompleto: true }))).toBeUndefined();
     // el largo del ejemplo es la suma de sus partes
     const p = w1.partes_m!;

@@ -14,14 +14,22 @@
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 5px 6px; border-radius: var(--radius-sm); background: var(--panel2);
 }
-/* una lectura no se toca: fila plana (sin el fondo de los mandos, que parecería un botón) */
-.fila-mando.fila-lectura { background: none; padding-left: 0; padding-right: 0; }
+/* una lectura no se toca: fila plana (sin el fondo de los mandos, que parecería un botón). Como
+   toda fila (F5b): el nombre a la izquierda —nunca menos de la mitad del ancho— y el valor a la
+   derecha, que baja por partes si no cabe; la nota y la falla, debajo, a todo el ancho */
+.fila-mando.fila-lectura {
+  display: grid; grid-template-columns: minmax(50%, 1fr) minmax(0, max-content); align-items: baseline;
+  column-gap: var(--sp-3); row-gap: 2px; background: none; padding-left: 0; padding-right: 0;
+}
+.fila-lectura .falla-lectura, .fila-lectura .nota-lectura { grid-column: 1 / -1; }
+.parte-lectura { white-space: nowrap; }
 .fila-mando-control { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .boton-mando { min-width: 86px; touch-action: none; user-select: none; }
 .boton-mando.apretado {
   background: var(--accent-soft); border-color: var(--accent); color: var(--text);
 }
-.valor-lectura { font-variant-numeric: tabular-nums; font-size: 13px; white-space: nowrap; }
+/* una lectura, como toda fila: el nombre a la izquierda y el valor a la derecha (F5b) */
+.valor-lectura { margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
 .falla-lectura, .nota-lectura { flex-basis: 100%; font-size: 11px; }
 
 /* tapa del mando con su color físico; la seta, roja sobre su fondo amarillo */
@@ -113,7 +121,6 @@
 .rama-senales { border-bottom: 1px solid var(--border); padding: 3px 0; }
 .rama-senales summary { display: flex; align-items: baseline; gap: 6px; cursor: pointer; padding: 2px 0; }
 .rama-senales summary .hint { font-size: 11px; }
-.rama-senales .cuenta-senales { margin-left: auto; }
 .lista-senales { list-style: none; margin: 2px 0 4px; padding: 0 0 0 10px; display: flex; flex-direction: column; gap: 1px; }
 .fila-senal { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 1px 0; }
 .nombre-senal { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

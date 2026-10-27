@@ -6,7 +6,7 @@ import type { InicioVivo, MandoVivo } from "../../vivo/protocolo";
 /* Datos de EJEMPLO de la sesión viva para el muestrario: la mezcladora de paletas de 200 L (plan
    nombres-por-funcion F3; rótulos del informe § 3.2) con sus 8 mandos, 4 pilotos y 2 relés de
    seguridad, los nombres como los suma la API al `inicio` (`services/nombres_aparatos.py`: rótulo,
-   origen, grupo, estados, descripción, rearme), las fallas de `cosim/fallas.py::catalogo` y lo
+   origen, `en_frase`, grupo, estados, descripción, rearme), las fallas de `cosim/fallas.py::catalogo` y lo
    que el servidor contestaría a una falla o a un mando, para revisar «Mandos», «Simular falla» y
    la barra sin API. `?fallas=0|1|3` elige con cuántas activas arranca; `?mandos=` el estado:
    `rearmar` (por defecto: la seguridad sin rearmar), `marcha`, `sin-energia`, `seta`, `tapa`. */
@@ -19,25 +19,25 @@ const PULSADOR: Pick<MandoVivo, "tipo" | "acciones" | "retorno" | "actuadores" |
 
 const MANDOS: MandoVivo[] = [
   { designacion: "-Q1", tipo: "seccionador", ref: "SECC-3P-25A", acciones: ["abrir", "cerrar"], color: null,
-    pieza: pieza("-Q1"), senales: ["-Q1.cerrado"], rotulo: "Interruptor general", origen: "tipo", grupo: "energia",
+    pieza: pieza("-Q1"), senales: ["-Q1.cerrado"], rotulo: "Interruptor general", en_frase: "el interruptor general", origen: "tipo", grupo: "energia",
     estados: { cerrado: "Encendido", abierto: "Apagado" } },
   { designacion: "-S0", tipo: "seta", ref: "ESTOP-40-2NC", acciones: ["presionar", "liberar"], color: "rojo",
-    fondo: "amarillo", pieza: pieza("-S0"), senales: ["-S0.accionado"], rotulo: "Parada de emergencia", origen: "tipo",
+    fondo: "amarillo", pieza: pieza("-S0"), senales: ["-S0.accionado"], rotulo: "Parada de emergencia", en_frase: "la parada de emergencia", origen: "tipo",
     grupo: "seguridad" },
   { ...PULSADOR, designacion: "-S1", ref: "PULS-22-VERDE-NA", color: "verde", pieza: pieza("-S1"), senales: ["-S1.accionado"],
-    rotulo: "Marcha", origen: "declarado", grupo: "operacion" },
+    rotulo: "Marcha", en_frase: "la marcha", origen: "declarado", grupo: "operacion" },
   { ...PULSADOR, designacion: "-S2", ref: "PULS-22-ROJO-NC", color: "rojo", pieza: pieza("-S2"), senales: ["-S2.accionado"],
-    rotulo: "Paro", origen: "declarado", grupo: "operacion",
+    rotulo: "Paro", en_frase: "el paro", origen: "declarado", grupo: "operacion",
     descripcion: "Para el motor de mezcla al terminar la vuelta. No corta la energía: para eso está la parada de emergencia." },
   { ...PULSADOR, designacion: "-S3", ref: "PULS-22-AZUL-NA", color: "azul", pieza: pieza("-S3"), senales: ["-S3.accionado"],
-    rotulo: "Rearme de seguridad", origen: "declarado", grupo: "seguridad", rearma: ["-K2", "-K3"],
+    rotulo: "Rearme de seguridad", en_frase: "el rearme de seguridad", origen: "declarado", grupo: "seguridad", rearma: ["-K2", "-K3"],
     descripcion: "Rearma los dos relés de seguridad. Sólo rearma con la tapa cerrada, el recipiente acoplado y la parada de emergencia liberada." },
   { designacion: "-S4", tipo: "selector", ref: "SEL-22-2P", acciones: ["girar"], color: "negro", pieza: pieza("-S4"),
-    posiciones: ["0", "I"], senales: [], rotulo: "Modo", origen: "declarado", grupo: "operacion",
+    posiciones: ["0", "I"], senales: [], rotulo: "Modo", en_frase: "el modo", origen: "declarado", grupo: "operacion",
     estados: { 0: "Manual", I: "Ciclo" } },
-  { ...RESGUARDO, designacion: "-B1", pieza: "c66", senales: ["-B1.cerrado"], rotulo: "Tapa del tanque", origen: "declarado",
+  { ...RESGUARDO, designacion: "-B1", pieza: "c66", senales: ["-B1.cerrado"], rotulo: "Tapa del tanque", en_frase: "la tapa del tanque", origen: "declarado",
     grupo: "seguridad", estados: { cerrado: "Cerrada", abierto: "Abierta" } },
-  { ...RESGUARDO, designacion: "-B4", pieza: "c361", senales: ["-B4.cerrado"], rotulo: "Recipiente bajo la descarga",
+  { ...RESGUARDO, designacion: "-B4", pieza: "c361", senales: ["-B4.cerrado"], rotulo: "Recipiente bajo la descarga", en_frase: "el recipiente bajo la descarga",
     origen: "declarado", grupo: "seguridad", estados: { cerrado: "Acoplado", abierto: "Sin recipiente" } },
 ];
 
@@ -86,23 +86,23 @@ export const INICIO_DEMO: InicioVivo = {
   ],
   fajas: [], cadenas: [], avisos: [],
   fallas: [
-    { designacion: "-KM1", tipo: "contactor", rotulo: "Contactor", origen: "tipo",
+    { designacion: "-KM1", tipo: "contactor", rotulo: "Contactor", en_frase: "el contactor", origen: "tipo",
       fallas: [{ falla: "soldado", pide: "" }, { falla: "no_cierra", pide: "" }] },
-    { designacion: "-Q1", tipo: "seccionador", rotulo: "Interruptor general", origen: "tipo", fallas: [{ falla: "trabado", pide: "bool?" }] },
-    { designacion: "-S0", tipo: "seta", rotulo: "Parada de emergencia", origen: "tipo", fallas: [{ falla: "trabado", pide: "bool?" }] },
-    { designacion: "-S1", tipo: "pulsador", rotulo: "Marcha", origen: "declarado", fallas: [{ falla: "trabado", pide: "bool?" }] },
-    { designacion: "-B1", tipo: "resguardo", rotulo: "Tapa del tanque", origen: "declarado", fallas: [{ falla: "trabado", pide: "bool?" }] },
-    { designacion: "-K1", tipo: "plc", rotulo: "PLC", origen: "tipo", fallas: [
+    { designacion: "-Q1", tipo: "seccionador", rotulo: "Interruptor general", en_frase: "el interruptor general", origen: "tipo", fallas: [{ falla: "trabado", pide: "bool?" }] },
+    { designacion: "-S0", tipo: "seta", rotulo: "Parada de emergencia", en_frase: "la parada de emergencia", origen: "tipo", fallas: [{ falla: "trabado", pide: "bool?" }] },
+    { designacion: "-S1", tipo: "pulsador", rotulo: "Marcha", en_frase: "la marcha", origen: "declarado", fallas: [{ falla: "trabado", pide: "bool?" }] },
+    { designacion: "-B1", tipo: "resguardo", rotulo: "Tapa del tanque", en_frase: "la tapa del tanque", origen: "declarado", fallas: [{ falla: "trabado", pide: "bool?" }] },
+    { designacion: "-K1", tipo: "plc", rotulo: "PLC", en_frase: "el PLC", origen: "tipo", fallas: [
       { falla: "entrada_pegada", pide: "borne,valor", opciones: ["I0.0", "I0.1", "I0.2", "I0.3", "AI0"] },
       { falla: "salida_pegada", pide: "borne,valor", opciones: ["Q0.0", "Q0.1"] },
       { falla: "detenido", pide: "" }] },
-    { designacion: "-Q2", tipo: "guardamotor", rotulo: "Guardamotor", origen: "tipo",
+    { designacion: "-Q2", tipo: "guardamotor", rotulo: "Guardamotor", en_frase: "el guardamotor", origen: "tipo",
       fallas: [{ falla: "no_dispara", pide: "" }, { falla: "abierto", pide: "" }] },
-    { designacion: "-G1", tipo: "fuente", rotulo: "Fuente", origen: "tipo", fallas: [{ falla: "sin_salida", pide: "" }] },
-    { designacion: "-P2", tipo: "piloto", rotulo: "Falla", origen: "declarado", fallas: [{ falla: "fundido", pide: "" }] },
-    { designacion: "-K2", tipo: "rele_seguridad", rotulo: "Seguridad de parada de emergencia y tapa del tanque", origen: "derivado",
+    { designacion: "-G1", tipo: "fuente", rotulo: "Fuente", en_frase: "la fuente", origen: "tipo", fallas: [{ falla: "sin_salida", pide: "" }] },
+    { designacion: "-P2", tipo: "piloto", rotulo: "Falla", en_frase: "la falla", origen: "declarado", fallas: [{ falla: "fundido", pide: "" }] },
+    { designacion: "-K2", tipo: "rele_seguridad", rotulo: "Seguridad de parada de emergencia y tapa del tanque", en_frase: "la seguridad de parada de emergencia y tapa del tanque", origen: "derivado",
       fallas: [{ falla: "salida_pegada", pide: "salida", opciones: ["13-14", "23-24", "33-34"] }, { falla: "detenido", pide: "" }] },
-    { designacion: "-K3", tipo: "rele_seguridad", rotulo: "Seguridad de recipiente bajo la descarga", origen: "derivado",
+    { designacion: "-K3", tipo: "rele_seguridad", rotulo: "Seguridad de recipiente bajo la descarga", en_frase: "la seguridad de recipiente bajo la descarga", origen: "derivado",
       fallas: [{ falla: "salida_pegada", pide: "salida", opciones: ["13-14", "23-24", "33-34"] }, { falla: "detenido", pide: "" }] },
   ],
   ramas: [

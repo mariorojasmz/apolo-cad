@@ -57,6 +57,7 @@
 }
 /* lo que no cumplió: la condición y, debajo, su cifra (en una columna angosta no se cortan) */
 .pr-item.pr-fallida { flex-direction: column; align-items: stretch; gap: 2px; }
+.pr-pedido { min-width: 0; overflow-wrap: anywhere; }
 .pr-asercion { min-width: 0; overflow-wrap: anywhere; font-family: Consolas, "Cascadia Mono", monospace; font-size: var(--fs-nota); }
 .pr-cifra { color: var(--muted); font-size: var(--fs-nota); overflow-wrap: anywhere; }
 .pr-lugar {

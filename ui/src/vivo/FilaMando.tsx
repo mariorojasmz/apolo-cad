@@ -1,10 +1,12 @@
-import { createContext, useContext, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { createContext, memo, useContext, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import Ayuda from "../ui/Ayuda";
 import { abreYCierra, estadoDeMando, estadoDesdeValor, senalDeEstado, valorVisto } from "./accionar";
 import { useVivo } from "./estado";
 import { alApretar, alSoltar, colorFisico, encendido, esMomentaneo, girar, llevarA, rotuloAccion, type Accion } from "./mandos";
 import NombreDeAparato from "../diseno/NombreAparato";
-import { estadoJuntoAlBoton, nombrePrincipal, segmentoLeido, segmentosDe, type Leidas } from "./nombresMandos";
+import {
+  estadoJuntoAlBoton, muestraColorFisico, nombrePrincipal, segmentoLeido, segmentosDe, type Leidas, type PasoSiguiente,
+} from "./nombresMandos";
 import type { MandoVivo, NombreAparato, PilotoVivo } from "./protocolo";
 import { accionar as accionarPorWs } from "./sesion";
 import Segmentado from "./Segmentado";
@@ -14,7 +16,9 @@ import "./mandos.css";
    D10, D16): lo que HACE manda (`--fw-medio`) y la designación va detrás, chica y en tinta
    secundaria; la `descripcion`, sólo en la ⓘ. Un mando que se queda es un control segmentado con
    el estado LEÍDO de su señal; el pulsador y la seta, un botón con verbo; el rearme dice al lado
-   cómo están los relés que rearma. Nada se deshabilita por no tener efecto ahora. */
+   cómo están los relés que rearma. Nada se deshabilita por no tener efecto ahora. El control del
+   paso que pide el veredicto (`paso`) va con el estilo primario del tema; ningún otro (F5b). El
+   cuadrado del color físico, sólo donde el color informa (`muestraColorFisico`). */
 
 /** Cómo se manda la acción de un mando: por el WebSocket; el muestrario la simula. */
 export const AccionarMando = createContext<(a: Accion, m: MandoVivo) => void>(accionarPorWs);
@@ -29,8 +33,8 @@ export const leidasDe = (s: { lecturas: Record<string, number>; textos: Record<s
 export function CabezaAparato({ a }: { a: NombreAparato & { designacion: string } }) {
   return (
     <div className="cabeza-aparato">
-      <NombreDeAparato a={a} />
-      {a.descripcion && <Ayuda tema={nombrePrincipal(a)}>{a.descripcion}</Ayuda>}
+      {/* la ⓘ va pegada a la designación: nunca sola en su línea (F5b) */}
+      <NombreDeAparato a={a} cola={a.descripcion && <Ayuda tema={nombrePrincipal(a)}>{a.descripcion}</Ayuda>} />
     </div>
   );
 }
@@ -43,7 +47,9 @@ function tapa(color: string | null, fondo?: string): CSSProperties {
   } as CSSProperties;
 }
 
-export function FilaMando({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
+/** La fila de un mando. `paso`: el control de la acción que pide el veredicto, si es de este mando.
+ *  Memorizada: la lista se re-dibuja con cada lectura (el veredicto) y la fila sólo con lo suyo. */
+export const FilaMando = memo(function FilaMando({ m, quieto, paso }: { m: MandoVivo; quieto: boolean; paso?: PasoSiguiente }) {
   const accionar = useContext(AccionarMando);
   // selectores PRIMITIVOS: un objeto nuevo por lectura re-renderizaría sin fin
   const senal = senalDeEstado(m);
@@ -56,35 +62,39 @@ export function FilaMando({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
   const nombre = nombrePrincipal(m);
   return (
     <li className="fila-mando">
-      <span className={`tapa-mando tapa-${m.tipo}${accionado ? " accionada" : ""}`} style={tapa(m.color, m.fondo)} aria-hidden />
+      {muestraColorFisico(m) && (
+        <span className={`tapa-mando tapa-${m.tipo}${accionado ? " accionada" : ""}`} style={tapa(m.color, m.fondo)} aria-hidden />
+      )}
       <CabezaAparato a={m} />
       {/* el estado y el control van juntos: en angosto bajan juntos, nunca el botón solo */}
       <div className="fila-mando-accion">
         {junto && <span className="estado-mando" aria-live="polite">{junto}</span>}
         <div className="fila-mando-control">
           {segmentos ? (
-            <Segmentado etiqueta={nombre} segmentos={segmentos} valor={leido} quieto={quieto}
+            <Segmentado etiqueta={nombre} segmentos={segmentos} valor={leido} quieto={quieto} primario={paso?.clave}
               alElegir={(clave) => accionar(llevarA(m, clave), m)} />
           ) : m.tipo === "pulsador" ? (
             <>
               {(m.actuadores?.length ?? 0) > 1
                 ? m.actuadores!.map((a) => <BotonMando key={a} m={m} actuador={a} rotulo={m.estados?.[a] || a} quieto={quieto} />)
-                : <BotonMando m={m} rotulo={rotuloAccion(m, estado)} quieto={quieto} activo={accionado} />}
+                : <BotonMando m={m} rotulo={rotuloAccion(m, estado)} quieto={quieto} activo={accionado}
+                  primario={!!paso && !paso.clave} />}
               {m.potenciometro && <Potenciometro m={m} quieto={quieto} />}
             </>
           ) : (
-            <BotonMando m={m} rotulo={rotuloAccion(m, estado)} quieto={quieto}
+            <BotonMando m={m} rotulo={rotuloAccion(m, estado)} quieto={quieto} primario={!!paso && !paso.clave}
               activo={m.tipo === "seta" ? estado.retenida : abreYCierra(m) ? estado.cerrado === false : undefined} />
           )}
         </div>
       </div>
     </li>
   );
-}
+});
 
-/** Un botón que se comporta como el mando: el pulsador con resorte vuelve al soltar. */
-function BotonMando({ m, rotulo, actuador, quieto, activo }: {
-  m: MandoVivo; rotulo: string; actuador?: string; quieto: boolean; activo?: boolean;
+/** Un botón que se comporta como el mando: el pulsador con resorte vuelve al soltar. `primario`:
+ *  es el paso que pide el veredicto. */
+function BotonMando({ m, rotulo, actuador, quieto, activo, primario }: {
+  m: MandoVivo; rotulo: string; actuador?: string; quieto: boolean; activo?: boolean; primario?: boolean;
 }) {
   const accionar = useContext(AccionarMando);
   const [abajo, setAbajo] = useState(false);
@@ -111,7 +121,7 @@ function BotonMando({ m, rotulo, actuador, quieto, activo }: {
   return (
     <button
       type="button"
-      className={`boton-mando${abajo || activo ? " apretado" : ""}`}
+      className={`boton-mando${abajo || activo ? " apretado" : ""}${primario ? " primary" : ""}`}
       disabled={quieto}
       aria-pressed={activo ?? abajo}
       aria-label={`${rotulo}: ${nombrePrincipal(m)}`}

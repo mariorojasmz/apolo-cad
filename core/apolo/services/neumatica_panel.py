@@ -62,6 +62,15 @@ def _lista(cosas: list[str], tope: int = 3) -> str:
     return f"{', '.join(cosas[:tope])} y {len(cosas) - tope} más"
 
 
+def _sin_nombre(des: str, prep: str = "") -> str:
+    """Sin `Nombres` (una prueba suelta de la frase): la designación, tras su preposición."""
+    return " ".join(x for x in (prep, des) if x)
+
+
+def _cap(texto: str) -> str:
+    return texto[:1].upper() + texto[1:]
+
+
 def _tecnico(filas: list[dict]) -> str:
     return " ".join(f"{f['detalle']}{(' ' + f['recomendacion']) if f.get('recomendacion') else ''}" for f in filas)
 
@@ -94,8 +103,9 @@ def _de(elementos: list[str]) -> list[str]:
 # ── lo que pide atención ───────────────────────────────────────────────────────────────────
 
 
-def _frase_erc(regla: str, filas: list[dict]) -> tuple[str, str | None]:
-    """(frase, detalle) de un hallazgo del ERC (o de varios juntos)."""
+def _frase_erc(regla: str, filas: list[dict], nom=_sin_nombre) -> tuple[str, str | None]:
+    """(frase, detalle) de un hallazgo del ERC (o de varios juntos). `nom(des, prep)` nombra al
+    aparato dentro de la frase: «del cilindro de compuerta (-MM1)» (plan nombres-por-funcion F5b)."""
     f0 = filas[0]
     des = _de(f0.get("elementos") or [])
     uno = des[0] if des else ""
@@ -115,63 +125,64 @@ def _frase_erc(regla: str, filas: list[dict]) -> tuple[str, str | None]:
                 "La descarga sin silenciador hace ruido.")
     if regla == "presión de trabajo":
         if f0["estado"] == "error":
-            return f"{uno} recibe una presión fuera de su rango", limpio(f0["detalle"])
+            return f"{_cap(nom(uno))} recibe una presión fuera de su rango", limpio(f0["detalle"])
         if "no está declarada" in f0["detalle"]:
-            return f"Falta la presión regulada de {uno}", "La fija el instalador en el filtro-regulador."
-        return f"No sabemos qué presión les llega a {_lista(des)}", limpio(f0["detalle"])
+            return f"Falta la presión regulada {nom(uno, 'de')}", "La fija el instalador en el filtro-regulador."
+        return f"No sabemos qué presión les llega {_lista([nom(x, 'a') for x in des])}", limpio(f0["detalle"])
     if regla == "servicio del cilindro":
-        return (f"Falta el trabajo de {_lista(des)}",
+        return (f"Falta el trabajo {_lista([nom(x, 'de') for x in des])}",
                 "Sin su carrera, su velocidad y su carga no revisamos el pandeo, el golpe al final ni el caudal.")
     if regla == "caudal de la válvula":
-        return f"La válvula de {uno} no alcanza la velocidad pedida", limpio(f0["detalle"])
+        return f"La válvula {nom(uno, 'de')} no alcanza la velocidad pedida", limpio(f0["detalle"])
     if regla == "regulación de velocidad":
-        return f"{uno} no regula su velocidad por el escape", limpio(f0["detalle"])
+        return f"{_cap(nom(uno))} no regula su velocidad por el escape", limpio(f0["detalle"])
     texto = limpio(f0["detalle"])
     return texto.split(": ", 1)[0] if len(texto) > 90 else texto, texto
 
 
-def _frase_memoria(f: dict) -> tuple[str, str | None]:
+def _frase_memoria(f: dict, nom=_sin_nombre) -> tuple[str, str | None]:
     regla, v = f["regla"], f.get("valor") or {}
     des = (f.get("elementos") or [""])[0]
     if regla == "pandeo del vástago" and "F_adm_N" in v and f.get("estado") != "error":
         # el aviso de λ bajo sin fy (calculo.pandeo_vastago): Euler puede sobreestimar, no pandea
-        return (f"Falta el límite elástico del vástago de {des}",
+        return (f"Falta el límite elástico del vástago {nom(des, 'de')}",
                 f"Es corto para la fórmula de Euler (λ = {n(v.get('lambda', 0), 0)}) y da un factor de seguridad "
                 f"de {n(v['fs'], 2)}; sin el límite elástico no se verifica con Johnson. Declara el material del "
                 "vástago.")
     if regla == "pandeo del vástago" and "F_adm_N" in v:
-        return (f"El vástago de {des} pandea: admite {fuerza(v['F_adm_N'])} contra {fuerza(v['F_N'])}",
+        return (f"El vástago {nom(des, 'de')} pandea: admite {fuerza(v['F_adm_N'])} contra {fuerza(v['F_N'])}",
                 f"Con {n(v.get('largo_mm', 0), 0, 'mm')} libres el factor de seguridad queda en "
                 f"{n(v['fs'], 2)} y pedimos 3. Lo resuelve un vástago mayor, menos carrera libre, un montaje "
                 "más rígido o una guía.")
     if regla == "energía al fin de carrera" and "E_J" in v:
-        return (f"{des} llega a {n(v['v_m_s'], 2, 'm/s')} y su amortiguación admite {n(v['E_adm_J'], 1, 'J')}: "
+        return (f"{_cap(nom(des))} llega a {n(v['v_m_s'], 2, 'm/s')} y su amortiguación admite {n(v['E_adm_J'], 1, 'J')}: "
                 f"llega con {n(v['E_J'], 1, 'J')}",
                 "Lo resuelve un regulador de caudal por el escape (menos velocidad), un amortiguador externo o un "
                 "cilindro mayor.")
     if regla == "relación de carga" and "eta" in v:
         if f["estado"] == "error":
-            return (f"{des} no mueve su carga: pide {fuerza(v['F_req_N'])} y empuja {fuerza(v['F_teorica_N'])} "
+            return (f"{_cap(nom(des))} no mueve su carga: pide {fuerza(v['F_req_N'])} y empuja {fuerza(v['F_teorica_N'])} "
                     "teóricos", "Un cilindro de más diámetro, más presión (dentro de la ficha) o menos carga.")
-        return (f"{des} va muy cargado: usa el {n(100 * v['eta'], 0, '%')} de su fuerza (tope "
+        return (f"{_cap(nom(des))} va muy cargado: usa el {n(100 * v['eta'], 0, '%')} de su fuerza (tope "
                 f"{n(100 * v['tope'], 0, '%')})", "Un cilindro de más diámetro o más presión le da margen.")
     if regla == "caudal pico de la válvula" and "q_pico_NL_min" in v:
-        return (f"{v.get('valvula', 'La válvula')} pasa {n(v['q_disponible_NL_min'], 0, 'NL/min')} y {des} pide "
+        valvula = _cap(nom(v["valvula"])) if v.get("valvula") else "La válvula"
+        return (f"{valvula} pasa {n(v['q_disponible_NL_min'], 0, 'NL/min')} y {nom(des)} pide "
                 f"{n(v['q_pico_NL_min'], 0, 'NL/min')} de pico",
                 "Una válvula de más caudal, menos velocidad o tubos y racores más grandes.")
     if regla == "tiempo de carrera":
         med = v.get("medido") or {}
         if med.get("x_max_mm") is not None and med["x_max_mm"] < v.get("carrera_mm", 0) - 2:
-            return (f"{des} no llega al final de su carrera: {n(med['x_max_mm'], 0)} de "
+            return (f"{_cap(nom(des))} no llega al final de su carrera: {n(med['x_max_mm'], 0)} de "
                     f"{n(v['carrera_mm'], 0, 'mm')}", f"Lo midió el escenario «{med.get('escenario', '')}».")
-        return f"Revisa el tiempo de carrera de {des}", limpio(f["detalle"])
+        return f"Revisa el tiempo de carrera {nom(des, 'de')}", limpio(f["detalle"])
     if regla == "caudal de la unidad de mantenimiento" and "q_pico_NL_min" in v:
-        return (f"{des} pasa {n(v['q_disponible_NL_min'], 0, 'NL/min')} y la máquina pide "
+        return (f"{_cap(nom(des))} pasa {n(v['q_disponible_NL_min'], 0, 'NL/min')} y la máquina pide "
                 f"{n(v['q_pico_NL_min'], 0, 'NL/min')} de pico", "Una unidad de mantenimiento de más caudal.")
     if regla == "amortiguador externo" and "n_max_ciclos_min" in v and "ciclos_min" in v:
         entran = (f["recomendacion"].split("Entra con estas cifras: ", 1)[1].rstrip(".")
                   if "Entra con estas cifras: " in (f.get("recomendacion") or "") else "")
-        return (f"El amortiguador de {des} al {v.get('extremo', '')} recibe {n(v['ciclos_min'], 0)} golpes por minuto "
+        return (f"El amortiguador {nom(des, 'de')} al {v.get('extremo', '')} recibe {n(v['ciclos_min'], 0)} golpes por minuto "
                 f"y admite {n(v['n_max_ciclos_min'], 0)}",
                 f"Entra uno de este tamaño: {entran}." if entran else
                 "Ninguno del catálogo entra: menos ciclos, menos velocidad o menos presión.")
@@ -183,7 +194,7 @@ def _frase_memoria(f: dict) -> tuple[str, str | None]:
     return texto, None
 
 
-def items(erc: list[dict], mem: list[dict], m, piezas: dict[str, list[str]]) -> list[dict]:
+def items(erc: list[dict], mem: list[dict], m, piezas: dict[str, list[str]], nom=_sin_nombre) -> list[dict]:
     from apolo.library.neumatica.memoria import ALCANCE
 
     def donde(elementos) -> list[str]:
@@ -200,14 +211,14 @@ def items(erc: list[dict], mem: list[dict], m, piezas: dict[str, list[str]]) -> 
         clave = (f["regla"], f["estado"]) if f["regla"] in SE_JUNTAN else (f["regla"], f["estado"], len(grupos))
         grupos.setdefault(clave, []).append(f)
     for i, (clave, filas) in enumerate(grupos.items()):
-        frase, detalle = _frase_erc(clave[0], filas)
+        frase, detalle = _frase_erc(clave[0], filas, nom)
         els = [e for f in filas for e in f.get("elementos") or []]
         out.append(item(f"erc-{i}", SEVERIDAD[clave[1]], frase, piezas=donde(els), detalle=detalle,
                         tecnico=_tecnico(filas)))
     for i, f in enumerate(mem):
         if f["estado"] not in SEVERIDAD or f["regla"] == ALCANCE:
             continue
-        frase, detalle = _frase_memoria(f)
+        frase, detalle = _frase_memoria(f, nom)
         out.append(item(f"memoria-{i}", SEVERIDAD[f["estado"]], frase, piezas=donde(f.get("elementos")),
                         detalle=detalle, tecnico=_tecnico([f])))
     # lo que la memoria no pudo revisar por falta de velocidad (ni declarada ni medida): sin evaluar
@@ -217,7 +228,7 @@ def items(erc: list[dict], mem: list[dict], m, piezas: dict[str, list[str]]) -> 
         if getattr(d, "neumatico", None) is not None and d.neumatico.tipo == "cilindro" and d.servicio \
                 and d.designacion not in con_golpe:
             out.append(item(f"sin-velocidad-{d.designacion}", "sin_evaluar",
-                            f"Sin la velocidad de {d.designacion} no revisamos el golpe al final ni el caudal",
+                            f"Sin la velocidad {nom(d.designacion, 'de')} no revisamos el golpe al final ni el caudal",
                             piezas=piezas.get(d.designacion, []),
                             detalle="Corre un escenario que lo mueva, o pídele al agente que declare su velocidad."))
     # el amortiguador externo sin cadencia ni capacidad: su energía por hora, sin evaluar
@@ -225,7 +236,7 @@ def items(erc: list[dict], mem: list[dict], m, piezas: dict[str, list[str]]) -> 
         if f["regla"] == "amortiguador externo" and "SIN EVALUAR" in f["detalle"]:
             des = (f.get("elementos") or [""])[0]
             out.append(item(f"sin-ritmo-{des}-{len(out)}", "sin_evaluar",
-                            f"Sin la cadencia de {des} no revisamos los golpes por minuto ni la energía por hora de su amortiguador",
+                            f"Sin la cadencia {nom(des, 'de')} no revisamos los golpes por minuto ni la energía por hora de su amortiguador",
                             piezas=piezas.get(des, []),
                             detalle="Pídele al agente que declare la cadencia del cilindro o la capacidad de la máquina."))
     return out
@@ -276,7 +287,10 @@ def panel(doc) -> dict:
         return {"hay_aire": False}
     erc, mem = reglas(m, doc), memoria(doc)
     piezas = piezas_de(doc, m)
-    its = items(erc, mem, m, piezas)
+    from .nombres_aparatos import Nombres
+
+    nombres = Nombres(doc, m)
+    its = items(erc, mem, m, piezas, lambda des, prep="": nombres.con_designacion(des, frase=True, prep=prep))
     v = veredicto(its, FRASE_BIEN, FRASE_PARCIAL)
     n_reglas = len({f["regla"] for f in erc})
     n_calc = sum(1 for f in mem if "calc" in f)
@@ -298,7 +312,7 @@ def nombrar(doc, m, tambien: set | None = None) -> dict:
     """Plan nombres-por-funcion F1 (clave AGREGADA; F4 la muestra): {designación: {rotulo, origen,
     estados?, descripcion?}} de cada aparato de aire y de lo que dibuja el esquema (el detector de
     fin de carrera); la válvula trae sus `estados` por posición del carrete. Los textos de los
-    ítems siguen con la designación."""
+    ítems nombran al aparato con `Nombres.con_designacion(frase=True)` (F5b)."""
     from .nombres_aparatos import Nombres
 
     n = Nombres(doc, m)

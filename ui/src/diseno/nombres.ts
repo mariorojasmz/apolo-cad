@@ -35,6 +35,16 @@ export function nombreDeJunta(j: { name: string; child: string }, nombreDePieza:
   return hija && hija !== j.child ? { designacion: j.name, rotulo: hija } : { designacion: j.name };
 }
 
+/** El nombre DENTRO de una frase («contacto soldado en el contactor»): el `en_frase` del servidor
+ *  (minúscula y artículo: el género lo decide él, F5b); sin él, el rótulo en minúscula (una sigla
+ *  queda) o, sin rótulo, la designación. */
+export function nombreEnFrase(a: ConNombre & { en_frase?: string }): string {
+  if (a.en_frase) return a.en_frase;
+  const r = a.rotulo;
+  if (!r) return a.designacion;
+  return r.length > 1 && r[1] === r[1].toUpperCase() && r[1] !== r[1].toLowerCase() ? r : r[0].toLowerCase() + r.slice(1);
+}
+
 /** «Marcha · -S1»: el nombre en una línea de texto (un `aria-label`, una opción). */
 export function nombreEnLinea(a: ConNombre, detalle?: string | null): string {
   return [nombrePrincipal(a), ...partesSecundarias(a, detalle)].join(" · ");

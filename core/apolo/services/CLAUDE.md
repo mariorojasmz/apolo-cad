@@ -197,8 +197,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   cuenta del panel, el ERC y la BOM; sus ítems los redacta `tablero_atencion.py`. (F3)
 - El nombre de un aparato para la persona (paneles, tabla del vivo con `nombres_en_tabla`, junto a
   `piezas_en_tabla`) sale de `nombres_aparatos.Nombres`: rótulo con su `origen`, estados, grupo y
-  rearme. Ni una tabla de tipos propia ni la designación sola.
-  [nombres-por-funcion](../../../docs/plans/nombres-por-funcion.md)
+  rearme. Ni una tabla de tipos propia ni la designación sola. Dentro de una frase, en minúscula y
+  con su artículo: `con_designacion(des, frase=True, prep="de")` → «del cilindro de compuerta (-MM1)»;
+  nunca «de -MM1» ni una mayúscula a media frase. [nombres-por-funcion](../../../docs/plans/nombres-por-funcion.md)
 - Los cables de campo (`cables_campo.py`, F4) tampoco se cachean: `recorridos(doc, m, tableros)`
   es la ÚNICA cuenta de su recorrido y su largo (BOM, `circuito`, ERC y `vista`, lo que dibuja el
   visor); sólo con `por`. Lo que gira sale de `calidad_seguridad.analisis` (sin el layout): no

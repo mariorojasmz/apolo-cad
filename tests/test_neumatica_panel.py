@@ -66,7 +66,10 @@ def test_veredicto_e_items_en_palabras_de_la_persona(panel):
 def test_un_vastago_que_pandea_dice_sus_cifras_y_señala_el_cilindro(banco):
     d, cid = empujador(servicio={**SERVICIO, "largo_libre_mm": 1500})
     p = P.panel(d)
-    it = next(i for i in p["items"] if i["frase"].startswith("El vástago de -MM1 pandea"))
+    # el cilindro por su función, en minúscula de frase (nombres-por-funcion F5b): nunca «de -MM1»,
+    # ni por la parte de su pieza («Cilindro · Cuerpo» es el cilindro, no «el cuerpo»)
+    it = next(i for i in p["items"] if i["frase"].startswith("El vástago del cilindro (-MM1) pandea"))
+    assert not any("cuerpo (-MM1)" in i["frase"].lower() for i in p["items"])
     assert it["severidad"] == "falla" and " contra " in it["frase"]
     assert it["piezas"][0] == f"{cid}_cuerpo" and f"{cid}_vastago" in it["piezas"]
     assert it["tecnico"] and "FS" in it["tecnico"]
@@ -83,6 +86,16 @@ def test_el_aviso_de_esbeltez_sin_fy_no_dice_que_pandea():
     assert "109" in detalle and "45" in detalle
     frase_error, _ = P._frase_memoria({**fila, "estado": "error", "valor": {**fila["valor"], "fs": 1.7}})
     assert frase_error.startswith("El vástago de -MM1 pandea")
+    # con los nombres del documento, el cilindro por su función y en minúscula de frase (F5b)
+    nom = {"-MM1": "cilindro de compuerta (-MM1)"}
+
+    def nombrar(des, prep=""):
+        return {"de": "del ", "a": "al ", "": "el "}[prep] + nom[des]
+
+    assert P._frase_memoria(fila, nombrar)[0] == "Falta el límite elástico del vástago del cilindro de compuerta (-MM1)"
+    energia = {"regla": "energía al fin de carrera", "estado": "aviso", "elementos": ["-MM1"],
+               "valor": {"E_J": 2.0, "E_adm_J": 1.0, "v_m_s": 0.5}}
+    assert P._frase_memoria(energia, nombrar)[0].startswith("El cilindro de compuerta (-MM1) llega a 0,50")
 
 
 def test_el_detalle_por_cilindro(panel, banco):
