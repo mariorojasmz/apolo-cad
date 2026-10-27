@@ -393,8 +393,11 @@ RUTAS = [
     ("POST", r"/api/connections/remove", J({**escena(), "conexiones_borradas": ["f1", "g1"]})),
     ("POST", r"/api/delivery-check", J({"veredicto": "VERDE", "bloqueantes": []})),
     ("POST", r"/api/puerta-publicacion", _encolado("jpu")),
-    ("PUT", r"/api/justificadas", J({"ok": True, "justificadas": [
+    ("GET", r"/api/justificadas", J({"justificadas": [
         {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"}]})),
+    ("PUT", r"/api/justificadas", J({"ok": True, "justificadas": [
+        {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"}],
+        "quedaron": 1, "borradas": 0})),
     ("PUT", r"/api/funciones", J({"ok": True, "funciones": [
         {"funcion": "accionamiento", "solucion": "motorreductor sinfín de eje hueco",
          "descartadas": [{"solucion": "coaxial con cadena", "motivo": "una cadena más que resguardar"}],
@@ -642,6 +645,16 @@ CASOS = [
     caso("job de la puerta completo", "get_job", {"job_id": "jpu", "detail": "full"}),
     caso("justificaciones", "set_justifications", {"justificadas": [
         {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"}]}),
+    caso("leer justificaciones", "get_justifications"),
+    caso("justificación agregada sin tocar el resto", "set_justifications", {"justificadas": [
+        {"regla": "eléctrico · calentamiento", "pieza": "-MM1",
+         "porque": "el cilindro trabaja a 1 ciclo por minuto: el calentamiento no aplica"}],
+        "modo": "agregar"}, rutas={
+        ("PUT", r"/api/justificadas"): J({"ok": True, "justificadas": [
+            {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"},
+            {"regla": "eléctrico · calentamiento", "pieza": "-MM1",
+             "porque": "el cilindro trabaja a 1 ciclo por minuto: el calentamiento no aplica"}],
+            "quedaron": 2, "agregadas": 1, "reemplazadas": 0})}),
     caso("justificación corta → 400", "set_justifications", {"justificadas": [
         {"regla": "salud · degradado", "porque": "no aplica"}]}, rutas={
         ("PUT", r"/api/justificadas"): J({"detail": "justificadas[0].porque: explica por qué se "

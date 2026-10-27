@@ -410,30 +410,30 @@ def put_funciones(body: FuncionesIn) -> dict:
 
 class JustificadasIn(BaseModel):
     justificadas: list = []
+    modo: str = "reemplazar"  # o «agregar»: por (regla, pieza), sin tocar el resto
 
 
 @router.get("/api/justificadas")
 def get_justificadas() -> dict:
-    """Los avisos y las piezas aceptados POR ESCRITO (plan puerta-sin-sobrediseno D6/D11):
-    [{regla?, pieza?, porque}]. Un aviso justificado deja de bloquear la puerta; un error, nunca."""
+    """Lo aceptado POR ESCRITO (puerta-sin-sobrediseno D6/D11): [{regla?, pieza?, porque}]."""
     with STATE_LOCK:
         return {"justificadas": S.doc.justificadas}
 
 
 @router.put("/api/justificadas")
 def put_justificadas(body: JustificadasIn) -> dict:
-    """Reemplaza las justificaciones (metadato: no entra al log ni al undo)."""
+    """Reemplaza o agrega justificaciones, con sus cuentas (metadato: fuera del log y del undo)."""
     from apolo.services.errors import ServiceError
-    from apolo.services.puerta_publicacion import poner_justificadas
+    from apolo.services.puerta_publicacion import cambiar_justificadas
 
     with STATE_LOCK:
         _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
         try:
-            justificadas = poner_justificadas(S.doc, body.justificadas)
+            r = cambiar_justificadas(S.doc, body.justificadas, body.modo)
         except ServiceError as exc:
             raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
         _autosave()
-        return {"ok": True, "justificadas": justificadas}
+        return {"ok": True, **r}
 
 
 class StackupIn(BaseModel):

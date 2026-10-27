@@ -18,12 +18,20 @@ o qué pieza se acepta y por qué:
 
 `regla` es el texto EXACTO que el ítem muestra en su evidencia (`casos[].regla`). Con `pieza`,
 el aviso pasa sólo si TODAS sus piezas están justificadas para esa regla (varias entradas de la
-misma regla se suman); un aviso sin piezas pide la regla sin `pieza`.
+misma regla se suman); un aviso sin piezas pide la regla sin `pieza`. `pieza` es lo que la
+evidencia muestra como pieza: el id de una pieza o, en lo eléctrico, la designación del aparato
+(«-MM1»); quien guarda la lista verifica que exista (`services/puerta_publicacion.py`).
+
+`regla` se guarda recortada a `MAX_TEXTO` (y así la compara `del_no_evaluado`: un texto de no
+evaluado puede ser más largo); el `porque` NUNCA se recorta: más de `MAX_PORQUE` se rechaza
+(600 caracteres: entra una cuenta con sus cifras). Una entrada se identifica por su par
+(regla, pieza) (`clave`): `fusionar` agrega o reemplaza por par sin tocar el resto.
 """
 
 from __future__ import annotations
 
 MIN_PORQUE = 20      # un «porque» más corto no explica nada («no aplica», «ok»)
+MAX_PORQUE = 600     # una cuenta con sus cifras entra; más, se rechaza (nunca un recorte callado)
 MAX_TEXTO = 300
 _CLAVES = {"regla", "pieza", "porque"}
 
@@ -57,9 +65,36 @@ def validar_justificadas(valor) -> list[dict]:
             raise ValueError(f"{donde}.porque: explica por qué se acepta en al menos "
                              f"{MIN_PORQUE} caracteres (la norma, la guía del producto, el pedido "
                              "del cliente…); un aviso sin porqué se corrige, no se calla")
-        limpio["porque"] = porque.strip()[:MAX_TEXTO]
+        if len(porque.strip()) > MAX_PORQUE:
+            raise ValueError(f"{donde}.porque: {len(porque.strip())} caracteres, el tope es "
+                             f"{MAX_PORQUE}: resume la razón (la norma, la cifra que decide) o "
+                             "parte la justificación por pieza; no se recorta")
+        limpio["porque"] = porque.strip()
         out.append(limpio)
     return out
+
+
+def clave(j: dict) -> tuple:
+    """Lo que identifica una justificación: su par (regla, pieza), cualquiera de los dos None."""
+    return (j.get("regla"), j.get("pieza"))
+
+
+def fusionar(previas, nuevas) -> tuple[list[dict], int, int]:
+    """(lista, agregadas, reemplazadas): `nuevas` sobre `previas` por `clave`; una nueva con el
+    par de una previa la reemplaza EN SU LUGAR, las demás van al final y el resto queda igual."""
+    out = [dict(j) for j in (previas or [])]
+    donde = {clave(j): k for k, j in enumerate(out)}
+    agregadas = reemplazadas = 0
+    for j in nuevas:
+        k = donde.get(clave(j))
+        if k is None:
+            donde[clave(j)] = len(out)
+            out.append(j)
+            agregadas += 1
+        else:
+            out[k] = j
+            reemplazadas += 1
+    return out, agregadas, reemplazadas
 
 
 def del_aviso(regla: str | None, piezas, justificadas) -> list[dict]:

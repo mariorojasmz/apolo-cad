@@ -1,6 +1,7 @@
 """Tools MCP de la puerta de PUBLICACIÓN: `publication_gate` (plan puerta-de-publicacion, F1; `POST
-/api/puerta-publicacion`, como job: corre la gravedad y la marcha del video), `set_justifications`
-(plan puerta-sin-sobrediseno D6/D11; `PUT /api/justificadas`) y `set_functions` (D15 de la
+/api/puerta-publicacion`, como job: corre la gravedad y la marcha del video), `get_justifications`
+y `set_justifications` (plan puerta-sin-sobrediseno D6/D11; `GET|PUT /api/justificadas`, con
+`modo` reemplazar | agregar) y `set_functions` (D15 de la
 puerta; `PUT /api/funciones`, F3b de puerta-sin-sobrediseno): metadatos, sin job.
 
 Cliente fino como el resto; vive fuera de `mcp_server.py` (trinquete de tamaño), que la registra al
@@ -81,7 +82,8 @@ def recibo_puerta(job_id: str, completo: bool, item: str) -> str:
 
 
 def registrar(mcp, esperar, api=None) -> None:
-    """Registra `publication_gate`, `set_justifications` y `set_functions` en `mcp`."""
+    """Registra `publication_gate`, `get_justifications`, `set_justifications` y `set_functions`
+    en `mcp`."""
 
     @mcp.tool()
     def publication_gate(completo: bool = False, item: str = "") -> str:
@@ -111,19 +113,32 @@ def registrar(mcp, esperar, api=None) -> None:
         return json.dumps(payload if completo else resumir(payload), ensure_ascii=False)
 
     @mcp.tool()
-    def set_justifications(justificadas: list[dict]) -> str:
-        """Declara lo que se acepta POR ESCRITO en la puerta de publicación (reemplaza la lista
-        entera; `[]` la borra). Cada entrada es {regla?, pieza?, porque}: con `regla` (el texto
-        EXACTO de `casos[].regla` en la evidencia de entrega.semaforo, riesgos.electrico o
+    def get_justifications() -> str:
+        """Lee lo aceptado POR ESCRITO en la puerta de publicación: la lista {regla?, pieza?,
+        porque} que guardó set_justifications. Léela antes de cambiarla. Read-only."""
+        return json.dumps(api("GET", "/api/justificadas").json(), ensure_ascii=False)
+
+    @mcp.tool()
+    def set_justifications(justificadas: list[dict], modo: str = "reemplazar") -> str:
+        """Declara lo que se acepta POR ESCRITO en la puerta de publicación. `modo="reemplazar"`
+        (por defecto) cambia la lista ENTERA (`[]` la borra); `modo="agregar"` suma cada entrada
+        o reemplaza la de su mismo par (regla, pieza) sin tocar las demás. La respuesta cuenta
+        las que `quedaron` y las `borradas` (o `agregadas`/`reemplazadas`); para verlas sin
+        tocarlas, get_justifications. Cada entrada es {regla?, pieza?, porque}: con `regla` (el
+        texto EXACTO de `casos[].regla` en la evidencia de entrega.semaforo, riesgos.electrico o
         ingenieria.reglas) un AVISO de esa regla deja de bloquear —con `pieza`, sólo el aviso
-        sobre esas piezas—; lo que entrega.no_evaluado lista sin evaluar se justifica igual, con
+        sobre esas piezas: el id o, en lo eléctrico, la designación que muestra la evidencia
+        («-MM1»)—; lo que entrega.no_evaluado lista sin evaluar se justifica igual, con
         la regla que muestra su `como_justificar` (y, con `pieza`, cada pieza que nombra); con
         `pieza` sola, una pieza que diseno.sin_sobrantes halla sobrante deja de ser FALLA. Un
-        ERROR nunca se justifica. `porque` (≥ 20 caracteres) dice la razón
+        ERROR nunca se justifica. `porque` (20 a 600 caracteres) dice la razón
         verificable: la norma, la guía del producto, el pedido del cliente. Primero CORRIGE el
         modelo; justifica sólo lo que de verdad no aplica (nunca agregues una pieza para callar un
         aviso). Metadato: no entra al log ni al deshacer."""
-        r = api("PUT", "/api/justificadas", json={"justificadas": justificadas})
+        body: dict = {"justificadas": justificadas}
+        if modo != "reemplazar":
+            body["modo"] = modo
+        r = api("PUT", "/api/justificadas", json=body)
         return json.dumps(r.json(), ensure_ascii=False)
 
     @mcp.tool()

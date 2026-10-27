@@ -152,6 +152,8 @@ FUERA_DEL_CHAT: dict[str, str] = {
     "publication_gate": ("la puerta de publicación es de la fábrica y del modelador por MCP: "
                          "simula gravedad y marcha (minutos) y no cabe en una vuelta del chat; "
                          "el chat valida con delivery_check"),
+    "get_justifications": ("lee lo aceptado en la puerta de publicación, que tampoco está en el "
+                           "chat: es del modelador por MCP y de la fábrica"),
     "set_justifications": ("acepta avisos y sobrantes de la puerta de publicación, que tampoco "
                            "está en el chat: es del modelador por MCP y de la fábrica"),
     "set_functions": ("declara la solución por función que lee la puerta de publicación, que "

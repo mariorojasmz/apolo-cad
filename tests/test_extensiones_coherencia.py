@@ -150,5 +150,5 @@ def test_el_mcp_por_stdio_no_registra_la_tool_si_su_api_no_la_tiene():
         out = _mcp_hijo(url)
     assert out.returncode == 0, out.stderr[-3000:]
     res = json.loads(out.stdout.strip().splitlines()[-1])
-    assert res["n"] == 92 and "prueba_hola" not in res["nombres"]
+    assert res["n"] == 93 and "prueba_hola" not in res["nombres"]
     assert "ext-prueba no se registran" in out.stderr  # sin tildes: el stderr del hijo es cp1252

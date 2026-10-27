@@ -4562,7 +4562,7 @@
   },
   "salida": [
    {
-    "texto": "{\"ok\": true, \"justificadas\": [{\"pieza\": \"c427\", \"porque\": \"la guía del producto pide cerrar el lateral contra el polvo\"}]}"
+    "texto": "{\"ok\": true, \"justificadas\": [{\"pieza\": \"c427\", \"porque\": \"la guía del producto pide cerrar el lateral contra el polvo\"}], \"quedaron\": 1, \"borradas\": 0}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -4578,6 +4578,81 @@
        "porque": "la guía del producto pide cerrar el lateral contra el polvo"
       }
      ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "leer justificaciones",
+  "tool": "get_justifications",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"justificadas\": [{\"pieza\": \"c427\", \"porque\": \"la guía del producto pide cerrar el lateral contra el polvo\"}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/justificadas",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "justificación agregada sin tocar el resto",
+  "tool": "set_justifications",
+  "args": {
+   "justificadas": [
+    {
+     "regla": "eléctrico · calentamiento",
+     "pieza": "-MM1",
+     "porque": "el cilindro trabaja a 1 ciclo por minuto: el calentamiento no aplica"
+    }
+   ],
+   "modo": "agregar"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"justificadas\": [{\"pieza\": \"c427\", \"porque\": \"la guía del producto pide cerrar el lateral contra el polvo\"}, {\"regla\": \"eléctrico · calentamiento\", \"pieza\": \"-MM1\", \"porque\": \"el cilindro trabaja a 1 ciclo por minuto: el calentamiento no aplica\"}], \"quedaron\": 2, \"agregadas\": 1, \"reemplazadas\": 0}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/justificadas",
+    "query": [],
+    "cuerpo": {
+     "justificadas": [
+      {
+       "regla": "eléctrico · calentamiento",
+       "pieza": "-MM1",
+       "porque": "el cilindro trabaja a 1 ciclo por minuto: el calentamiento no aplica"
+      }
+     ],
+     "modo": "agregar"
     },
     "cabeceras": {
      "accept": "*/*",

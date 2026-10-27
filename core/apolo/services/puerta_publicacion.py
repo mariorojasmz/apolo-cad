@@ -113,22 +113,58 @@ def poner_funciones(doc, valor) -> list[dict]:
     return doc.funciones
 
 
-def poner_justificadas(doc, valor) -> list[dict]:
-    """Reemplaza el metadato `doc.justificadas` (puerta-sin-sobrediseno D6/D11: avisos y piezas
-    aceptados por escrito; manifest, fuera del log). `ServiceError(400)` con la corrección."""
-    from apolo.library.calidad.justificadas import validar_justificadas
+MODOS_JUSTIFICADAS = ("reemplazar", "agregar")
+
+
+def nombres_del_tablero(doc) -> set[str]:
+    """Lo que el ERC nombra en `elementos` y no es un id de la escena: designaciones de aparatos
+    y cables e ids de conductores y tubos del carril (la puerta los muestra como «piezas»)."""
+    from .electrico import modelo
+
+    m = modelo(doc)
+    return {x for x in (*(d.designacion for d in m.dispositivos),
+                        *(c.designacion for c in m.cables), *(c.id for c in m.conductores),
+                        *(t.id for t in m.tubos)) if x}
+
+
+def cambiar_justificadas(doc, valor, modo: str = "reemplazar") -> dict:
+    """Pone el metadato `doc.justificadas` (puerta-sin-sobrediseno D6/D11: avisos y piezas
+    aceptados por escrito; manifest, fuera del log). `reemplazar` cambia la lista entera (`[]` la
+    vacía); `agregar` suma o reemplaza por (regla, pieza) sin tocar el resto. Devuelve la lista y
+    las cuentas (`quedaron`, y `borradas` o `agregadas`/`reemplazadas`): nunca se pierde una
+    justificación sin decirlo. Valida antes de tocar nada; `ServiceError(400)` con la corrección.
+    `pieza` es un id de la escena o lo que el ERC nombra (`nombres_del_tablero`: «-MM1»)."""
+    from apolo.library.calidad.justificadas import clave, fusionar, validar_justificadas
 
     from .errors import ServiceError
 
+    if modo not in MODOS_JUSTIFICADAS:
+        raise ServiceError(400, f"justificadas: modo «{modo}» no reconocido; válidos: "
+                                + ", ".join(MODOS_JUSTIFICADAS))
     try:
         limpio = validar_justificadas(valor)
     except ValueError as exc:
         raise ServiceError(400, str(exc)) from exc
-    faltan = sorted({j["pieza"] for j in limpio if "pieza" in j and j["pieza"] not in doc.scene})
+    piezas = {j["pieza"] for j in limpio if "pieza" in j} - set(doc.scene)
+    faltan = sorted(piezas - nombres_del_tablero(doc)) if piezas else []
     if faltan:
-        raise ServiceError(400, f"justificadas: pieza(s) inexistente(s) {', '.join(faltan)}")
-    doc.justificadas = limpio
-    return doc.justificadas
+        raise ServiceError(400, f"justificadas: pieza(s) inexistente(s) {', '.join(faltan)}: "
+                                "`pieza` es el id de una pieza (c12) o la designación de un "
+                                "aparato o cable del tablero (-Q1), tal como la muestra la evidencia")
+    previas = list(getattr(doc, "justificadas", None) or [])
+    if modo == "agregar":
+        doc.justificadas, agregadas, reemplazadas = fusionar(previas, limpio)
+        cuentas = {"agregadas": agregadas, "reemplazadas": reemplazadas}
+    else:
+        nuevas = {clave(j) for j in limpio}
+        doc.justificadas = limpio
+        cuentas = {"borradas": sum(1 for j in previas if clave(j) not in nuevas)}
+    return {"justificadas": doc.justificadas, "quedaron": len(doc.justificadas), **cuentas}
+
+
+def poner_justificadas(doc, valor) -> list[dict]:
+    """Reemplaza el metadato `doc.justificadas` (la lista; las cuentas, `cambiar_justificadas`)."""
+    return cambiar_justificadas(doc, valor)["justificadas"]
 
 
 def interferencia_interna(doc) -> dict:
