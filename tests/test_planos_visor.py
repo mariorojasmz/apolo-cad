@@ -92,7 +92,15 @@ def test_el_hlr_no_toma_state_lock(monkeypatch):
 
     monkeypatch.setattr(hlr_cache.Pedido, "calcular", lento)
     hecho: list = []
-    hilo = threading.Thread(target=lambda: hecho.append(planos._lamina(planos.Opciones())))
+    fallo: list = []
+
+    def componer():
+        try:
+            hecho.append(planos._lamina(planos.Opciones()))
+        except BaseException as exc:  # noqa: BLE001 — el test lo muestra
+            fallo.append(exc)
+
+    hilo = threading.Thread(target=componer)
     hilo.start()
     assert adentro.wait(30)
     t0 = time.perf_counter()
@@ -101,7 +109,10 @@ def test_el_hlr_no_toma_state_lock(monkeypatch):
                                    "position": {"x": 0, "y": 0, "z": 500}})
     assert time.perf_counter() - t0 < 5
     seguir.set()
-    hilo.join(60)
+    # la vuelta con lo nuevo es otra pasada HLR: con `-n auto` los otros workers la estiran
+    # (reloj de pared sólo como red gruesa, CLAUDE.md raíz)
+    hilo.join(600)
+    assert not hilo.is_alive() and not fallo, fallo
     # el documento cambió durante el HLR: la lámina se compuso con lo nuevo (otra vuelta)
     with STATE_LOCK:
         assert hecho and hecho[0][0] == planos._firma(planos.Opciones(), planos._drawing_meta())
