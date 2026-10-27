@@ -122,19 +122,21 @@ def contract_verify(doc, expect: list[dict], *, expand):
     hay aserciones (comportamiento byte-idéntico)."""
     if not expect:
         return None
-    from apolo.batch import resolve_refs
+    from apolo.batch import es_ref, resolve_refs
     from apolo.commands.registry import CommandError
 
     _SINGULAR = ("id", "a", "b")  # campos de UN solo sólido en las aserciones
 
     def cb(scene: dict, created: list[str]) -> list[dict]:
         def fids_of(cmd_id: str) -> list[str]:  # también los sintéticos `{cmd}_…` (compuestos)
+            # `$k_<sufijo>` llega como `{cmd}_<sufijo>`: el hijo de un compuesto que lleva el
+            # command_id del padre (`layout_tablero`: `{cmd}_gabinete`) se alcanza por su fid
             return [fid for fid, f in scene.items()
-                    if (c := str(getattr(f, "command_id", ""))) == cmd_id
+                    if fid == cmd_id or (c := str(getattr(f, "command_id", ""))) == cmd_id
                     or c.startswith(cmd_id + "_")]
 
         def resolve(tok, *, plural: bool):
-            if not (isinstance(tok, str) and tok.startswith("$") and tok[1:].isdigit()):
+            if not es_ref(tok):
                 return tok
             cmd_id = resolve_refs(tok, created)  # valida rango (1-indexado) → command_id
             fids = fids_of(cmd_id)
@@ -142,6 +144,9 @@ def contract_verify(doc, expect: list[dict], *, expand):
                 raise CommandError(
                     f"La aserción usa '{tok}' pero el comando {cmd_id} no creó sólidos "
                     "(¿set_variable/fasten?) — aserta sobre una acción que cree geometría."
+                    if "_" not in tok else
+                    f"La aserción usa '{tok}' pero no hay pieza {cmd_id} (ni piezas con ese "
+                    "prefijo) — revisa el sufijo con get_scene."
                 )
             if plural:
                 return fids

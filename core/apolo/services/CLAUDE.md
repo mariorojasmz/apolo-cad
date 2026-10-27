@@ -72,7 +72,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [api](../api/CLAUDE.md)). [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md)
 - `$k` resuelve a los FEATURE_IDS del comando k, 1-INDEXADO (`$1` = primera acción; `$0` lo
   explica el error), también los de command_id sintético `{k}_…` (`insert_project`,
-  `create_roller_conveyor`). Multi-sólido expande en `ids`; en un campo singular → error accionable,
+  `create_roller_conveyor`). `$k_<sufijo>` = `{cmd k}_<sufijo>` (`apolo/batch.py`, en params y
+  aserciones): el hijo de un compuesto con el command_id del padre (`$5_gabinete` de un
+  `layout_tablero`). Multi-sólido expande en `ids`; en un campo singular → error accionable,
   nunca elige uno. Una clave desconocida en una aserción → error «no reconocida» con las válidas;
   «sin piezas» nombra los tokens que no resolvieron. [V6.5c](../../../docs/plans/V6.5c-fixes-revision.md)
 - «¿Quisiste decir…?» (`suggest_ids`: difflib sobre fids + command_ids + grupos + substring de

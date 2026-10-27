@@ -2,10 +2,14 @@
 
 Compartido por la API HTTP, el agente en modo autónomo y el servidor MCP:
 '$k' (k 1-based) en cualquier campo de id de feature referencia al sólido
-creado por la k-ésima acción del mismo lote.
+creado por la k-ésima acción del mismo lote. '$k_<sufijo>' referencia a su hijo
+'{id del comando k}_<sufijo>': las piezas de un compuesto (`layout_tablero` crea
+`{cmd}_gabinete`, `{cmd}_d_<designación>`… y ninguna `{cmd}`; `insert_project`, `{cmd}_{orig}`).
 """
 
 from __future__ import annotations
+
+import re
 
 from apolo.commands.registry import CommandError
 from apolo.doc import Document
@@ -13,15 +17,22 @@ from apolo.doc import Document
 # D6 de union-en-perfil-hueco: dos de tres modeladores escribieron '$0' y el lote falló sin
 # decirles desde dónde se numera.
 DESDE_1 = "los resultados se numeran desde $1 (el primer comando del lote)"
+_REF_RE = re.compile(r"\$(\d+)(?:_(.+))?")
+
+
+def _partes(value) -> tuple[int, str | None] | None:
+    """(k, sufijo o None) de una referencia '$k' / '$k_<sufijo>'; None si no es una."""
+    m = _REF_RE.fullmatch(value) if isinstance(value, str) else None
+    return (int(m[1]), m[2]) if m else None
 
 
 def es_ref(value) -> bool:
-    return isinstance(value, str) and value.startswith("$") and value[1:].isdigit()
+    return _partes(value) is not None
 
 
 def resolve_refs(value, created: list[str | None]):
-    if es_ref(value):
-        idx = int(value[1:]) - 1
+    if (partes := _partes(value)) is not None:
+        idx = partes[0] - 1
         if idx < 0:
             raise CommandError(f"Referencia '{value}' inválida en el lote: {DESDE_1}.")
         if idx >= len(created) or created[idx] is None:
@@ -29,7 +40,7 @@ def resolve_refs(value, created: list[str | None]):
                 f"Referencia '{value}' inválida en el lote ({DESDE_1}; sólo vale una acción "
                 f"ANTERIOR: aquí van {len(created)})"
             )
-        return created[idx]
+        return created[idx] if partes[1] is None else f"{created[idx]}_{partes[1]}"
     if isinstance(value, list):
         return [resolve_refs(v, created) for v in value]
     if isinstance(value, dict):
@@ -54,9 +65,9 @@ def check_refs(actions: list[dict]) -> None:
     n = len(actions)
     for i, action in enumerate(actions, start=1):
         for ref in _refs(action.get("params") or {}):
-            k = int(ref[1:])
+            k = _partes(ref)[0]
             if k == 0:
-                raise CommandError(f"Referencia '$0' inválida en el lote (acción {i}): {DESDE_1}.")
+                raise CommandError(f"Referencia '{ref}' inválida en el lote (acción {i}): {DESDE_1}.")
             if k > n:
                 raise CommandError(
                     f"Referencia '{ref}' inválida en el lote (acción {i}): el lote tiene {n} "
