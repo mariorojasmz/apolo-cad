@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
-from tablero_electrico import arranque_directo, wire
+from tablero_electrico import arranque_directo, con_rotulos, wire
 
 import apolo.api.main as api
 from apolo.doc.document import Document
@@ -114,10 +114,16 @@ def test_sin_carril_la_puerta_da_exactamente_lo_de_antes():
 def test_con_carril_el_erc_entra_al_semaforo(cliente):
     sano = cliente(_tablero(motor_ligado=False))
     rep = sano.post("/api/delivery-check", json={}).json()
-    assert "eléctrico (ERC)" in rep["resumen"]["chequeos_ok"] and rep["veredicto"] == "VERDE"
+    # sin rótulos: los mandos y el piloto avisan («nombres por función», plan nombres-por-funcion)
+    assert [a["regla"] for a in rep["avisos"]] == ["nombres por función · mandos, pilotos y sensores"]
+    d = Document("con rótulos")
+    d.execute_many(con_rotulos(arranque_directo()))
+    rep = cliente(d).post("/api/delivery-check", json={}).json()
+    assert {"eléctrico (ERC)", "nombres por función"} <= set(rep["resumen"]["chequeos_ok"])
+    assert rep["veredicto"] == "VERDE"
     # un aviso (color de mando) → AMARILLO
     d = Document("aviso")
-    acciones = arranque_directo()
+    acciones = con_rotulos(arranque_directo())
     for a in acciones:
         if a["params"].get("puntos") == ["-S0:12", "-S1:11"]:
             a["params"]["color"] = "RD"

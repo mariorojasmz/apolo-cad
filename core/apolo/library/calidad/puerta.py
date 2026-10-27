@@ -35,6 +35,7 @@ def semaforo_entrega(ins: dict) -> dict:
     es algo que el modelador no resolvió (D2), salvo que esté JUSTIFICADO por escrito
     (`justificadas`, D11 de puerta-sin-sobrediseno); un bloqueante nunca se justifica."""
     from .justificadas import citar, del_aviso
+    from .nombres import REGLA_ENTREGA
 
     rep = ins["entrega"]
     v = rep.get("veredicto")
@@ -42,15 +43,24 @@ def semaforo_entrega(ins: dict) -> dict:
         return _r(OK, "puerta de entrega en VERDE",
                   {"chequeos_ok": (rep.get("resumen") or {}).get("chequeos_ok", [])})
     js = ins.get("justificadas") or []
-    bloq, avisos, justificados = list(rep.get("bloqueantes", [])), [], []
+    bloq, avisos, justificados, propios = list(rep.get("bloqueantes", [])), [], [], []
     for m in rep.get("avisos", []):
+        # «nombres por función» no se repite aquí: la juzga su propio ítem
+        # (`interfaz.nombres_por_funcion`), como la fuente «seguridad» descarta
+        # `seguridad.electrico` por repetir `riesgos.electrico` (plan nombres-por-funcion A12)
+        if str(m.get("regla") or "").startswith(REGLA_ENTREGA):
+            propios.append(m.get("regla"))
+            continue
         j = del_aviso(m.get("regla"), m.get("piezas"), js)
         (justificados.append({"regla": m.get("regla"), "justificacion": citar(j)}) if j
          else avisos.append(m))
     ev_j = {"justificados": justificados} if justificados else {}
+    if propios:
+        ev_j["con_item_propio"] = propios
     if not bloq and not avisos:
+        extra = f" y {len(propios)} que juzga su propio ítem" if propios else ""
         return _r(OK, f"puerta de entrega en {v} con {len(justificados)} aviso(s) justificado(s) "
-                      "por escrito", {"veredicto": v, **ev_j})
+                      f"por escrito{extra}", {"veredicto": v, **ev_j})
     malos = [*bloq, *avisos]
     casos = [{"regla": m.get("regla"), "detalle": m.get("detalle"),
               "piezas": (m.get("piezas") or [])[:12]} for m in malos]

@@ -136,6 +136,20 @@ def arranque_variador_plc(pieza_motor: str | None = None, *, ajustes_motor: dict
     ]
 
 
+#: Los rótulos por función de los mandos y el piloto del arranque directo (plan
+#: nombres-por-funcion): -S0 y -Q1, únicos, ya se nombran por su tipo.
+ROTULOS_DIRECTO = {"-S1": "Paro", "-S2": "Marcha", "-P1": "En marcha"}
+
+
+def con_rotulos(cmds: list[dict], rotulos: dict[str, str] | None = None) -> list[dict]:
+    """`cmds` con el `rotulo` de cada `add_device` de `rotulos` (por defecto, los del directo)."""
+    rotulos = ROTULOS_DIRECTO if rotulos is None else rotulos
+    for c in cmds:
+        if c["type"] == "add_device" and c["params"]["designacion"] in rotulos:
+            c["params"]["rotulo"] = rotulos[c["params"]["designacion"]]
+    return cmds
+
+
 def _sin_conductor(cmds: list[dict], *puntos: str) -> list[dict]:
     """`cmds` sin el `add_wire` de esos `puntos` (tiene que existir)."""
     i = next(k for k, c in enumerate(cmds) if c["type"] == "add_wire" and c["params"]["puntos"] == list(puntos))

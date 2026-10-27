@@ -246,7 +246,27 @@ def poner(doc, nombre: str, esc: dict) -> dict:
             "n_aserciones": len(e.aserciones), "aserciones": [a["texto"] for a in e.aserciones],
             **({"flujo": {"ritmo_por_min": e.flujo["ritmo_por_min"], "sumideros": e.flujo["sumideros"]}}
                if e.flujo else {}),
-            "avisos": _avisos_tablero(doc, e) + avisos_tipos}
+            "avisos": _avisos_tablero(doc, e) + avisos_tipos + avisos_descripcion(doc, esc)}
+
+
+_ID_EN_TEXTO = re.compile(r"(?<![\w-])c\d+(?:_\w+)?(?![\w-])")
+
+
+def avisos_descripcion(doc, esc: dict) -> list[str]:
+    """D14 de nombres-por-funcion: la `descripcion` la lee una persona en «Pruebas»; un id de
+    comando o de pieza («c68_vastago») se avisa (no se rechaza): nómbralo por lo que es."""
+    texto = str((esc or {}).get("descripcion") or "")
+    if not texto:
+        return []
+    ids = set(getattr(doc, "scene", {}) or {}) | {c.get("id") for c in getattr(doc, "commands", [])}
+    hallados = list(dict.fromkeys(
+        [m.group(0) for m in _ID_EN_TEXTO.finditer(texto)]
+        + [t for t in re.findall(r"[\w-]+", texto) if t in ids]))
+    if not hallados:
+        return []
+    return [f"la descripción nombra {', '.join(f'«{x}»' for x in hallados[:5])}: es un id de comando "
+            "o de pieza y la lee una persona en «Pruebas»; nómbralo por lo que es («la compuerta», "
+            "«el vástago del cilindro»)"]
 
 
 def quitar(doc, nombre: str) -> None:

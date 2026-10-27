@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado (D1–D18 vetables); fix «pandea», F0, F1 (dato y respaldo) y F3 («Mandos») en main; F4 (resto de las superficies, UI) hecha en la rama worktree-agent-ad43500f92f5a0f95, sin mergear; siguen F2, F5 y F6
+nota: contrato aprobado (D1–D18 vetables); fix «pandea», F0, F1, F2 (puerta v12 y entrega), F3 («Mandos») y F4 (resto de la UI) en main; siguen F5 (revisión a ciegas) y F6 (la mezcladora por MCP)
 descripcion: cada mando, piloto y sensor se ve por lo que HACE («Marcha», «Tapa del tanque»), con la designación chica al lado, y la puerta de publicación no aprueba una máquina cuyos mandos no tienen nombre
 ---
 
@@ -494,7 +494,7 @@ Sólo lectura. Verifiqué 26 afirmaciones con archivo:línea: se corrigen 4 (A16
 - **Lo que no es de un aparato.** Una rama sin conductor conocido se llama «Cable», nunca su id; una
   junta sin pieza hija, su nombre humanizado sin el prefijo `cNN_`.
 
-**Cifras.** `test_nombres_aparatos.py` tiene 28 casos. Suite completa (`-n auto`): un solo rojo,
+**Cifras (F1).** `test_nombres_aparatos.py` tiene 28 casos. Suite completa (`-n auto`): un solo rojo,
 `test_pruebas_panel` (comparaba la fila entera y faltaba `titulo`). Se corrigió y se re-corrió
 verde junto con los gates de documentos; ruff limpio. El golden v81 (`test_neumatica_carril`) quedó
 byte-idéntico y las cuatro firmas de `test_firma_dispositivo` no se movieron.
@@ -596,3 +596,55 @@ seccionador y abrir la tapa cambian el veredicto, el segmento y el estado.
 primero, designación secundaria, la junta, la ficha y «sin tabla de tipos» sobre el código de cada
 superficie) y casos nuevos en `neumatica`, `senales`, `tablero/vista` y `pruebas`. `npm run build`
 verde. Visto en el muestrario al ancho de columna y a 420 px.
+
+### F2 — la regla que obliga: puerta y entrega (2026-10-27)
+
+**Hecho.**
+- `library/calidad/nombres.py` (puro): el criterio D5 + A7 con la tabla CERRADA de la F0 § 3.2
+  (`motivo_rotulo`, `motivo_estado`), el alcance con A8 (`en_alcance`: la seta, el seccionador, el
+  HMI y la válvula de corte únicos en su (aspecto, tipo) quedan fuera), la unicidad por (aspecto,
+  clase) de A9, los estados del selector y de la electroválvula manual, los casos (designación,
+  motivo, piezas, `sugerencia`) y la `ENTRADA` de `interfaz.nombres_por_funcion` (A3, norma de A1,
+  familia «seguridad»). FALLA sin justificación; SIN_EVALUAR si el insumo es `{"error"}` o el
+  control lanza; NO_APLICA sin operables.
+- `registro.py`: importa y lista la entrada, `VERSION_REGISTRO = "12"`, docstring compactado (457
+  líneas).
+- `services/nombres_aparatos.insumo_puerta`: una fila por aparato con lo DECLARADO, las claves de sus
+  estados, su pieza 3D (`tablero.piezas_3d`) y la sugerencia (`de_pieza`, A15). Se lee UNA vez en
+  `delivery_inputs` (kwarg `nombres`, sólo con carril) y de ahí la toman la regla de la entrega, el
+  detector `elementos["operables"]` (`puerta_hechos`) y el insumo `nombres` de `reunir`.
+- `delivery.py`: la regla «nombres por función» (AVISO) en tres filas: mandos/pilotos/sensores, lo
+  repetido (D2) y el resguardo sin `estados` (A17). `VERSION_BATERIA` 3 → 4. `semaforo_entrega`
+  descarta las reglas con ese prefijo y las cuenta en `con_item_propio` (A12).
+- `set_scenario` (`escenarios.poner`): aviso si la `descripcion` trae un id de comando o de pieza
+  (`avisos_descripcion`, D14).
+- `guidelines.py`: el `verificar` de `electrico` dice que `delivery_check` avisa y que la puerta
+  exige el rótulo. El golden del MCP no cambió (el `verificar` no está en las instructions).
+- Gates: `tests/test_puerta_nombres.py` (los 45 rótulos de la F0, con los 2 falsos ✗ anotados);
+  el defecto sembrado `mando_sin_rotulo` (ménsula + arranque directo sin el rótulo de -S2); los 4
+  testigos re-congelados: sólo cambian `version_registro` y el ítem nuevo en NO_APLICA.
+
+**Decisiones con criterio (vetables).**
+- **`calidad/entrada.py`.** `Entrada` y los predicados (`siempre`, `hecho`, `hay`, `hay_alguno`)
+  salen de `registro.py`, que los re-exporta por identidad: si `nombres.py` importara `registro.py`
+  habría un ciclo (registro importa nombres para listar su `ENTRADA`).
+- **`REPETIBLES` (D2) es una tabla cerrada**: relés, relés de seguridad, contactores, variadores,
+  motores, cilindros, electroválvulas sin mando manual, válvulas, reguladores de caudal,
+  silenciadores y bloqueos de vástago. Las protecciones (ITM, guardamotor, térmico, fusible,
+  diferencial) se nombran por lo que protegen; la red, la fuente, el PLC y el FRL, por su tipo.
+- **La válvula de corte** entra al alcance como mando sólo si hay dos en un aspecto (A8). Sola, queda
+  fuera, como en la F0.
+- **La sugerencia es sólo el nombre de la pieza** (A15). La variable del PLC conectada (D3) no se
+  sugiere: pide recorrer el ST y queda para F6 si hace falta.
+- **Una sola lectura del carril por corrida.** El insumo viaja en los kwargs de la entrega, como
+  el acceso de herramienta: así el detector y el control no pueden discrepar.
+
+**Cifras.** La mezcladora (`-agujeros.apolo`, leída como ZIP sin tocarla) da **13 casos** en el ítem:
+-S1…-S4, -P1…-P4, -B1…-B4 y -QM1. -S4 y -QM1 además piden sus `estados`. La entrega suma 7 repetidos
+(-K2/-K3 y -RZ1…-RZ5) y los 2 resguardos sin estados (-B1, -B4). 5 de los 13 traen sugerencia de
+pieza.
+
+Suite completa (`-n auto`): un solo rojo, `test_electrico_servicios::test_con_carril_el_erc_entra_al_semaforo`
+(esperaba VERDE con el arranque directo sin rótulos). No se relajó: ahora comprueba el aviso y el
+fixture declara sus rótulos (`tablero_electrico.con_rotulos`) para dar VERDE. Re-corrida verde;
+ruff limpio.

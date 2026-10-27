@@ -18,7 +18,7 @@ from typing import Callable
 
 import pytest
 from fastapi.testclient import TestClient
-from tablero_electrico import arranque_directo
+from tablero_electrico import arranque_directo, con_rotulos
 
 import apolo.api.main as api
 from apolo.doc import Document
@@ -182,6 +182,12 @@ def cadena_subdimensionada(d):  # ASA 40 simple con 3 kW a 60 rpm
 def motor_sin_tierra(d):  # el tablero de arranque directo sin el PE del motor
     d.execute_many([c for c in arranque_directo()
                     if c["params"].get("puntos") != ["-X0:2", "-M1:PE"]])
+
+
+def mando_sin_rotulo(d):
+    """nombres-por-funcion A13: el tablero de arranque directo con el rótulo de cada mando y
+    piloto menos uno (-S2, la marcha): quien opera no sabe qué hace ese botón."""
+    d.execute_many(con_rotulos(arranque_directo(), {"-S1": "Paro", "-P1": "En marcha"}))
 
 
 def escenario_que_falla(d):  # su último run, vigente, no llegó a las rpm
@@ -354,6 +360,8 @@ DEFECTOS = (
     Defecto("cadena_subdimensionada", "mensula", cadena_subdimensionada,
             {"transmision.capacidad": FALLA}),
     Defecto("motor_sin_tierra", "mensula", motor_sin_tierra, {"riesgos.electrico": FALLA}),
+    Defecto("mando_sin_rotulo", "mensula", mando_sin_rotulo,
+            {"interfaz.nombres_por_funcion": FALLA}),
     Defecto("escenario_que_falla", "mensula", escenario_que_falla,
             {"funcion.escenarios": FALLA}),
     Defecto("balance_que_no_cuadra", "faja", balance_que_no_cuadra,

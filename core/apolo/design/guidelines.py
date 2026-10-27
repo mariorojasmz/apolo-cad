@@ -168,7 +168,8 @@ DESIGN_RULES: list[dict[str, str]] = [
         "manual lleva `estados` con el nombre de cada posición ({\"0\": \"Manual\", \"I\": "
         "\"Ciclo\"}); `descripcion`, una frase, sólo si el rótulo no lo dice todo.",
         "verificar": "electrical_check (ERC) + get_circuit; en el lote que cablea, el contrato "
-        "{\"erc\": \"sin_errores\"}; delivery_check lo incluye.",
+        "{\"erc\": \"sin_errores\"}; delivery_check lo incluye y avisa los aparatos sin rótulo, y "
+        "la puerta de publicación exige el rótulo de cada mando, piloto y sensor.",
     },
     {
         "clave": "neumatica",

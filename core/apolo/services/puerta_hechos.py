@@ -7,7 +7,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
   `elementos_rodantes` {rodamiento, chumacera}, `accionamientos`, `transmisiones`, `apoyos`,
   `vigas`, `columnas`, `uniones` / `uniones_apernadas` / `soldaduras`, `tornilleria`,
   `tornilleria_llave`, `supercomandos`, `piezas` {catalogo, a_medida}, `sustitutos_animados`
-  {banda}, `partes_moviles`, `resguardos`, `consumibles`. **Una familia de máquinas nueva suma
+  {banda}, `partes_moviles`, `resguardos`, `consumibles`, `operables` (mandos, pilotos y sensores
+  que piden su nombre por función, por tipo). **Una familia de máquinas nueva suma
   aquí su clase** (p. ej. `transmisiones_flexibles["correa"]`), nunca un ítem al registro;
 - `familias_funcion`: {familia D15: [piezas]} (sólo las que el modelo tiene);
 - banderas: `pocos_solidos`, `sin_estudios`, `sin_poses`, `carril`, `escenarios`,
@@ -84,6 +85,7 @@ def _de_f3(doc, contexto) -> tuple[dict, dict, dict, list[str]]:
 
 def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from apolo.commands.exec_rodillos_cadena import comandos_efectivos
+    from apolo.library.calidad.nombres import elementos as elementos_operables
     from apolo.library.catalog import CATALOG
     from apolo.library.delivery import MIN_SOLIDOS_SUJECION
     from apolo.library.materials import piece_role
@@ -153,6 +155,9 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "partes_moviles": partes_moviles,
         "resguardos": resguardos,
         "consumibles": consumibles,
+        # nombres-por-funcion D4: los mandos, pilotos y sensores que el ítem juzga, por tipo, con
+        # el criterio de su control (`calidad/nombres.en_alcance`) sobre el insumo de la entrega
+        "operables": elementos_operables(entrega_kwargs.get("nombres")),
     }
     return {
         "n_solidos": len(solidos),

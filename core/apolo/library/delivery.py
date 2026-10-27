@@ -24,8 +24,9 @@ VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 #: La versión de la batería del núcleo: súbela si cambia un chequeo o su umbral. Sólo se publica
 #: con reglas de extensión (`version_bateria` = «1+nombre.version_entrega»); sin ellas, el
 #: resultado es el de siempre (plan puntos-de-extension-entregables, D3).
-VERSION_BATERIA = 3  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
-#                      enclavamiento de los resguardos (plan mandos-de-seguridad, F2b)
+VERSION_BATERIA = 4  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
+#                      enclavamiento de los resguardos (plan mandos-de-seguridad, F2b); 4: los
+#                      nombres por función (plan nombres-por-funcion, D8)
 
 # Umbral de sujeción (compartido con la alarma ambiental de la capa API): bajo esto
 # —un croquis de 2-3 piezas— exigir anclajes sería ruido. Conservador a propósito:
@@ -105,6 +106,7 @@ def delivery_report(
     extensiones: dict | None = None,
     flujo: dict | None = None,
     enclavamientos: list[dict] | None = None,
+    nombres: dict | None = None,
 ) -> dict:
     """Agrega los chequeos de cierre en un SEMÁFORO. Entradas (todas computadas por
     el llamador — aquí no corre ningún motor):
@@ -150,6 +152,10 @@ def delivery_report(
         lengüeta fuera de la ranura (o abierto, dentro) bloquea (ROJO); lo que no se puede
         verificar (sin lengüeta, sin anclas, emparejamiento ambiguo), AMARILLO; la apertura sin
         junta, `no_aplica` con sus piezas en `no_aplica_piezas`.
+      - `nombres`: el insumo de `calidad/nombres.py` (`services/nombres_aparatos.insumo_puerta`);
+        None = sin carril: lo de siempre. Un mando, piloto o sensor sin su nombre por función, lo
+        repetido que sólo la designación distingue y el resguardo sin `estados` dan AVISO (nunca
+        bloquean; la puerta de publicación lo juzga en su ítem, plan nombres-por-funcion D8).
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
     `no_aplica_piezas` (sólo si hay): `[{no_aplica, regla, piezas}]`, la sección y los ids de cada
     `no_aplica` que nombra piezas, para justificarlo por escrito (D11 de puerta-sin-sobrediseno).
@@ -338,6 +344,15 @@ def delivery_report(
     if enclavamientos is not None:  # mandos-de-seguridad F2b: sólo con resguardos en la escena
         _enclavamientos(enclavamientos, bloqueantes, avisos, no_aplica, ok, nombre_de,
                         no_aplica_piezas)
+    if nombres is not None:  # nombres-por-funcion D8: sólo con carril
+        from .calidad.nombres import REGLA_ENTREGA, regla_entrega
+
+        filas = regla_entrega(nombres) or []
+        for f in filas:
+            avisos.append({"regla": f["regla"], "piezas": _nombres(f.get("piezas") or [], nombre_de),
+                           "detalle": f["detalle"]})
+        if not filas:
+            ok.append(REGLA_ENTREGA)
 
     # 10 · reglas de las extensiones (sólo si hay alguna cargada) ------------------------------
     if extensiones is not None:

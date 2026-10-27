@@ -323,6 +323,41 @@ def nombre_junta(doc, nombre: str) -> str:
     return limpio or humanizar(nombre)
 
 
+# ── la puerta y la entrega (F2) ──────────────────────────────────────────────────────────────
+
+
+def insumo_puerta(doc) -> dict | None:
+    """El insumo `nombres` de `library/calidad/nombres.py` (el ítem `interfaz.nombres_por_funcion`
+    y la regla de `delivery_check`): una fila por aparato con lo DECLARADO (`rotulo`, `estados`),
+    las claves de sus estados, sus piezas para encuadrar y la `sugerencia` (el nombre limpio de la
+    pieza ligada: texto, nunca aprueba). None sin carril; `{"error"}` si no se pudo leer."""
+    from .electrico import tiene_carril
+    from .tablero import piezas_3d
+
+    if not tiene_carril(doc):
+        return None
+    try:
+        n = Nombres(doc)
+        piezas = piezas_3d(doc, n.m)
+        filas = []
+        for des, d in n.disp.items():
+            neu = getattr(getattr(d, "neumatico", None), "modelo", None) or {}
+            comp = _comp(d.ref)
+            fila = {"designacion": des, "tipo": tipo_de(d), "manual": bool(neu.get("manual")),
+                    "ref": d.ref, "nombre_ficha": getattr(comp, "name", "") or "",
+                    "rotulo": getattr(d, "rotulo", "") or "",
+                    "estados": dict(getattr(d, "estados", None) or {}),
+                    "claves": list(claves(d.modelo, neu or None)),
+                    "piezas": [piezas[des]] if piezas.get(des) else []}
+            sugerencia = n.de_pieza(d)
+            if sugerencia:
+                fila["sugerencia"] = sugerencia
+            filas.append(fila)
+        return {"aparatos": filas}
+    except Exception as exc:  # noqa: BLE001 — no se pudo leer: SIN_EVALUAR, con el porqué
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
 # ── la tabla del vivo ────────────────────────────────────────────────────────────────────────
 
 

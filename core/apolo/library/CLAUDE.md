@@ -245,6 +245,11 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   corre la puerta entera pasa `vigente()` a `reunir` y a `evaluar`, y `version(registro)` los
   firma («6+nombre.v»); `evaluar(registro=None)` sigue siendo sólo el núcleo (testigos).
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1d)
+- `interfaz.nombres_por_funcion` (`calidad/nombres.py`: criterio y `ENTRADA`, que importa de
+  `calidad/entrada.py`, nunca de `registro.py`, por el ciclo): aprueba SÓLO el rótulo DECLARADO
+  con la tabla CERRADA de tipos (no se abre para aprobar) y no se justifica; su insumo se lee UNA
+  vez en `delivery_inputs` (`nombres`) y la regla de `delivery_check` usa el mismo criterio, que
+  `semaforo_entrega` descarta. [nombres-por-funcion](../../../docs/plans/nombres-por-funcion.md)
 - Un AVISO se corrige o se JUSTIFICA por escrito (`calidad/justificadas.py`, metadato
   `justificadas`: regla exacta de la evidencia, ≥ 20 caracteres de porqué), nunca se calla con una
   pieza; un ERROR jamás. Lo leen `semaforo_entrega`, `erc`, `vida.reglas` y

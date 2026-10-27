@@ -9,7 +9,9 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
 - `fabricacion`: cada pieza de catálogo o sólido con material y proceso; `funciones`: el metadato
   declarado (D15);
 - `entrega`: la puerta de entrega (`library/delivery`) con la gravedad que corrió la API, y sus
-  insumos crudos de acceso de herramienta, ERC y escenarios;
+  insumos crudos de acceso de herramienta, ERC, escenarios y `nombres` (los aparatos del carril
+  con su rótulo DECLARADO, `nombres_aparatos.insumo_puerta`: una sola lectura para la regla de la
+  entrega, el detector `operables` y el ítem `interfaz.nombres_por_funcion`);
 - `interna`: los choques DENTRO de cada super-comando, sin `same_command_pairs` (D13b);
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
@@ -246,7 +248,8 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
     h["sobrantes_candidatas"] = bool(sobra.get("candidatas")) or "error" in sobra
     return {"firma": firma(doc), "hechos": h, "entrega": entrega, "gravedad": gravedad,
             "acceso": kw.get("acceso_herramienta"), "electrico": kw.get("electrico"),
-            "escenarios": kw.get("escenarios"), "interna": interna, "memoria": memoria,
+            "escenarios": kw.get("escenarios"), "nombres": kw.get("nombres"),
+            "interna": interna, "memoria": memoria,
             "fuentes": fuentes, "fabricacion": fab, "flujo": flujo,
             "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos,
             "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or [])}

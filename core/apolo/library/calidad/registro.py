@@ -23,8 +23,9 @@ Ids estables (familia):
 - `fabricabilidad` y `memoria.veredicto` y `diseno.soluciones_por_funcion` (proceso);
 - `diseno.sin_sobrantes` (proceso: ninguna guarda ni pieza agregada por una ronda de corrección
   sobra; `sobrantes.py`, insumo de `services/calidad_sobrantes.py`, sólo en esta puerta);
-- `riesgos.electrico` (seguridad); `publicado.sustitutos_fieles` (publicado: lo que el visor o el
-  video dibujan en lugar de un sólido —la banda animada, mañana un cable— es fiel al modelo);
+- `riesgos.electrico` e `interfaz.nombres_por_funcion` (seguridad: cada mando, piloto y sensor
+  con su rótulo declarado; la `Entrada` y el criterio, en `nombres.py`);
+  `publicado.sustitutos_fieles` (publicado: lo que el visor o el video dibujan en lugar de un sólido —la banda animada, mañana un cable— es fiel al modelo);
 - F3 (fuente «seguridad»): `riesgos.partes_moviles`,
   `riesgos.resguardos_desmontables_con_herramienta` (seguridad) y `consumibles.reemplazables`
   (montaje).
@@ -59,62 +60,27 @@ Una extensión suma sus `Entrada`/`Fuente` (ids «prefijo.x») con `Extension.pu
 
 `VERSION_REGISTRO` sube cuando cambia un ítem, un umbral o un `aplica_si`: viaja en `calidad.json`
 junto a la firma del modelo (`services/puerta_publicacion.firma_modelo`), que la fábrica compara
-antes de generar. Qué cambió en cada una (el porqué, en el plan que la subió): v2 F3 y la tabla de
-riesgos; v3 (F6) brazo DOBLADO y cadena de centros exactos sin tensor; v4 (F6)
-`union.distancia_al_borde`; v5 (F6) esa tabla sólo en chapas y alas; v6 (balance-de-producto D9)
-`funcion.flujo_de_producto`; v7 (puerta-sin-sobrediseno D1–D4) la cuña de ENTRADA y el tensor en
-LAZO, sumados; v8 (D5–D11) `diseno.sin_sobrantes` y el AVISO justificado; v9 (F3b) bisagra de
-servicio, acople y salida del motorreductor, resguardo = lo que cubre un peligro, piso de lo
-anclado, L10 con las rpm declaradas; v10 (F3c) `union.agujeros`, el espárrago con su tuerca, el
-factor de servicio fuera de un transportador y con el servicio declarado, `vigas` con el criterio
-de `vigas_rules`, la holgura funcional ≤ 4 mm y lo eléctrico fuera de las «agregadas».
+antes de generar. Qué cambió (el porqué, en el plan que la subió): v2 F3 y riesgos; v3 brazo
+DOBLADO y cadena sin tensor; v4 `union.distancia_al_borde`; v5 sólo chapas y alas; v6
+`funcion.flujo_de_producto`; v7 (puerta-sin-sobrediseno) cuña de ENTRADA y tensor en LAZO; v8
+`diseno.sin_sobrantes` y el AVISO justificado; v9 (F3b) bisagra de servicio, acople, resguardo =
+lo que cubre un peligro, L10 con rpm; v10 (F3c) `union.agujeros`, espárrago, factor de servicio,
+`vigas`, holgura ≤ 4 mm; v11 (F3d) lo no evaluado se justifica por escrito; v12
+(nombres-por-funcion F2) `interfaz.nombres_por_funcion`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable
 
+from . import nombres as nb
 from . import puerta as p
 from . import sobrantes as so
+from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "11"  # 11: lo no evaluado se justifica por escrito (puerta-sin-sobrediseno F3d)
+VERSION_REGISTRO = "12"  # 12: interfaz.nombres_por_funcion (plan nombres-por-funcion F2)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
-
-Predicado = Callable[[dict], "tuple[bool, str]"]
-
-
-def siempre(_hechos: dict) -> tuple[bool, str]:
-    return True, ""
-
-
-def hecho(clave: str, porque: str) -> Predicado:
-    """Aplica si el hecho `clave` del modelo es verdadero; si no, NO_APLICA con `porque`."""
-    def predicado(hechos: dict) -> tuple[bool, str]:
-        return bool(hechos.get(clave)), porque
-    predicado.__name__ = f"hecho_{clave}"
-    return predicado
-
-
-def hay(tipo: str, porque: str) -> Predicado:
-    """Aplica si el modelo tiene ELEMENTOS de `tipo` (`hechos["elementos"][tipo]`, {clase: n})."""
-    def predicado(hechos: dict) -> tuple[bool, str]:
-        return sum((hechos.get("elementos") or {}).get(tipo, {}).values()) > 0, porque
-    predicado.__name__ = f"hay_{tipo}"
-    return predicado
-
-
-@dataclass(frozen=True)
-class Entrada:
-    id: str
-    titulo: str
-    modo_de_falla: str
-    norma: str
-    familia: str
-    aplica_si: Predicado
-    evaluar: Callable[[dict], dict]  # insumos → {estado, detalle, evidencia, piezas}
-    elementos: str = ""              # tipo de `hechos["elementos"]` que la evidencia nombra
 
 
 @dataclass(frozen=True)
@@ -146,14 +112,6 @@ def _ids_de_f2() -> tuple:
     return (*(c[0] for c in AGARRE.values()), *(c[0] for c in BORDES.values()),
             *(c[0] for c in TENSOR.values()), *(c[0] for c in AGUJEROS.values()),
             *(f[0] for f in VIDA), "vida.reglas")
-
-
-def hay_alguno(tipos: tuple, porque: str) -> Predicado:
-    """Aplica si el modelo tiene elementos de ALGUNO de los `tipos`."""
-    def predicado(hechos: dict) -> tuple[bool, str]:
-        return any(hay(t, porque)(hechos)[0] for t in tipos), porque
-    predicado.__name__ = "hay_" + "_o_".join(tipos)
-    return predicado
 
 
 #: F2 (función mecánica) → ítems generales.
@@ -282,6 +240,7 @@ REGISTRO: tuple = (
             "un motor sin protección, una masa sin tierra o una parada de emergencia que no corta",
             "IEC 60204-1 · IEC 81346", "seguridad",
             hecho("carril", "sin tablero eléctrico"), p.erc),
+    nb.ENTRADA,  # interfaz.nombres_por_funcion: la Entrada vive junto a su criterio (A3)
     Entrada("funcion.escenarios", "Los escenarios de prueba pasan y están vigentes",
             "la máquina no hace lo que su escenario de prueba exige (o nadie lo volvió a correr)",
             "criterio de diseño (prueba virtual, V8.3 D14)", "función",
