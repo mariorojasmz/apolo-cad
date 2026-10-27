@@ -60,10 +60,24 @@ def un_item(r: dict, item: str) -> dict:
 def de_job(resultado: dict, detail: str) -> dict | None:
     """El resultado de un job de la PUERTA (lo reconoce por su forma: `version_registro` +
     `items`) tal como lo da `publication_gate`: resumido, o completo con `detail="full"` (F3c de
-    puerta-sin-sobrediseno: `get_job` devolvía los 54–61 kB de la evidencia). None si no es uno."""
+    puerta-sin-sobrediseno: `get_job` devolvía los 54–61 kB de la evidencia), o un solo ítem con
+    `detail="item:<id>"` (el filtro de `publication_gate(item=)` se perdía en el recibo). None si
+    no es uno."""
     if "version_registro" not in resultado or "items" not in resultado:
         return None
+    if detail.startswith("item:"):
+        return un_item(resultado, detail[len("item:"):])
     return dict(resultado) if detail == "full" else resumir(resultado)
+
+
+def recibo_puerta(job_id: str, completo: bool, item: str) -> str:
+    """El recibo de la puerta con el `detail` que conserva lo pedido (`item` o `completo`)."""
+    detail = f"item:{item}" if item else ("full" if completo else "")
+    if not detail:
+        return _recibo(job_id)
+    return json.dumps({"job": job_id, "estado": "corriendo",
+                       "seguir": f"llama get_job('{job_id}', detail='{detail}') para recoger el resultado"},
+                      ensure_ascii=False)
 
 
 def registrar(mcp, esperar, api=None) -> None:
@@ -87,11 +101,11 @@ def registrar(mcp, esperar, api=None) -> None:
         evaluar, con la pieza y el porqué: corrige el MODELO, no el ítem). `completo=true` trae
         todos los ítems con su evidencia y la tabla de riesgos ISO 12100 (puede ser grande);
         `item="riesgos.partes_moviles"` trae sólo ese ítem completo (si no existe, los ids
-        válidos). Read-only; tarda (simula): si no llega, RECIBO {"job"}: get_job (resumido
-        igual; completo con detail="full")."""
+        válidos). Read-only; tarda (simula): si no llega, RECIBO {"job"} y su `seguir` dice
+        cómo recogerlo con get_job (resumido; detail="full" completo; detail="item:<id>" un ítem)."""
         payload, job_id = esperar("POST", "/api/puerta-publicacion", {})
         if job_id:
-            return _recibo(job_id)
+            return recibo_puerta(job_id, completo, item)
         if item:
             return json.dumps(un_item(payload, item), ensure_ascii=False)
         return json.dumps(payload if completo else resumir(payload), ensure_ascii=False)

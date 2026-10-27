@@ -464,3 +464,15 @@ def test_la_tool_lista_cada_caso_por_aparato_con_su_sugerencia():
     assert p["casos"][0] == {"designacion": "-S1", "tipo": "pulsador", "motivo": "sin rótulo",
                              "sugerencia": "Marcha"}
     assert "piezas" not in p["casos"][0] and "sugerencia" not in p["casos"][1]
+
+def test_el_item_pedido_sobrevive_al_recibo():
+    """Con la puerta como job, `publication_gate(item=)` perdía el filtro: `get_job` resumía."""
+    import json
+
+    from apolo.tools.calidad import de_job, recibo_puerta
+
+    r = evaluar({"hechos": {}, "firma": "f"}, (_entrada("a", _r(OK)), _entrada("b", _r(FALLA))))
+    assert "detail='item:b'" in json.loads(recibo_puerta("j1", False, "b"))["seguir"]
+    assert "detail='full'" in json.loads(recibo_puerta("j1", True, ""))["seguir"]
+    assert de_job(r, "item:b")["item"]["id"] == "b"
+    assert "ids" in de_job(r, "item:zzz") and "pendientes" in de_job(r, "diff")
