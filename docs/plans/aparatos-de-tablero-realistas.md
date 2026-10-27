@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 y F1 hechas en la rama wip/aparatos-realistas (sin mergear): 8 familias, 39 refs, epoch 10, el tablero de la piloto y el de la faja con desviador no se mueven y su ERC y su firma no cambian; falta revisar y mergear, F2 (seccionador de puerta, relé térmico, relé de seguridad, bloques auxiliares, prensaestopas y tope) y F3 (Mario lo ve en el visor y en el video)
+nota: F0 y F1 mergeadas (2026-10-26): 8 familias, 39 refs, GEOM_CACHE_EPOCH 10; el tablero de la piloto y el de la faja con desviador no se mueven y su ERC y su firma no cambian. Falta F2 (seccionador de puerta, relé térmico, relé de seguridad, bloques auxiliares, prensaestopas y tope) y F3 (Mario lo ve en el visor y en el video)
 descripcion: Los aparatos dentro del tablero (ITM, diferencial, contactor, guardamotor, PLC, fuente, relé, borne y variador) se ven como los de verdad —gris RAL 7035, bornes con tornillo, palanca, teclado— sin moverse de su lugar
 ---
 
@@ -8,7 +8,7 @@ descripcion: Los aparatos dentro del tablero (ITM, diferencial, contactor, guard
 
 ## Estado y origen
 
-Mario evalúa en el visor y usa las máquinas en los videos de la tienda. Hoy los aparatos dentro
+Mario evalúa las máquinas en el visor y en sus videos. Hoy los aparatos dentro
 del tablero se ven como cubos de colores con sus medidas reales. Su decisión: «formas
 paramétricas por familia», sin bajar STEP de fabricantes.
 
@@ -144,7 +144,7 @@ Medido en la F0 (bitácora):
   relé de seguridad, los bloques auxiliares, los prensaestopas y el tope, con las mismas reglas.
   Depende de F1.
 - **F3 (S, verificación):** Mario ve en el visor el tablero de la faja con desviador y el de la
-  piloto, con la puerta abierta. Se pasa el video del tablero y el GLB de la tienda. Sus ajustes
+  piloto, con la puerta abierta. Se pasa el video del tablero y el GLB de la vista 3D. Sus ajustes
   de color o de detalle entran como D nuevas.
 
 ## Lo que este plan NO hace
