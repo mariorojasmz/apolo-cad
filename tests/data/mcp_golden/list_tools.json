@@ -4147,13 +4147,18 @@
  },
  {
   "name": "publication_gate",
-  "description": "LA PUERTA DE PUBLICACIÓN: córrela ANTES de dar por terminada una máquina que va a la\ntienda (después de delivery_check en VERDE). Es más dura que la de entrega: un registro de\nítems de calidad (estructura, función, montaje, seguridad, publicado, proceso), cada uno\nOK | FALLA | SIN_EVALUAR | NO_APLICA con su evidencia; se publica SÓLO si todo ítem\naplicable está OK (SIN_EVALUAR bloquea igual que FALLA: «no se pudo ver» no es «está\nbien»). Corre la gravedad (obligatoria), las interferencias DENTRO de cada super-comando,\nel agarre de cada perno, los agujeros de cada unión atornillada declarada, el tensor y su\ncarrera, la vida útil (L10 ≥ 20 000 h, factor de servicio del servicio declarado…), la memoria de cálculo, el ERC, la marcha del video contra el modelo,\nlas sondas ISO 13857 sobre lo que gira (cuñas, transmisiones, extremos de eje), que cada\nguarda se quite sólo con herramienta, que cada pieza de desgaste se cambie sin cortar y\nque ninguna guarda ni pieza agregada tras la primera corrida SOBRE (diseno.sin_sobrantes:\nquítala, o justifícala con set_justifications si la pide algo que la puerta no mide).\nDevuelve aprobado, conteos, por_familia y `pendientes` (cada ítem que falla o no se pudo\nevaluar, con la pieza y el porqué: corrige el MODELO, no el ítem). `completo=true` trae\ntodos los ítems con su evidencia y la tabla de riesgos ISO 12100. Read-only; tarda\n(simula): si no llega, RECIBO {\"job\"}: get_job (resumido igual; completo con\ndetail=\"full\").",
+  "description": "LA PUERTA DE PUBLICACIÓN: córrela ANTES de dar por terminada una máquina que va a la\ntienda (después de delivery_check en VERDE). Es más dura que la de entrega: un registro de\nítems de calidad (estructura, función, montaje, seguridad, publicado, proceso), cada uno\nOK | FALLA | SIN_EVALUAR | NO_APLICA con su evidencia; se publica SÓLO si todo ítem\naplicable está OK (SIN_EVALUAR bloquea igual que FALLA: «no se pudo ver» no es «está\nbien»). Corre la gravedad (obligatoria), las interferencias DENTRO de cada super-comando,\nel agarre de cada perno, los agujeros de cada unión atornillada declarada, el tensor y su\ncarrera, la vida útil (L10 ≥ 20 000 h, factor de servicio del servicio declarado…), la memoria de cálculo, el ERC, la marcha del video contra el modelo,\nlas sondas ISO 13857 sobre lo que gira (cuñas, transmisiones, extremos de eje), que cada\nguarda se quite sólo con herramienta, que cada pieza de desgaste se cambie sin cortar y\nque ninguna guarda ni pieza agregada tras la primera corrida SOBRE (diseno.sin_sobrantes:\nquítala, o justifícala con set_justifications si la pide algo que la puerta no mide).\nDevuelve aprobado, conteos, por_familia y `pendientes` (cada ítem que falla o no se pudo\nevaluar, con la pieza y el porqué: corrige el MODELO, no el ítem). `completo=true` trae\ntodos los ítems con su evidencia y la tabla de riesgos ISO 12100 (puede ser grande);\n`item=\"riesgos.partes_moviles\"` trae sólo ese ítem completo (si no existe, los ids\nválidos). Read-only; tarda (simula): si no llega, RECIBO {\"job\"}: get_job (resumido\nigual; completo con detail=\"full\").",
   "inputSchema": {
    "properties": {
     "completo": {
      "default": false,
      "title": "Completo",
      "type": "boolean"
+    },
+    "item": {
+     "default": "",
+     "title": "Item",
+     "type": "string"
     }
    },
    "title": "publication_gateArguments",

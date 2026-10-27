@@ -47,6 +47,16 @@ def resumir(r: dict) -> dict:
     return out
 
 
+def un_item(r: dict, item: str) -> dict:
+    """El ítem `item` COMPLETO (con su evidencia) o, si no existe, los ids válidos: `completo=true`
+    pasaba el tope de salida del MCP (68 kB en el elevador)."""
+    items = r.get("items") or []
+    hallado = next((i for i in items if i.get("id") == item), None)
+    if hallado is not None:
+        return {"aprobado": r.get("aprobado"), "item": hallado}
+    return {"error": f"no hay ítem «{item}» en la puerta", "ids": [i.get("id") for i in items]}
+
+
 def de_job(resultado: dict, detail: str) -> dict | None:
     """El resultado de un job de la PUERTA (lo reconoce por su forma: `version_registro` +
     `items`) tal como lo da `publication_gate`: resumido, o completo con `detail="full"` (F3c de
@@ -60,7 +70,7 @@ def registrar(mcp, esperar, api=None) -> None:
     """Registra `publication_gate`, `set_justifications` y `set_functions` en `mcp`."""
 
     @mcp.tool()
-    def publication_gate(completo: bool = False) -> str:
+    def publication_gate(completo: bool = False, item: str = "") -> str:
         """LA PUERTA DE PUBLICACIÓN: córrela ANTES de dar por terminada una máquina que va a la
         tienda (después de delivery_check en VERDE). Es más dura que la de entrega: un registro de
         ítems de calidad (estructura, función, montaje, seguridad, publicado, proceso), cada uno
@@ -75,12 +85,15 @@ def registrar(mcp, esperar, api=None) -> None:
         quítala, o justifícala con set_justifications si la pide algo que la puerta no mide).
         Devuelve aprobado, conteos, por_familia y `pendientes` (cada ítem que falla o no se pudo
         evaluar, con la pieza y el porqué: corrige el MODELO, no el ítem). `completo=true` trae
-        todos los ítems con su evidencia y la tabla de riesgos ISO 12100. Read-only; tarda
-        (simula): si no llega, RECIBO {"job"}: get_job (resumido igual; completo con
-        detail="full")."""
+        todos los ítems con su evidencia y la tabla de riesgos ISO 12100 (puede ser grande);
+        `item="riesgos.partes_moviles"` trae sólo ese ítem completo (si no existe, los ids
+        válidos). Read-only; tarda (simula): si no llega, RECIBO {"job"}: get_job (resumido
+        igual; completo con detail="full")."""
         payload, job_id = esperar("POST", "/api/puerta-publicacion", {})
         if job_id:
             return _recibo(job_id)
+        if item:
+            return json.dumps(un_item(payload, item), ensure_ascii=False)
         return json.dumps(payload if completo else resumir(payload), ensure_ascii=False)
 
     @mcp.tool()

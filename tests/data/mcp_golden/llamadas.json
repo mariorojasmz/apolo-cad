@@ -4333,6 +4333,118 @@
   ]
  },
  {
+  "caso": "puerta de publicación: un ítem",
+  "tool": "publication_gate",
+  "args": {
+   "item": "entrega.gravedad"
+  },
+  "salida": [
+   {
+    "texto": "{\"aprobado\": false, \"item\": {\"id\": \"entrega.gravedad\", \"familia\": \"estructura\", \"estado\": \"OK\", \"titulo\": \"Estable con gravedad\", \"detalle\": \"estable\", \"piezas\": [], \"evidencia\": {}}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/puerta-publicacion",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {},
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jpu",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "puerta de publicación: ítem que no existe",
+  "tool": "publication_gate",
+  "args": {
+   "item": "riesgos.x"
+  },
+  "salida": [
+   {
+    "texto": "{\"error\": \"no hay ítem «riesgos.x» en la puerta\", \"ids\": [\"entrega.gravedad\", \"montaje.interferencia_interna\", \"estructura.pandeo\", \"union.agarre\"]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/puerta-publicacion",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {},
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jpu",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "puerta de publicación → recibo",
   "tool": "publication_gate",
   "args": {},

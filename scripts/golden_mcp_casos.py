@@ -635,6 +635,8 @@ CASOS = [
                                                  "interferencias": 10.2, "poses": 0.4}}})}),
     caso("puerta de publicación", "publication_gate"),
     caso("puerta de publicación completa", "publication_gate", {"completo": True}),
+    caso("puerta de publicación: un ítem", "publication_gate", {"item": "entrega.gravedad"}),
+    caso("puerta de publicación: ítem que no existe", "publication_gate", {"item": "riesgos.x"}),
     caso("puerta de publicación → recibo", "publication_gate", espera=0),
     caso("job de la puerta: resumido como la tool", "get_job", {"job_id": "jpu"}),
     caso("job de la puerta completo", "get_job", {"job_id": "jpu", "detail": "full"}),
