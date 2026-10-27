@@ -651,7 +651,7 @@ def _placa_sobre(d, guarda: str) -> str:
 
 def test_la_guarda_que_es_apoyo_dice_si_tambien_tapa_un_peligro():
     """D6: la guarda del tambor de cola sostiene una placa: sigue siendo necesaria por la sujeción
-    («es un apoyo de»), pero las sondas sin ella y sin la placa llegan a la cuña de cola y la
+    («es un apoyo de»), pero las sondas sin ella (la placa queda en su lugar) llegan a la cuña de cola y la
     evidencia lo dice (`tambien_tapa`); la tapa del tensor, que no resguarda nada (sobra en el
     testigo), con su placa es `solo_apoyo`. Se prueba cada una sola (la voraz entera de la faja
     tarda ~35 s)."""

@@ -4,10 +4,12 @@
 más lejos del piso: es necesaria y su estado no cambia. Pero esa evidencia sola engaña a quien
 rediseña: en la faja de motor central las capotas «de apoyo» también tapaban las cuñas y, al
 quitarlas con lo que sostenían, las sondas llegaban (bitácora del plan). Aquí se corren igual las
-sondas SIN ELLA Y SIN LO QUE APOYA (con la tornillería que sólo las unía): las rectas, la holgura
-funcional y, si ninguna llega, el brazo doblado de los peligros resguardados — el mismo orden y
-los mismos controles que `probar`. La evidencia gana `tambien_tapa: <peligro>` o
-`solo_apoyo: true`. El llamador sostiene STATE_LOCK.
+sondas SIN ELLA (con la tornillería que sólo la unía), dejando EN SU LUGAR lo que apoya, como si
+se fijara a otra cosa: es la pregunta de quien rediseña («si la guarda apoyada va al bastidor,
+¿sobra ésta?»). Quitar también lo apoyado daría `tambien_tapa` casi siempre, por el peligro que
+tapa la apoyada. Las rectas, la holgura funcional y, si ninguna llega, el brazo doblado de los
+peligros resguardados — el mismo orden y los mismos controles que `probar`. La evidencia gana
+`tambien_tapa: <peligro>` o `solo_apoyo: true`. El llamador sostiene STATE_LOCK.
 """
 
 from __future__ import annotations
@@ -18,18 +20,16 @@ _SIN_ELLA = ": sin ella"
 
 
 def tambien_tapa(prueba, r: set, apoya: list[str]) -> dict:
-    """{"tambien_tapa": peligro} si una sonda llega sin `r` y sin lo que apoya; si no,
-    {"solo_apoyo": True}. Suma su tiempo a la etapa «apoyo» de `prueba`."""
+    """{"tambien_tapa": peligro} si una sonda llega sin `r` (lo que apoya, `apoya`, se queda); si
+    no, {"solo_apoyo": True}. Suma su tiempo a la etapa «apoyo» de `prueba`."""
     from .calidad_codo import BandaEmpujable, sondas_con_codo
-    from .calidad_sobrantes import N_DIRECCIONES, _arrastra, _cercanos, _dc_sin, _llegan
+    from .calidad_sobrantes import N_DIRECCIONES, _cercanos, _dc_sin, _llegan
     from .calidad_sondas import Trazador
 
     t0 = time.perf_counter()
     try:
         dc0 = prueba.an["dc"]
-        r2 = set(r)
-        for x in apoya:
-            r2 |= _arrastra(x, prueba.quitadas | r2, dc0["uniones"], prueba.hardware, prueba.jb)
+        r2 = set(r)  # `apoya` se queda: sólo informa a quien llama
         tocados = [(p, ks) for p in prueba.peligros if (ks := _cercanos(p, r2, dc0["piezas"]))]
         tocados.sort(key=lambda x: x[0]["estado"] == "FALLA")  # los que resguarda, primero
         hay_holgura = any(set(h["entre"]) & r2 for p in prueba.en_holgura

@@ -140,8 +140,10 @@ Lo que pediría una pieza sin norma es AVISO justificable por escrito.
     plegado basta. Antes de implementar, la F3 busca la fuente: ISO 14120 sobre la operación de
     los resguardos móviles.
 - **D6 — La prueba de sobrantes dice la verdad de una guarda que también apoya.** En
-  `Prueba.probar`, cuando la candidata es «apoyo de» otra, se corren igual las sondas sin ella y
-  sin lo que apoya. La evidencia agrega `tambien_tapa: <peligro>` o `solo_apoyo: true`. No cambia
+  `Prueba.probar`, cuando la candidata es «apoyo de» otra, se corren igual las sondas sin ella,
+  dejando en su lugar lo que apoya (como si se fijara a otra cosa: la pregunta de quien
+  rediseña). Ajuste en la revisión de la F1: el agente quitaba también lo apoyado y eso daba
+  `tambien_tapa` casi siempre, por el peligro que tapa la pieza apoyada. La evidencia agrega `tambien_tapa: <peligro>` o `solo_apoyo: true`. No cambia
   el estado del ítem: sólo la evidencia, que es lo que lee quien rediseña.
 - **D7 — Versiones.** `VERSION_REGISTRO` 15 → 16 (D1, D2, D3) y `VERSION_BATERIA` 5 → 6 (D5),
   cada una con su línea. D6 no cambia veredictos.

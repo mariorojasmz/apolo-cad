@@ -281,7 +281,7 @@ class Prueba:
         dc_c = self.saltos.get(c)
         apoya = sorted(x for x in self.vec.get(c, ()) if x not in q and dc_c is not None
                        and self.saltos.get(x) is not None and self.saltos[x] > dc_c)
-        if apoya:  # necesaria; las sondas sin ella y sin lo que apoya sólo dicen la verdad (D6)
+        if apoya:  # necesaria; las sondas sin ella (lo apoyado queda) sólo dicen la verdad (D6)
             self._cron("sujecion", t0)
             from .calidad_sobrantes_apoyo import tambien_tapa
 
