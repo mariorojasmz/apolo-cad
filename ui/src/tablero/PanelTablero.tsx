@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { movimientoReducido } from "../diseno/movimiento";
 import { useStore } from "../state/store";
+import { EVENTO_RESTAURAR } from "../viewport/atenuar";
 import { pedirEncuadre } from "../viewport/pedirEncuadre";
 import { cargarTablero, useTablero } from "./estado";
 import VacioTablero from "./VacioTablero";
@@ -31,6 +32,8 @@ export default function PanelTablero() {
   // al cerrar el panel, el recorrido deja de dibujarse
   useEffect(() => () => useTablero.getState().set({ conductor: null }), []);
   useEffect(() => () => { if (anim.current !== null) cancelAnimationFrame(anim.current); }, []);
+  // lo que se atenuó para ver el tablero vuelve al cerrar el panel
+  useEffect(() => () => { window.dispatchEvent(new Event(EVENTO_RESTAURAR)); }, []);
 
   if (!panel) {
     if (error) return <section className="history"><p className="estado-aviso">No pudimos leer el tablero: {error}</p></section>;
@@ -39,17 +42,21 @@ export default function PanelTablero() {
   }
 
   const encuadrar = (piezas: readonly string[], puntos?: readonly (readonly number[])[]) =>
-    pedirEncuadre(piezas, { animar: true, seleccionar: true, puntos });
+    pedirEncuadre(piezas, { animar: true, seleccionar: true, puntos, despejar: true });
   const gabinete = panel.gabinete?.pieza;
+  // abrir desde cerrada: la cámara mira la puerta de frente, en lo que se ve del visor, y
+  // esquiva o atenúa lo que tape el gabinete (plan visor-para-evaluar D13–D15)
+  const verInterior = () => {
+    if (gabinete) pedirEncuadre([gabinete], { animar: true, frente: panel.puerta?.pieza, despejar: true });
+  };
   const mover = (v: number) => {
-    // abrir desde cerrada: la cámara encuadra el gabinete para ver el interior
-    if (valorPuerta === 0 && v > 0 && gabinete) pedirEncuadre([gabinete], { animar: true });
+    if (valorPuerta === 0 && v > 0) verInterior();
     useStore.getState().setJointValue(junta, v);
   };
   const animar = (destino: number) => {
     if (anim.current !== null) cancelAnimationFrame(anim.current);
     const desde = useStore.getState().jointValues[junta] ?? 0;
-    if (desde === 0 && destino > 0 && gabinete) pedirEncuadre([gabinete], { animar: true });
+    if (desde === 0 && destino > 0) verInterior();
     const dura = duracionPuerta(movimientoReducido());
     const t0 = performance.now();
     const paso = (ahora: number) => {

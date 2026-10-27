@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import type { AreaNdc } from "./areaLibre";
+import { poseEnArea } from "./encuadreLibre";
 
 /* Movimientos de cámara de los botones del visor (plan modo-visor, D5) y la caja a encuadrar
    del evento `apolo:fit` (D8). Fuera de Viewport.tsx, que está congelado por el trinquete de
@@ -83,12 +85,15 @@ export function destinoEncuadre(
 }
 
 /** Encuadra una caja de un salto: mantiene la dirección actual de la cámara salvo que se dé
-   `dir`. El vuelo animado es `vuelo.ts` (plan V8.5, F3b-0). */
+   `dir`. Con `area` (lo libre del visor, `areaLibre.ts`) la centra ahí: con el área completa es
+   la misma pose (plan visor-para-evaluar D13). El vuelo animado es `vuelo.ts` (plan V8.5, F3b-0). */
 export function encuadrar(
   camera: THREE.PerspectiveCamera, controls: { target: THREE.Vector3; update: () => unknown },
-  box: THREE.Box3, dir?: [number, number, number],
+  box: THREE.Box3, dir?: [number, number, number], area?: AreaNdc,
 ): void {
-  const destino = destinoEncuadre(camera.position, controls.target, box, dir);
+  const destino = area
+    ? poseEnArea(box, dir ? new THREE.Vector3(...dir) : camera.position.clone().sub(controls.target), camera, area)
+    : destinoEncuadre(camera.position, controls.target, box, dir);
   if (!destino) return;
   camera.position.copy(destino.posicion);
   controls.target.copy(destino.objetivo);

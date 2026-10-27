@@ -11,7 +11,8 @@ export default function MarcoCajon({ lado, titulo, ancho, onCerrar, children }: 
   lado: Lado; titulo: string; ancho?: AnchoPanel; onCerrar: () => void; children: ReactNode;
 }) {
   return (
-    <aside className={claseCajon(lado, ancho)} aria-label={titulo}>
+    // data-tapa-vista (`viewport/areaLibre.ts::TAPA_VISTA`): el encuadre descuenta el cajón
+    <aside className={claseCajon(lado, ancho)} aria-label={titulo} data-tapa-vista="">
       <header className="cajon-cabecera">
         <h2>{titulo}</h2>
         <button

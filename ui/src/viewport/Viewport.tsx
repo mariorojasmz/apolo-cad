@@ -12,6 +12,7 @@ import PanelRotar from "./PanelRotar";
 import BarraSeleccion from "./BarraSeleccion";
 import EstadoViewport, { type Vcb } from "./EstadoViewport";
 import { ACERCAR, ALEJAR, cajaDe, dolly, encuadrar, VIEWS } from "./camara";
+import { areaLibreDe } from "./areaLibre";
 import { useVisor } from "../visor/estado";
 import { crearPipeline } from "./pipeline";
 import { actualizarTiradores, buildOverlay } from "./gizmoRot";
@@ -287,7 +288,7 @@ export default function Viewport() {
   // Encuadra una caja: mantiene la dirección actual de la cámara salvo que se dé `dir`.
   const frameBox = (box: THREE.Box3, dir?: [number, number, number]) => {
     const ctx = ctxRef.current;
-    if (ctx) encuadrar(ctx.camera, ctx.controls, box, dir);
+    if (ctx) encuadrar(ctx.camera, ctx.controls, box, dir, areaLibreDe(ctx.renderer.domElement)); // sin el panel lateral
   };
   const selectionBox = (): THREE.Box3 | null => {
     const ctx = ctxRef.current;
