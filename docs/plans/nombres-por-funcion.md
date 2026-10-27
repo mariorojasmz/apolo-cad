@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado (D1–D18 vetables); el fix de la frase «pandea» ya entró con este plan; sigue F0 (medir), luego F1–F6
+nota: contrato aprobado (D1–D18 vetables); fix «pandea» y F0 hechos (ajustes A1–A18 en la Bitácora); sigue F1 (dato y respaldo), luego F2–F6
 descripcion: cada mando, piloto y sensor se ve por lo que HACE («Marcha», «Tapa del tanque»), con la designación chica al lado, y la puerta de publicación no aprueba una máquina cuyos mandos no tienen nombre
 ---
 
@@ -382,4 +382,67 @@ designación, motivo, piezas y `sugerencia`.
 
 ## 9. Bitácora
 
-(vacía: se llena al cerrar cada fase)
+### F0 — medir (2026-10-27)
+
+Sólo lectura. Verifiqué 26 afirmaciones con archivo:línea: se corrigen 4 (A16).
+
+**Lo medido:**
+- **Norma.** El §16.3 sale de la checklist DGUV/IFA 3848 (06.2020) sobre IEC 60204-1:2016; la
+  webstore de la IEC confirma la ed. 6.0 + AMD1:2021. El texto de la norma no se leyó.
+- **Mezcladora.** 15 operables, y caen los 15. Ningún testigo público tiene carril.
+- **Criterio D5 sobre 45 rótulos.** Tal como estaba escrito daba 7 falsos ✓; ajustado da 0.
+  Quedan 2 falsos ✗: «Paro de emergencia» y «Marcha/paro».
+
+**Ajustes aprobados.** Prevalecen sobre el texto de las D y F de arriba.
+
+- **A1 — Norma.** La `norma` del ítem es «IEC 60204-1:2016 §16.3 (mandos) · criterio de diseño
+  (pilotos y sensores)». Sale el «a confirmar».
+- **A2 — Nombre del servicio.** Pasa a `services/nombres_aparatos.py` (con
+  `tests/test_nombres_aparatos.py`), porque `services/rotulos.py` ya existe: son los rótulos del
+  video.
+- **A3 — La `Entrada` vive en `calidad/nombres.py`.** `registro.py` (498 líneas) sólo la importa; su
+  docstring se compacta y queda ≤ 500.
+- **A4 — Claves de `estados`, por tipo y en UNA tabla pura.**
+  - selector: `modelo.posiciones`;
+  - electroválvula: las posiciones del carrete, no `lados` (la fila `valvulas` del `inicio` suma
+    `posiciones`);
+  - seccionador y resguardo: `cerrado`/`abierto`;
+  - botonera: sus actuadores.
+- **A5 — `estados` nunca suprime un dispositivo.** Es estricto al entrar. Al cargar, una clave
+  vencida se ignora con aviso. Se tocan `electrico_eval._dispositivo` y `neumatica_eval.dispositivo`,
+  con el test del log que trae una clave vencida.
+- **A6 — Literales de `add_device`.** `rotulo`, `estados` y `descripcion` van en sus `literales`:
+  una cadena que empieza con «=» es expresión.
+- **A7 — Criterio D5 ajustado.** Rechaza también un código de catálogo y una designación dentro del
+  rótulo. La tabla cerrada de tipos incluye «pos», fotocélula, final, carrera, seguridad,
+  emergencia y los estados sueltos. Los falsos ✗ quedan como casos del test.
+- **A8 — Lo que el tipo ya nombra queda fuera del ítem.** La seta, el seccionador, el HMI y la válvula
+  de corte, si son ÚNICOS en su aspecto, se muestran con su nombre FUNCIONAL por tipo («Parada de
+  emergencia», «Interruptor general», «Panel de operador»). Con 2 o más en el aspecto, entran al
+  ítem. La mezcladora queda en 13 casos.
+- **A9 — Unicidad por (aspecto, clase).** Mando, indicador y sensor se cuentan por separado: -S1 y
+  -P1 pueden llamarse los dos «Marcha».
+- **A10 — F6.** Espera la cifra que dé el criterio final, y su `edit_batch` lleva `estados` para -S4,
+  -QM1 y -B4.
+- **A11 — Se recorre la CADENA SERIE.** Lo que vigila un relé de seguridad y lo que rearma un
+  pulsador se leen recorriéndola: desde S12/S22, hacia atrás por los NC, hasta la alimentación. No
+  basta la red directa del borne: -K2:S12 sólo ve a -B1. S34 directo vale.
+- **A12 — `entrega.semaforo` no repite el ítem.** `semaforo_entrega` descarta la regla «nombres por
+  función», porque la juzga su ítem (el precedente es `seguridad.electrico`). `delivery_check`
+  sigue avisando, y lo repetido nunca bloquea.
+- **A13 — Gates de F2.**
+  - El defecto sembrado `mando_sin_rotulo`: un tablero con todos los rótulos menos uno → FALLA.
+  - Los 4 testigos se re-congelan con «12» (el ítem va en NO_APLICA) usando
+    `scripts/testigos.py --en-proceso --congelar`.
+- **A14 — El log viejo.** Su gate es `test_neumatica_carril.py` (`carril_v81_golden.json`), y el
+  `circuito` suma `rotulo`/`estados`/`descripcion` SÓLO si están declarados.
+- **A15 — La sugerencia limpia antes de cortar.** Quita «·», «(…)» y la designación, y después
+  recorta a 30 en palabra. Es texto: nunca aprueba.
+- **A16 — Citas corregidas.**
+  - `piezas_en_tabla` está en 99-121;
+  - `erc` deja pasar los avisos justificados;
+  - el aparato de `tablero_panel` está en las líneas 301-302.
+- **A17 — Resguardo sin `estados`.** Toma por default «Cerrado/Abierto», y `delivery_check` (no la
+  puerta) lo avisa: el RESG-2NC se usa también como sensor de recipiente o de cadena floja.
+- **A18 — F3.** El seccionador y el resguardo se leen de `senales` (bool), y el selector y la válvula,
+  de `textos`. El `Segmentado` recibe el valor leído; no lo guarda en `useState`.
