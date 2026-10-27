@@ -19,6 +19,7 @@ def reglas_de_ingenieria(doc, lints: bool = True) -> list[dict]:
     from apolo.library.lints import predelivery_lints
     from apolo.library.rules import detect_conveyor
 
+    from .calidad_agujeros import agujeros_atribuidos
     from .engineering_rules import (
         conveyor_params_from_doc,
         inherit_inclination,
@@ -44,7 +45,8 @@ def reglas_de_ingenieria(doc, lints: bool = True) -> list[dict]:
         return reglas
     reglas += predelivery_lints(
         doc.scene, doc.commands, doc.fasteners, doc.grounds, doc.joints, doc.mates,
-        resolve=lambda p: resolve_params(p, doc.variables_resolved))
+        resolve=lambda p: resolve_params(p, doc.variables_resolved),
+        agujeros_declarados=lambda: agujeros_atribuidos(doc))
     return reglas
 
 

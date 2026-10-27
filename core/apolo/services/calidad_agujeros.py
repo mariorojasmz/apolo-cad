@@ -133,6 +133,8 @@ class _Medidor:
         from apolo.library.materials import piece_role
 
         self.doc, self._ag, self._caja = doc, {}, {}
+        #: fid → los agujeros que contó para un `fasten` perno (`agujeros_atribuidos`)
+        self.atribuidos: dict[str, list[dict]] = {}
         self.catalogo = lambda f: CATALOG.get(getattr(f, "component", None) or "") is not None
         self.rol = lambda f: piece_role(getattr(f, "name", "") or "")
         self.tornilleria = lambda f: _is_bolt(f, CATALOG) or bool(_MACHO_RE.match(self.rol(f)))
@@ -142,7 +144,8 @@ class _Medidor:
             self._caja[fid] = _caja(self.doc.scene[fid])
         return self._caja[fid]
 
-    def contar(self, fid: str, d: float | None, zona) -> int:
+    def agujeros(self, fid: str, d: float | None, zona) -> list[dict]:
+        """Los agujeros de `fid` que sirven a un perno M`d` en la `zona` (los que se cuentan)."""
         from apolo.library.calidad.agujeros import compatible
 
         if fid not in self._ag:
@@ -150,9 +153,10 @@ class _Medidor:
                 self._ag[fid] = agujeros_de(self.doc.scene[fid].shape)
             except Exception:  # noqa: BLE001
                 self._ag[fid] = []
-        return sum(1 for a in self._ag[fid] if compatible(a["d"], d) and _en_zona(a, zona))
+        return [a for a in self._ag[fid] if compatible(a["d"], d) and _en_zona(a, zona)]
 
-    def pieza(self, fid: str, d, zona, otra: str | None = None, prisionero: bool = False) -> dict:
+    def pieza(self, fid: str, d, zona, otra: str | None = None, prisionero: bool = False,
+              registrar: bool = False) -> dict:
         f = self.doc.scene.get(fid)
         base = {"fid": fid, "nombre": getattr(f, "name", fid)}
         if f is None or getattr(f, "is_guide", False) or f.shape is None:
@@ -174,16 +178,29 @@ class _Medidor:
                 return {**base, "juzgada": False,
                         "motivo": "base de la tornillería (no la atraviesa: va soldada o roscada)"}
             zona = _cruce(ca, cb, _MARGEN_MM)
-        return {**base, "juzgada": True, "agujeros": self.contar(fid, d, zona)}
+        suyos = self.agujeros(fid, d, zona)
+        if registrar:
+            self.atribuidos.setdefault(fid, []).extend(suyos)
+        return {**base, "juzgada": True, "agujeros": len(suyos)}
 
 
 def _tipos(doc) -> dict:
     return {c["id"]: c.get("type") for c in doc.commands}
 
 
-def insumos_agujeros(doc) -> list[dict]:
+def agujeros_atribuidos(doc) -> dict[str, list[dict]]:
+    """fid → los agujeros que `union.agujeros` atribuye a un `fasten` perno DECLARADO de esa pieza
+    (los que cuenta, con la métrica y la zona de la unión: la MISMA medida). Lo inyectan los
+    llamadores de `lints.predelivery_lints`: la tornillería que la nota del fasten declara y nadie
+    modeló (la compra la suma `tornilleria_declarada.py`) no deja esos agujeros «sin perno»."""
+    med = _Medidor(doc)
+    insumos_agujeros(doc, med, anclajes=False)
+    return med.atribuidos
+
+
+def insumos_agujeros(doc, medidor: _Medidor | None = None, *, anclajes: bool = True) -> list[dict]:
     """Los insumos de `controlar_agujeros` de todas las uniones declaradas y los anclajes."""
-    tipo, med, out = _tipos(doc), _Medidor(doc), []
+    tipo, med, out = _tipos(doc), medidor or _Medidor(doc), []
     for nombre, f in doc.fasteners.items():
         if f.get("kind", "perno") != "perno":
             continue
@@ -202,11 +219,12 @@ def insumos_agujeros(doc) -> list[dict]:
             otra = y if med.tornilleria(fy) else None
             ca, cb = med.caja(x), med.caja(y)
             zona = _cruce(ca, cb, _MARGEN_MM) if ca and cb else None
-            piezas.append(med.pieza(x, d, zona, otra, bool(_PRISIONERO_RE.search(nota))))
+            piezas.append(med.pieza(x, d, zona, otra, bool(_PRISIONERO_RE.search(nota)),
+                                    registrar=True))
         out.append({"union": f.get("name") or nombre, "tipo": "fasten", "d": d,
                     "pide": int(f.get("qty") or 1), "basta_una": bool(_BASTA_UNA_RE.search(nota)),
                     "piezas": piezas})
-    for nombre, g in doc.grounds.items():
+    for nombre, g in (doc.grounds.items() if anclajes else ()):
         fid = g.get("feature") or g.get("a") if isinstance(g, dict) else None
         nota = str((g or {}).get("nota") or "")
         if fid not in doc.scene or not _PERNOS_ANCLAJE_RE.search(nota):

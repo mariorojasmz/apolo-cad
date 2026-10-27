@@ -138,11 +138,14 @@ def run_checks(body: ChecksIn) -> dict:
         # olvidos de MODELADO que el chequeo estructural no ve; vacíos si el modelo está sano
         from apolo.commands.expressions import resolve_params
         from apolo.library.lints import predelivery_lints
+        from apolo.services.calidad_agujeros import agujeros_atribuidos
 
+        doc = S.doc
         estructura += predelivery_lints(
-            S.doc.scene, S.doc.commands, S.doc.fasteners, S.doc.grounds, S.doc.joints, S.doc.mates,
-            resolve=lambda p: resolve_params(p, S.doc.variables_resolved),
-            material_vertical=S.doc.default_material(),
+            doc.scene, doc.commands, doc.fasteners, doc.grounds, doc.joints, doc.mates,
+            resolve=lambda p: resolve_params(p, doc.variables_resolved),
+            material_vertical=doc.default_material(),
+            agujeros_declarados=lambda: agujeros_atribuidos(doc),
         )
     out = {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
     if body.grupo or body.solo_fallas or body.resumen:

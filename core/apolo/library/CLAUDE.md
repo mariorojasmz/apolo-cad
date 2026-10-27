@@ -295,7 +295,8 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   quedaron sin revisar.
 - `lints.predelivery_lints`: «barreno de paso Ø7-22 sin perno en su eje» y «pieza sin grupo NI
   unión declarada» (excluye guías, superficies y herraje). Reconoce tornillería a medida por
-  NOMBRE (`_is_bolt`). Todo matcher por nombre nuevo lleva guarda de anclaje/plurales y un test
+  NOMBRE (`_is_bolt`) y, por la MISMA medida de `union.agujeros` (inyectada:
+  `services/calidad_agujeros.agujeros_atribuidos`), la que un `fasten` perno declara sin modelar. Todo matcher por nombre nuevo lleva guarda de anclaje/plurales y un test
   con el nombre REAL del modelo. «Soldadura imposible» (`lint_soldadura.py`: madera, caucho, PVC…
   o acero con aluminio) es el único lint ERROR: `delivery.py` lo pone en bloqueantes (ROJO); sin
   `material_vertical`, asume acero (no inventa una madera por el nombre).

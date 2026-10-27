@@ -108,9 +108,24 @@ def _bolt_lines(scene, catalog) -> list[tuple]:
     return out
 
 
-def _hole_bolt_lint(scene, commands, catalog, resolve) -> list[dict]:
+def _de_union_declarada(fid, p0, u, dia, declarados) -> bool:
+    """¿El taladro (recta p0 + t·u, Ø `dia`) es uno de los agujeros que `union.agujeros` atribuye
+    a un fasten perno DECLARADO de su pieza (`declarados[fid]`: {p, eje} de la geometría)? Su eje
+    paralelo y dentro del radio del taladro: es el mismo agujero."""
+    for a in declarados.get(fid) or ():
+        try:
+            if abs(abs(sum(a["eje"][i] * u[i] for i in range(3))) - 1.0) > 1e-3:
+                continue
+            if _perp_dist(a["p"], p0, u) <= dia / 2.0:
+                return True
+        except Exception:  # noqa: BLE001 — un insumo raro no cubre nada
+            continue
+    return False
+
+
+def _hole_bolt_lint(scene, commands, catalog, resolve, agujeros_declarados=None) -> list[dict]:
     bolts = _bolt_lines(scene, catalog)
-    sin_perno: list[str] = []
+    sin_perno: list[tuple] = []
     for cmd in commands:
         if cmd.get("type") != "drill_hole":
             continue
@@ -138,10 +153,21 @@ def _hole_bolt_lint(scene, commands, catalog, resolve) -> list[dict]:
             tol = max(dia, 6.0)
             if any(_perp_dist(c, p0, u) <= tol for c in bolts):
                 continue
-            nombre = getattr(feat, "name", None) or cmd.get("params", {}).get("feature")
-            sin_perno.append(f"{nombre} (Ø{dia:g} en x≈{p0[0]:.0f},y≈{p0[1]:.0f},z≈{p0[2]:.0f})")
+            fid = cmd.get("params", {}).get("feature")
+            nombre = getattr(feat, "name", None) or fid
+            sin_perno.append((fid, p0, u, dia, f"{nombre} (Ø{dia:g} en x≈{p0[0]:.0f},"
+                                               f"y≈{p0[1]:.0f},z≈{p0[2]:.0f})"))
         except Exception:  # noqa: BLE001 — un comando no resoluble no rompe el lint
             continue
+    if sin_perno and agujeros_declarados is not None:
+        # la tornillería que un fasten perno DECLARA (en su nota, sin modelar) también es «perno
+        # en su eje»: los agujeros que `union.agujeros` le atribuye (perezoso: sólo si hace falta)
+        try:
+            declarados = agujeros_declarados() or {}
+        except Exception:  # noqa: BLE001 — sin la medida, el lint de siempre
+            declarados = {}
+        sin_perno = [s for s in sin_perno if not _de_union_declarada(*s[:4], declarados)]
+    sin_perno = [s[4] for s in sin_perno]
     if not sin_perno:
         return []
     ejemplo = "; ".join(sin_perno[:6]) + ("…" if len(sin_perno) > 6 else "")
@@ -194,7 +220,8 @@ def _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog) -> list[
 
 
 def predelivery_lints(scene, commands, fasteners, grounds, joints, mates, *,
-                      catalog=None, resolve=None, material_vertical=None) -> list[dict]:
+                      catalog=None, resolve=None, material_vertical=None,
+                      agujeros_declarados=None) -> list[dict]:
     """Lints pre-entrega: barrenos sin perno + piezas sin grupo ni unión + asiento fuera de
     la zona plana de un perfil abierto (`lint_asiento.py`) + soldadura entre materiales que no
     se sueldan (`lint_soldadura.py`, ERROR: bloquea la puerta). Devuelve una
@@ -202,7 +229,10 @@ def predelivery_lints(scene, commands, fasteners, grounds, joints, mates, *,
     (inyectado por la API) sustituye las "=expresión" de los comandos por su valor —
     los modelos paramétricos posicionan los barrenos con expresiones; sin resolver
     (default identidad) un barreno parametrizado simplemente se salta. `material_vertical` =
-    `Document.default_material()` (sin él, la soldadura asume acero lo no reconocido)."""
+    `Document.default_material()` (sin él, la soldadura asume acero lo no reconocido).
+    `agujeros_declarados()` (inyectado: `services/calidad_agujeros.agujeros_atribuidos`) da
+    fid → los agujeros que `union.agujeros` atribuye a un fasten perno declarado: esos tienen su
+    perno aunque no esté modelado; se llama sólo si queda algún barreno sin perno."""
     from .catalog import CATALOG
     from .lint_asiento import asiento_zona_plana_lint
     from .lint_soldadura import soldadura_imposible_lint
@@ -212,7 +242,7 @@ def predelivery_lints(scene, commands, fasteners, grounds, joints, mates, *,
     if not scene:
         return []
     out: list[dict] = []
-    out += _hole_bolt_lint(scene, commands or [], catalog, resolve)
+    out += _hole_bolt_lint(scene, commands or [], catalog, resolve, agujeros_declarados)
     out += _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog)
     out += asiento_zona_plana_lint(scene, catalog)
     out += soldadura_imposible_lint(scene, fasteners or {}, catalog, default=material_vertical)

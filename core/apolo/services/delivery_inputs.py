@@ -84,6 +84,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
     from apolo.library.lints import predelivery_lints
 
     from .assertions import delivery_poses
+    from .calidad_agujeros import agujeros_atribuidos
 
     # La puerta valida lo DECLARADO: un par unido por un fastener (soldadura/perno/
     # contacto) es contacto INTENCIONAL declarado → se excluye igual que las parejas
@@ -119,6 +120,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
             doc.scene, doc.commands, doc.fasteners, doc.grounds, doc.joints, doc.mates,
             resolve=lambda p: resolve_params(p, doc.variables_resolved),
             material_vertical=doc.default_material(),
+            agujeros_declarados=lambda: agujeros_atribuidos(doc),
         )
     from .electrico import reglas_erc
 

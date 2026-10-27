@@ -130,6 +130,46 @@ def test_compound_tornilleria_counts_per_solid():
     assert _regla(_lints(doc), "pre-entrega · barreno sin perno") is None
 
 
+def test_barreno_de_un_fasten_declarado_no_avisa():
+    """Tornillería DECLARADA en el fasten y no modelada (la compra la suma
+    `tornilleria_declarada`): los agujeros que `union.agujeros` le atribuye (su métrica, en la
+    zona de la unión) tienen su perno; un barreno que ningún fasten declara sigue avisando
+    (el elevador: 34 avisos que chocaban con la puerta de publicación)."""
+    from apolo.commands.expressions import resolve_params
+    from apolo.services.calidad_agujeros import agujeros_atribuidos
+
+    doc = Document()
+    base = doc.execute("create_box", {"name": "Placa base", "width": 200, "depth": 100,
+                                      "height": 10, "position": {"z": 5}})
+    tapa = doc.execute("create_box", {"name": "Placa de apoyo", "width": 100, "depth": 100,
+                                      "height": 10, "position": {"x": -50, "z": 15}})
+    for x in (-70, -30):  # los dos agujeros de la unión, pasantes en las dos placas
+        for fid, z in ((base, 10), (tapa, 20)):
+            doc.execute("drill_hole", {"feature": fid, "position": {"x": x, "y": 0, "z": z},
+                                       "axis": "-z", "diameter": 13.5, "depth": 0})
+    # uno en la base fuera de la zona de la unión: ningún fasten lo declara
+    doc.execute("drill_hole", {"feature": base, "position": {"x": 60, "y": 0, "z": 10},
+                               "axis": "-z", "diameter": 13.5, "depth": 0})
+    doc.execute("ground", {"name": "g1", "feature": base})
+    doc.execute("fasten", {"name": "f1", "a": tapa, "b": base, "kind": "perno", "size": "M12",
+                           "qty": 2, "nota": "2 pernos M12x40 DIN 933 + tuerca (sin modelar)"})
+
+    def lints(con_insumo):
+        return predelivery_lints(
+            doc.scene, doc.commands, doc.fasteners, doc.grounds, doc.joints, doc.mates,
+            resolve=lambda p: resolve_params(p, doc.variables_resolved),
+            agujeros_declarados=(lambda: agujeros_atribuidos(doc)) if con_insumo else None)
+
+    sin = _regla(lints(False), "pre-entrega · barreno sin perno")
+    assert sin is not None and "5 barreno" in sin["detalle"]   # el lint de siempre: los 5
+    con = _regla(lints(True), "pre-entrega · barreno sin perno")
+    assert con is not None and "1 barreno" in con["detalle"] and "x≈60" in con["detalle"]
+    # la MISMA medida: un perno M20 declarado no se atribuye agujeros Ø13.5 (0,75·20 = 15 > 13,5)
+    doc.edit(next(c["id"] for c in doc.commands if c["type"] == "fasten"), {"size": "M20"},
+             merge=True)
+    assert "5 barreno" in _regla(lints(True), "pre-entrega · barreno sin perno")["detalle"]
+
+
 def test_negative_axis_hole_matches_bolt():
     """Un barreno con eje NEGATIVO ("-y") debe medir contra la recta Y: sin el strip del
     signo, "-y" caía al default z y el perno coaxial no matcheaba (12 falsos positivos
