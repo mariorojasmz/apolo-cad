@@ -37,6 +37,7 @@ Reglas (cada una con su norma o «criterio de diseño»):
   - **escape sin silenciador** y **regulación de velocidad** (F4; aviso): SÓLO si el catálogo
     ofrece silenciadores / reguladores de caudal (`disponibles`): sin refs darían un aviso en
     todo circuito que nadie puede resolver (D16 los trae);
+  - **bloqueo de vástago** (plan bloqueo-de-vastago; `erc_bloqueo.py`, sólo si hay bloqueos);
   - **presostato** (F8; aviso, sólo si hay presostatos): sin línea de aire (su puerto 1 sin tubo:
     lee la atmósfera, su NA nunca cierra; por eso no es «puerto libre»), sin su contacto cableado
     (ningún contacto `señal` con sus dos bornes en un conductor: nadie lo lee; sólo con
@@ -53,6 +54,7 @@ from __future__ import annotations
 
 from . import calculo as K
 from . import cilindros as Z
+from . import erc_bloqueo
 from .amortiguador import EXTREMOS
 from .amortiguador import NORMA as NORMA_AMORTIGUADOR
 from .lineas import Circuito, analizar, aguas_abajo, tipo
@@ -476,17 +478,19 @@ _CON_CATALOGO = (("silenciador", _silenciadores), ("regulador_caudal", _regulaci
 
 def erc(modelo, circuito: Circuito | None = None, *, disponibles=frozenset(), cableado=None,
         amortiguadores: dict | None = None, paquetes_min: float | None = None,
-        refs_escena: frozenset | None = None) -> list[dict]:
+        refs_escena: frozenset | None = None, seta=None, deslizados: dict | None = None) -> list[dict]:
     """Las reglas de D9 sobre el circuito de aire del modelo; `[]` si no tiene aire. `disponibles`:
     los `modelo.tipo` neumáticos que ofrece el catálogo (`services/neumatica.py` los pasa): las
     reglas de silenciador y de regulación corren sólo si hay con qué cumplirlas. `cableado(des,
     borne) -> bool` (de la red eléctrica, `services/neumatica.py`): si llega un conductor al borne;
     sin él, la regla del presostato no revisa su contacto. `amortiguadores` ({ref: ficha}),
     `paquetes_min` (la capacidad nominal) y `refs_escena` (las refs en 3D; None = no se mira): la
-    regla del amortiguador externo, que sólo da filas si algún cilindro lo declara."""
+    regla del amortiguador externo, que sólo da filas si algún cilindro lo declara. `seta` y
+    `deslizados`: la regla del bloqueo de vástago (`erc_bloqueo.py`), sin filas si no hay bloqueos."""
     if not hay_aire(modelo):
         return []
     c = circuito or analizar(modelo)
     reglas = list(_REGLAS) + [f for t, f in _CON_CATALOGO if t in disponibles]
     return ([r for regla in reglas for r in regla(c)] + _presostatos(c, cableado)
-            + _amortiguador(c, amortiguadores, paquetes_min, refs_escena))
+            + _amortiguador(c, amortiguadores, paquetes_min, refs_escena)
+            + erc_bloqueo.reglas(c, seta=seta, deslizados=deslizados))

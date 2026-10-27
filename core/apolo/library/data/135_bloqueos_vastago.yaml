@@ -1,0 +1,151 @@
+category: bloqueos_vastago
+# Bloqueos de vástago (unidades de sujeción) por resorte, liberados con aire (plan
+# bloqueo-de-vastago D1). Muerden el vástago del cilindro y lo sostienen sin aire: al pulsar la seta,
+# al cortar el aire o con una fuga. Cada ref es un EJEMPLO por FUNCIÓN: quien fabrica la reemplaza
+# por cualquier unidad de sujeción del MISMO Ø de vástago, normalmente bloqueada (resorte), con una
+# retención estática igual o mayor, una presión de liberación igual o menor y, si debe parar un
+# movimiento (la seta en marcha), apta para frenado dinámico con su certificado; `linea_referencia`
+# sólo cita «del orden de». La liberación es una 3/2 NC PROPIA cuya bobina corta la seta (D3).
+#
+# Ficha neumática (`library/neumatica/ficha.py`, tipo `bloqueo_vastago`, completa o no carga):
+# puerto 1 de liberación, Ø del vástago, retención, presiones, `normalmente_bloqueado`,
+# `frenado_dinamico`, volumen de la cámara de liberación y retardo mecánico.
+# Fuentes de las cifras (leídas 2026-10-26, en C:\t\normas\neumatica\bloqueo\):
+#  [B1] Festo, hoja de grupo «Clamping cartridges/units KP/KPE/KEC/KEC-S» 2020/09 (el PDF de Festo
+#       que sirve el distribuidor: https://www.landefeld.com/shop/media/festo/gruppendatenblaetter/kp-kpe-kec_en.pdf):
+#       - pág. 2-3: sujetan por resorte y liberan con aire, en los dos sentidos; KEC «Mounting hole
+#         pattern to ISO 15552», «Not certified for use in safety-related control systems»; KEC-S
+#         «category 1 to EN ISO 13849-1 (tried-and-tested component)», «not a complete safety
+#         solution»; KEC sin juego con carga; KEC «not suitable for dynamic operation»; KEC-S «dynamic
+#         forces occurring during operation must not exceed the static holding force»;
+#       - pág. 8-9 (KPE): KPE-12 600 N estáticos, liberación mínima 0,3 MPa, conexión M5, 270 g,
+#         rosca de montaje M6; trabajo «≤ 10 bar» (el signo no sale en el texto extraído: a confirmar);
+#       - pág. 10-11 (KEC): Ø16 / 20 / 25: 1300 / 3200 / 8000 N, liberación mínima 0,38 MPa, trabajo
+#         3,8–10 bar, G1/8 / G1/4 / G3/8, 1860 / 4515 / 15600 g, −20…80 °C; cotas B (f8) 35 / 45 / 55,
+#         E 54 / 80 / 126, L1 178 / 208,5 / 287, L2 160 / 187 / 258, VD 18 / 21,5 / 29, TG 38 / 56,5 /
+#         89, RT M6 / M8 / M10, MM 16 / 20 / 25; la nota «Blocking off the compressed air supply at
+#         both ends (e.g. with a 5/3-way valve) does not provide any safety»;
+#       - pág. 12-13 (KEC-S): las mismas cifras con trabajo 3,8–8 bar, prueba 10 bar, −10…60 °C,
+#         «Holding and stopping a movement», «Cat. 1, PLc», certificado IFA 1504155; el sobrerrecorrido
+#         lo determina el cliente en la puesta en marcha.
+#  [B2] Festo, hojas de artículo 527493 (KEC-20) y 538242 (KEC-16-S), 2020/09 (mismo sitio,
+#       …/datenblaetter/527493_en.pdf y 538242_en.pdf): confirman retención, liberación, peso,
+#       conexión, temperatura y «Kat. 1, PLc».
+# Lo que NO publica ninguna ficha leída (criterio de diseño, en `a_confirmar`):
+#  - el tiempo de bloqueo y el de liberación: el retardo sale del ESCAPE de la cámara de
+#    liberación por su 3/2 en la co-simulación (D4), con `V_liberacion_cm3` ESTIMADO del tamaño
+#    (KPE-12 2, KEC-16 8, KEC-20 15, KEC-25 40 cm³) y `t_mecanico_ms` 10 ms de las mordazas;
+#  - el B10d (ISO 13849-1): ninguna ficha lo trae;
+#  - las letras de las cotas se leyeron SIN su dibujo: B (centrado f8) y TG coinciden con ISO 15552
+#    Ø40 / Ø63 / Ø100 (`cilindro_D_mm`); el cuerpo se modela E × E × L2 con el centrado Ø B × VD del
+#    lado de la carga (a confirmar de qué lado va el centrado); la KPE, como caja B1 × H1 × L1.
+# Montaje (D10): la KEC va entre la tapa delantera del cilindro ISO 15552 y su brida (FNC de Festo),
+# por el patrón TG; el vástago del cilindro tiene que ser L1 más largo (a confirmar con su fabricante).
+_puerto_g18: &puerto_g18 [{id: "1", rol: entrada, rosca: G1/8}]
+_puerto_g14: &puerto_g14 [{id: "1", rol: entrada, rosca: G1/4}]
+_puerto_g38: &puerto_g38 [{id: "1", rol: entrada, rosca: G3/8}]
+_fuente_kec_s: &fuente_kec_s "[B1] Festo KP/KPE/KEC/KEC-S 2020/09 págs. 2-3 y 12-13; [B2] 538242 (KEC-16-S)"
+_fuente_kec: &fuente_kec "[B1] Festo KP/KPE/KEC/KEC-S 2020/09 págs. 2-3 y 10-11; [B2] 527493 (KEC-20)"
+_ac_kec: &ac_kec [V_liberacion_cm3, t_mecanico_ms, puertos.rosca]
+components:
+  # ── KEC-…-S: sostiene y FRENA un movimiento (categoría 1 de EN ISO 13849-1) ───────────────
+  - ref: BLOQ-VAST-16-S
+    name: Bloqueo de vástago Ø16 por resorte, apto para frenado (categoría 1)
+    description: Unidad de sujeción para vástago Ø16 (ISO 15552 Ø40), normalmente bloqueada por resorte y liberada con aire (≥ 3,8 bar), 1300 N de retención estática en los dos sentidos; sostiene y frena un movimiento; componente probado para categoría 1 de EN ISO 13849-1 (PL c). Va entre la tapa delantera del cilindro y su brida (patrón TG 38). Verificar con el proveedor.
+    builder: bloqueo_vastago
+    params: {ancho: 54, alto: 54, largo: 160, d: 16, B: 35, VD: 18}
+    weight: 1.860
+    specs: {d_vastago_mm: 16, F_retencion_N: 1300, TG_mm: 38, rosca_fijacion: M6, T_servicio_C: "-10…60", linea_referencia: "orden de Festo KEC-16-S (538242)", fuente: "[B1] [B2]", a_confirmar: "cotas E, L1, L2 y VD (leídas sin su dibujo); lado del centrado; vástago del cilindro L1 más largo", cotas_verificadas: false}
+    neumatico:
+      funcion: RL
+      simbolo: bloqueo_vastago
+      fuente: *fuente_kec_s
+      puertos: *puerto_g18
+      modelo: {tipo: bloqueo_vastago, d_vastago_mm: 16, F_retencion_N: 1300, p_liberacion_min_bar: 3.8, p_min_bar: 3.8, p_max_bar: 8, normalmente_bloqueado: true, frenado_dinamico: true, V_liberacion_cm3: 8, t_mecanico_ms: 10, categoria_iso13849: 1, PL: c, certificado: "IFA 1504155", holgura_axial_mm: 0, cilindro_D_mm: 40}
+      a_confirmar: *ac_kec
+  - ref: BLOQ-VAST-20-S
+    name: Bloqueo de vástago Ø20 por resorte, apto para frenado (categoría 1)
+    description: Unidad de sujeción para vástago Ø20 (ISO 15552 Ø63), normalmente bloqueada por resorte y liberada con aire (≥ 3,8 bar), 3200 N de retención estática en los dos sentidos; sostiene y frena un movimiento; componente probado para categoría 1 de EN ISO 13849-1 (PL c). Va entre la tapa delantera del cilindro y su brida (patrón TG 56,5). Verificar con el proveedor.
+    builder: bloqueo_vastago
+    params: {ancho: 80, alto: 80, largo: 187, d: 20, B: 45, VD: 21.5}
+    weight: 4.515
+    specs: {d_vastago_mm: 20, F_retencion_N: 3200, TG_mm: 56.5, rosca_fijacion: M8, T_servicio_C: "-10…60", linea_referencia: "orden de Festo KEC-20-S (538243)", fuente: "[B1] [B2]", a_confirmar: "cotas E, L1, L2 y VD (leídas sin su dibujo); lado del centrado; vástago del cilindro L1 más largo", cotas_verificadas: false}
+    neumatico:
+      funcion: RL
+      simbolo: bloqueo_vastago
+      fuente: *fuente_kec_s
+      puertos: *puerto_g14
+      modelo: {tipo: bloqueo_vastago, d_vastago_mm: 20, F_retencion_N: 3200, p_liberacion_min_bar: 3.8, p_min_bar: 3.8, p_max_bar: 8, normalmente_bloqueado: true, frenado_dinamico: true, V_liberacion_cm3: 15, t_mecanico_ms: 10, categoria_iso13849: 1, PL: c, certificado: "IFA 1504155", holgura_axial_mm: 0, cilindro_D_mm: 63}
+      a_confirmar: *ac_kec
+  - ref: BLOQ-VAST-25-S
+    name: Bloqueo de vástago Ø25 por resorte, apto para frenado (categoría 1)
+    description: Unidad de sujeción para vástago Ø25 (ISO 15552 Ø100), normalmente bloqueada por resorte y liberada con aire (≥ 3,8 bar), 8000 N de retención estática en los dos sentidos; sostiene y frena un movimiento; componente probado para categoría 1 de EN ISO 13849-1 (PL c). Va entre la tapa delantera del cilindro y su brida (patrón TG 89). Verificar con el proveedor.
+    builder: bloqueo_vastago
+    params: {ancho: 126, alto: 126, largo: 258, d: 25, B: 55, VD: 29}
+    weight: 15.6
+    specs: {d_vastago_mm: 25, F_retencion_N: 8000, TG_mm: 89, rosca_fijacion: M10, T_servicio_C: "-10…60", linea_referencia: "orden de Festo KEC-25-S (538244)", fuente: "[B1]", a_confirmar: "cotas E, L1, L2 y VD (leídas sin su dibujo); lado del centrado; vástago del cilindro L1 más largo", cotas_verificadas: false}
+    neumatico:
+      funcion: RL
+      simbolo: bloqueo_vastago
+      fuente: *fuente_kec_s
+      puertos: *puerto_g38
+      modelo: {tipo: bloqueo_vastago, d_vastago_mm: 25, F_retencion_N: 8000, p_liberacion_min_bar: 3.8, p_min_bar: 3.8, p_max_bar: 8, normalmente_bloqueado: true, frenado_dinamico: true, V_liberacion_cm3: 40, t_mecanico_ms: 10, categoria_iso13849: 1, PL: c, certificado: "IFA 1504155", holgura_axial_mm: 0, cilindro_D_mm: 100}
+      a_confirmar: *ac_kec
+  # ── KEC: sólo SOSTIENE (estático), sin certificar ────────────────────────────────────────
+  - ref: BLOQ-VAST-16
+    name: Bloqueo de vástago Ø16 por resorte, sólo estático
+    description: Unidad de sujeción para vástago Ø16 (ISO 15552 Ø40), normalmente bloqueada por resorte y liberada con aire (≥ 3,8 bar), 1300 N de retención estática; SÓLO sostiene un vástago parado (la ficha no la admite para frenar un movimiento) y no está certificada para mandos de seguridad. Va entre la tapa delantera del cilindro y su brida (patrón TG 38). Verificar con el proveedor.
+    builder: bloqueo_vastago
+    params: {ancho: 54, alto: 54, largo: 160, d: 16, B: 35, VD: 18}
+    weight: 1.860
+    specs: {d_vastago_mm: 16, F_retencion_N: 1300, TG_mm: 38, rosca_fijacion: M6, T_servicio_C: "-20…80", linea_referencia: "orden de Festo KEC-16 (527492)", fuente: "[B1]", a_confirmar: "cotas E, L1, L2 y VD (leídas sin su dibujo); lado del centrado; vástago del cilindro L1 más largo", cotas_verificadas: false}
+    neumatico:
+      funcion: RL
+      simbolo: bloqueo_vastago
+      fuente: *fuente_kec
+      puertos: *puerto_g18
+      modelo: {tipo: bloqueo_vastago, d_vastago_mm: 16, F_retencion_N: 1300, p_liberacion_min_bar: 3.8, p_min_bar: 3.8, p_max_bar: 10, normalmente_bloqueado: true, frenado_dinamico: false, V_liberacion_cm3: 8, t_mecanico_ms: 10, holgura_axial_mm: 0, cilindro_D_mm: 40}
+      a_confirmar: *ac_kec
+  - ref: BLOQ-VAST-20
+    name: Bloqueo de vástago Ø20 por resorte, sólo estático
+    description: Unidad de sujeción para vástago Ø20 (ISO 15552 Ø63), normalmente bloqueada por resorte y liberada con aire (≥ 3,8 bar), 3200 N de retención estática; SÓLO sostiene un vástago parado (la ficha no la admite para frenar un movimiento) y no está certificada para mandos de seguridad. Va entre la tapa delantera del cilindro y su brida (patrón TG 56,5). Verificar con el proveedor.
+    builder: bloqueo_vastago
+    params: {ancho: 80, alto: 80, largo: 187, d: 20, B: 45, VD: 21.5}
+    weight: 4.515
+    specs: {d_vastago_mm: 20, F_retencion_N: 3200, TG_mm: 56.5, rosca_fijacion: M8, T_servicio_C: "-20…80", linea_referencia: "orden de Festo KEC-20 (527493)", fuente: "[B1] [B2]", a_confirmar: "cotas E, L1, L2 y VD (leídas sin su dibujo); lado del centrado; vástago del cilindro L1 más largo", cotas_verificadas: false}
+    neumatico:
+      funcion: RL
+      simbolo: bloqueo_vastago
+      fuente: *fuente_kec
+      puertos: *puerto_g14
+      modelo: {tipo: bloqueo_vastago, d_vastago_mm: 20, F_retencion_N: 3200, p_liberacion_min_bar: 3.8, p_min_bar: 3.8, p_max_bar: 10, normalmente_bloqueado: true, frenado_dinamico: false, V_liberacion_cm3: 15, t_mecanico_ms: 10, holgura_axial_mm: 0, cilindro_D_mm: 63}
+      a_confirmar: *ac_kec
+  - ref: BLOQ-VAST-25
+    name: Bloqueo de vástago Ø25 por resorte, sólo estático
+    description: Unidad de sujeción para vástago Ø25 (ISO 15552 Ø100), normalmente bloqueada por resorte y liberada con aire (≥ 3,8 bar), 8000 N de retención estática; SÓLO sostiene un vástago parado (la ficha no la admite para frenar un movimiento) y no está certificada para mandos de seguridad. Va entre la tapa delantera del cilindro y su brida (patrón TG 89). Verificar con el proveedor.
+    builder: bloqueo_vastago
+    params: {ancho: 126, alto: 126, largo: 258, d: 25, B: 55, VD: 29}
+    weight: 15.6
+    specs: {d_vastago_mm: 25, F_retencion_N: 8000, TG_mm: 89, rosca_fijacion: M10, T_servicio_C: "-20…80", linea_referencia: "orden de Festo KEC-25 (527494)", fuente: "[B1]", a_confirmar: "cotas E, L1, L2 y VD (leídas sin su dibujo); lado del centrado; vástago del cilindro L1 más largo", cotas_verificadas: false}
+    neumatico:
+      funcion: RL
+      simbolo: bloqueo_vastago
+      fuente: *fuente_kec
+      puertos: *puerto_g38
+      modelo: {tipo: bloqueo_vastago, d_vastago_mm: 25, F_retencion_N: 8000, p_liberacion_min_bar: 3.8, p_min_bar: 3.8, p_max_bar: 10, normalmente_bloqueado: true, frenado_dinamico: false, V_liberacion_cm3: 40, t_mecanico_ms: 10, holgura_axial_mm: 0, cilindro_D_mm: 100}
+      a_confirmar: *ac_kec
+  # ── KPE: Ø12, sólo estático, sin patrón ISO 15552 ────────────────────────────────────────
+  - ref: BLOQ-VAST-12
+    name: Bloqueo de vástago Ø12 por resorte, sólo estático
+    description: Unidad de sujeción para vástago Ø12 (ISO 15552 Ø32), normalmente bloqueada por resorte y liberada con aire (≥ 3 bar), 600 N de retención estática; SÓLO sostiene un vástago parado y no está certificada para mandos de seguridad. Se fija por su rosca de montaje M6 (sin patrón ISO 15552) delante de la tapa del cilindro. Verificar con el proveedor.
+    builder: bloqueo_vastago
+    params: {ancho: 40, alto: 64.5, largo: 65, d: 12}
+    weight: 0.270
+    specs: {d_vastago_mm: 12, F_retencion_N: 600, rosca_fijacion: M6, T_servicio_C: "-10…80", linea_referencia: "orden de Festo KPE-12 (178466)", fuente: "[B1] págs. 8-9", a_confirmar: "envolvente B1 × H1 × L1 (leída sin su dibujo) y posición del vástago en ella; presión máxima de trabajo", cotas_verificadas: false}
+    neumatico:
+      funcion: RL
+      simbolo: bloqueo_vastago
+      fuente: "[B1] Festo KP/KPE/KEC/KEC-S 2020/09 págs. 2-3 y 8-9 (KPE-12)"
+      puertos: [{id: "1", rol: entrada, rosca: M5}]
+      modelo: {tipo: bloqueo_vastago, d_vastago_mm: 12, F_retencion_N: 600, p_liberacion_min_bar: 3, p_min_bar: 3, p_max_bar: 10, normalmente_bloqueado: true, frenado_dinamico: false, V_liberacion_cm3: 2, t_mecanico_ms: 10}
+      a_confirmar: [V_liberacion_cm3, t_mecanico_ms, p_min_bar, p_max_bar]

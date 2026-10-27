@@ -294,6 +294,8 @@ def _coherencia(err: _Err, tipo: str, m: dict, puertos: tuple[Puerto, ...]) -> N
                 raise err("puertos", f"«{p.id}» no es una vía de ISO 5599-3 ({', '.join(T.ISO5599_3)})")
         return
     exigidos = dict(T.PUERTOS[tipo])
+    if tipo == "bloqueo_vastago" and not m["p_min_bar"] <= m["p_liberacion_min_bar"] < m["p_max_bar"]:
+        raise err("modelo.p_liberacion_min_bar", "la liberación va entre la presión mínima y la máxima de trabajo")
     if tipo == "valvula_corte":  # sin escape es válida (2/2): el ERC (F1b) pide la de escape tras el FRL
         _bobinas(err, m, 3 if m["con_escape"] else 2, "monoestable")
         if not m["con_escape"]:

@@ -25,3 +25,9 @@ biblioteca estándar. La geometría, la BOM del aire y el vástago (archivos de 
   ficha (½·m·v² + F·S por ciclo, n ≤ n máx TAL CUAL y la energía por hora). Sin ninguno
   declarado, ERC y memoria dan lo de antes (no suman filas). La velocidad de choque sale SÓLO de `cilindros.v_choque`.
   [amortiguador-externo](../../../../docs/plans/amortiguador-externo.md)
+- Bloqueo de vástago (`bloqueo.py`, `erc_bloqueo.py`): dispositivo con ficha `neumatico:` de tipo
+  `bloqueo_vastago` (puerto 1 de liberación) que el cilindro nombra en `servicio.bloqueo`. Su
+  retención va contra p·A de AVANCE a la presión MÁXIMA que le llega (factor 1,0 de la ficha); su
+  liberación es una 3/2 NC propia y «la corta la seta» lo dice `electrico/cadena_seta.py` sobre
+  `Llegada.via` (sin cadena cableada, aviso: nunca un «sí» inventado). Sin bloqueos, ERC y memoria
+  dan lo de antes. [bloqueo-de-vastago](../../../../docs/plans/bloqueo-de-vastago.md)

@@ -10,7 +10,7 @@ from __future__ import annotations
 #: `modelo.tipo` de una ficha neumática (D2). El tubo no lleva `modelo`: lleva `tubo:`, como el
 #: conductor eléctrico lleva `conductor:`.
 TIPOS = ("cilindro", "valvula", "valvula_corte", "frl", "regulador_caudal", "silenciador",
-         "presostato")
+         "presostato", "bloqueo_vastago")
 
 #: Designación de dos letras por tipo (P5 de V8.9, respuesta PROVISORIA: IEC 81346-2 para el
 #: aire, -MM cilindro, -QM válvula; las demás siguen la misma tabla y quedan A CONFIRMAR con
@@ -18,6 +18,7 @@ TIPOS = ("cilindro", "valvula", "valvula_corte", "frl", "regulador_caudal", "sil
 DESIGNACIONES = {
     "cilindro": "MM", "valvula": "QM", "valvula_corte": "QM", "frl": "AZ",
     "regulador_caudal": "RZ", "silenciador": "RZ", "presostato": "BP", "tubo": "WP",
+    "bloqueo_vastago": "RL",
 }
 
 #: Roles de un puerto neumático.
@@ -97,6 +98,18 @@ REQUERIDOS: dict[str, dict[str, tuple]] = {
         "histeresis_bar": ("+", "histéresis entre conmutación y reposición"),
         "p_max_bar": ("+", "presión máxima (manométrica)"),
     },
+    # plan bloqueo-de-vastago D1: muerde el vástago por resorte, lo libera el aire de su puerto 1
+    "bloqueo_vastago": {
+        "d_vastago_mm": ("+", "Ø del vástago que muerde"),
+        "F_retencion_N": ("+", "fuerza de retención estática (los dos sentidos)"),
+        "p_liberacion_min_bar": ("+", "presión mínima de liberación (manométrica)"),
+        "p_min_bar": ("0+", "presión mínima de trabajo (manométrica)"),
+        "p_max_bar": ("+", "presión máxima de trabajo (manométrica)"),
+        "normalmente_bloqueado": ("bool", "si bloquea SIN presión (por resorte)"),
+        "frenado_dinamico": ("bool", "si la ficha admite parar un vástago en movimiento (no sólo sostenerlo)"),
+        "V_liberacion_cm3": ("+", "volumen de la cámara de liberación (el retardo del escape)"),
+        "t_mecanico_ms": ("0+", "retardo de las mordazas tras perder la presión"),
+    },
 }
 
 #: Una de estas dos fija la fricción de los sellos del cilindro (D3: el valor de la ficha o un %
@@ -121,6 +134,12 @@ OPCIONALES: dict[str, dict[str, tuple]] = {
     "regulador_caudal": {"b_regulado": ("+", "b en el sentido regulado")},
     "silenciador": {"ruido_dBA": ("+", "nivel de ruido de la ficha")},
     "presostato": {},
+    "bloqueo_vastago": {"categoria_iso13849": ((1, 2, 3, 4), "categoría de EN ISO 13849-1 que certifica la ficha"),
+                        "PL": (("a", "b", "c", "d", "e"), "nivel de prestaciones de la ficha"),
+                        "certificado": ("txt", "certificado de la función de seguridad"),
+                        "B10d": ("+", "ciclos hasta el 10 % de fallas peligrosas"),
+                        "holgura_axial_mm": ("0+", "juego axial con carga"),
+                        "cilindro_D_mm": ("+", "Ø del cilindro ISO 15552 cuyo patrón de agujeros trae")},
 }
 
 #: Puertos que exige cada tipo: id → rol. Las válvulas, por vías (ISO 5599-3).
@@ -131,6 +150,7 @@ PUERTOS = {
     "regulador_caudal": {"1": "entrada", "2": "salida"},
     "silenciador": {"1": "entrada"},
     "presostato": {"1": "entrada"},
+    "bloqueo_vastago": {"1": "entrada"},
 }
 PUERTOS_CILINDRO = {"doble": {"A": "trabajo", "B": "trabajo"}, "simple_muelle": {"A": "trabajo"}}
 

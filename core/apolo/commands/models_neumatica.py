@@ -54,6 +54,12 @@ class ServicioCilindro(BaseModel):
         None, max_length=60, title="Amortiguador externo al retroceso",
         description="ref del amortiguador que frena la carga al final del retroceso (vástago adentro); "
                     "vacío = la amortiguación del cilindro")
+    bloqueo: str | None = Field(
+        None, max_length=60, title="Bloqueo de vástago",
+        description="designación del dispositivo de bloqueo de vástago (add_device ref BLOQ-VAST-…, «-RL1») que "
+                    "muerde ESTE vástago por resorte cuando pierde el aire: el ERC revisa su retención contra la "
+                    "fuerza máxima del cilindro, que bloquee sin aire y que lo libere una 3/2 NC propia cuya bobina "
+                    "corte la seta; la co-simulación lo frena y lo sostiene. Vacío = sin bloqueo")
 
 
 class AddTuboParams(BaseModel):

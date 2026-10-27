@@ -15,7 +15,9 @@ Cómo se mide (criterio de medición, declarado en `medicion`):
     junta no se alcanzó (la memoria lo compara con la carrera del servicio);
   - `v_max_m_s`: la mayor |v| muestreada de `<des>.v_m_s` (el pico entre muestras puede ser algo
     mayor);
-  - `consumo_NL` de cada FRL: su `<des>.consumo_NL` final (acumulado en la corrida).
+  - `consumo_NL` de cada FRL: su `<des>.consumo_NL` final (acumulado en la corrida);
+  - `bloqueos` (sólo si hay): si el vástago deslizó con el bloqueo cerrado (`<des>.desliza`), cuándo,
+    el mayor sobrerrecorrido desde que mordió y la mayor sujeción (plan bloqueo-de-vastago D5).
 Puro: sólo lee el dict del resultado.
 """
 
@@ -59,6 +61,27 @@ def _carreras(t: list, x: list) -> dict:
     return out
 
 
+def _bloqueos(res: dict, senales: dict, final: dict) -> dict:
+    """{bloqueo: {deslizo, t_desliza_s?, sobrerrecorrido_mm, F_max_N}} de cada bloqueo de vástago
+    (su señal `<des>.desliza`, plan bloqueo-de-vastago D5); vacío sin bloqueos."""
+    disc = (res.get("trazas") or {}).get("discretas") or {}
+    out: dict = {}
+    for n in sorted(set(disc) | set(final)):
+        if not n.endswith(".desliza"):
+            continue
+        des = n[: -len(".desliza")]
+        t_desl = next((t for t, v in disc.get(n, []) if v is True), None)
+        sob = [v for v in senales.get(f"{des}.sobrerrecorrido_mm") or [] if v is not None]
+        Fs = [v for v in senales.get(f"{des}.F_N") or [] if v is not None]
+        fila = {"deslizo": t_desl is not None or final.get(n) is True,
+                "sobrerrecorrido_mm": round(max(sob + [float(final.get(f"{des}.sobrerrecorrido_mm") or 0.0)]), 3),
+                "F_max_N": round(max(Fs + [float(final.get(f"{des}.F_N") or 0.0)]), 1)}
+        if t_desl is not None:
+            fila["t_desliza_s"] = round(float(t_desl), 4)
+        out[des] = fila
+    return out
+
+
 def resumen_aire(res: dict) -> dict | None:
     """{cilindros: {des: {x_max_mm, t_avance_s?, t_retroceso_s?, v_max_m_s}}, frl: {des:
     {consumo_NL}}, medicion: «…»} o None si la corrida no tiene cilindros."""
@@ -82,6 +105,9 @@ def resumen_aire(res: dict) -> dict | None:
            for n in sorted(final) if n.endswith(".consumo_NL") and isinstance(final[n], (int, float))}
     if frl:
         out["frl"] = frl
+    bloqueos = _bloqueos(res, senales, final)
+    if bloqueos:
+        out["bloqueos"] = bloqueos
     dt = (t[1] - t[0]) if len(t) > 1 else None
     out["medicion"] = (f"carrera = del {BAJO:.0%} al {ALTO:.0%} del recorrido máximo, cruces interpolados; "
                        f"muestras cada {dt * 1000:.0f} ms" if dt else "sin muestras analógicas")

@@ -5,7 +5,8 @@
   - `cilindro`: el cilindro de doble efecto y su acople con MuJoCo por sub-pasos (D4);
   - `valvula`: qué vías une una válvula en cada posición (5/2, 5/3, 3/2, ISO 5599-3);
   - `componentes`: el FRL (la toma regulada) y la válvula de corte con escape;
-  - `red`: la topología del circuito (tubos y puertos) y su paso en cada intercambio.
+  - `red`: la topología del circuito (tubos y puertos) y su paso en cada intercambio;
+  - `bloqueo`: el bloqueo de vástago por resorte (su cámara de liberación y la sujeción a la junta).
 
 Los modelos de aire (`MODELOS_AIRE`, por `neumatico.modelo.tipo`) son `Modelo` de la
 co-simulación: el tablero los arma con la ficha neumática (`modelo["aire"]`) y viven en
@@ -17,12 +18,13 @@ mando y aquí sólo se lee su posición.
 from __future__ import annotations
 
 from ..modelos.base import Parametros
+from .bloqueo import BloqueoVastago
 from .cilindro import Cilindro
 from .componentes import Frl, ValvulaCorte
 
 #: `neumatico.modelo.tipo` → modelo de la co-simulación. Los que no están (regulador de caudal,
 #: silenciador) son ORIFICIOS en el camino del aire, sin estado: los lee la red.
-MODELOS_AIRE = {m.tipo: m for m in (Cilindro, Frl, ValvulaCorte)}
+MODELOS_AIRE = {m.tipo: m for m in (Cilindro, Frl, ValvulaCorte, BloqueoVastago)}
 
 
 def crear_modelo_aire(designacion: str, ref: str, aire: dict, ajustes: dict | None = None):
@@ -33,4 +35,4 @@ def crear_modelo_aire(designacion: str, ref: str, aire: dict, ajustes: dict | No
     return clase(Parametros(designacion, ref, aire, ajustes))
 
 
-__all__ = ["MODELOS_AIRE", "Cilindro", "Frl", "ValvulaCorte", "crear_modelo_aire"]
+__all__ = ["MODELOS_AIRE", "BloqueoVastago", "Cilindro", "Frl", "ValvulaCorte", "crear_modelo_aire"]

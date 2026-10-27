@@ -196,11 +196,12 @@ class Corrida:
         costo["trazas"] += e - c
         if ultimo:
             return
-        fuerzas = None
+        fuerzas = frenos = None
         if self.aire is not None:  # V8.9 D4: las cámaras en sub-pasos, la fuerza media a MuJoCo
             fuerzas = self.aire.paso(self.dt, self._xv)
+            frenos = self.aire.frenos  # plan bloqueo-de-vastago D4: {} sin bloqueos
             f = time.perf_counter()
             costo["aire"] += f - e
             e = f
-        self.integ.intercambio(control=self.acople.control(tab.comandos, fuerzas))
+        self.integ.intercambio(control=self.acople.control(tab.comandos, fuerzas, frenos))
         costo["fisica"] += time.perf_counter() - e

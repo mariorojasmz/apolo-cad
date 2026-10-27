@@ -18,10 +18,22 @@ cerca de ω = 0 y la junta vibra en vez de trabarse.
 Cilindros (V8.9 D4): la posición y la velocidad de su junta prismática van a la red de aire
 (`lecturas`) y su fuerza MEDIA vuelve al `<motor>` de la junta; la fricción de los sellos ya está
 en el MJCF (`frictionloss` de la junta, la pone el snapshot). Un detector magnético (D8) es un
-`Sensor` que detecta con la junta a ± ventana de su punto.
+`Sensor` que detecta con la junta a ± ventana de su punto. El bloqueo de vástago (plan
+bloqueo-de-vastago D4) suma su sujeción a esa fricción, como el atasco del motor: `frenos`
+({cilindro: N}) sólo con bloqueos; sin ellos la fricción de la junta no se toca. Mientras muerde,
+la restricción de fricción de esa junta se ENDURECE (`SOLREF_BLOQUEO`, `SOLIMP_BLOQUEO`): con la de
+MuJoCo por defecto (20 ms, d 0,95) la fricción seca es blanda y el vástago bajo la retención se
+arrastraba a ~40 mm/s (medido en el banco del bloqueo); al soltar vuelve la de la junta.
 """
 
 from __future__ import annotations
+
+
+#: La restricción de fricción de la junta de un vástago mordido por su bloqueo (criterio de
+#: simulación, plan bloqueo-de-vastago D4): constante de tiempo 2 ms (≥ 2·Δt de 1 ms) y amortiguamiento
+#: crítico; impedancia 0,9995 (el arrastre residual escala con 1 − d: < 0,1 mm/s bajo la retención).
+SOLREF_BLOQUEO = (0.002, 1.0)
+SOLIMP_BLOQUEO = (0.9995, 0.9995, 0.001, 0.5, 2.0)
 
 
 class AcopleMecanico:
@@ -32,6 +44,9 @@ class AcopleMecanico:
         self.motores = [(a.designacion, mj.mj_name2id(m, act, a.actuador), integ.juntas[a.junta][1],
                          float(a.signo)) for a in motores]
         self.base = [float(x) for x in m.dof_frictionloss]
+        self.base_solref = [tuple(float(v) for v in r) for r in m.dof_solref]
+        self.base_solimp = [tuple(float(v) for v in r) for r in m.dof_solimp]
+        self.solref_bloqueo = (max(SOLREF_BLOQUEO[0], 2.0 * float(m.opt.timestep)), SOLREF_BLOQUEO[1])
         self.atasco: dict[int, float] = {}
         nombres = [s.nombre for s in (integ.snap.sensores or [])]
         self.sensores = [(s.designacion, nombres.index(s.rayo)) for s in sensores]
@@ -60,15 +75,21 @@ class AcopleMecanico:
         d = self.integ.d
         return {des: (float(d.qpos[qa]), float(d.qvel[dof])) for des, _a, qa, dof in self.cilindros}
 
-    def control(self, comandos: dict, fuerzas: dict | None = None):
+    def control(self, comandos: dict, fuerzas: dict | None = None, frenos: dict | None = None):
         """El `control(d, t)` del `Integrador` para este intercambio."""
         m = self.integ.m
         motores, base, atasco = self.motores, self.base, self.atasco
         cilindros = self.cilindros if fuerzas else ()
+        frenos = frenos or None
 
         def aplicar(d, _t):
-            for des, a, _qa, _dof in cilindros:
+            for des, a, _qa, dof in cilindros:
                 d.ctrl[a] = fuerzas[des]
+                if frenos is not None and des in frenos:  # la sujeción del bloqueo: fricción seca
+                    F = frenos[des]
+                    m.dof_frictionloss[dof] = base[dof] + F
+                    m.dof_solref[dof] = self.solref_bloqueo if F > 0.0 else self.base_solref[dof]
+                    m.dof_solimp[dof] = SOLIMP_BLOQUEO if F > 0.0 else self.base_solimp[dof]
             con_motor = set()
             for des, a, dof, signo in motores:
                 c = comandos[des]

@@ -207,7 +207,13 @@ ARCHIVOS = (
 #: (`clasificar(sujetas=)`, desde `cosim_snapshot` y `cosim_bandas.prever`) en vez de quedar FUERA:
 #: cambia el MJCF de toda máquina con `join_bolted`. En el mismo cambio, D4: `hasta <ancla>` en
 #: `siempre`/`nunca` (aserciones.py, veredicto.py), que antes era 400 al declarar.
-HUELLA: tuple[int, str] = (9, "9ac07c32249bb479")
+#: bloqueo-de-vastago F1 (sin subir, D8; sobre la 9): el modelo `cosim/neumatica/bloqueo.py`, su
+#: cámara en `RedAire` y la sujeción como fricción en `AcopleMecanico.control` (`frenos`) sólo
+#: corren con un bloqueo de vástago, que antes no existía en el catálogo. Sin él, 5 escenarios del
+#: banco (empujador sano, su corte de aire, la biestable, el presostato y el desviador Ø63 de 5/3
+#: con la seta a media carrera) dan la MISMA huella, finales, hipótesis, avisos y eventos que en
+#: baba86d.
+HUELLA: tuple[int, str] = (9, "d152f592e03f43af")
 
 
 def archivos() -> list[Path]:

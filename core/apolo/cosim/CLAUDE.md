@@ -52,6 +52,12 @@ backend: [core/apolo](../CLAUDE.md).
   (`modelos/presostato.py`, `LEE_PRESION`: su contacto es el actuador «señal»; su ajuste, en la
   ficha de aire): lee `RedAire.presion_bar` de SU línea al empezar el intercambio y su puerto no
   cuenta en la cadena de una cámara. (F8)
+- **El bloqueo de vástago** (`neumatica/bloqueo.py`) es una cámara de volumen fijo en `RedAire` (la
+  caminata de tubos de una cámara del cilindro hasta su 3/2) y su sujeción llega a la junta como
+  FRICCIÓN seca (`RedAire.frenos` → `AcopleMecanico.control`), con la restricción de fricción
+  endurecida SÓLO mientras muerde (`SOLREF_BLOQUEO`: con la de MuJoCo el vástago se arrastraba a
+  ~40 mm/s bajo la retención). Sin bloqueos no se toca la junta: la huella de antes.
+  [bloqueo-de-vastago](../../../docs/plans/bloqueo-de-vastago.md)
 - PUROS sin OCCT (`test_capas_cosim.py`): ni `apolo.library` (su `__init__` carga OCP). Las
   redes leen el formato plano de `red/entrada.py` (lo arma `services/cosim_red.py`); la alterna
   de mando va en la de potencia. `pedidas()` ANTES de `paso`.

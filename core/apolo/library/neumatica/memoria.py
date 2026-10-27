@@ -11,6 +11,7 @@ cálculo, en la forma de las reglas de la memoria (`services/memoria_reglas.py` 
     con un escenario VIGENTE que lo movió, el medido en la co-simulación;
   - **pandeo** del vástago y **energía** al fin de carrera (en el extremo con amortiguador externo,
     la de SU ficha por ciclo y por hora: plan amortiguador-externo);
+  - la **retención** de su bloqueo de vástago, si declara uno (plan bloqueo-de-vastago D6);
 y de la máquina: el **caudal del FRL** (todos los picos a la vez) y la **demanda de aire** con el
 % de fugas que se declare (el dato para el compresor).
 
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 from . import calculo as K
 from . import cilindros as Z
+from .erc_bloqueo import memoria as _bloqueos
 from .amortiguador import EXTREMOS
 from .lineas import Circuito, tipo
 
@@ -337,6 +339,7 @@ def reglas(c: Circuito, *, cosim: dict | None = None, fugas_pct: float | None = 
             out += filas
             if sin_h:
                 sin_ritmo.append(cil.designacion)
+    out += _bloqueos(c)  # plan bloqueo-de-vastago D6: la retención de cada bloqueo declarado
     out += (_frl(c, picos) + _demanda(consumos, fugas_pct)
             + _alcance(sin_servicio, sin_vel, sin_cadencia, sin_ritmo))
     return out
