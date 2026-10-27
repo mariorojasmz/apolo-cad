@@ -145,6 +145,8 @@ def _exec_fasten(ctx: ExecContext, cmd_id: str, p: FastenParams) -> None:
         spec["throat_mm"] = p.throat_mm
     if p.length_mm:
         spec["length_mm"] = p.length_mm
+    if p.material_tornilleria:  # sólo si lo declara: sin él, el dict de siempre
+        spec["material_tornilleria"] = p.material_tornilleria
     pares = pares_de_union(ctx.scene, p.a, p.b)
     try:
         if pares is None:

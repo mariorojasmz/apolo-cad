@@ -17,6 +17,13 @@ anillos DIN 471)» es una barra mecanizada, no un anillo: salía «COMPRA» sin 
 
 `designacion` es lo que se pide en el mostrador («Perno M10x25 DIN 933»: rol, medida y norma, sin
 la ubicación «del tensado»): la BOM agrupa por ella (F6: el mismo artículo salía en dos líneas).
+
+COMPRA DECLARADA (F6, tanque de inox 2026-10-27): el modelador que modela a mano lo que se compra
+(«Válvula de bola DN40 … (compra)», «Bisagra de la boca 1 (pala 63 mm AISI 304, compra)») lo
+DECLARA con «compra» entre paréntesis (sola o como un ítem de la lista: `compra_declarada`). Es
+una declaración, no una adivinanza por rol: gana a `_FABRICADO`, su norma cuenta aunque esté
+fuera de la cabeza, y la marca no sale en lo que se pide (`nombre_de_compra`). Sin la marca, un
+rol que no es de `ROL_COMPRA` sigue siendo a medida (una válvula o una bisagra se pueden fabricar).
 """
 
 from __future__ import annotations
@@ -54,6 +61,7 @@ _CATEGORIAS = (
     (re.compile(r"^(pies?\s+nivelador|nivelador)", re.I), "pies_niveladores"),
     (re.compile(r"^rodamiento", re.I), "rodamientos"),
     (re.compile(r"^(banda|correa)", re.I), "bandas"),
+    (re.compile(r"^bisagra", re.I), "bisagras"),  # la de la ficha BIS-63 (compra declarada)
 )
 #: la que no casa con ninguna (silentblock, una pieza con norma y designación sin rol conocido)
 COMERCIALES = "comerciales"
@@ -71,6 +79,33 @@ _FABRICADO = re.compile(r"^(ejes?|placas?|soportes?|m[ée]nsulas?|chapas?|tapas?
 #: sufijos de UBICACIÓN al final del nombre: «Arandela cuña DIN 434 M8 (guarda cabeza +Y, 1)»
 _UBICACION_RE = re.compile(r"(?:\s*\([^()]*\))+\s*$")
 
+#: la marca de COMPRA DECLARADA: «compra» (o «comprada/o», «de compra») como un ítem entero de un
+#: paréntesis: «(compra)», «(pala 63 mm, compra)», «(compra; DN40)». «(compra local de 2 m)» no.
+_ITEM_COMPRA = re.compile(r"^(?:de\s+)?compra(?:d[oa]s?)?$", re.I)
+_PARENTESIS = re.compile(r"\s*\(([^()]*)\)")
+_SEPARADOR = re.compile(r"\s*[,;]\s*")
+
+
+def _sin_item_compra(m: re.Match) -> str:
+    todos = _SEPARADOR.split(m.group(1).strip())
+    items = [i for i in todos if not _ITEM_COMPRA.match(i)]
+    if len(items) == len(todos):
+        return m.group(0)  # un paréntesis sin la marca se queda tal cual
+    return f" ({', '.join(items)})" if items else ""
+
+
+def compra_declarada(nombre: str | None) -> bool:
+    """¿El modelador declaró que la pieza se COMPRA («… (compra)», «(…, compra)»)?"""
+    return any(_ITEM_COMPRA.match(i) for m in _PARENTESIS.finditer(nombre or "")
+               for i in _SEPARADOR.split(m.group(1).strip()))
+
+
+def sin_marca_de_compra(nombre: str | None) -> str:
+    """El nombre sin la marca de compra declarada (lo demás del paréntesis se queda)."""
+    if not compra_declarada(nombre):
+        return (nombre or "").strip()
+    return _PARENTESIS.sub(_sin_item_compra, nombre or "").strip()
+
 
 def cabeza(nombre: str | None) -> str:
     """El rol hasta su primer complemento: lo que DESIGNA a la pieza."""
@@ -81,12 +116,14 @@ def cabeza(nombre: str | None) -> str:
 
 def norma_del_nombre(nombre: str | None) -> str:
     """«DIN 933» si la CABEZA del nombre trae una norma comercial con designación o un rol de
-    compra; '' si no (también en una pieza que se fabrica por su rol)."""
+    compra; '' si no (también en una pieza que se fabrica por su rol). Con la compra DECLARADA,
+    la primera norma comercial de todo el nombre («Retén … (DIN 3760 25x40x7, compra)»)."""
     rol = piece_role(nombre or "")
-    compra = bool(ROL_COMPRA.match(rol))
+    declarada = compra_declarada(rol)
+    compra = declarada or bool(ROL_COMPRA.match(rol))
     if not compra and _FABRICADO.match(rol):
         return ""
-    nombre = cabeza(nombre)
+    nombre = sin_marca_de_compra(rol) if declarada else cabeza(nombre)
     # designación: una rosca, o una medida «17x1», «8x7x40» junto a la norma en la cabeza
     designado_rosca = bool(_ROSCA_RE.search(nombre) or _MEDIDA_RE.search(nombre))
     for m in _NORMA_RE.finditer(nombre):
@@ -99,8 +136,10 @@ def norma_del_nombre(nombre: str | None) -> str:
 
 
 def es_comercial(nombre: str | None) -> bool:
-    """¿La pieza modelada a mano se COMPRA? Rol de compra o norma comercial con designación."""
-    return bool(ROL_COMPRA.match(piece_role(nombre))) or bool(norma_del_nombre(nombre))
+    """¿La pieza modelada a mano se COMPRA? Rol de compra, compra declarada («(compra)») o norma
+    comercial con designación."""
+    rol = piece_role(nombre)
+    return bool(ROL_COMPRA.match(rol)) or compra_declarada(rol) or bool(norma_del_nombre(nombre))
 
 
 def categoria_de_compra(nombre: str | None) -> str:
@@ -114,8 +153,8 @@ def nombre_de_compra(nombre: str | None) -> str:
     piezas iguales de lugares distintos se juntan en una fila (la BOM conserva la firma
     geométrica en la clave: dos piezas distintas no se confunden). Sólo con NORMA: la
     designación identifica la compra; sin ella el paréntesis puede ser la especificación
-    («Banda PVC … (grapas articuladas)») y se queda."""
-    nombre = (nombre or "").strip()
+    («Banda PVC … (grapas articuladas)») y se queda. La marca de compra declarada nunca va."""
+    nombre = sin_marca_de_compra(nombre)
     if not norma_del_nombre(nombre):
         return nombre
     return _UBICACION_RE.sub("", nombre).strip() or nombre
@@ -125,7 +164,8 @@ def designacion(nombre: str | None) -> str | None:
     """Lo que se pide en el mostrador: la cabeza hasta su última medida o número de norma
     («Perno M10x25 DIN 933 del tensado» → «Perno M10x25 DIN 933»; «Tornillo M6x16 DIN 933 tapa
     del eje» → «Tornillo M6x16 DIN 933»). Sólo con norma (si no, None: sin norma el nombre puede
-    ser la especificación)."""
+    ser la especificación). La compra declarada no la cambia: designa la norma de la CABEZA."""
+    nombre = sin_marca_de_compra(nombre)
     if not norma_del_nombre(nombre):
         return None
     palabras = cabeza(nombre).split()

@@ -33,6 +33,7 @@ from __future__ import annotations
 from .bom import COMPRA, bom_from_scene
 from .catalog import CATALOG
 from .costeo_extension import es_de_extension
+from .material_compra import factor_costo
 from .materials import CABLE, cost_per_kg
 from .piezas_electricas import es_rol_electrico
 
@@ -68,7 +69,19 @@ def costo_unitario_ref(ref: str) -> float | None:
 
 
 def _catalog_cost(row: dict) -> tuple[float | None, str]:
-    """(costo unitario, fuente) de una fila de catálogo del BOM."""
+    """(costo unitario, fuente) de una fila de catálogo del BOM. Con `material_ficha` (la
+    equivalente en otro material, `material_compra`), el precio de la ficha escalado por USD/kg ×
+    densidad; la estimación por peso ya usa el material y el peso de la equivalente."""
+    cost, fuente = _catalog_cost_ficha(row)
+    ficha = row.get("material_ficha")
+    if cost is None or not ficha or fuente.startswith("estimado"):
+        return cost, fuente
+    factor = factor_costo(row.get("material") or "", ficha)
+    return cost * factor, (f"{fuente} escalado de {ficha} a {row.get('material')} (USD/kg × "
+                           f"densidad, ×{factor:.2f}); cotiza la equivalente")
+
+
+def _catalog_cost_ficha(row: dict) -> tuple[float | None, str]:
     comp = CATALOG.get(row.get("ref") or "")
     if comp is None:
         return None, ""

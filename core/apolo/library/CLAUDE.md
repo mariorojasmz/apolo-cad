@@ -41,7 +41,12 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   y cédula (una fuente: el mismo módulo), con su norma y sin medida de corte salvo largo nominal o
   lazo; con norma, UNA fila por designación + largo + material y sus `ubicaciones` (nunca por
   pieza de origen). Lo que una unión `perno` DECLARA y nadie modeló lo suma
-  `tornilleria_declarada.py` (sin duplicar lo modelado). [defectos](../../../docs/defectos.md) (F6)
+  `tornilleria_declarada.py` (sin duplicar lo modelado; la que insertó el comando de OTRA unión
+  no le cuenta). La compra la DECLARA el modelador con «compra» en un paréntesis
+  (`compra_declarada`), nunca se adivina por el rol. Una ref con OTRO material asignado
+  (`set_material`, o `fasten.material_tornilleria`/la nota en lo declarado) se compra como la
+  EQUIVALENTE en ese material (`material_compra.py`: BOM, costeo y cédula, una fuente).
+  [defectos](../../../docs/defectos.md) (F6)
 - El aire en `library/`: la BOM (`bom_electrico._racores`) suma un racor por extremo de tubo en un
   puerto ROSCADO (rosca × Ø, `specs.racor_rosca`/`racor_tubo_mm`) y lee un tubo SIN largo hacia un
   silenciador como roscado directo (ni tubo ni racor). El cilindro (`builders_neumatica.py`) lee

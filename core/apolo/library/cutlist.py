@@ -21,6 +21,8 @@ from .designacion_comercial import (
     categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
 )
 from .incluidas import vastagos_incluidos
+from .material_compra import descripcion, factor_peso, material_de_compra
+from .material_compra import norma as norma_de_compra
 from .materials import resolve_material
 from .peso_ficha import partes_de_cilindros, peso_de_ficha
 
@@ -126,6 +128,9 @@ def hardware_schedule(scene: dict) -> list[dict]:
             # una ref que pesa por carrera (cilindro, V8.9) va por ref + carrera, como en la BOM
             cut = getattr(f, "cut_length", None) if (comp.specs or {}).get("peso_por_mm_kg") else None
             key_ref = f"{ref}|{cut:g}" if cut else ref
+            mat, ficha_otra = material_de_compra(f, comp)  # set_material gana, como en la BOM
+            if ficha_otra:
+                key_ref = f"{key_ref}|{mat.lower()}"
             g = groups.get(key_ref)
             if g is None:
                 g = groups[key_ref] = {
@@ -135,6 +140,11 @@ def hardware_schedule(scene: dict) -> list[dict]:
                     "norma": (comp.specs or {}).get("norma", ""),
                     "cantidad": 0, "peso_ud_kg": round(peso_de_ficha(comp, cut), 3), "_rep": sid,
                 }
+                if ficha_otra:
+                    g["nombre"] = descripcion(g["nombre"], mat, ficha_otra)
+                    g.update(material=mat, material_ficha=ficha_otra,
+                             norma=norma_de_compra(g["norma"], ficha_otra),
+                             peso_ud_kg=round(g["peso_ud_kg"] * factor_peso(mat, ficha_otra), 3))
             g["cantidad"] += 1
         elif _is_purchased_custom(f):
             # herraje/consumible a-medida: se agrupa y cuenta EXACTAMENTE como el BOM
@@ -153,7 +163,7 @@ def hardware_schedule(scene: dict) -> list[dict]:
                 g = groups[key] = {
                     "ref": "COMPRA", "nombre": base,
                     "categoria": categoria_de_compra(base),
-                    "material": resolve_material(f, CATALOG), "norma": norma_del_nombre(base),
+                    "material": resolve_material(f, CATALOG), "norma": norma_del_nombre(nombre),
                     "cantidad": 0, "peso_ud_kg": w_ud, "_rep": sid,
                 }
             g["cantidad"] += 1

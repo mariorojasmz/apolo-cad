@@ -173,7 +173,7 @@ CAMPOS: dict[str, str] = {
         "en_cara en_cara.u en_cara.v diameter depth counterbore_d counterbore_depth fit thread"
     ),
     "duplicate_feature": "feature offset offset.x offset.y offset.z",
-    "fasten": "name a b kind size qty throat_mm length_mm nota",
+    "fasten": "name a b kind size qty throat_mm length_mm nota material_tornilleria",
     "fill_surface": (
         "name feature edges edges.mode edges.direction edges.face edges.min edges.max edges.point "
         "edges.count edges.medir edges.entidad edges.name tangent"
@@ -299,7 +299,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "distribute": (1, "dbd8f19a2efade42"),
     "drill_hole": (1, "f9fe72f8f410fa3f"),
     "duplicate_feature": (1, "1e53ee34eb4d6e87"),
-    "fasten": (1, "dc344ffbe685a9f5"),
+    # material_tornilleria (F6): sólo entra al dict si se declara; no hay geometría → huella
+    "fasten": (1, "6d432ee113ee4f64"),
     "fill_surface": (1, "16418efc4d5e7384"),
     "fillet": (1, "f63f072057031b48"),
     "ground": (1, "afb091e73600725e"),

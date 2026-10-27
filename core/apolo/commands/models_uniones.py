@@ -55,5 +55,13 @@ class FastenParams(BaseModel):
         "", max_length=500, title="Nota",
         description="kind='perno' sin tornillería modelada: la BOM la compra leyendo la nota "
         "(«M8x40 DIN 933 + tuerca», «autorroscante», «prisionero», «punta roscada» = sin perno; "
-        "«tuerca»/«pasante» suma la tuerca); sin largo, la fila lo pide",
+        "«tuerca»/«pasante» suma la tuerca; «incluido»/«sin perno» = nada que comprar); sin largo, "
+        "la fila lo pide",
+    )
+    material_tornilleria: str | None = Field(
+        None, max_length=60, title="Material de la tornillería",
+        description="kind='perno' sin tornillería modelada: el material del perno y la tuerca que "
+        "compra la BOM («acero inoxidable A2-70», «acero 8.8 zincado»); sin él, el de la nota "
+        "(A2/A4, AISI 304/316, inox) o el de la ficha (acero 8.8). El de las piezas unidas es "
+        "set_material",
     )

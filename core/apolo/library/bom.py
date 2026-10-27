@@ -9,6 +9,10 @@ Una COMPRA con norma se agrupa por su DESIGNACIÓN (rol + medida + norma, `desig
 + material, no por el nombre de cada pieza ni por su geometría: «Perno M10x25 DIN 933 del
 tensado» (4) y «… del eje» (40) son UNA línea de 44, con `ubicaciones` [{nombre, cantidad}] que
 dice dónde va cada una (F6: el mismo artículo salía en dos líneas).
+
+Una ref de catálogo con OTRO material asignado (`set_material`) se compra en ese material: fila
+propia con el material asignado, `material_ficha` y la designación «… en <material> (la ref de
+catálogo es de <ficha>: pedir la equivalente)» (`material_compra`).
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ from .designacion_comercial import (
 )
 from .incluidas import vastagos_incluidos
 from .largo_tornilleria import largo_de_compra_con_aviso, largo_nominal_a_medida
+from .material_compra import ajustar_fila, material_de_compra
 from .materials import CABLE, density, resolve_material
 from .peso_ficha import peso_de_ficha
 from .piezas_electricas import recorrido_mm
@@ -97,6 +102,9 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             mtr = tuple(miter) if miter else None  # ingleteado ≠ recto del mismo largo
             key = (component, round(largo, 1) if largo else None, mtr, grp) if by_group else (
                 component, round(largo, 1) if largo else None, mtr)
+            mat_compra, ficha_otra = material_de_compra(feat, comp)  # set_material gana (F6)
+            if ficha_otra:
+                key = key + ("material", mat_compra.lower())
             if key not in rows:
                 unit_weight = peso_de_ficha(comp, cut)  # un cilindro: + por_mm × carrera (V8.9)
                 angs = ""
@@ -117,6 +125,8 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     **({"grupo": grp} if by_group else {}),
                     **({"aviso": aviso} if aviso else {}),
                 }
+                if ficha_otra:  # la equivalente en el material asignado (`material_compra`)
+                    ajustar_fila(rows[key], mat_compra, ficha_otra)
             elif aviso and "aviso" not in rows[key]:
                 rows[key]["aviso"] = aviso
             rows[key]["cantidad"] += 1
@@ -164,7 +174,9 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     "descripcion": base,
                     "categoria": categoria_de_compra(base) if comercial else "a medida",
                     "material": mat,
-                    "norma": norma_del_nombre(base),  # comercial modelada: «… DIN 933»
+                    # comercial modelada: «… DIN 933»; del nombre ENTERO (la compra declarada
+                    # trae su norma en el paréntesis que `nombre_de_compra` conserva)
+                    "norma": norma_del_nombre(donde),
                     "cantidad": 0,
                     "longitud_mm": largo,
                     "peso_unitario_kg": round(vol * density(mat), 3) if vol is not None else None,
