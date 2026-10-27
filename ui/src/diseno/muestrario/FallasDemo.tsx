@@ -7,6 +7,9 @@ import FallasVivas from "../../vivo/FallasVivas";
 import { AccionarMando, Lecturas, ListaMandos, Pilotos } from "../../vivo/PanelMandos";
 import { accionarLocal, prepararSesionDemo, simularLocal } from "./datosVivo";
 import ChipsVivo from "../../vivo/ChipsVivo";
+import EventosVivos from "../../vivo/EventosVivos";
+import PanelSenales from "../../vivo/PanelSenales";
+import AccionamientoManual from "../../neumatica/AccionamientoManual";
 import { EXTENSION_PRUEBA } from "./extensionPrueba";
 import "../../viewport/marcha/marcha.css";
 
@@ -39,8 +42,18 @@ export function PanelMandosDemo() {
       </AccionarMando.Provider>
       <Pilotos />
       <Lecturas />
+      {/* nombres-por-funcion F4: la junta por su pieza hija y la válvula por lo que hace */}
+      <EventosVivos quieto={false} />
+      <AccionamientoManual quieto={false} abierto={q().get("manual") !== "0"} />
     </div>
   );
+}
+
+/** «Señales» de la misma sesión (nombres-por-funcion F4): cada aparato por lo que hace, con su
+ *  designación detrás; `?senales=<texto>` filtra y despliega. */
+export function PanelSenalesDemo() {
+  useSesionDemo();
+  return <PanelSenales filtroInicial={q().get("senales") ?? ""} />;
 }
 
 export function PanelFallasDemo() {

@@ -52,6 +52,9 @@ button.tb-fila:hover { background: var(--panel2); }
 button.tb-fila:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 button.tb-fila.elegida { background: var(--accent-soft); }
 .tb-principal { min-width: 0; font-variant-numeric: tabular-nums; }
+/* un aparato (plan nombres-por-funcion D9): lo que hace arriba y, siempre en su propia línea, la
+   designación con el catálogo; así todas las filas de la lista miden lo mismo */
+.tb-fila .cabeza-aparato { flex-direction: column; align-items: flex-start; row-gap: 2px; }
 .tb-borne { white-space: nowrap; }
 .tb-secundario { margin-left: var(--sp-2); color: var(--muted); }
 .tb-bajo { display: block; margin-top: 2px; color: var(--muted); font-size: var(--fs-nota); }

@@ -94,6 +94,8 @@
 .capa-visor .fp-color { flex: none; width: 14px; height: 14px; border-radius: 4px; }
 .capa-visor .fp-titulo { display: flex; flex-direction: column; min-width: 0; }
 .capa-visor .fp-titulo b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* si la pieza es un aparato, lo que hace con su designación («Marcha · -S1»), sobre el id */
+.capa-visor .fp-aparato { color: var(--text); font-size: var(--fs-nota); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capa-visor .fp-id { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11px; color: var(--muted); }
 .capa-visor .fp-datos {
   display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0 0 12px; font-size: 12.5px;

@@ -91,7 +91,8 @@ está en `src/diseno/`; `useConfirmar` todavía NO existe: se propone en un plan
 - **Un aparato, un mando o una pieza se nombran por lo que HACEN** («Interruptor general»,
   «Tapa del tanque»). La designación IEC (`-Q1`) o el id va detrás, chico y en tinta secundaria;
   nunca solo, ni como lo principal. Quien entra de frente a probar no tiene que abrir el plano.
-  El nombre lo da el servidor, nunca una tabla de la UI.
+  El nombre lo da el servidor, nunca una tabla de la UI. Una sola pieza en todas las superficies:
+  `diseno/NombreAparato.tsx` (lo puro, `diseno/nombres.ts`).
   [nombres-por-funcion](../docs/plans/nombres-por-funcion.md)
 
 ### Qué dice cada texto

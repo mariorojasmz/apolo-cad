@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ChartLine, Gauge } from "lucide-react";
+import NombreAparato from "../diseno/NombreAparato";
 import { abrirPanel } from "./abrirPanel";
 import { arbolDeSenales, filtrarArbol, textosDelArbol, type RamaSenales } from "./arbolSenales";
 import { useVivo } from "./estado";
@@ -15,7 +16,8 @@ import "./vivo.css";
    señales, con el valor de cada una. Cada señal se ancla al MULTÍMETRO o se suma al
    OSCILOSCOPIO (los dos van sobre el 3D, `Instrumentos.tsx`). */
 
-export default function PanelSenales() {
+/** `filtroInicial`: lo que arranca escrito en el buscador (el muestrario, para su captura). */
+export default function PanelSenales({ filtroInicial = "" }: { filtroInicial?: string }) {
   const fase = useVivo((s) => s.fase);
   if (fase !== "corriendo" && fase !== "pausa" && fase !== "fin") {
     return (
@@ -27,14 +29,14 @@ export default function PanelSenales() {
       </section>
     );
   }
-  return <Arbol />;
+  return <Arbol filtroInicial={filtroInicial} />;
 }
 
-function Arbol() {
+function Arbol({ filtroInicial }: { filtroInicial: string }) {
   const inicio = useVivo((s) => s.inicio);
   const n = useVivo((s) => Object.keys(s.lecturas).length); // primitivo: llegan señales nuevas
   const nt = useVivo((s) => Object.keys(s.textos).length);
-  const [filtro, setFiltro] = useState("");
+  const [filtro, setFiltro] = useState(filtroInicial);
   const { ramas, deTexto } = useMemo(() => {
     if (!inicio) return { ramas: [], deTexto: new Set<string>() };
     const st = useVivo.getState();
@@ -62,8 +64,10 @@ function Rama({ r, abierta, tipos, deTexto }: {
   return (
     <details className="rama-senales" open={abierta || undefined}>
       <summary>
-        <strong>{r.titulo}</strong>
-        {r.rotulo && <span className="hint">{r.rotulo}</span>}
+        {/* «Seguridad del recipiente · -K3»: lo que hace, con la designación detrás (nombres-por-funcion D13) */}
+        <span className="cabeza-aparato">
+          <NombreAparato a={{ designacion: r.designacion ?? r.titulo, rotulo: r.designacion ? r.titulo : undefined }} />
+        </span>
         <span className="hint cuenta-senales">{r.senales.length}</span>
       </summary>
       <ul className="lista-senales">

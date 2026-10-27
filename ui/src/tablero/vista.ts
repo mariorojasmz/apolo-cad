@@ -1,7 +1,9 @@
 import type { ItemAtencion } from "../diseno/atencion";
 import { cifra } from "../diseno/cifra";
 import { MOV_NORMAL_MS, suave } from "../diseno/movimiento";
-import type { CableTablero, CalentamientoTablero, ConductorTablero, ItemTablero, PanelTableroOut } from "./tipos";
+import type {
+  AparatoTablero, CableTablero, CalentamientoTablero, ConductorTablero, ItemTablero, PanelTableroOut,
+} from "./tipos";
 
 /* La lógica pura del panel «Tablero» (plan V8.5 D13): de lo que manda el servidor a lo que se
    dibuja. Ninguna regla de ingeniería vive aquí (las decide `services/tablero_panel.py`): sólo
@@ -134,12 +136,17 @@ export function perdidasDeclaradas(perdidas: number, sinDato: readonly string[])
 }
 
 /** Las filas del calentamiento evaluado (rótulo, cifra); vacía si quedó sin evaluar. */
-export function filasCalor(c: CalentamientoTablero): [string, string][] {
+export function filasCalor(c: CalentamientoTablero, aparatos: readonly AparatoTablero[] = []): [string, string][] {
   if (c.estado === "sin_evaluar" || c.T_arriba_C === undefined) return [];
   const filas: [string, string][] = [];
   if (c.T_media_C !== undefined) filas.push(["A media altura", cifra(c.T_media_C, 0, "°C")]);
   filas.push(["Arriba", cifra(c.T_arriba_C, 0, "°C")]);
-  if (c.peor) filas.push([`Admite ${c.peor.designacion}`, cifra(c.peor.T_max_C, 0, "°C")]);
+  if (c.peor) {
+    // el aparato más justo por lo que hace, con su designación (el rótulo, del servidor: D13)
+    const des = c.peor.designacion;
+    const rotulo = aparatos.find((a) => a.designacion === des)?.rotulo;
+    filas.push([`Admite ${rotulo ? `${rotulo} (${des})` : des}`, cifra(c.peor.T_max_C, 0, "°C")]);
+  }
   if (c.ambiente_C !== undefined) filas.push(["Ambiente", cifra(c.ambiente_C, 0, "°C")]);
   if (c.ventilacion_m3h) filas.push(["Ventilador", cifra(c.ventilacion_m3h, 0, "m³/h")]);
   return filas;

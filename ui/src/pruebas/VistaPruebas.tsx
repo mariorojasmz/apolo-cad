@@ -4,7 +4,8 @@ import EstadoVacio from "../diseno/EstadoVacio";
 import IconoSeveridad from "../diseno/IconoSeveridad";
 import Veredicto from "../diseno/Veredicto";
 import { ROTULO_SEVERIDAD } from "../diseno/atencion";
-import { fechaCorta, progresoCorrida, textoIncidencia, type Corrida } from "./vista";
+import VerDetalle from "../ui/VerDetalle";
+import { fechaCorta, progresoCorrida, textoIncidencia, tituloPrueba, type Corrida } from "./vista";
 import type { DetallePrueba, FilaPrueba, Incidencia, PanelPruebasOut } from "./tipos";
 import "./pruebas.css";
 
@@ -60,9 +61,9 @@ export default function VistaPruebas({ panel, abierto, detalle, corridas, fallos
           <li key={f.nombre}>
             <button type="button" className={`pr-fila${abierto === f.nombre ? " elegida" : ""}`}
               aria-expanded={abierto === f.nombre} onClick={() => acciones.alternar(f.nombre)}
-              aria-label={`${f.nombre}: ${ROTULO_SEVERIDAD[f.severidad]}, ${f.rotulo}`}>
+              aria-label={`${tituloPrueba(f)}: ${ROTULO_SEVERIDAD[f.severidad]}, ${f.rotulo}`}>
               <IconoSeveridad severidad={f.severidad} tamano={15} />
-              <span className="pr-nombre">{f.nombre}</span>
+              <span className="pr-nombre">{tituloPrueba(f)}</span>
               <span className="pr-estado">{f.rotulo}</span>
               <ChevronRight className="pr-ir" size={14} aria-hidden="true" />
               <span className="pr-bajo">
@@ -153,6 +154,12 @@ function Detalle({ fila, detalle, corriendo, fallo, acciones }: {
         </button>
         <button type="button" onClick={() => acciones.enVivo(fila.nombre)}>Verla en vivo</button>
       </div>
+      {/* el id del escenario es para hablar con el agente: a pedido, nunca como título (D14) */}
+      {fila.titulo && fila.titulo !== fila.nombre && (
+        <VerDetalle resumen="Detalle técnico">
+          <p className="pr-nota">Escenario <code>{fila.nombre}</code></p>
+        </VerDetalle>
+      )}
     </div>
   );
 }

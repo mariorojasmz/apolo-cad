@@ -2,28 +2,33 @@ import type { InicioVivo } from "./protocolo";
 
 /* El árbol de señales de la sesión viva (plan V8.4 D7): dispositivo → señales, de la tabla del
    `inicio` y de las que llegan después (mensaje `senales`). Las señales de un dispositivo del
-   tablero (`-M1.rpm`, `-K1.Main.cuenta`, `-W3.1.I_A`) van bajo su designación, con el rótulo de
-   su tipo; las corrientes de conductores sueltos (`c1620#1.I_A`) se juntan en «Conductores» y
-   lo mecánico (banda, cajas) en «Máquina». Puro. */
+   tablero (`-M1.rpm`, `-K1.Main.cuenta`, `-W3.1.I_A`) van bajo su aparato, que se titula por lo
+   que HACE con la designación detrás («Motor de mezcla · -M1», plan nombres-por-funcion D13: el
+   nombre lo da el servidor, nunca una tabla de la UI; sin él, la designación); un cable, por sus
+   extremos (el `nombre` de su rama). Las corrientes de conductores sueltos (`c1620#1.I_A`) se
+   juntan en «Conductores» y lo mecánico (banda, cajas) en «Máquina». Las hojas (los nombres de
+   señal) no cambian: son el dato del instrumento. Puro. */
 
 export interface RamaSenales {
   /** Clave estable (la designación o el nombre del grupo). */
   clave: string;
+  /** Lo principal: el rótulo del aparato, la designación sola o el nombre del grupo. */
   titulo: string;
-  /** Rótulo corto del tipo («Motor», «Variador», «PLC»), si se conoce. */
-  rotulo?: string;
+  /** La designación, detrás y chica, si el título es el rótulo. */
+  designacion?: string;
   senales: string[];
 }
 
-const TIPOS: Record<string, string> = {
-  motor: "Motor", variador: "Variador", plc: "PLC", pulsador: "Pulsador", seta: "Seta de emergencia",
-  selector: "Selector", seccionador: "Seccionador", piloto: "Piloto", sensor: "Sensor",
-  contactor: "Contactor", rele: "Relé", guardamotor: "Guardamotor", itm: "Interruptor termomagnético",
-  rele_termico: "Relé térmico", fusible: "Fusible", fuente: "Fuente", red: "Red",
-  resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
-  diferencial: "Interruptor diferencial", hmi: "Panel de operador",
-  electrovalvula: "Electroválvula", cilindro: "Cilindro", frl: "Filtro-regulador", valvula_corte: "Válvula de corte",
-};
+type Fuente = Pick<InicioVivo, "dispositivos"> & Partial<Pick<InicioVivo, "ramas">>;
+
+/** El nombre de un cable (`-W3`) por sus extremos: el de cualquiera de sus hilos (`-W3.1`). */
+function nombreDeCable(ini: Fuente, des: string): string | undefined {
+  return ini.ramas?.find((r) => r.tipo !== "contacto" && r.id.startsWith(`${des}.`) && r.nombre)?.nombre;
+}
+
+function rama(clave: string, rotulo: string | undefined): RamaSenales {
+  return rotulo ? { clave, titulo: rotulo, designacion: clave, senales: [] } : { clave, titulo: clave, senales: [] };
+}
 
 /** Las señales de TEXTO que van en el árbol (V8.9 D12): la posición de cada electroválvula
  *  («14», «12», «0») y su accionamiento manual enclavado, junto a sus bobinas. Las demás de texto
@@ -46,11 +51,9 @@ const CONDUCTOR = /^c\d+(#\d+)?\.I_A$/;
 
 /** Agrupa las señales: primero los dispositivos en el orden del tablero, después los que sólo
  *  aparecen en las señales (cables), «Conductores» y «Máquina». Dentro, en el orden de llegada. */
-export function arbolDeSenales(ini: Pick<InicioVivo, "dispositivos">, nombres: readonly (string | undefined)[]): RamaSenales[] {
+export function arbolDeSenales(ini: Fuente, nombres: readonly (string | undefined)[]): RamaSenales[] {
   const ramas = new Map<string, RamaSenales>();
-  for (const d of ini.dispositivos) {
-    ramas.set(d.designacion, { clave: d.designacion, titulo: d.designacion, rotulo: TIPOS[d.tipo] ?? undefined, senales: [] });
-  }
+  for (const d of ini.dispositivos) ramas.set(d.designacion, rama(d.designacion, d.rotulo));
   const conductores: string[] = [];
   const maquina: string[] = [];
   const vistos = new Set<string>();
@@ -59,7 +62,7 @@ export function arbolDeSenales(ini: Pick<InicioVivo, "dispositivos">, nombres: r
     vistos.add(n);
     const des = designacionDe(n);
     if (des) {
-      if (!ramas.has(des)) ramas.set(des, { clave: des, titulo: des, rotulo: /^-W/i.test(des) ? "Cable" : undefined, senales: [] });
+      if (!ramas.has(des)) ramas.set(des, rama(des, nombreDeCable(ini, des)));
       ramas.get(des)!.senales.push(n);
     } else if (CONDUCTOR.test(n)) conductores.push(n);
     else maquina.push(n);
@@ -77,7 +80,7 @@ export function filtrarArbol(ramas: readonly RamaSenales[], texto: string): Rama
   if (!q) return [...ramas];
   const out: RamaSenales[] = [];
   for (const r of ramas) {
-    if (r.titulo.toLowerCase().includes(q) || (r.rotulo ?? "").toLowerCase().includes(q)) {
+    if (r.titulo.toLowerCase().includes(q) || (r.designacion ?? "").toLowerCase().includes(q)) {
       out.push(r);
       continue;
     }

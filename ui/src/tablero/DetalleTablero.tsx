@@ -3,8 +3,9 @@ import { ChevronRight } from "lucide-react";
 import IconoSeveridad from "../diseno/IconoSeveridad";
 import ItemsAtencion from "../diseno/ItemsAtencion";
 import { cifra } from "../diseno/cifra";
+import NombreAparato from "../diseno/NombreAparato";
 import VerDetalle from "../ui/VerDetalle";
-import type { CableTablero, ConductorTablero, PanelTableroOut } from "./tipos";
+import type { AparatoTablero, CableTablero, ConductorTablero, PanelTableroOut } from "./tipos";
 import {
   cablesListados, conductoresListados, filasCalor, itemsDeAtencion, largoCable, largoConductor, partesCable,
   perdidasCalor, puntosDe, rotuloConductor, supuestosDe, type AccionesTablero,
@@ -50,16 +51,7 @@ export default function DetalleTablero({ panel, acciones, conductor, filtro, qui
           ))}
         </ul>
       </Seccion>
-      <Seccion titulo="Aparatos">
-        <ul className="tb-filas">
-          {d.aparatos.map((a) => (
-            <li key={a.designacion}>
-              <Fila principal={a.designacion} secundario={a.nombre}
-                onClick={a.pieza ? () => acciones.encuadrar([a.pieza!]) : undefined} />
-            </li>
-          ))}
-        </ul>
-      </Seccion>
+      <AparatosTablero aparatos={d.aparatos} encuadrar={acciones.encuadrar} />
       <Seccion titulo="Calentamiento">
         {d.calentamiento.estado === "sin_evaluar" ? (
           <p className="tb-calor">
@@ -68,7 +60,7 @@ export default function DetalleTablero({ panel, acciones, conductor, filtro, qui
           </p>
         ) : (
           <ul className="tb-filas">
-            {filasCalor(d.calentamiento).map(([rotulo, valor]) => (
+            {filasCalor(d.calentamiento, d.aparatos).map(([rotulo, valor]) => (
               <li key={rotulo}><Fila principal={rotulo} cifra={valor} /></li>
             ))}
           </ul>
@@ -93,6 +85,26 @@ export default function DetalleTablero({ panel, acciones, conductor, filtro, qui
         </VerDetalle>
       )}
     </div>
+  );
+}
+
+/** «Aparatos»: cada uno por lo que hace (plan nombres-por-funcion D9), con la designación y el
+   nombre del catálogo detrás, chicos («Seguridad del recipiente  -K3 · Relé de seguridad…»); sin
+   rótulo del servidor, la designación manda y el catálogo la sigue. Clic → su pieza en el 3D. */
+export function AparatosTablero({ aparatos, encuadrar }: {
+  aparatos: readonly AparatoTablero[]; encuadrar: (piezas: string[]) => void;
+}) {
+  return (
+    <Seccion titulo="Aparatos">
+      <ul className="tb-filas">
+        {aparatos.map((a) => (
+          <li key={a.designacion}>
+            <Fila principal={<span className="cabeza-aparato"><NombreAparato a={a} detalle={a.nombre} /></span>}
+              onClick={a.pieza ? () => encuadrar([a.pieza!]) : undefined} />
+          </li>
+        ))}
+      </ul>
+    </Seccion>
   );
 }
 

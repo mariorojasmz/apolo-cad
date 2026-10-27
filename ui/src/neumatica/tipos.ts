@@ -88,4 +88,15 @@ export interface PanelNeumaticaOut {
   items?: ItemNeumatica[];
   detalle?: { cilindros: CilindroDetalle[]; maquina: { NL_min?: number; sin_fugas_NL_min?: number } };
   esquema?: EsquemaNeumatico;
+  /** Lo que hace cada aparato de aire, por designación (plan nombres-por-funcion F1): «Caudal de
+   *  apertura» para -RZ1; la válvula trae el nombre de cada posición del carrete. Un servidor
+   *  anterior no lo trae: se muestra la designación. */
+  nombres?: Record<string, NombreNeumatico>;
+}
+
+export interface NombreNeumatico {
+  rotulo?: string;
+  origen?: string;
+  estados?: Record<string, string>;
+  descripcion?: string;
 }

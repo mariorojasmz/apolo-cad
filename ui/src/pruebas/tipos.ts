@@ -4,7 +4,11 @@ import type { Severidad } from "../diseno/atencion";
    plan visor-para-evaluar D1–D4): el panel lo muestra sin reglas propias. */
 
 export interface FilaPrueba {
+  /** El id del escenario («descargar_sin_recipiente»): lo que usa el agente; a la vista, sólo en el detalle. */
   nombre: string;
+  /** El título para la persona («Descargar sin recipiente», plan nombres-por-funcion D14); un
+   *  servidor anterior no lo trae. */
+  titulo?: string;
   /** El estado crudo (`pasa`, `falla`, `vencido`, `sin_aserciones`, `sin_correr`): sólo para la lógica. */
   estado: string;
   /** Cómo se dice el estado: «Pasa», «Vencido»… */

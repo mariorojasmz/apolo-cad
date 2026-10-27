@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { duracion, fechaCorta, progresoCorrida, textoIncidencia } from "./vista";
+import { duracion, fechaCorta, progresoCorrida, textoIncidencia, tituloPrueba } from "./vista";
 
 /* Lo que dice el panel «Pruebas» (plan visor-para-evaluar D3–D5). */
 
@@ -31,6 +31,13 @@ describe("progreso de una corrida", () => {
     expect(duracion(9.6)).toBe("10 s");
     expect(duracion(100)).toBe("1 min 40 s");
     expect(duracion(600)).toBe("10 min");
+  });
+});
+
+describe("tituloPrueba", () => {
+  it("el título humanizado del servidor; el id sólo si no lo trae (nombres-por-funcion D14)", () => {
+    expect(tituloPrueba({ nombre: "descargar_sin_recipiente", titulo: "Descargar sin recipiente" })).toBe("Descargar sin recipiente");
+    expect(tituloPrueba({ nombre: "marcha nominal" })).toBe("marcha nominal");
   });
 });
 

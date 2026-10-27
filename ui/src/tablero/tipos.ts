@@ -71,7 +71,12 @@ export interface CanaletaTablero {
 export interface AparatoTablero {
   designacion: string;
   ref: string;
+  /** El nombre del catálogo («Relé de seguridad 2 canales 24 VDC»): va detrás de la designación. */
   nombre: string;
+  /** Lo que hace («Seguridad del recipiente», plan nombres-por-funcion D3) y de dónde salió
+   *  («declarado», «pieza», «derivado», «tipo»); un servidor anterior no los trae. */
+  rotulo?: string;
+  origen?: string;
   zona: string;
   fila: string;
   pieza?: string;

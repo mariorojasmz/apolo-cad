@@ -7,15 +7,8 @@
 .panel-mandos .pista { margin: 0 0 var(--sp-2); }
 .grupo-mandos + .grupo-mandos { margin-top: var(--sp-1); }
 
-.cabeza-aparato {
-  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2); row-gap: var(--sp-1);
-  flex: 1 1 auto; min-width: 0;
-}
-.rotulo-aparato { color: var(--text); font-size: var(--fs-cuerpo); font-weight: var(--fw-medio); min-width: 0; }
-.designacion-aparato {
-  color: var(--muted); font-size: var(--fs-nota); font-weight: var(--fw-nota);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
+/* el nombre (`.cabeza-aparato`, `.rotulo-aparato`, `.designacion-aparato`) vive en
+   `diseno/diseno.css`: lo comparten Tablero, Neumática y Señales */
 .cabeza-aparato .ayuda-btn { align-self: center; }
 .cabeza-aparato .ayuda-nota { flex-basis: 100%; }
 

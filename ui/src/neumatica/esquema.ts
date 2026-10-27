@@ -1,5 +1,6 @@
 import { cifra } from "../diseno/cifra";
-import type { CilindroDetalle, PresionLinea, SimboloEsquema, ValvulaEsquema } from "./tipos";
+import type { ConNombre } from "../diseno/nombres";
+import type { CilindroDetalle, NombreNeumatico, PresionLinea, SimboloEsquema, ValvulaEsquema } from "./tipos";
 
 /* La lógica pura del esquema vivo del panel «Neumática» (plan V8.9 D12): la presión de cada línea
    con las señales de la sesión viva, su color en la escala, en qué posición está cada válvula,
@@ -107,14 +108,22 @@ export function rotuloCilindro(c: CilindroDetalle): string {
   return partes.join(" · ");
 }
 
-/** Lo que dice el esquema del aparato elegido: «-QM2 · Válvula 5/2 monoestable · bobina A1 →
-   +TAB1-S2:14». */
-export function rotuloSimbolo(s: Pick<SimboloEsquema, "designacion" | "rotulo" | "bornes">): string {
+/** Lo que el esquema dice del aparato elegido DETRÁS de su nombre (plan nombres-por-funcion D9):
+   qué es y adónde va cada bobina, «Válvula 5/2 monoestable · bobina A1 → +TAB1-S2:14». El nombre
+   (lo que hace, del servidor) y la designación los pone `NombreAparato`. */
+export function detalleSimbolo(s: Pick<SimboloEsquema, "rotulo" | "bornes">): string {
   const bornes = (s.bornes ?? []).map((b) => {
     const [borne, destino] = b.split(": ");
     return destino ? `bobina ${borne} → ${destino}` : b;
   });
-  return [s.designacion, s.rotulo, ...bornes].filter(Boolean).join(" · ");
+  return [s.rotulo, ...bornes].filter(Boolean).join(" · ");
+}
+
+/** El nombre de un aparato de aire con su designación: el rótulo de `nombres` (del servidor) o,
+   sin él, la designación sola. */
+export function conNombre(designacion: string, nombres?: Record<string, NombreNeumatico>): ConNombre {
+  const rotulo = nombres?.[designacion]?.rotulo;
+  return rotulo ? { designacion, rotulo } : { designacion };
 }
 
 /** Píxeles de letra de un texto del esquema: el de la lámina, nunca menos que `--fs-nota`

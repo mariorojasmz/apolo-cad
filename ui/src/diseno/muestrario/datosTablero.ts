@@ -1,5 +1,5 @@
 import type {
-  CableTablero, CalentamientoTablero, ConductorTablero, ItemTablero, PanelTableroOut,
+  AparatoTablero, CableTablero, CalentamientoTablero, ConductorTablero, ItemTablero, PanelTableroOut,
 } from "../../tablero/tipos";
 
 /* Datos de EJEMPLO del panel «Tablero» (plan V8.5 F3b) con la forma exacta de
@@ -70,7 +70,7 @@ const it = (p: Partial<ItemTablero> & Pick<ItemTablero, "clave" | "severidad" | 
 /** El calentamiento de la piloto (V8.5 F3): 157 W en la caja de 500 × 400 sin ventilar. */
 const CALOR = it({ clave: "calentamiento", severidad: "falla", frase: "El tablero se calienta de más",
   valor: 98, unidad: "°C", piezas: [PIEZA.gabinete, PIEZA.variador],
-  detalle: "Arriba llega a 98 °C y -Q1 admite 50 °C. Ventílalo con al menos 33 m³/h.",
+  detalle: "Arriba llega a 98 °C y Interruptor general (-Q1) admite 50 °C. Ventílalo con al menos 33 m³/h.",
   tecnico: "+TAB1 pierde 156.9 W en Ae = 0.564 m²: el aire llega a 90 °C a media altura y 98 °C arriba (ambiente 35 °C)." });
 
 const CALOR_DETALLE = {
@@ -105,13 +105,20 @@ const BIEN: ItemTablero[] = [
 ];
 
 const DETALLE = {
+  // la piloto no declara rótulos: los da su tipo (`services/nombres_aparatos.py`, origen «tipo»)
   aparatos: [
-    { designacion: "-Q1", ref: "SECC-25A-3P", nombre: "Seccionador rotativo 3P 25 A", zona: "puerta", fila: "puerta", pieza: PIEZA.seta },
-    { designacion: "-F1", ref: "ITM-C16-3P", nombre: "ITM 3P C16", zona: "placa", fila: "alimentacion", pieza: aparato(1) },
-    { designacion: "-F2", ref: "ITM-C2-2P", nombre: "ITM 2P C2", zona: "placa", fila: "alimentacion", pieza: aparato(2) },
-    { designacion: "-T1", ref: "FUENTE-24VDC-5A", nombre: "Fuente 24 VDC 5 A", zona: "placa", fila: "control", pieza: aparato(3) },
-    { designacion: "-K1", ref: "PLC-14DI-10DO-24VDC", nombre: "PLC 14 DI / 10 DO 24 VDC", zona: "placa", fila: "control", pieza: aparato(4) },
-    { designacion: "-T2", ref: "VFD-2K2-220", nombre: "Variador 2.2 kW 220V 3F", zona: "placa", fila: "columna", pieza: PIEZA.variador },
+    { designacion: "-Q1", ref: "SECC-25A-3P", nombre: "Seccionador rotativo 3P 25 A", zona: "puerta", fila: "puerta", pieza: PIEZA.seta,
+      rotulo: "Interruptor general", origen: "tipo" },
+    { designacion: "-F1", ref: "ITM-C16-3P", nombre: "ITM 3P C16", zona: "placa", fila: "alimentacion", pieza: aparato(1),
+      rotulo: "Interruptor automático", origen: "tipo" },
+    { designacion: "-F2", ref: "ITM-C2-2P", nombre: "ITM 2P C2", zona: "placa", fila: "alimentacion", pieza: aparato(2),
+      rotulo: "Interruptor automático", origen: "tipo" },
+    { designacion: "-T1", ref: "FUENTE-24VDC-5A", nombre: "Fuente 24 VDC 5 A", zona: "placa", fila: "control", pieza: aparato(3),
+      rotulo: "Fuente", origen: "tipo" },
+    { designacion: "-K1", ref: "PLC-14DI-10DO-24VDC", nombre: "PLC 14 DI / 10 DO 24 VDC", zona: "placa", fila: "control", pieza: aparato(4),
+      rotulo: "PLC", origen: "tipo" },
+    { designacion: "-T2", ref: "VFD-2K2-220", nombre: "Variador 2.2 kW 220V 3F", zona: "placa", fila: "columna", pieza: PIEZA.variador,
+      rotulo: "Variador", origen: "tipo" },
   ],
   conductores: CONDUCTORES,
   calentamiento: CALOR_DETALLE as CalentamientoTablero,
@@ -177,7 +184,7 @@ export const PANEL_EN_ORDEN: PanelTableroOut = {
     it({ clave: "cables-giro", severidad: "bien", frase: "Los cables de campo no tocan lo que gira", conductores: [W1.id],
       detalle: "Ninguno pasa a menos de 10 mm de una pieza que gira." }),
     it({ clave: "calentamiento", severidad: "bien", frase: "Temperatura arriba en el tablero", valor: 50, unidad: "°C",
-      piezas: [PIEZA.gabinete], detalle: "El más justo es -Q1: 50 de 50 °C admisibles." }),
+      piezas: [PIEZA.gabinete], detalle: "El más justo es Interruptor general (-Q1): 50 de 50 °C admisibles." }),
     it({ clave: "prensaestopas", severidad: "bien", frase: "Prensaestopas", valor: 2, piezas: [PIEZA.gabinete],
       detalle: "Uno por cable que sale, en la cara de abajo: 2 M16." })],
     canaletas: [
@@ -186,6 +193,32 @@ export const PANEL_EN_ORDEN: PanelTableroOut = {
     ],
   },
 };
+
+/** «Aparatos» del tablero de la mezcladora de paletas (plan nombres-por-funcion F4, informe § 3.3):
+   lo que hace cada uno como lo suma `services/tablero_panel.py` (rótulo declarado, derivado de lo
+   que vigila un relé de seguridad o el de su tipo si es único), con su designación y su catálogo. */
+const ap = (designacion: string, ref: string, nombre: string, rotulo: string, origen = "declarado", zona = "puerta"): AparatoTablero =>
+  ({ designacion, ref, nombre, rotulo, origen, zona, fila: zona, pieza: `c400_d_${designacion}` });
+export const APARATOS_MEZCLADORA: AparatoTablero[] = [
+  ap("-Q1", "SECC-3P-25A", "Seccionador rotativo 3P 25 A", "Interruptor general", "tipo"),
+  ap("-S0", "ESTOP-40-2NC", "Seta de emergencia Ø40 2NC", "Parada de emergencia", "tipo"),
+  ap("-S1", "PULS-22-VERDE-NA", "Pulsador Ø22 verde 1NA", "Marcha"),
+  ap("-S2", "PULS-22-ROJO-NC", "Pulsador Ø22 rojo 1NC", "Paro"),
+  ap("-S3", "PULS-22-AZUL-NA", "Pulsador Ø22 azul 1NA", "Rearme de seguridad"),
+  ap("-S4", "SEL-22-2P", "Selector Ø22 2 posiciones", "Modo"),
+  ap("-P1", "PIL-22-VERDE", "Piloto LED Ø22 verde 24 V", "Marcha"),
+  ap("-P2", "PIL-22-ROJO", "Piloto LED Ø22 rojo 24 V", "Falla"),
+  ap("-P3", "PIL-22-AMBAR", "Piloto LED Ø22 ámbar 24 V", "Tapa abierta"),
+  ap("-P4", "PIL-22-AMBAR", "Piloto LED Ø22 ámbar 24 V", "Recipiente no acoplado"),
+  ap("-F1", "ITM-C2-2P", "ITM 2P C2", "Interruptor automático", "tipo", "placa"),
+  ap("-Q2", "GM-2.5-4A", "Guardamotor 2,5–4 A", "Guardamotor", "tipo", "placa"),
+  ap("-KM1", "CONT-9A-24VDC", "Contactor 9 A bobina 24 VDC", "Contactor", "tipo", "placa"),
+  ap("-T1", "FUENTE-24VDC-2.5A", "Fuente 24 VDC 2,5 A", "Fuente", "tipo", "placa"),
+  ap("-K1", "PLC-14DI-10DO-24VDC", "PLC compacto 14 DI / 10 DO 24 VDC", "PLC", "tipo", "placa"),
+  ap("-K2", "RS-2C-24VDC", "Relé de seguridad 2 canales 24 VDC", "Seguridad de parada de emergencia y tapa del tanque",
+    "derivado", "placa"),
+  ap("-K3", "RS-2C-24VDC", "Relé de seguridad 2 canales 24 VDC", "Seguridad de recipiente bajo la descarga", "derivado", "placa"),
+];
 
 /** Un tablero que una carga tolerante no pudo armar. */
 export const PANEL_SIN_ARMAR: PanelTableroOut = {

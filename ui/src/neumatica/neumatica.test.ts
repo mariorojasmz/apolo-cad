@@ -6,12 +6,15 @@ import { hayAtasco } from "../vivo/mandos";
 import { leerValor, medidaDe } from "../vivo/unidades";
 import { rotuloAire } from "./senales";
 import { aireMedio, senalesDeAire, textoAire } from "./aire";
+import { nombreEnLinea } from "../diseno/nombres";
 import {
-  altoTexto, AMPLIADO_PX_MM, colorPresion, convieneAmpliar, elegidosPor, escalaEsquema, MIN_PX_MM, MIN_TEXTO_PX, pasoDe,
-  posicionDe, presionDe, RAMPA_PRESION, rotuloCilindro, rotuloSimbolo, SIN_PRESION, textoConsumo, textoFuerza, textoTiempo,
-  topeLeyenda, type Lector,
+  altoTexto, AMPLIADO_PX_MM, colorPresion, conNombre, convieneAmpliar, detalleSimbolo, elegidosPor, escalaEsquema,
+  MIN_PX_MM, MIN_TEXTO_PX, pasoDe, posicionDe, presionDe, RAMPA_PRESION, rotuloCilindro, SIN_PRESION, textoConsumo,
+  textoFuerza, textoTiempo, topeLeyenda, type Lector,
 } from "./esquema";
-import { accionManual, alternarManual, ladosManual, manualPersona, posicionPersona } from "./manual";
+import {
+  accionManual, alternarManual, ladosManual, manualPersona, nombrePosicion, posicionPersona, rotuloLado,
+} from "./manual";
 import type { PresionLinea, ValvulaEsquema } from "./tipos";
 
 /* El panel «Neumática» (plan V8.9 D12): la presión de cada línea con las señales vivas, su color y
@@ -88,9 +91,27 @@ describe("el esquema", () => {
   it("las designaciones nunca bajan de 11 px; lo elegido se lee con su rótulo y sus bornes", () => {
     expect(altoTexto(3, 2)).toBe(MIN_TEXTO_PX / 2);
     expect(altoTexto(3, 5)).toBe(3);
-    expect(rotuloSimbolo({ designacion: "-QM2", rotulo: "Válvula 5/2 monoestable", bornes: ["A1: +TAB1-S2:14"] }))
-      .toBe("-QM2 · Válvula 5/2 monoestable · bobina A1 → +TAB1-S2:14");
-    expect(rotuloSimbolo({ designacion: "-MM1" })).toBe("-MM1");
+    expect(detalleSimbolo({ rotulo: "Válvula 5/2 monoestable", bornes: ["A1: +TAB1-S2:14"] }))
+      .toBe("Válvula 5/2 monoestable · bobina A1 → +TAB1-S2:14");
+    expect(detalleSimbolo({})).toBe("");
+  });
+
+  it("lo elegido se nombra por lo que hace: los dos reguladores ya no se leen igual (nombres-por-funcion F4)", () => {
+    const nombres = { "-RZ1": { rotulo: "Caudal de apertura" }, "-RZ2": { rotulo: "Caudal de cierre" } };
+    const rz = (des: string) => nombreEnLinea(conNombre(des, nombres), detalleSimbolo({ rotulo: "Regulador de caudal" }));
+    expect(rz("-RZ1")).toBe("Caudal de apertura · -RZ1 · Regulador de caudal");
+    expect(rz("-RZ2")).toBe("Caudal de cierre · -RZ2 · Regulador de caudal");
+    // sin el nombre del servidor, la designación manda: nunca una tabla de tipos de la UI
+    expect(conNombre("-RZ3", nombres)).toEqual({ designacion: "-RZ3" });
+    expect(conNombre("-RZ1", undefined)).toEqual({ designacion: "-RZ1" });
+    // el rótulo por tipo que repite al detalle no se dice dos veces
+    expect(nombreEnLinea(conNombre("-RZ5", { "-RZ5": { rotulo: "Silenciador" } }), "Silenciador")).toBe("Silenciador · -RZ5");
+  });
+
+  it("el cilindro por lo que hace, con su designación y sus medidas detrás", () => {
+    const c = { designacion: "-MM1", ref: "x", piezas: [], diametro_mm: 32, vastago_mm: 12, carrera_mm: 200 };
+    expect(nombreEnLinea(conNombre("-MM1", { "-MM1": { rotulo: "Cilindro de compuerta" } }), rotuloCilindro(c)))
+      .toBe("Cilindro de compuerta · -MM1 · Ø32 mm, vástago 12 mm · carrera 200 mm");
   });
 
   it("se ajusta al ancho y, a pedido, se amplía a lo que se lee cómodo", () => {
@@ -156,6 +177,20 @@ describe("la sesión viva con aire", () => {
     expect(manualPersona("14+12")).toBe("lado 14 y 12");
   });
 
+  it("la posición se dice por su nombre, nunca «posición 14» (nombres-por-funcion F4)", () => {
+    const estados = { 14: "Compuerta abierta", 12: "Compuerta cerrada" };
+    expect(nombrePosicion("12", ["14"], estados)).toBe("Compuerta cerrada");
+    expect(nombrePosicion("14", ["14"], estados)).toBe("Compuerta abierta");
+    // sin declarar, el servidor manda la clave misma: eso no es un nombre
+    expect(nombrePosicion("14", ["14"], { 14: "14", 12: "12" })).toBe("Accionada (14)");
+    expect(nombrePosicion("12", ["14"])).toBe("Reposo (12)");
+    expect(nombrePosicion(undefined, ["14"], estados)).toBeNull();
+    expect(rotuloLado("14", false, true, estados)).toBe("Accionar a mano");
+    expect(rotuloLado("14", true, true, estados)).toBe("Soltar");
+    expect(rotuloLado("14", false, false, estados)).toBe("Accionar a mano · Compuerta abierta");
+    expect(rotuloLado("12", true, false)).toBe("Soltar · 12");
+  });
+
   it("las señales del aire se leen con su nombre, su unidad y sus palabras", () => {
     expect(rotuloAire("bobina14")).toBe("Bobina 14");
     expect(rotuloAire("pA_bar")).toBe("Presión de avance");
@@ -186,9 +221,13 @@ describe("la sesión viva con aire", () => {
     expect(textos).toEqual(["-QM2.posicion", "-QM2.manual"]);
     const ramas = arbolDeSenales(ini, ["-QM2.bobina14", ...textos, "-MM1.x_mm"]);
     const qm2 = ramas.find((r) => r.clave === "-QM2")!;
-    expect(qm2.rotulo).toBe("Electroválvula");
+    // sin rótulo del servidor, la designación sola (nombres-por-funcion D13: sin tabla de tipos)
+    expect(qm2.titulo).toBe("-QM2");
+    expect(qm2.designacion).toBeUndefined();
     expect(qm2.senales).toEqual(["-QM2.bobina14", "-QM2.posicion", "-QM2.manual"]);
-    expect(ramas.find((r) => r.clave === "-MM1")!.rotulo).toBe("Cilindro");
+    const conRotulo = arbolDeSenales({ dispositivos: ini.dispositivos.map((d) => ({ ...d, rotulo: d.designacion === "-MM1"
+      ? "Cilindro de compuerta" : undefined })) }, ["-MM1.x_mm"]);
+    expect(conRotulo).toEqual([{ clave: "-MM1", titulo: "Cilindro de compuerta", designacion: "-MM1", senales: ["-MM1.x_mm"] }]);
   });
 
   it("el cilindro dice su carrera y sus presiones, con la etiqueta 3D sólo elegido", () => {

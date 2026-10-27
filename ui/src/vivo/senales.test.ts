@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { arbolDeSenales, designacionDe, filtrarArbol } from "./arbolSenales";
-import { juntaMotriz } from "./mandos";
+import { juntaMotriz, rotulosDeJuntas } from "./mandos";
 import { leerValor, magnitud, medidaDe } from "./unidades";
 
 /* El árbol de señales (plan V8.4 D7) y la lectura de cada señal por su nombre. */
@@ -24,8 +27,8 @@ describe("árbol de señales", () => {
     const a = arbolDeSenales({ dispositivos: DISPOSITIVOS }, NOMBRES);
     expect(a.map((r) => r.titulo)).toEqual(["-Q1", "-T2", "-K1", "-M1", "-W3", "Conductores", "Máquina"]);
     expect(a.find((r) => r.clave === "-K1")!.senales).toEqual(["-K1.%IX0.0", "-K1.pb_marcha", "-K1.Main.cuenta"]);
-    expect(a.find((r) => r.clave === "-M1")).toMatchObject({ rotulo: "Motor", senales: ["-M1.rpm", "-M1.I_A"] });
-    expect(a.find((r) => r.clave === "-W3")).toMatchObject({ rotulo: "Cable", senales: ["-W3.1.I_A"] });
+    expect(a.find((r) => r.clave === "-M1")).toEqual({ clave: "-M1", titulo: "-M1", senales: ["-M1.rpm", "-M1.I_A"] });
+    expect(a.find((r) => r.clave === "-W3")).toEqual({ clave: "-W3", titulo: "-W3", senales: ["-W3.1.I_A"] });
     expect(a.find((r) => r.titulo === "Conductores")!.senales).toEqual(["c1620#1.I_A", "c1622.I_A"]);
     expect(a.find((r) => r.titulo === "Máquina")!.senales).toEqual(["c119.v_m_s", "caja_0.x_mm"]);
   });
@@ -37,8 +40,28 @@ describe("árbol de señales", () => {
     expect(magnitud("-K1.%IX0.0")).toBe("%IX0.0");
   });
 
+  it("cada aparato por lo que hace, con la designación detrás; un cable, por sus extremos (nombres-por-funcion F4)", () => {
+    const conNombres = {
+      dispositivos: DISPOSITIVOS.map((d) => ({ ...d, rotulo: d.designacion === "-M1" ? "Motor de la banda" : undefined })),
+      ramas: [{ id: "-W3.1", tipo: "conductor", red: "potencia", nombre: "Cable Variador → Motor de la banda" },
+        { id: "-W3:13-14", tipo: "contacto", red: "mando", nombre: "Contacto 13-14 · Otro" }],
+    };
+    const a = arbolDeSenales(conNombres, NOMBRES);
+    expect(a.find((r) => r.clave === "-M1")).toMatchObject({ titulo: "Motor de la banda", designacion: "-M1" });
+    expect(a.find((r) => r.clave === "-W3")).toMatchObject({ titulo: "Cable Variador → Motor de la banda", designacion: "-W3" });
+    // se busca por el nombre y por la designación
+    expect(filtrarArbol(a, "banda").map((r) => r.clave)).toEqual(["-M1", "-W3"]);
+    expect(filtrarArbol(a, "-m1").map((r) => r.clave)).toEqual(["-M1"]);
+  });
+
+  it("sin tabla de tipos en la UI: lo que no nombra el servidor queda con su designación (D13)", () => {
+    const fuente = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "arbolSenales.ts"), "utf8");
+    for (const tipo of ["Relé de seguridad", "Electroválvula", "Seta de emergencia", "\"Cable\""]) expect(fuente).not.toContain(tipo);
+  });
+
   it("buscar: el dispositivo entra entero; si no, sólo las señales que casan", () => {
-    const a = arbolDeSenales({ dispositivos: DISPOSITIVOS }, NOMBRES);
+    const a = arbolDeSenales({ dispositivos: DISPOSITIVOS.map((d) => d.designacion === "-T2" ? { ...d, rotulo: "Variador" } : d) },
+      NOMBRES);
     expect(filtrarArbol(a, "variador").map((r) => r.clave)).toEqual(["-T2"]);
     const rpm = filtrarArbol(a, "RPM");
     expect(rpm.map((r) => r.clave)).toEqual(["-M1"]);
@@ -76,12 +99,20 @@ describe("atasco provocado", () => {
     expect(juntaMotriz({ bandas: [], juntas: [{ name: "j_tambor" }] })).toBe("j_tambor");
     expect(juntaMotriz({ bandas: [], juntas: [] })).toBeNull();
   });
+
+  it("cada junta por su pieza hija; el id sólo si dos se llamarían igual o falta el nombre (D15)", () => {
+    const r = rotulosDeJuntas([
+      { name: "j_eje_paletas", nombre: "Eje de paletas" }, { name: "c388_puerta", nombre: "Puerta del tablero" },
+      { name: "j_rueda_1", nombre: "Rueda" }, { name: "j_rueda_2", nombre: "Rueda" }, { name: "j_vieja" },
+    ]);
+    expect([...r.values()]).toEqual(["Eje de paletas", "Puerta del tablero", "Rueda · j_rueda_1", "Rueda · j_rueda_2", "j_vieja"]);
+  });
 });
 
 describe("el panel de operador en el árbol (plc-en-el-lazo D12)", () => {
-  it("va bajo su designación con el rótulo de su tipo", () => {
-    const a = arbolDeSenales({ dispositivos: [{ designacion: "-P2", tipo: "hmi", ref: "HMI-7IN-24VDC", pantalla_px: [800, 480] }] },
-      ["-P2.encendida"]);
-    expect(a).toEqual([{ clave: "-P2", titulo: "-P2", rotulo: "Panel de operador", senales: ["-P2.encendida"] }]);
+  it("va bajo su nombre del servidor (el de su tipo, por A8) con la designación detrás", () => {
+    const a = arbolDeSenales({ dispositivos: [{ designacion: "-P2", tipo: "hmi", ref: "HMI-7IN-24VDC", pantalla_px: [800, 480],
+      rotulo: "Panel de operador", origen: "tipo" }] }, ["-P2.encendida"]);
+    expect(a).toEqual([{ clave: "-P2", titulo: "Panel de operador", designacion: "-P2", senales: ["-P2.encendida"] }]);
   });
 });

@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado (D1–D18 vetables); fix «pandea», F0 y F1 (dato y respaldo) en main; F3 («Mandos», UI) hecha en la rama worktree-agent-ac988adf99a4b9939, sin mergear; siguen F2, F4, F5 y F6
+nota: contrato aprobado (D1–D18 vetables); fix «pandea», F0, F1 (dato y respaldo) y F3 («Mandos») en main; F4 (resto de las superficies, UI) hecha en la rama worktree-agent-ad43500f92f5a0f95, sin mergear; siguen F2, F5 y F6
 descripcion: cada mando, piloto y sensor se ve por lo que HACE («Marcha», «Tapa del tanque»), con la designación chica al lado, y la puerta de publicación no aprueba una máquina cuyos mandos no tienen nombre
 ---
 
@@ -543,3 +543,56 @@ byte-idéntico y las cuatro firmas de `test_firma_dispositivo` no se movieron.
 **Cifras.** `npm test`: 76 archivos y 619 tests, verde, con `nombresMandos.test.ts` nuevo (13).
 `npm run build` verde. Visto en el muestrario a 420 px y en el ancho de columna: rearmar, abrir el
 seccionador y abrir la tapa cambian el veredicto, el segmento y el estado.
+
+### F4 — el resto de las superficies (2026-10-27)
+
+**Hecho** (sólo `ui/`; sin Python).
+- **Una pieza para todas**: `diseno/NombreAparato.tsx` (rótulo en `--fw-medio`; detrás, en
+  `--fs-nota` y tinta secundaria, la designación que nunca se corta y un detalle opcional) y lo puro
+  en `diseno/nombres.ts` (`nombrePrincipal`, `designacionSecundaria`, `nombreEnLinea`,
+  `nombreDeJunta`). Su CSS pasó de `vivo/mandos.css` a `diseno/diseno.css`; `nombresMandos.ts` y
+  `CabezaAparato` de F3 la reusan.
+- **Tablero → Aparatos**: «Seguridad del recipiente» y debajo «-K3 · Relé de seguridad 2 canales…»
+  (`AparatosTablero`, exportada para el muestrario). En la lista, la parte secundaria va SIEMPRE en
+  su línea: las filas miden igual. «Admite Interruptor general (-Q1)» en el calentamiento, con el
+  rótulo de la misma lista. `datosTablero.ts`: la piloto con sus rótulos por tipo y el texto de
+  calentamiento como lo escribe hoy el servidor.
+- **Neumática**: la ficha del cilindro («Cilindro de compuerta · -MM1 · Ø32 mm…»), lo elegido en el
+  esquema con `nombres` («Caudal de apertura · -RZ1 · Regulador de caudal»: los dos reguladores ya no
+  se leen igual) y el `aria-label` de cada símbolo. El accionamiento manual es la fila de «Mandos»:
+  la válvula por su rótulo y al lado la posición por su nombre («Compuerta cerrada»); sin nombre
+  declarado, «Reposo (12)», nunca «posición 14». `ValvulaVivo` suma `NombreAparato` y `posiciones`.
+- **Pruebas**: el título es `titulo`; el id va en «Detalle técnico» de la prueba abierta.
+- **Eventos**: cada junta por su `nombre`; el id sólo si dos se llamarían igual.
+- **Cinemática**: la junta por el nombre de su pieza hija (de la escena), el id detrás y chico, y
+  «giratoria (°) · sobre <padre>».
+- **Señales**: cabecera «rótulo · -K2» con el `rotulo` de `dispositivos`; un cable, por el `nombre` de
+  su rama («Cable Red de suministro → Interruptor general · -W1»). Se borró `TIPOS` de
+  `arbolSenales.ts` (D13); el buscador encuentra por rótulo y por designación.
+- **Ficha de pieza**: una línea «Marcha · -S1» si la pieza es un aparato, con lo que la UI ya leyó
+  (`visor/aparatoDePieza.ts`: el `inicio` del vivo, «Tablero», «Neumática»). Sin endpoint nuevo.
+- **Muestrario**, todo de la mezcladora: «Tablero · aparatos de la mezcladora» (17), «Neumática ·
+  compuerta» (`neumaticaMezcladora.json`, la salida REAL de `neumatica_panel.panel` sobre un circuito
+  como el suyo, generada offline), «Pruebas» con 6 escenarios humanizados, «Señales» y, dentro de
+  «Mandos», «Provocar atasco» y el accionamiento manual. `INICIO_DEMO.dispositivos` lleva ahora todos
+  los aparatos, como el servidor.
+
+**Decisiones con criterio (vetables).**
+- **Cinemática sin clave nueva en `/api/kinematics`**: el nombre de la pieza hija sale de la escena
+  (dato del servidor), entero, sin la limpieza A15 de `nombre_junta`. Sumar `nombre` al endpoint era
+  tocar Python y la suite por una cifra de texto; si la puerta del layout se lee larga, F5 lo dice.
+- **Ficha de pieza sólo con lo ya leído**: sin sesión viva ni «Tablero»/«Neumática» abiertos no hay
+  línea. Una fuente general pediría una clave por pieza en la escena (`aparato: {designacion,
+  rotulo}`): no se creó; queda para una fase si F5 o Mario la piden.
+- **Eventos**: un `<select>` no tiene «secundario»; el id va sólo al desempatar (`ui/CLAUDE.md`: los
+  ids, a pedido).
+- **Lo que NO cambió y es del servidor**: las frases de los ítems de Neumática siguen con la
+  designación («Falta el límite elástico del vástago de -MM1») y el calentamiento dice «El más justo
+  es Interruptor general (-Q1)» (mayúscula a media frase). La UI no reescribe frases del servidor:
+  el arreglo es `neumatica_panel` con `Nombres.con_designacion` (como `tablero_atencion`) y una
+  minúscula en `con_designacion` para usarla dentro de una frase. Al backlog de F2 o una fase S.
+
+**Cifras.** `npm test`: 77 archivos y 633 tests, verde, con `diseno/nombres.test.ts` nuevo (7: rótulo
+primero, designación secundaria, la junta, la ficha y «sin tabla de tipos» sobre el código de cada
+superficie) y casos nuevos en `neumatica`, `senales`, `tablero/vista` y `pruebas`. `npm run build`
+verde. Visto en el muestrario al ancho de columna y a 420 px.

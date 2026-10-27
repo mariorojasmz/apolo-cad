@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import NombreAparato from "../diseno/NombreAparato";
+import { nombreEnLinea } from "../diseno/nombres";
 import {
-  altoTexto, colorPresion, convieneAmpliar, escalaEsquema, posicionDe, presionDe, RAMPA_PRESION, rotuloSimbolo,
-  SIN_PRESION, topeLeyenda, type Lector,
+  altoTexto, colorPresion, conNombre, convieneAmpliar, detalleSimbolo, escalaEsquema, posicionDe, presionDe,
+  RAMPA_PRESION, SIN_PRESION, topeLeyenda, type Lector,
 } from "./esquema";
-import type { EsquemaNeumatico, SimboloEsquema } from "./tipos";
+import type { EsquemaNeumatico, NombreNeumatico, SimboloEsquema } from "./tipos";
 
 /* El esquema ISO 1219 del circuito de aire, EN LÍNEA (plan V8.9 D12): la lámina de la F5 en
    primitivas, con la tinta del tema. Cada símbolo es un botón (clic → el aparato se elige y la
@@ -21,6 +23,8 @@ interface Props {
   onElegir: (s: SimboloEsquema) => void;
   /** El rótulo de la sección («Esquema», «Esquema en vivo»), en la fila de «Ampliar». */
   titulo: string;
+  /** Lo que hace cada aparato, por designación (del servidor): nombra al elegido. */
+  nombres?: Record<string, NombreNeumatico>;
 }
 
 /** Grosor de los trazos (mm de la lámina): la tinta y la línea teñida, más gruesa para que el
@@ -29,7 +33,7 @@ const TINTA_MM = 0.35;
 const LINEA_VIVA_MM = 0.7;
 const HOLGURA_MM = 1.5;
 
-export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegir, titulo }: Props) {
+export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegir, titulo, nombres }: Props) {
   const caja = useRef<HTMLDivElement>(null);
   const [ancho, setAncho] = useState(0);
   useEffect(() => {
@@ -112,14 +116,18 @@ export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegi
                 <rect key={s.designacion} x={x - HOLGURA_MM} y={y - HOLGURA_MM} width={w + 2 * HOLGURA_MM}
                   height={h + 2 * HOLGURA_MM} rx={1.2} className={`nm-hit${elegido ? " elegido" : ""}`}
                   role="button" tabIndex={0} aria-pressed={elegido}
-                  aria-label={`${s.designacion}${s.piezas.length ? ": encontrarlo en el 3D" : ""}`}
+                  aria-label={`${nombreEnLinea(conNombre(s.designacion, nombres))}${s.piezas.length ? ": encontrarlo en el 3D" : ""}`}
                   onClick={() => onElegir(s)} onKeyDown={(ev) => tecla(ev, s)} />
               );
             })}
           </g>
         </svg>
       </div>
-      {elegidosSim.map((s) => <p key={s.designacion} className="nm-elegido" aria-live="polite">{rotuloSimbolo(s)}</p>)}
+      {elegidosSim.map((s) => (
+        <p key={s.designacion} className="nm-elegido cabeza-aparato" aria-live="polite">
+          <NombreAparato a={conNombre(s.designacion, nombres)} detalle={detalleSimbolo(s)} />
+        </p>
+      ))}
       {lector && <Leyenda escala={e.escala_bar} />}
     </>
   );

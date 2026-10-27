@@ -33,6 +33,25 @@ export function posicionPersona(pos: string | undefined, lados: readonly string[
   return lados.includes(pos) ? `accionada (${pos})` : `reposo (${pos})`;
 }
 
+/** Dónde está la válvula, por lo que HACE (plan nombres-por-funcion D9, A4): el nombre que el
+   servidor da a esa posición del carrete («Compuerta abierta»). Un nombre que es la clave misma
+   (sin declarar, el servidor manda «14»: «14») no es un nombre: entonces, la posición en palabras
+   («Accionada (14)»). Sin señal, null. */
+export function nombrePosicion(pos: string | undefined, lados: readonly string[], estados?: Record<string, string>): string | null {
+  if (pos === undefined) return null;
+  const nombre = estados?.[pos];
+  if (nombre && nombre !== pos) return nombre;
+  const p = posicionPersona(pos, lados);
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+/** El rótulo del botón de un lado: «Accionar a mano» (o «Soltar») y, con dos bobinas, a qué
+   posición lleva: «Accionar a mano · Compuerta abierta» (o el lado, «· 14», sin nombre). */
+export function rotuloLado(lado: string, puesto: boolean, uno: boolean, estados?: Record<string, string>): string {
+  const verbo = puesto ? "Soltar" : "Accionar a mano";
+  return uno ? verbo : `${verbo} · ${estados?.[lado] || lado}`;
+}
+
 /** Lo enclavado a mano, en palabras: «no» o «lado 14». */
 export function manualPersona(senal: string | undefined): string {
   const lados = ladosManual(senal);

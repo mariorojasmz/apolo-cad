@@ -4,8 +4,12 @@ import VacioTablero from "../../tablero/VacioTablero";
 import VistaTablero from "../../tablero/VistaTablero";
 import type { PanelTableroOut } from "../../tablero/tipos";
 import { recorridoDe } from "../../tablero/vista";
-import { PANEL_CON_FALLAS, PANEL_EN_ORDEN, PANEL_SIN_ARMAR } from "./datosTablero";
-import { BarraFallasDemo, PanelFallasDemo, PanelMandosDemo } from "./FallasDemo";
+import { AparatosTablero } from "../../tablero/DetalleTablero";
+import VistaNeumatica from "../../neumatica/VistaNeumatica";
+import type { PanelNeumaticaOut } from "../../neumatica/tipos";
+import { APARATOS_MEZCLADORA, PANEL_CON_FALLAS, PANEL_EN_ORDEN, PANEL_SIN_ARMAR } from "./datosTablero";
+import { BarraFallasDemo, PanelFallasDemo, PanelMandosDemo, PanelSenalesDemo } from "./FallasDemo";
+import neumaticaMezcladora from "./neumaticaMezcladora.json";
 import VueloDemo, { type Demo } from "./VueloDemo";
 import MarcoCajon from "../../visor/MarcoCajon";
 import { EXTENSION_PRUEBA } from "./extensionPrueba";
@@ -25,9 +29,14 @@ import "./muestrario.css";
    (`extensionPrueba.tsx`, plan puntos-de-extension-entregables D7), y su chip en la barra y su
    pantalla sobre un panel de operador girado (plan plc-en-el-lazo D13).
    `?ancho=420` = una columna angosta; `?puerta=90` abre la puerta; `?conductor=c26` lo dibuja;
-   `?detalle=1&item=largos` abre el detalle con ese ítem elegido (en el panel con fallas). */
+   `?detalle=1&item=largos` abre el detalle con ese ítem elegido (en el panel con fallas).
+   Nombres por función (plan nombres-por-funcion F4), todo de la mezcladora: «Tablero · aparatos»,
+   «Neumática» (`?simbolo=-RZ1` elige un aparato del esquema), «Pruebas» con títulos humanizados,
+   «Señales» (`?senales=<texto>` filtra y despliega) y, dentro de «Mandos», «Provocar atasco» y el
+   accionamiento manual (`?manual=0` lo pliega). */
 
 const q = () => new URLSearchParams(window.location.search);
+const NEUMATICA_MEZCLADORA = neumaticaMezcladora as unknown as PanelNeumaticaOut;
 
 export default function Muestrario() {
   const demo = useRef<Demo | null>(null);
@@ -70,6 +79,14 @@ export default function Muestrario() {
           if (c) d.recorrido(recorridoDe(PANEL_CON_FALLAS, c));
         }} />
       </Marco>
+      <Marco rotulo="Tablero · aparatos de la mezcladora">
+        <div className="tablero">
+          <div className="tb-detalle"><AparatosTablero aparatos={APARATOS_MEZCLADORA} encuadrar={() => {}} /></div>
+        </div>
+      </Marco>
+      <Marco rotulo="Neumática · compuerta de la mezcladora">
+        <NeumaticaDemo />
+      </Marco>
       <Marco rotulo="Pruebas · una abierta y otra corriendo">
         <PruebasDemo />
       </Marco>
@@ -79,6 +96,9 @@ export default function Muestrario() {
       </Marco>
       <Marco rotulo="Mandos · mezcladora de paletas">
         <PanelMandosDemo />
+      </Marco>
+      <Marco rotulo="Señales · mezcladora de paletas">
+        <PanelSenalesDemo />
       </Marco>
       <Marco rotulo="Mandos · simular falla">
         <PanelFallasDemo />
@@ -106,6 +126,20 @@ function PruebasDemo() {
     <VistaPruebas panel={PANEL_PRUEBAS} abierto={abierto} detalle={abierto === DETALLE_PRUEBA.nombre ? DETALLE_PRUEBA : null}
       corridas={CORRIDAS_DEMO} fallos={{}} ahora={AHORA_MUESTRARIO}
       acciones={{ ...ACCIONES_NULAS, alternar: (n) => setAbierto(abierto === n ? null : n) }} />
+  );
+}
+
+/** «Neumática» de la compuerta de la mezcladora (plan nombres-por-funcion F4): lo que devuelve
+   `GET /api/neumatica` sobre un circuito como el suyo (`neumaticaMezcladora.json`, generado con
+   `services/neumatica_panel.panel`), con el detalle abierto y un aparato elegido en el esquema
+   (`?simbolo=-RZ1` por defecto; clic en otro lo cambia). */
+function NeumaticaDemo() {
+  const [elegido, setElegido] = useState<string>(() => q().get("simbolo") ?? "-RZ1");
+  return (
+    <section className="panel-tablero">
+      <VistaNeumatica panel={NEUMATICA_MEZCLADORA} lector={null} elegidos={new Set([elegido])} onEncuadrar={() => {}}
+        onElegirSimbolo={(s) => setElegido(s.designacion)} inicial={{ detalle: true }} />
+    </section>
   );
 }
 

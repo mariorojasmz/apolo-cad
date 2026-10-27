@@ -1,5 +1,5 @@
 import { cifra } from "../diseno/cifra";
-import type { Incidencia } from "./tipos";
+import type { FilaPrueba, Incidencia } from "./tipos";
 
 /* Lo que el panel «Pruebas» dice con los datos de la API (plan visor-para-evaluar D3–D5). Puro:
    lo prueban los tests y lo usan el panel y el muestrario. */
@@ -20,6 +20,11 @@ export function fechaCorta(iso: string | undefined, ahora: Date = new Date()): s
   if (dias === 1) return `ayer, ${hora}`;
   const fecha = `${Number(dia)} ${MESES[Number(mes) - 1]}${Number(a) !== ahora.getFullYear() ? ` ${a}` : ""}`;
   return `${fecha}, ${hora}`;
+}
+
+/** El título de una prueba: el humanizado del servidor (D14); sin él, el id tal cual. */
+export function tituloPrueba(f: Pick<FilaPrueba, "nombre" | "titulo">): string {
+  return f.titulo || f.nombre;
 }
 
 /** «12 s», «1 min 40 s», «4 min». */

@@ -1,22 +1,27 @@
 import { ChevronRight } from "lucide-react";
+import { nombrePrincipal } from "../diseno/nombres";
 import { useVivo } from "../vivo/estado";
+import { CabezaAparato } from "../vivo/FilaMando";
 import type { ValvulaVivo } from "../vivo/protocolo";
 import { enviar } from "../vivo/sesion";
-import { alternarManual, ladosManual, posicionPersona } from "./manual";
+import { alternarManual, ladosManual, nombrePosicion, rotuloLado } from "./manual";
 import "./neumatica.css";
 
 /* «Accionamiento manual» en el panel «Mandos» (plan V8.9 D12): el botón de la propia válvula, que
    prueba el cilindro sin el PLC. No es un mando del operador: va en un grupo PLEGADO, al final.
    Es ENCLAVADO, como el real (`cosim/modelos/electrovalvula.py`): queda accionado hasta soltarlo.
    Lo enclavado y la posición se LEEN de sus señales (`<des>.manual`, `<des>.posicion`): lo que
-   ponga el agente u otra pestaña se ve igual aquí. */
+   ponga el agente u otra pestaña se ve igual aquí. La fila es la de «Mandos» (plan
+   nombres-por-funcion D9): la válvula por lo que hace, y al lado, la posición por su nombre
+   («Compuerta cerrada»), nunca «posición 14». */
 
-export default function AccionamientoManual({ quieto }: { quieto: boolean }) {
+/** `abierto`: el grupo arranca desplegado (el muestrario, para su captura). */
+export default function AccionamientoManual({ quieto, abierto }: { quieto: boolean; abierto?: boolean }) {
   const valvulas = useVivo((s) => s.inicio?.valvulas);
   const conManual = (valvulas ?? []).filter((v) => v.manual);
   if (!conManual.length) return null;
   return (
-    <details className="nm-manual">
+    <details className="nm-manual" open={abierto || undefined}>
       <summary>
         <ChevronRight className="nm-plegado" size={14} aria-hidden="true" />
         <h3>Accionamiento manual</h3>
@@ -36,25 +41,25 @@ function FilaValvula({ v, quieto }: { v: ValvulaVivo; quieto: boolean }) {
     for (const a of alternarManual(v.designacion, enclavados, lado)) enviar(a);
   };
   const uno = v.lados.length === 1;
+  const nombre = nombrePrincipal(v);
+  const donde = nombrePosicion(posicion, v.lados, v.estados);
   return (
     <li className="fila-mando">
-      <div className="fila-mando-nombre">
-        <strong>{v.designacion}</strong>
-        <span className="hint">
-          {enclavados.length ? "Activado a mano" : "Sin accionar"} · posición {posicionPersona(posicion, v.lados)}
-        </span>
-      </div>
-      <div className="fila-mando-control" role="group" aria-label={`Accionamiento manual de ${v.designacion}`}>
-        {v.lados.map((lado) => {
-          const puesto = enclavados.includes(lado);
-          const verbo = puesto ? "Soltar" : "Accionar a mano";
-          return (
-            <button key={lado} type="button" disabled={quieto} aria-pressed={puesto} className={`boton-mando${puesto ? " apretado" : ""}`}
-              aria-label={`${verbo} el lado ${lado} de ${v.designacion}`} onClick={() => alternar(lado)}>
-              {uno ? verbo : `${verbo} · ${lado}`}
-            </button>
-          );
-        })}
+      <CabezaAparato a={v} />
+      <div className="fila-mando-accion">
+        {donde && <span className="estado-mando" aria-live="polite">{donde}</span>}
+        <div className="fila-mando-control" role="group" aria-label={`Accionamiento manual: ${nombre}`}>
+          {v.lados.map((lado) => {
+            const puesto = enclavados.includes(lado);
+            const rotulo = rotuloLado(lado, puesto, uno, v.estados);
+            return (
+              <button key={lado} type="button" disabled={quieto} aria-pressed={puesto} className={`boton-mando${puesto ? " apretado" : ""}`}
+                aria-label={`${rotulo}: ${nombre}`} onClick={() => alternar(lado)}>
+                {rotulo}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </li>
   );

@@ -1,6 +1,7 @@
 import type { Severidad } from "../diseno/atencion";
+import { designacionSecundaria, nombrePrincipal } from "../diseno/nombres";
 import { abreYCierra } from "./accionar";
-import type { InicioVivo, MandoVivo, NombreAparato } from "./protocolo";
+import type { InicioVivo, MandoVivo } from "./protocolo";
 
 /* Cómo se LEE el panel «Mandos» (plan nombres-por-funcion D9–D12): el nombre de cada fila, los
    grupos, los segmentos de un mando que se queda, el estado de un rearme y el veredicto de arriba.
@@ -14,17 +15,8 @@ export interface Leidas {
   texto: (senal: string) => string | undefined;
 }
 
-type ConNombre = NombreAparato & { designacion: string };
-
-/** Lo principal de la fila: el rótulo; sin él, la designación (lo único que dijo el servidor). */
-export function nombrePrincipal(a: ConNombre): string {
-  return a.rotulo || a.designacion;
-}
-
-/** La designación va detrás, chica, sólo si el rótulo ocupa lo principal. */
-export function designacionSecundaria(a: ConNombre): string | null {
-  return a.rotulo ? a.designacion : null;
-}
+// lo principal y lo secundario del nombre son de todas las superficies (`diseno/nombres.ts`)
+export { designacionSecundaria, nombrePrincipal };
 
 // ── grupos (D11) ─────────────────────────────────────────────────────────────────────────────
 

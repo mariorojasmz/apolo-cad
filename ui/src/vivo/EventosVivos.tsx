@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useVivo } from "./estado";
-import { hayAtasco, juntaMotriz } from "./mandos";
+import { hayAtasco, juntaMotriz, rotulosDeJuntas } from "./mandos";
 import { enviarEvento } from "./sesion";
 
 /* «Provocar atasco» en la sesión viva (plan V8.4, F3): frena la junta motriz con un par
    resistente durante unos segundos, para ver cómo reacciona la protección del motor. Es el
-   evento `atasco` de los escenarios, mandado sin hora (entra en el intercambio en que llega). */
+   evento `atasco` de los escenarios, mandado sin hora (entra en el intercambio en que llega).
+   Cada junta se elige por su pieza hija (plan nombres-por-funcion D15); el id viaja en el valor. */
 
 export default function EventosVivos({ quieto }: { quieto: boolean }) {
   const inicio = useVivo((s) => s.inicio);
@@ -14,13 +15,14 @@ export default function EventosVivos({ quieto }: { quieto: boolean }) {
   const [junta, setJunta] = useState<string | null>(null);
   if (!inicio || !inicio.juntas.length || !hayAtasco(inicio)) return null;
   const elegida = junta ?? juntaMotriz(inicio);
+  const rotulos = rotulosDeJuntas(inicio.juntas);
   return (
     <>
       <h3>Eventos</h3>
       <div className="fila-mando eventos-vivos">
         {inicio.juntas.length > 1 && (
           <select value={elegida ?? ""} onChange={(e) => setJunta(e.target.value)} aria-label="Junta que se atasca">
-            {inicio.juntas.map((j) => <option key={j.name} value={j.name}>{j.name}</option>)}
+            {inicio.juntas.map((j) => <option key={j.name} value={j.name}>{rotulos.get(j.name)}</option>)}
           </select>
         )}
         <label className="campo-evento">

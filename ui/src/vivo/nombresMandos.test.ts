@@ -34,7 +34,9 @@ describe("el nombre de la fila", () => {
   it("en pantalla, el rótulo con su peso va primero y la designación chica después; la descripción, sólo en la ⓘ", () => {
     const html = renderToStaticMarkup(createElement(CabezaAparato, { a: mando("-S2") }));
     expect(html.indexOf('class="rotulo-aparato">Paro<')).toBeGreaterThanOrEqual(0);
-    expect(html.indexOf('class="designacion-aparato">-S2<')).toBeGreaterThan(html.indexOf("rotulo-aparato"));
+    // la pieza es la de todas las superficies (`diseno/NombreAparato.tsx`, F4): la designación no se corta
+    expect(html.indexOf('class="designacion-aparato"><span class="designacion-codigo">-S2<'))
+      .toBeGreaterThan(html.indexOf("rotulo-aparato"));
     expect(html).toContain('aria-label="Ayuda sobre «Paro»"');
     expect(html).not.toContain("No corta la energía"); // cerrada hasta que la piden
     expect(renderToStaticMarkup(createElement(CabezaAparato, { a: mando("-S1") }))).not.toContain("ayuda-btn");

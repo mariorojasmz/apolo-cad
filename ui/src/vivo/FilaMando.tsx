@@ -3,7 +3,8 @@ import Ayuda from "../ui/Ayuda";
 import { abreYCierra, estadoDeMando, estadoDesdeValor, senalDeEstado, valorVisto } from "./accionar";
 import { useVivo } from "./estado";
 import { alApretar, alSoltar, colorFisico, encendido, esMomentaneo, girar, llevarA, rotuloAccion, type Accion } from "./mandos";
-import { designacionSecundaria, estadoJuntoAlBoton, nombrePrincipal, segmentoLeido, segmentosDe, type Leidas } from "./nombresMandos";
+import NombreDeAparato from "../diseno/NombreAparato";
+import { estadoJuntoAlBoton, nombrePrincipal, segmentoLeido, segmentosDe, type Leidas } from "./nombresMandos";
 import type { MandoVivo, NombreAparato, PilotoVivo } from "./protocolo";
 import { accionar as accionarPorWs } from "./sesion";
 import Segmentado from "./Segmentado";
@@ -26,13 +27,10 @@ export const leidasDe = (s: { lecturas: Record<string, number>; textos: Record<s
 
 /** El nombre de la fila: el rótulo, la designación detrás y la ⓘ con la descripción. */
 export function CabezaAparato({ a }: { a: NombreAparato & { designacion: string } }) {
-  const principal = nombrePrincipal(a);
-  const designacion = designacionSecundaria(a);
   return (
     <div className="cabeza-aparato">
-      <span className="rotulo-aparato">{principal}</span>
-      {designacion && <span className="designacion-aparato">{designacion}</span>}
-      {a.descripcion && <Ayuda tema={principal}>{a.descripcion}</Ayuda>}
+      <NombreDeAparato a={a} />
+      {a.descripcion && <Ayuda tema={nombrePrincipal(a)}>{a.descripcion}</Ayuda>}
     </div>
   );
 }

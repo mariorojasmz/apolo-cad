@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useStore } from "../state/store";
+import NombreAparato from "../diseno/NombreAparato";
+import { nombreDeJunta } from "../diseno/nombres";
 
 /* Panel Cinemática: deslizadores por junta que mueven el modelo en el
    viewport (cinemática directa, solo visual), estudios de movimiento CON NOMBRE
@@ -190,10 +192,13 @@ export default function KinematicsPanel() {
               const disabled = j.type === "fija" || dependent;
               return (
                 <div className="kin-row" key={j.name}>
+                  {/* la junta por su pieza hija (plan nombres-por-funcion D15); el id, detrás y chico */}
                   <div className="kin-info">
-                    <strong>{j.name}</strong>
+                    <span className="cabeza-aparato">
+                      <NombreAparato a={nombreDeJunta(j, featName)} />
+                    </span>
                     <span className="hint">
-                      {dependent ? "auto · riel" : TYPE_LABEL[j.type]} · {featName(j.parent)} → {featName(j.child)}
+                      {dependent ? "auto · riel" : TYPE_LABEL[j.type]} · sobre {featName(j.parent)}
                     </span>
                   </div>
                   <input

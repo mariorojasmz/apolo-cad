@@ -112,6 +112,8 @@ describe("panel Tablero", () => {
     const c = PANEL_CON_FALLAS.detalle!.calentamiento;
     const filas = filasCalor(c);
     expect(filas.map(([r]) => r)).toEqual(["A media altura", "Arriba", "Admite -Q1", "Ambiente"]);
+    // con los aparatos del panel, el más justo por lo que hace (nombres-por-funcion F4)
+    expect(filasCalor(c, PANEL_CON_FALLAS.detalle!.aparatos)[2][0]).toBe("Admite Interruptor general (-Q1)");
     expect(filas[1][1]).toBe(cifra(98.5, 0, "°C"));
     expect(perdidasCalor(c)).toContain("los aparatos y");
     expect(perdidasCalor(c)).toContain("(4 aparatos no traen el dato)");

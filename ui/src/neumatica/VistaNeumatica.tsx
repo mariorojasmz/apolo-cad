@@ -2,11 +2,13 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { cifra } from "../diseno/cifra";
 import ItemsAtencion from "../diseno/ItemsAtencion";
+import NombreAparato from "../diseno/NombreAparato";
+import { nombreEnLinea, type ConNombre } from "../diseno/nombres";
 import Veredicto from "../diseno/Veredicto";
 import VerDetalle from "../ui/VerDetalle";
 import { itemsDeAtencion, type AccionesTablero } from "../tablero/vista";
 import EsquemaNeumatica from "./EsquemaNeumatica";
-import { rotuloCilindro, textoConsumo, textoFuerza, textoTiempo, type Lector } from "./esquema";
+import { conNombre, rotuloCilindro, textoConsumo, textoFuerza, textoTiempo, type Lector } from "./esquema";
 import type { CilindroDetalle, ItemNeumatica, PanelNeumaticaOut, SimboloEsquema } from "./tipos";
 import "../tablero/tablero.css";
 import "./neumatica.css";
@@ -49,7 +51,7 @@ export default function VistaNeumatica({ panel, lector, elegidos, onEncuadrar, o
             </>
           ) : (
             <EsquemaNeumatica esquema={esquema} lector={lector} elegidos={elegidos} onElegir={onElegirSimbolo}
-              titulo={lector ? "Esquema en vivo" : "Esquema"} />
+              titulo={lector ? "Esquema en vivo" : "Esquema"} nombres={panel.nombres} />
           )}
         </section>
       )}
@@ -58,7 +60,9 @@ export default function VistaNeumatica({ panel, lector, elegidos, onEncuadrar, o
           <summary>Detalle</summary>
           {abierto && (
             <div className="tb-detalle">
-              {cilindros.map((c) => <FichaCilindro key={c.designacion} c={c} onEncuadrar={onEncuadrar} />)}
+              {cilindros.map((c) => (
+                <FichaCilindro key={c.designacion} c={c} nombre={conNombre(c.designacion, panel.nombres)} onEncuadrar={onEncuadrar} />
+              ))}
               {panel.detalle?.maquina.NL_min !== undefined && (
                 <MaquinaAire nl={panel.detalle.maquina.NL_min} sinFugas={panel.detalle.maquina.sin_fugas_NL_min} />
               )}
@@ -75,11 +79,14 @@ export default function VistaNeumatica({ panel, lector, elegidos, onEncuadrar, o
   );
 }
 
-function FichaCilindro({ c, onEncuadrar }: { c: CilindroDetalle; onEncuadrar: (piezas: readonly string[]) => void }) {
+/** Un cilindro por lo que hace («Cilindro de compuerta»), con su designación y sus medidas detrás. */
+function FichaCilindro({ c, nombre, onEncuadrar }: {
+  c: CilindroDetalle; nombre: ConNombre; onEncuadrar: (piezas: readonly string[]) => void;
+}) {
   const t = c.tiempo ? textoTiempo(c.tiempo) : null;
   const cabeza = (
     <>
-      <span className="tb-principal"><strong>{c.designacion}</strong><span className="tb-secundario">{rotuloCilindro(c)}</span></span>
+      <span className="tb-principal cabeza-aparato"><NombreAparato a={nombre} detalle={rotuloCilindro(c)} /></span>
       <span />
       {c.piezas.length ? <ChevronRight className="tb-ir" size={14} aria-hidden="true" /> : <span />}
     </>
@@ -88,7 +95,7 @@ function FichaCilindro({ c, onEncuadrar }: { c: CilindroDetalle; onEncuadrar: (p
     <div className="tb-seccion">
       {c.piezas.length ? (
         <button type="button" className="tb-fila nm-cabeza" onClick={() => onEncuadrar(c.piezas)}
-          aria-label={`${c.designacion}: encontrarlo en el 3D`}>{cabeza}</button>
+          aria-label={`${nombreEnLinea(nombre)}: encontrarlo en el 3D`}>{cabeza}</button>
       ) : (
         <div className="tb-fila nm-cabeza">{cabeza}</div>
       )}

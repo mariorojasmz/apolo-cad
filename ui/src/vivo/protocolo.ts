@@ -64,12 +64,14 @@ export interface DispositivoVivo extends NombreAparato {
 
 /** Una electroválvula (V8.9 D6): sus lados con bobina («14», «12») y si trae accionamiento
  *  manual (`accionar_manual` con el lado; «0» lo suelta). */
-export interface ValvulaVivo {
+export interface ValvulaVivo extends NombreAparato {
   designacion: string;
   ref: string;
   lados: string[];
   manual: boolean;
   pieza?: string;
+  /** Las posiciones del carrete («14», «12», «0»), las claves de sus `estados` (nombres-por-funcion A4). */
+  posiciones?: string[];
 }
 
 /** Una falla que un aparato sabe tomar (plan cosim-fallas D6): `pide` dice qué valor lleva
@@ -117,7 +119,8 @@ export interface InicioVivo {
   formato: number;
   cuerpos: { name: string; junta: string; piezas: string[] }[];
   productos: { name: string; producto: string; dims_mm: [number, number, number] }[];
-  juntas: { name: string; tipo: string; unidad: string }[];
+  /** `nombre`: la junta por su pieza hija («Tapa de carga», nombres-por-funcion D15); el id es `name`. */
+  juntas: { name: string; tipo: string; unidad: string; nombre?: string }[];
   bandas: { pieza: string; junta: string; radio_mm: number; direccion: [number, number, number] }[];
   senales: string[];
   mandos: MandoVivo[];

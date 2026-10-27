@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import type { MasaPieza } from "../types";
+import { nombreEnLinea } from "../diseno/nombres";
+import { useNeumatica } from "../neumatica/estado";
+import { useTablero } from "../tablero/estado";
+import { useVivo } from "../vivo/estado";
+import { aparatoDePieza, aparatosDeNeumatica } from "./aparatoDePieza";
 import { useVisor } from "./estado";
 import BotonCopiar from "./BotonCopiar";
 import { CacheMasa, SIN_DATO, formatearMedidas, formatearPeso, nombreMaterial } from "./ficha";
@@ -10,7 +15,9 @@ import "./cajones.css";
 /* Ficha de pieza del visor (plan modo-visor, D7): con UNA pieza seleccionada y sin cajón derecho
    abierto, una tarjeta chica arriba a la derecha, debajo del ViewCube. Nombre e id (el id es lo
    que el agente necesita), medidas del bbox de la escena, y material y peso de
-   `GET /api/mass-properties`. «Ver todo» abre Propiedades en el cajón derecho. */
+   `GET /api/mass-properties`. «Ver todo» abre Propiedades en el cajón derecho. Si la pieza es un
+   aparato, una línea con lo que hace («Marcha · -S1», plan nombres-por-funcion F4), de lo que la
+   sesión viva, «Tablero» o «Neumática» ya leyeron (`aparatoDePieza.ts`). */
 
 const masas = new CacheMasa<MasaPieza>();
 /** Espera antes de pedir la masa: una ráfaga de cambios (flechas, lotes del agente) hace un fetch. */
@@ -20,6 +27,9 @@ export default function FichaPieza() {
   const id = useStore((s) => (s.selection.length === 1 ? s.selection[0] : null));
   const scene = useStore((s) => s.scene);
   const derAbierto = useVisor((s) => s.cajonDer !== null);
+  const inicio = useVivo((s) => s.inicio);
+  const tablero = useTablero((s) => s.panel);
+  const neumatica = useNeumatica((s) => s.panel);
   const abrirDer = useVisor((s) => s.abrirDer);
   const f = id ? scene?.features.find((x) => x.id === id) : undefined;
   const rev = f?.rev ?? 0;
@@ -51,6 +61,11 @@ export default function FichaPieza() {
 
   if (!id || !f || derAbierto) return null;
   const dato = enCache ?? (masa?.id === id ? masa.dato : null);
+  // nombres-por-funcion F4: si la pieza es un aparato, lo que hace («Marcha · -S1»), de lo ya leído
+  const aparato = aparatoDePieza(id, [
+    inicio?.mandos, inicio?.pilotos, inicio?.valvulas, inicio?.dispositivos, tablero?.detalle?.aparatos,
+    aparatosDeNeumatica(neumatica?.esquema?.simbolos, neumatica?.nombres),
+  ]);
 
   return (
     <section className="ficha-pieza" aria-label="Pieza seleccionada">
@@ -58,6 +73,7 @@ export default function FichaPieza() {
         <span className="fp-color" style={{ background: f.albedo ?? f.color }} />
         <div className="fp-titulo">
           <b title={f.name}>{f.name}</b>
+          {aparato && <span className="fp-aparato">{nombreEnLinea(aparato)}</span>}
           <span className="fp-id">{f.id}</span>
         </div>
       </header>

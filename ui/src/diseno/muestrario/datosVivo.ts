@@ -44,14 +44,31 @@ const MANDOS: MandoVivo[] = [
 const piloto = (des: string, color: string, rotulo: string) =>
   ({ designacion: des, ref: `PIL-22-${color.toUpperCase()}`, color, pieza: pieza(des), senal: `${des}.encendido`, rotulo,
     origen: "declarado", grupo: "pilotos" });
+const PILOTOS = [piloto("-P1", "verde", "Marcha"), piloto("-P2", "rojo", "Falla"), piloto("-P3", "ambar", "Tapa abierta"),
+  piloto("-P4", "ambar", "Recipiente no acoplado")];
+
+/** Como en el servidor, `dispositivos` lleva TODOS los aparatos (también mandos y pilotos), cada
+ *  uno con su nombre: de ahí titula «Señales». */
+const comoDispositivo = ({ designacion, ref, pieza: p, rotulo, origen, grupo, ...x }: MandoVivo | ReturnType<typeof piloto>) =>
+  ({ designacion, tipo: "tipo" in x ? x.tipo : "piloto", ref, pieza: p, rotulo, origen, grupo });
 
 export const INICIO_DEMO: InicioVivo = {
   tipo: "inicio", version: 1, proyecto: null, escenario: "ciclo_nominal", titulo_escenario: "Ciclo nominal", firma: "demo",
-  ventana_s: 60, max_s: 600, ritmo: 1, dt_s: 0.001, formato: 1, cuerpos: [], productos: [], juntas: [], bandas: [], senales: [],
+  ventana_s: 60, max_s: 600, ritmo: 1, dt_s: 0.001, formato: 1, cuerpos: [], productos: [], bandas: [], senales: [],
+  // las juntas por su pieza hija (nombres-por-funcion D15): el `nombre` lo suma la API
+  juntas: [
+    { name: "j_eje_paletas", tipo: "continua", unidad: "grados", nombre: "Eje de paletas" },
+    { name: "j_tapa_carga", tipo: "giratoria", unidad: "grados", nombre: "Tapa de carga" },
+    { name: "c388_puerta", tipo: "giratoria", unidad: "grados", nombre: "Puerta del tablero" },
+  ],
+  // la válvula de la compuerta con su accionamiento manual y el nombre de cada posición (A4)
+  valvulas: [{ designacion: "-QM1", ref: "VAL-52-MONO-G18", lados: ["14"], manual: true, pieza: "c70_valvula",
+    rotulo: "Válvula de la compuerta", origen: "declarado", grupo: "operacion", posiciones: ["14", "12"],
+    estados: { 14: "Compuerta abierta", 12: "Compuerta cerrada" } }],
   mandos: MANDOS,
-  pilotos: [piloto("-P1", "verde", "Marcha"), piloto("-P2", "rojo", "Falla"), piloto("-P3", "ambar", "Tapa abierta"),
-    piloto("-P4", "ambar", "Recipiente no acoplado")],
+  pilotos: PILOTOS,
   dispositivos: [
+    ...MANDOS.map(comoDispositivo), ...PILOTOS.map(comoDispositivo),
     { designacion: "-M1", tipo: "motor", ref: "MOTOR-1.5KW-4P", rotulo: "Motor de mezcla", origen: "pieza", grupo: "lecturas" },
     { designacion: "-K2", tipo: "rele_seguridad", ref: "RS-2C-24VDC", rotulo: "Seguridad de parada de emergencia y tapa del tanque",
       origen: "derivado", grupo: "lecturas" },
@@ -61,6 +78,11 @@ export const INICIO_DEMO: InicioVivo = {
     { designacion: "-K1", tipo: "plc", ref: "PLC-1214C-DC", rotulo: "PLC", origen: "tipo", grupo: "lecturas" },
     { designacion: "-A2", tipo: "hmi", ref: "HMI-7IN-24VDC", pieza: "panel-operador", pantalla_px: [800, 480],
       rotulo: "Panel de operador", origen: "tipo", grupo: "lecturas" },
+    // el aire de la compuerta (V8.9): la válvula y el cilindro, por lo que hacen
+    { designacion: "-QM1", tipo: "electrovalvula", ref: "VAL-52-MONO-G18", pieza: "c70_valvula",
+      rotulo: "Válvula de la compuerta", origen: "declarado", grupo: "operacion" },
+    { designacion: "-MM1", tipo: "cilindro", ref: "CIL-ISO15552-32", pieza: "c68_cuerpo", carrera_mm: 200,
+      rotulo: "Cilindro de compuerta", origen: "declarado", grupo: "lecturas" },
   ],
   fajas: [], cadenas: [], avisos: [],
   fallas: [
@@ -111,6 +133,7 @@ const BASE: Record<string, number> = {
   "-K2.salidas": 0, "-K2.canal1": 1, "-K2.canal2": 1, "-K2.espera_ciclo": 0,
   "-K3.salidas": 0, "-K3.canal1": 1, "-K3.canal2": 1, "-K3.espera_ciclo": 0,
   "-P1.encendido": 0, "-P2.encendido": 0, "-P3.encendido": 0, "-P4.encendido": 0, "-K1.Main.consigna": 50,
+  "-QM1.bobina14": 0, "-MM1.x_mm": 200, "-MM1.pA_bar": 6, "-MM1.pB_bar": 0, "-W1.1.I_A": 0,
 };
 const PRESETS: Record<string, Record<string, number>> = {
   rearmar: {},
@@ -192,7 +215,7 @@ export function simularLocal(ev: EventoFalla): void {
 /** Arranca la sesión de ejemplo con 0, 1 o 3 fallas activas y los mandos en el estado `mandos`. */
 export function prepararSesionDemo(activas: number, mandos = "rearmar"): void {
   useVivo.getState().set({ fase: "corriendo", escenario: INICIO_DEMO.escenario, inicio: INICIO_DEMO, t: 12.4,
-    textos: { "-S4.posicion": "I" }, ramasEnFalla: [], lecturas: { ...BASE, ...(PRESETS[mandos] ?? {}) }, esperadas: {} });
+    textos: { "-S4.posicion": "I", "-QM1.posicion": "12", "-QM1.manual": "0" }, ramasEnFalla: [], lecturas: { ...BASE, ...(PRESETS[mandos] ?? {}) }, esperadas: {} });
   const iniciales: EventoFalla[] = [
     { tipo: "falla", dispositivo: "-KM1", falla: "soldado" },
     { tipo: "falla", rama: "-S0:11-12", falla: "pegado", valor: true },

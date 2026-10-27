@@ -135,3 +135,13 @@ export function hayAtasco(ini: { bandas: unknown[]; dispositivos: { tipo: string
 export function juntaMotriz(ini: { bandas: { junta: string }[]; juntas: { name: string }[] }): string | null {
   return ini.bandas[0]?.junta ?? ini.juntas[0]?.name ?? null;
 }
+
+/** Cómo se nombra cada junta en «Provocar atasco» (plan nombres-por-funcion D15): por su pieza
+ *  hija («Tapa de carga», el `nombre` del servidor); el id (`name`) sólo para distinguir dos que se
+ *  llamarían igual, o si el servidor no trae nombre. */
+export function rotulosDeJuntas(juntas: readonly { name: string; nombre?: string }[]): Map<string, string> {
+  const cuantas = new Map<string, number>();
+  for (const j of juntas) if (j.nombre) cuantas.set(j.nombre, (cuantas.get(j.nombre) ?? 0) + 1);
+  return new Map(juntas.map((j) => [j.name,
+    !j.nombre ? j.name : (cuantas.get(j.nombre) ?? 0) > 1 ? `${j.nombre} · ${j.name}` : j.nombre]));
+}

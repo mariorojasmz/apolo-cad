@@ -16,8 +16,6 @@
 }
 /* una lectura no se toca: fila plana (sin el fondo de los mandos, que parecería un botón) */
 .fila-mando.fila-lectura { background: none; padding-left: 0; padding-right: 0; }
-.fila-mando-nombre { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.fila-mando-nombre .hint { font-size: 11px; line-height: 1.3; }
 .fila-mando-control { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .boton-mando { min-width: 86px; touch-action: none; user-select: none; }
 .boton-mando.apretado {
