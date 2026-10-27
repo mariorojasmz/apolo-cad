@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 implementada y probada en su rama (falta revisar y mergear); F2 (regla de capacidad de la cadena, aleta K1/K2) y F3 (co-simulación, cadena floja como efecto físico, la cadena en el visor) sin empezar
+nota: F1 mergeada (create_hoist_chain); el elevador de la tanda nocturna la estrena reemplazando sus 6 tramos rectos a mano (2026-10-27); F2 (regla de capacidad de la cadena, aleta K1/K2) y F3 (co-simulación, cadena floja como efecto físico, la cadena en el visor) sin empezar
 descripcion: Una plataforma cuelga de una cadena de rodillos que pasa por sus piñones, con sus dos amarres atornillados de verdad, y la cadena sigue a la plataforma en cada pose sin choques
 ---
 

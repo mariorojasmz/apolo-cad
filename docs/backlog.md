@@ -192,6 +192,9 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
   Una cadena que no viene del super-comando no se revisa.
 - **En el elevador, la designación de un mismo resguardo no coincidía entre el esquema y el
   modelo** (-RZ1/-RZ2): falta un chequeo de que cada aparato tenga la misma designación en los dos.
+- **`join_bolted` no acepta una chapa plegada en L** (lateral + pestaña de una pieza): en la faja
+  de motor central la pestaña quedó soldada en vez de plegada. Falta poder atornillar por la
+  pestaña de una pieza de chapa con pliegue.
 
 ## Geometría y catálogo
 
