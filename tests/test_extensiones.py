@@ -2,7 +2,7 @@
 A1–A7) con la extensión FALSA de `tests/ext_prueba/`:
 
 - apagadas (`APOLO_EXTENSIONES=0`, lo que fija `conftest.py`), el núcleo queda idéntico: 62
-  comandos, 91 tools y 393 refs, sin nada en `GET /api/health`;
+  comandos, 92 tools y 393 refs, sin nada en `GET /api/health`;
 - cargada (`APOLO_EXTENSIONES_EXTRA`), cada punto: comando con prefijo en el MISMO `REGISTRY`
   (regenera, lo ve la vista persona con su pestaña), ruta, tool (MCP por stdio y el registro del
   chat), YAML del catálogo, modelo de la co-sim (también en el worker), `epoch_catalogo` en la
@@ -71,7 +71,7 @@ def test_apagadas_el_nucleo_queda_identico(extensiones_aisladas, monkeypatch):
     monkeypatch.setenv(EXTRA, "ext_prueba:EXTENSION")  # aunque la pidan
     assert extensiones_aisladas.cargar() == [] and extensiones_aisladas.descubrir() == []
     assert len(REGISTRY) == 62 and len(CATALOG) == 469  # +7 de bloqueo-de-vastago, +6 de amortiguador-externo, +20 de V8.9 F7b, +2 de plc-en-el-lazo F1d1, +1 de V8.9 F8, +5 de V8.5 F3
-    assert len(asyncio.run(mcp_server.mcp.list_tools())) == 91
+    assert len(asyncio.run(mcp_server.mcp.list_tools())) == 92
     assert extensiones_aisladas.routers() == [] and extensiones_aisladas.webui() is None
 
 
@@ -104,7 +104,7 @@ def test_release_cuenta_las_tools_con_list_tools_y_sin_extensiones():
     spec = importlib.util.spec_from_file_location("release_f1a", RAIZ / "scripts" / "release.py")
     release = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(release)
-    assert release.count_tools() == 91  # el regex sobre mcp_server.py daba 76
+    assert release.count_tools() == 92  # el regex sobre mcp_server.py daba 76
     assert os.environ["APOLO_EXTENSIONES"] == "0"
 
 
@@ -401,7 +401,7 @@ def test_el_mcp_por_stdio_registra_la_tool_al_final_sin_cargar_occt():
         out = _mcp_hijo(url)
     assert out.returncode == 0, out.stderr[-3000:]
     res = json.loads(out.stdout.strip().splitlines()[-1])
-    assert res["n"] == 93 and res["nombres"][-2:] == ["prueba_hola", "prueba_informe"]
+    assert res["n"] == 94 and res["nombres"][-2:] == ["prueba_hola", "prueba_informe"]
     assert res["salida"] == 'mutacion {"type": "prueba.hola", "params": {"lado": 7.0}}'
     assert res["fuera"] and res["pesados"] == []  # los comandos perezosos no se resolvieron
 
