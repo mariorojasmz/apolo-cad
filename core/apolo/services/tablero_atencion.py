@@ -17,10 +17,14 @@ def _cifra(x: float) -> str:
     return f"{x:.0f}"
 
 
-def calor(ev: dict, gabinete: str, piezas: dict[str, str], tecnico: str | None) -> tuple[list[dict], list[dict]]:
-    """(lo que pide atención, lo que está bien) del calentamiento."""
+def calor(ev: dict, gabinete: str, piezas: dict[str, str], tecnico: str | None,
+          nombre=None) -> tuple[list[dict], list[dict]]:
+    """(lo que pide atención, lo que está bien) del calentamiento. `nombre(designación)` nombra al
+    aparato por su función («Interruptor general (-Q1)», plan nombres-por-funcion); sin él, la
+    designación."""
     from .tablero_panel import item  # la forma del ítem es del panel (que importa este módulo)
 
+    nombre = nombre or (lambda des: des)
     estado = ev.get("estado")
     if estado == "sin_evaluar":
         return [item("calentamiento", "sin_evaluar", "Falta evaluar el calentamiento", piezas=[gabinete],
@@ -37,12 +41,12 @@ def calor(ev: dict, gabinete: str, piezas: dict[str, str], tecnico: str | None) 
             que += (f" o usa la caja de {g['medidas_mm'][0]:g}{NBSP}×{NBSP}{g['medidas_mm'][2]:g}{NBSP}mm." if g else ".")
         return [item("calentamiento", "falla", "El tablero se calienta de más", valor=round(ev["T_arriba_C"]),
                      unidad="°C", piezas=[gabinete, *(piezas[a["designacion"]] for a in malos if a["designacion"] in piezas)],
-                     detalle=(f"Arriba llega a {_cifra(ev['T_arriba_C'])}{NBSP}°C y {peor.get('designacion')} admite "
+                     detalle=(f"Arriba llega a {_cifra(ev['T_arriba_C'])}{NBSP}°C y {nombre(peor.get('designacion'))} admite "
                               f"{_cifra(peor.get('T_max_C') or 0)}{NBSP}°C. {que}"),
                      tecnico=tecnico)], []
     return [], [item("calentamiento", "bien", "Temperatura arriba en el tablero", valor=round(ev["T_arriba_C"]),
                      unidad="°C", piezas=[gabinete],
-                     detalle=(f"El más justo es {peor.get('designacion')}: {_cifra(peor.get('T_C') or 0)} de "
+                     detalle=(f"El más justo es {nombre(peor.get('designacion'))}: {_cifra(peor.get('T_C') or 0)} de "
                               f"{_cifra(peor.get('T_max_C') or 0)}{NBSP}°C admisibles."))]
 
 

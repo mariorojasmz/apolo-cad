@@ -44,9 +44,14 @@ EPOCH_SIN_DATO = 1
 
 #: Campos de `Dispositivo` que NO entran a la firma (pedidos-de-extensiones D5): `simbolo` no es
 #: física (el dibujo del esquema) y `acoplado_a` se deriva de lo que el log ya firma (la regla
-#: de `library/electrico/acoples.py`). Un campo nuevo de `Dispositivo` va a la firma o aquí: lo
+#: de `library/electrico/acoples.py`); el rótulo, los estados y la descripción son el nombre por
+#: función para la persona (nombres-por-funcion D7). Un campo nuevo de `Dispositivo` va a la firma o aquí: lo
 #: exige `tests/test_firma_dispositivo.py` (si entra, vence todo resultado con tablero).
-FUERA_DE_FIRMA = ("simbolo", "acoplado_a")
+FUERA_DE_FIRMA = ("simbolo", "acoplado_a", "rotulo", "estados", "descripcion", "estados_vencidos")
+#: Lo mismo en el LOG (plan nombres-por-funcion D7): el nombre por función de un aparato es texto
+#: para la persona, no física; ponerle rótulo a una máquina ya probada no vence sus resultados. Un
+#: log sin estas claves da el hash de siempre.
+PARAMS_FUERA_DE_FIRMA = {"add_device": ("rotulo", "estados", "descripcion")}
 #: Claves del `modelo` de la ficha que tampoco entran: las lee sólo el ERC (que no se guarda como
 #: resultado), no la co-simulación. `STO_canales` (los bornes de cada canal del STO, regla «canales
 #: del STO»): la co-simulación del variador lee S1 y S2 por su cuenta. Si un modelo de `cosim/`
@@ -87,7 +92,16 @@ FIRMA_VERSION = 2
 SIN_FISICA = frozenset({"create_group"})
 
 
+def _sin_texto(cmd: dict) -> dict:
+    fuera = PARAMS_FUERA_DE_FIRMA.get(cmd.get("type"))
+    params = cmd.get("params")
+    if not fuera or not isinstance(params, dict) or not any(k in params for k in fuera):
+        return cmd
+    return {**cmd, "params": {k: v for k, v in params.items() if k not in fuera}}
+
+
 def _hash(comandos, doc, fichas) -> str:
+    comandos = [_sin_texto(c) for c in comandos]
     texto = json.dumps([comandos, doc.materials, fichas], sort_keys=True, default=str)
     return hashlib.sha256(texto.encode()).hexdigest()[:20]
 

@@ -41,6 +41,13 @@ Lo de catálogo y BOM en general: [library](../CLAUDE.md); los modelos de la co-
   o va a `services/escenarios.FUERA_DE_FIRMA` (no es física o sale de lo que el log ya firma).
   Quién mueve un bloque auxiliar es UNA regla, `acoples.py` (la lee la co-simulación; la
   colocación conserva su regla de montaje). [plan](../../../../docs/plans/pedidos-de-extensiones.md) (F2)
+- **Rótulo de un aparato** (`add_device.rotulo`/`estados`/`descripcion`): lo que HACE, el texto
+  de su placa. Fuera de la firma en el `Dispositivo` y en el log (`escenarios.PARAMS_FUERA_DE_FIRMA`).
+  Las claves de `estados` salen de UNA tabla por tipo (`estados.claves`): estrictas al entrar (sello
+  de `add_device`), y al cargar lo vencido va a `estados_vencidos`, nunca suprime el aparato. El
+  respaldo que se MUESTRA (pieza, relé por su cadena serie, tipo) es de
+  `services/nombres_aparatos.py`: no aprueba y no lee el ST.
+  [nombres-por-funcion](../../../../docs/plans/nombres-por-funcion.md)
 - Un texto del ERC nombra el conductor con `redes.nombre_conductor` (sus puntos y `[hilo, red]`),
   nunca por su índice: el número va en `conductores` de la fila.
   [pedidos-ii](../../../../docs/plans/pedidos-de-extensiones-ii.md) (D4)

@@ -13,6 +13,7 @@ from apolo.cosim.veredicto import FALLA, PASA, SIN_ASERCIONES
 
 from .escenarios import SIN_CORRER, VENCIDO, estado, firma_documento, no_existe
 from .errors import ServiceError
+from .nombres_aparatos import humanizar
 
 # estado → (rótulo, severidad del semáforo de `ui/src/diseno/atencion.ts`)
 ESTADOS = {
@@ -59,7 +60,8 @@ def _fila(doc, nombre: str, firma: str, cache: dict) -> dict:
     esc, res = ent["escenario"], ent.get("resultado") or {}
     st = estado(doc, nombre, firma, cache)
     rotulo, severidad = ESTADOS.get(st["estado"], (st["estado"], "aviso"))
-    fila = {"nombre": nombre, "estado": st["estado"], "rotulo": rotulo, "severidad": severidad}
+    fila = {"nombre": nombre, "estado": st["estado"], "rotulo": rotulo, "severidad": severidad,
+            "titulo": humanizar(nombre)}  # nombres-por-funcion D14: el id va en `nombre`
     if esc.get("descripcion"):
         fila["descripcion"] = esc["descripcion"]
     if st["estado"] == VENCIDO:

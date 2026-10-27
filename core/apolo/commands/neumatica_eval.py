@@ -16,6 +16,7 @@ es sólo de aire (cilindro, FRL, corte) y con los de su ficha eléctrica si es u
 from __future__ import annotations
 
 from apolo.library.electrico.ajustes import validar_ajustes_neumaticos
+from apolo.library.electrico.estados import claves, filtrar
 from apolo.library.electrico.modelo import Dispositivo, Tubo, dispositivo_desde_ficha
 from apolo.library.electrico.referencias import ReferenciaError, parse_referencia, sufijo_sugerencia
 
@@ -66,8 +67,13 @@ def dispositivo(entrada: dict, comp, pieza: str | None) -> Dispositivo:
     ajustes = validar_ajustes_neumaticos(p.ajustes, neu.ajustes, ele.modelo if ele is not None else None,
                                          p.ref)
     servicio = _servicio(p, neu, p.ref)
+    # plan nombres-por-funcion A4/A5: los estados de una válvula son las posiciones del carrete
+    # (su ficha neumática); lo vencido se ignora y se anota, nunca suprime el aparato
+    estados, vencidos = filtrar(getattr(p, "estados", None) or {},
+                                claves(ele.modelo if ele is not None else None, neu.modelo))
     base = dict(designacion=p.designacion, ref=p.ref, funcion=neu.funcion, ubicacion=p.ubicacion or "",
-                ajustes=ajustes, pieza=pieza, id=entrada["id"])
+                ajustes=ajustes, pieza=pieza, id=entrada["id"], rotulo=getattr(p, "rotulo", "") or "",
+                estados=estados, descripcion=getattr(p, "descripcion", "") or "", estados_vencidos=vencidos)
     if ele is not None:
         d = dispositivo_desde_ficha(p.designacion, p.ref, ele, ubicacion=p.ubicacion, ajustes=ajustes,
                                     pieza=pieza, id=entrada["id"])

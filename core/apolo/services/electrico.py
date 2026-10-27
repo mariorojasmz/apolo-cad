@@ -323,6 +323,12 @@ def circuito(doc, designacion: str | None = None) -> dict:
             "comando": d.id, "bornes": bornes,
             **({"puertos": neumatica.puertos(aire, d)} if aire is not None and d.puertos else {}),
             **({"servicio": d.servicio} if d.servicio else {}),
+            # nombres-por-funcion A14: sólo lo DECLARADO (sin él, la salida de siempre)
+            **{k: getattr(d, k) for k in ("rotulo", "estados", "descripcion") if getattr(d, k, None)},
+            **({"estados_vencidos": list(d.estados_vencidos),
+                "aviso_estados": f"{d.designacion}: `estados` nombra {', '.join(d.estados_vencidos)}, que su "
+                                 "ficha ya no tiene; se ignora (corrígelo con edit_command)"}
+               if getattr(d, "estados_vencidos", ()) else {}),
         })
     redes = [{"id": r.id, **({"nombre": r.nombre} if r.nombre else {}), "puntos": list(r.puntos),
               **({"tension": r.tension} if r.tension else {})}

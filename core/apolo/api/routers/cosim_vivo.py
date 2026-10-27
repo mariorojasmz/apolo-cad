@@ -232,6 +232,7 @@ def _preparar(token: str | None, nombre: str | None, q_externo: str | None = Non
     from apolo.services import cosim_externo
     from apolo.services import escenarios as E
     from apolo.services.cosim_snapshot import snapshot_cosim
+    from apolo.services.nombres_aparatos import para_tabla
     from apolo.services.tablero import piezas_3d
 
     with STATE_LOCK:
@@ -265,8 +266,9 @@ def _preparar(token: str | None, nombre: str | None, q_externo: str | None = Non
             raise _Rechazo(4400, "escenario", f"escenario «{nombre}»: {exc.detail}") from exc
         vis = _extraer_visual(doc, snap.dinamica)
         piezas = piezas_3d(doc)   # pedidos-de-extensiones D15: lo que dibujó el layout, también
+        nombres = para_tabla(doc)  # nombres-por-funcion F1: el nombre por función de cada fila
         return {"doc": doc, "proyecto": S.project_id, "nombre": nombre, "esc": esc, "firma": firma,
-                "hash_base": hash_base, "snap": snap, "vis": vis, "piezas": piezas,
+                "hash_base": hash_base, "snap": snap, "vis": vis, "piezas": piezas, "nombres": nombres,
                 "externo": cosim_externo.resultado(externo) if externo else None}
 
 
@@ -279,16 +281,18 @@ def _firma_ahora(doc) -> str | None:
 
 
 def _inicio(prep: dict, tabla: dict, config: dict, pid) -> dict:
+    from apolo.services.nombres_aparatos import humanizar, nombres_en_tabla
     from apolo.services.tablero import piezas_en_tabla
     from apolo.services.variables_plc import plcs as variables_plc
 
     snap = prep["snap"]
     tabla = piezas_en_tabla(tabla, prep.get("piezas") or {})   # pedidos-de-extensiones D15
+    tabla = nombres_en_tabla(tabla, prep.get("nombres") or {})  # nombres-por-funcion F1
     estatico = {"avisos": list(snap.avisos)}
     _sumar_visual(estatico, prep["vis"], {"cuerpos": snap.dinamica.cuerpos, "juntas": {}})
     plcs = variables_plc(getattr(snap, "programas", ()))   # pedidos-de-extensiones D12
     return {"tipo": "inicio", "version": 1, "proyecto": prep["proyecto"], "escenario": prep["nombre"],
-            "firma": prep["firma"], "ventana_s": 1.0 / 30.0, "max_s": config["max_s"],
+            "titulo_escenario": humanizar(prep["nombre"]), "firma": prep["firma"], "ventana_s": 1.0 / 30.0, "max_s": config["max_s"],
             "ritmo": config["ritmo"], "pid": pid,
             **{k: v for k, v in tabla.items() if k != "tipo"},
             "fajas": estatico["fajas"], "cadenas": estatico["cadenas"], "avisos": estatico["avisos"],

@@ -254,6 +254,7 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
     from apolo.library.catalog import CATALOG
 
     from .electrico import modelo
+    from .nombres_aparatos import Nombres
     from .tablero import piezas_3d
 
     u = _u(ubicacion)
@@ -277,7 +278,9 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
     ev = tablero_calor.evaluacion(doc, m, t)
     fila = next(iter(tablero_calor.reglas(doc, m, [t], {t.cid: ev})), None)
     gab = f"{t.cid}_gabinete"
-    for a, b in (tablero_atencion.calor(ev, gab, piezas, fila["detalle"] if fila else None),
+    nombres = Nombres(doc, m)  # nombres-por-funcion F1: «Interruptor general (-Q1)», no «-Q1»
+    for a, b in (tablero_atencion.calor(ev, gab, piezas, fila["detalle"] if fila else None,
+                                        nombre=nombres.con_designacion),
                  tablero_atencion.prensaestopas(prensas := tablero_prensas.del_tablero(doc, m, t), gab)):
         atender += a
         bien += b
@@ -301,7 +304,8 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
             "aparatos": [{"designacion": a.designacion, "ref": a.ref,
                           "nombre": CATALOG[a.ref].name if CATALOG.get(a.ref) else a.ref,
                           "zona": a.zona, "fila": a.fila, **({"pieza": piezas[a.designacion]}
-                                                             if a.designacion in piezas else {})}
+                                                             if a.designacion in piezas else {}),
+                          **dict(zip(("rotulo", "origen"), nombres.rotulo_de(a.designacion)))}
                          for a in t.layout.aparatos],
             "canaletas": _canaletas(t),
             "conductores": [_conductor(r, piezas, mundo) for r in t.ruteo.rutas],

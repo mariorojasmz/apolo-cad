@@ -127,7 +127,15 @@ def _dispositivo(entrada: dict, escena: dict, catalogo) -> Dispositivo:
     return dispositivo_desde_ficha(p.designacion, p.ref, ficha, ubicacion=p.ubicacion,
                                    ajustes=ajustes, pieza=pieza, cantidad=p.cantidad,
                                    id=entrada["id"],
-                                   deducidos={k: x["origen"] for k, x in deducidos.items()})
+                                   deducidos={k: x["origen"] for k, x in deducidos.items()},
+                                   **nombres(p))
+
+
+def nombres(p) -> dict:
+    """El rótulo, los estados y la descripción del `add_device` (plan nombres-por-funcion D1): el
+    filtro de los estados contra la ficha es de `dispositivo_desde_ficha` (A5: nunca suprime)."""
+    return {"rotulo": getattr(p, "rotulo", "") or "", "estados": dict(getattr(p, "estados", None) or {}),
+            "descripcion": getattr(p, "descripcion", "") or ""}
 
 
 def _extremo(texto: str | None, dispositivos: dict) -> str | None:

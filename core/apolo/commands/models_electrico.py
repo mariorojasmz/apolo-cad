@@ -27,6 +27,8 @@ from apolo.library.electrico.referencias import (
 from .models_neumatica import ServicioCilindro
 
 _UBICACION = r"^\+?[A-Za-z0-9_.]*$"
+TOPE_ROTULO = 30  # el texto de una placa de leyenda (plan nombres-por-funcion, D1)
+TOPE_DESCRIPCION = 100
 
 
 def _refs_dispositivo() -> list[str]:
@@ -104,7 +106,23 @@ class AddDeviceParams(BaseModel):
     - `servicio`: sólo en un cilindro, lo que tiene que hacer: {carrera_mm, velocidad_m_s,
       masa_kg, fuerza_N, caso_euler, largo_libre_mm, ciclos_min}; con él el ERC revisa el pandeo
       del vástago, la energía al fin de carrera, la relación de carga y si el caudal de la válvula
-      da la velocidad, y la memoria calcula el consumo por minuto."""
+      da la velocidad, y la memoria calcula el consumo por minuto.
+
+    Lo que el aparato HACE para quien lo opera o lo lee (plan nombres-por-funcion, D1): todo
+    mando (pulsador, seta, selector, seccionador, resguardo), piloto, panel de operador, sensor y
+    electroválvula con mando manual lleva su nombre por función; el visor lo muestra antes que la
+    designación y la puerta de publicación lo exige.
+    - `rotulo`: el texto de su placa de leyenda, ≤ 30 caracteres: «Marcha», «Paro», «Rearme de
+      seguridad», «Tapa del tanque», «Recipiente bajo la descarga», «Compuerta cerrada». Nunca la
+      designación («-S1»), la ref, el tipo («Pulsador verde») ni una variable del PLC («rs_ok»).
+    - `estados`: el nombre de cada posición o estado de SU ficha (≤ 30 cada uno): selector
+      {"0": "Manual", "I": "Ciclo"}; resguardo {"cerrado": "Acoplado", "abierto": "Sin
+      recipiente"}; seccionador {"cerrado": "Encendido", "abierto": "Apagado"}; electroválvula,
+      por posición del carrete {"14": "Abre la compuerta", "12": "Cierra la compuerta"}; botonera,
+      por actuador {"marcha": "Marcha", "paro": "Paro"}. Una clave que la ficha no tiene se
+      rechaza con las válidas.
+    - `descripcion`: opcional, UNA frase (≤ 100) sólo si el rótulo no lo dice todo: «Además
+      borra la falla de la compuerta»."""
 
     ref: str = Field(
         ..., title="Referencia",
@@ -134,8 +152,35 @@ class AddDeviceParams(BaseModel):
         None, title="Servicio del cilindro",
         description="sólo en un cilindro (V8.9): carrera, velocidad, masa y montaje que el ERC revisa",
     )
+    rotulo: str = Field(
+        "", max_length=TOPE_ROTULO, title="Rótulo",
+        description="lo que HACE, el texto de su placa: «Marcha», «Rearme de seguridad», «Tapa del tanque»",
+    )
+    estados: dict[str, str] = Field(
+        default_factory=dict, title="Estados",
+        description='el nombre de cada posición de su ficha: {"0": "Manual", "I": "Ciclo"}, '
+                    '{"cerrado": "Acoplado", "abierto": "Sin recipiente"}',
+    )
+    descripcion: str = Field(
+        "", max_length=TOPE_DESCRIPCION, title="Descripción",
+        description="una frase, sólo si el rótulo no lo dice todo",
+    )
 
     _v_designacion = field_validator("designacion")(_designacion)
+
+    @field_validator("rotulo", "descripcion")
+    @classmethod
+    def _texto(cls, v: str) -> str:
+        return " ".join((v or "").split())
+
+    @field_validator("estados")
+    @classmethod
+    def _estados(cls, v: dict) -> dict:
+        out = {str(k).strip(): " ".join(str(x).split()) for k, x in (v or {}).items()}
+        largos = [k for k, x in out.items() if len(x) > TOPE_ROTULO]
+        if largos:
+            raise ValueError(f"el nombre de un estado va hasta {TOPE_ROTULO} caracteres: {', '.join(largos)}")
+        return out
 
     @field_validator("ubicacion")
     @classmethod

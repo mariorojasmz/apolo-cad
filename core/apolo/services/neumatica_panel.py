@@ -282,11 +282,30 @@ def panel(doc) -> dict:
     n_calc = sum(1 for f in mem if "calc" in f)
     v["nota"] = f"Revisamos {n_reglas} reglas del circuito y {n_calc} cálculos de la memoria"
     demanda = next((f.get("valor") or {} for f in mem if f["regla"] == "demanda de aire"), {})
+    esq = esquema(doc, m, piezas)
     return {
         "hay_aire": True,
         "veredicto": v,
         "items": its,
         "detalle": {"cilindros": cilindros(m, mem, piezas),
                     "maquina": {k: demanda[k] for k in ("NL_min", "sin_fugas_NL_min") if k in demanda}},
-        "esquema": esquema(doc, m, piezas),
+        "esquema": esq,
+        "nombres": nombrar(doc, m, {s.get("designacion") for s in esq.get("simbolos") or ()}),
     }
+
+
+def nombrar(doc, m, tambien: set | None = None) -> dict:
+    """Plan nombres-por-funcion F1 (clave AGREGADA; F4 la muestra): {designación: {rotulo, origen,
+    estados?, descripcion?}} de cada aparato de aire y de lo que dibuja el esquema (el detector de
+    fin de carrera); la válvula trae sus `estados` por posición del carrete. Los textos de los
+    ítems siguen con la designación."""
+    from .nombres_aparatos import Nombres
+
+    n = Nombres(doc, m)
+    out = {}
+    for d in m.dispositivos:
+        if getattr(d, "neumatico", None) is None and d.designacion not in (tambien or ()):
+            continue
+        f = n.fila(d.designacion)
+        out[d.designacion] = {k: f[k] for k in ("rotulo", "origen", "estados", "descripcion") if k in f}
+    return out

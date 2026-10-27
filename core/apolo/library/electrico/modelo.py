@@ -109,6 +109,13 @@ class Dispositivo:
     #: física: la firma del documento no los ve (`services/escenarios.FUERA_DE_FIRMA`).
     simbolo: str = ""
     acoplado_a: str | None = None
+    #: plan nombres-por-funcion D1: lo que HACE para quien lo opera (`add_device.rotulo`), el
+    #: nombre de cada estado de SU ficha (`estados.claves`; lo vencido al cargar queda en
+    #: `estados_vencidos`, A5) y una frase opcional. Texto: fuera de la firma (D7).
+    rotulo: str = ""
+    estados: dict = field(default_factory=dict)
+    descripcion: str = ""
+    estados_vencidos: tuple[str, ...] = ()
 
     def borne(self, borne_id: str) -> Borne | None:
         return next((b for b in self.bornes if b.id == borne_id), None)
@@ -258,9 +265,14 @@ def expandir_bornera(bornes: tuple[Borne, ...], caminos: tuple[Camino, ...],
 def dispositivo_desde_ficha(designacion: str, ref: str, ficha, *, ubicacion: str = "",
                             ajustes: dict | None = None, pieza: str | None = None,
                             cantidad: int | None = None, id: str | None = None,
-                            deducidos: dict | None = None) -> Dispositivo:
+                            deducidos: dict | None = None, rotulo: str = "",
+                            estados: dict | None = None, descripcion: str = "") -> Dispositivo:
     """Instancia un `Dispositivo` desde la ficha de catálogo (`FichaElectrica`). La ficha llega
-    como argumento: este módulo no importa el catálogo (que arrastra la geometría)."""
+    como argumento: este módulo no importa el catálogo (que arrastra la geometría). Los
+    `estados` se FILTRAN contra las claves de la ficha (A5: lo vencido se ignora y se anota)."""
+    from .estados import claves, filtrar
+
+    validos, vencidos = filtrar(estados or {}, claves(ficha.modelo))
     bornes, caminos = ficha.bornes, ficha.caminos
     if ficha.bornera:
         bornes, caminos = expandir_bornera(bornes, caminos, int(cantidad or 1))
@@ -273,5 +285,6 @@ def dispositivo_desde_ficha(designacion: str, ref: str, ficha, *, ubicacion: str
         modelo=dict(ficha.modelo), protege_motor=ficha.protege_motor,
         parada_emergencia=ficha.parada_emergencia, bornera=ficha.bornera, id=id,
         cantidad=int(cantidad or 1) if ficha.bornera else 1, deducidos=dict(deducidos or {}),
-        simbolo=ficha.simbolo,
+        simbolo=ficha.simbolo, rotulo=rotulo or "", estados=validos, descripcion=descripcion or "",
+        estados_vencidos=vencidos,
     )

@@ -63,7 +63,8 @@ def test_el_panel_dice_el_veredicto_y_cada_prueba_con_su_semaforo():
     assert filas["atasco"]["severidad"] == "falla" and filas["atasco"]["n_fallidas"] == 1
     assert filas["vieja"]["severidad"] == "aviso" and filas["vieja"]["ultimo"] == "Pasa"
     assert "la máquina cambió" in filas["vieja"]["motivo"]
-    assert filas["nueva"] == {"nombre": "nueva", "estado": "sin_correr", "rotulo": "Sin correr", "severidad": "sin_evaluar"}
+    assert filas["nueva"] == {"nombre": "nueva", "estado": "sin_correr", "rotulo": "Sin correr", "severidad": "sin_evaluar",
+                              "titulo": "Nueva"}  # nombres-por-funcion D14: el id humanizado
 
 
 def test_abrir_una_prueba_da_lo_que_fallo_y_el_producto_con_lugar_y_hora():

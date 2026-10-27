@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado (D1–D18 vetables); fix «pandea» y F0 hechos (ajustes A1–A18 en la Bitácora); sigue F1 (dato y respaldo), luego F2–F6
+nota: contrato aprobado (D1–D18 vetables); fix «pandea» y F0 hechos (ajustes A1–A18 en la Bitácora); F1 (dato y respaldo) hecha en la rama worktree-agent-ad1e9b7996718701f, sin mergear; siguen F2–F6
 descripcion: cada mando, piloto y sensor se ve por lo que HACE («Marcha», «Tapa del tanque»), con la designación chica al lado, y la puerta de publicación no aprueba una máquina cuyos mandos no tienen nombre
 ---
 
@@ -446,3 +446,55 @@ Sólo lectura. Verifiqué 26 afirmaciones con archivo:línea: se corrigen 4 (A16
   puerta) lo avisa: el RESG-2NC se usa también como sensor de recipiente o de cadena floja.
 - **A18 — F3.** El seccionador y el resguardo se leen de `senales` (bool), y el selector y la válvula,
   de `textos`. El `Segmentado` recibe el valor leído; no lo guarda en `useState`.
+
+### F1 — el dato y el respaldo (2026-10-27)
+
+**Hecho.**
+- `add_device.rotulo` (≤ 30), `estados` (dict, ≤ 30 por nombre) y `descripcion` (≤ 100), con default
+  `""`/`{}`, en `literales` (A6) y en `CAMPOS`. La description del modelo lleva ejemplos de placa, y la
+  pista de campo es «Lo que hace, como en su placa…».
+- `library/electrico/estados.py` (puro) es la tabla A4: `claves`, `validar` y `filtrar`.
+  - Al ENTRAR valida el sello de `add_device` (`al_crear`/`al_editar`). Al editar sólo valida si
+    cambian `estados` o la ref, así un estado vencido no traba la edición de otro campo.
+  - Al CARGAR, los dos caminos (`dispositivo_desde_ficha`, `neumatica_eval.dispositivo`) filtran: lo
+    vencido queda en `Dispositivo.estados_vencidos` y el aparato se conserva (A5). `circuito` lo dice
+    en `estados_vencidos` + `aviso_estados`.
+- `Dispositivo.rotulo/estados/descripcion/estados_vencidos` en `FUERA_DE_FIRMA`.
+- `services/nombres_aparatos.py` (A2) da:
+  - `Nombres` con `rotulo_de` (cadena D3 + `origen`; A8 en el paso 4);
+  - `estados_de`, `grupo_de` (D11), `vigila` y `rearma_a` (A11, por la cadena serie);
+  - `ramas` (el cable por sus extremos) y `fila`;
+  - `limpiar_nombre_pieza` (A15), `nombre_junta` (D15) y `humanizar` (D14);
+  - `para_tabla` + `nombres_en_tabla` para el vivo.
+- Consumidores, todos con claves AGREGADAS:
+  - el `inicio` del vivo: `rotulo`, `origen`, `grupo`, `estados`, `descripcion` y `rearma` por fila;
+    `posiciones` en `valvulas`, `nombre` en `ramas` y `juntas`, y `titulo_escenario`;
+  - Tablero → aparatos: `rotulo`/`origen`; el calentamiento dice «Interruptor general (-Q1)»;
+  - Neumática: `nombres` por designación;
+  - Pruebas: `titulo` por fila;
+  - `circuito`: sólo lo declarado (A14).
+- `guidelines.py`: el `corto` («con su rótulo»), el `detalle` (ajustado a A8: la seta, el
+  seccionador y el panel de operador únicos no lo necesitan) y el golden del MCP re-congelado (sólo
+  cambia la línea 11 de las instructions).
+
+**Decisiones con criterio (vetables).**
+- **D7 también en el LOG.** `firma_documento` hashea el log entero, así que ponerle rótulo a una
+  máquina probada vencía sus escenarios. `escenarios.PARAMS_FUERA_DE_FIRMA` saca esas tres claves de
+  `add_device` antes del hash. Un log sin ellas da el hash de siempre: los 4 testigos de
+  `test_firma_dispositivo` no se mueven y no hay `COSIM_EPOCH`, `version` ni `GEOM_CACHE_EPOCH`. La
+  firma de la PUERTA (`firma_modelo`) sí las ve, a propósito: el nombre es un ítem suyo (F2).
+- **El estricto al entrar va en el sello, no en el evaluador.** En el evaluador, una mutación
+  cualquiera revertiría el documento entero por un estado vencido de OTRO aparato.
+- **Texto que no se cambió.** Las frases de los ítems de Neumática siguen con la designación (F4 las
+  muestra con `nombres`), y el `verificar` de `guidelines` NO dice «avisa los aparatos sin rótulo»:
+  sería falso hasta que entre la regla de F2, que lo suma.
+- **El respaldo por tipo** se llama «Interruptor de resguardo» (una sola forma, D13). `ambar` del
+  catálogo se lee «ámbar». La cadena del relé une los rótulos en minúscula: «Seguridad de parada
+  de emergencia y tapa del tanque».
+- **Lo que no es de un aparato.** Una rama sin conductor conocido se llama «Cable», nunca su id; una
+  junta sin pieza hija, su nombre humanizado sin el prefijo `cNN_`.
+
+**Cifras.** `test_nombres_aparatos.py` tiene 28 casos. Suite completa (`-n auto`): un solo rojo,
+`test_pruebas_panel` (comparaba la fila entera y faltaba `titulo`). Se corrigió y se re-corrió
+verde junto con los gates de documentos; ruff limpio. El golden v81 (`test_neumatica_carril`) quedó
+byte-idéntico y las cuatro firmas de `test_firma_dispositivo` no se movieron.

@@ -42,11 +42,49 @@ def _exec_carril(ctx: ExecContext, cmd_id: str, p) -> None:
     raise CommandError(f"{cmd_id}: un comando eléctrico no se ejecuta en la escena (es del carril)")
 
 
+def _estados_al_entrar(params: dict) -> dict:
+    """Plan nombres-por-funcion A5: `estados` es ESTRICTO al entrar (las claves de SU ficha, el
+    error lista las válidas) y tolerante al cargar (el evaluador ignora la vencida con aviso). Una
+    ref que no existe la reporta el evaluador, con sus sugerencias."""
+    estados = params.get("estados")
+    if not estados or not isinstance(estados, dict):
+        return params
+    from apolo.library.catalog import CATALOG
+    from apolo.library.electrico import estados as E
+
+    comp = CATALOG.get(params.get("ref")) if isinstance(params.get("ref"), str) else None
+    if comp is None:
+        return params
+    neu = comp.neumatico.modelo if comp.neumatico is not None else None
+    ele = comp.electrico.modelo if comp.electrico is not None else None
+    quien = f"{params.get('designacion') or ''} ({params.get('ref')})".strip()
+    try:
+        E.validar(estados, E.claves(ele, neu), quien)
+    except ValueError as exc:
+        raise CommandError(str(exc)) from None
+    return params
+
+
+def _estados_al_crear(params: dict, _material) -> dict:
+    return _estados_al_entrar(params)
+
+
+def _estados_al_editar(params: dict, previos: dict) -> dict:
+    """Al editar, sólo si cambian `estados` o la ref: un estado vencido por un catálogo nuevo no
+    traba la edición de otro campo (lo avisa el evaluador)."""
+    if params.get("estados") == (previos or {}).get("estados") and params.get("ref") == (previos or {}).get("ref"):
+        return params
+    return _estados_al_entrar(params)
+
+
 #: Una designación o referencia IEC 81346 empieza con «=» cuando lleva aspecto de función
-#: («=Faja1-Q1:2»): esos campos son texto, nunca `=expr` (`CommandSpec.literales`).
+#: («=Faja1-Q1:2»): esos campos son texto, nunca `=expr` (`CommandSpec.literales`). El rótulo,
+#: los estados y la descripción también (plan nombres-por-funcion A6).
 SPECS_ELECTRICO = [
     CommandSpec("add_device", "Dispositivo eléctrico", "electrico", AddDeviceParams,
-                _exec_carril, kind="electrico", literales=("designacion",)),
+                _exec_carril, kind="electrico",
+                literales=("designacion", "rotulo", "estados", "descripcion"),
+                al_crear=_estados_al_crear, al_editar=_estados_al_editar),
     CommandSpec("add_wire", "Conductor", "electrico", AddWireParams, _exec_carril,
                 kind="electrico", literales=("puntos", "cable")),
     CommandSpec("add_cable", "Cable multipolar", "electrico", AddCableParams, _exec_carril,

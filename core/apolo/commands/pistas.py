@@ -168,6 +168,7 @@ PISTAS: dict[str, str] = {
 #: (D5). Ninguna más: la pista en todos los campos está prohibida por ui/CLAUDE.md.
 PISTAS_CAMPO: dict[str, str] = {
     "AddDeviceParams.cantidad": "Sólo vale en una bornera: es cuántos bornes lleva.",
+    "AddDeviceParams.rotulo": "Lo que hace, como en su placa: «Marcha» o «Rearme».",
     "AddWireParams.hilo": "Sólo se usa si el conductor va dentro de un cable; elige el cable también.",
     "CreateRollerConveyorParams.motor": "Sólo se usa si la transmisión es por cadena.",
     "CreateChainParams.potencia_kw":"La capacidad sólo se verifica si también indicas las rpm del piñón motriz.",
