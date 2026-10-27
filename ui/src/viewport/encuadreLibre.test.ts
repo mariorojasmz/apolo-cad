@@ -85,6 +85,16 @@ describe("frente", () => {
     const d = direccionFrente(puerta(), gabinete, new THREE.Vector3(0, 5000, 400))!;
     expect(d.y).toBeCloseTo(-1, 5);
   });
+  it("con la puerta ya abierta (la junta aplicada), se mira por su cara CERRADA", () => {
+    const m = puerta();
+    m.updateMatrix();
+    m.userData.baseMatrix = m.matrix.clone(); // la pose de diseño, como `meshes.ts`
+    m.matrixAutoUpdate = false; // la junta la gira 110° sobre Z (como `applyKinematicPoses`)
+    m.matrix.premultiply(new THREE.Matrix4().makeRotationZ(THREE.MathUtils.degToRad(110)));
+    m.updateMatrixWorld(true);
+    const gabinete = new THREE.Box3(new THREE.Vector3(-300, -300, 0), new THREE.Vector3(300, 300, 800));
+    expect(direccionFrente(m, gabinete, new THREE.Vector3(0, 5000, 400))!.y).toBeCloseTo(-1, 5);
+  });
   it("la caja crece por delante lo que la puerta abre, y un tercio a los lados", () => {
     const gabinete = new THREE.Box3(new THREE.Vector3(-300, -300, 0), new THREE.Vector3(300, 300, 800));
     const c = cajaConApertura(gabinete, new THREE.Box3().setFromObject(puerta()), new THREE.Vector3(0, -1, 0));

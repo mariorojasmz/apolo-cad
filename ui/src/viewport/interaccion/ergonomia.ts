@@ -3,11 +3,12 @@ import { useStore } from "../../state/store";
 import { areaLibreDe } from "../areaLibre";
 import { crearAtenuador, EVENTO_RESTAURAR } from "../atenuar";
 import { cajaConContexto, cajaDe, idsDelEncuadre } from "../camara";
-import { cajaConApertura, direccionFrente, elegirVista, poseEnArea } from "../encuadreLibre";
+import { cajaConApertura, cajaDeDiseno, direccionFrente, elegirVista, poseEnArea } from "../encuadreLibre";
 import { installGltfExport } from "../exportGltf";
 import { opcionesDelEncuadre } from "../pedirEncuadre";
 import { crearVueloCamara } from "../vuelo";
 import type { CtxInteraccion } from "./ctx";
+import { piezasBajo } from "./alApretar";
 
 /* Ergonomía: menú contextual suprimido (el derecho orbita), doble clic enfoca, encuadre por el
    evento `apolo:fit` y exportación glTF. Salió de Viewport.tsx sin cambiar la lógica (plan
@@ -28,7 +29,7 @@ export function instalarErgonomia(ctx: CtxInteraccion): () => void {
       -((e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObjects(group.children, false);
+    const hits = piezasBajo(raycaster, group);
     return hits.length ? (hits[0].object.userData.featureId as string) : null;
   };
   // El botón derecho ORBITA (mapeo TinkerCad) → solo suprimimos el menú del navegador;
@@ -49,6 +50,16 @@ export function instalarErgonomia(ctx: CtxInteraccion): () => void {
   if (hook) {
     hook.atenuadas = () => atenuador.ids();
     hook.camara = () => ({ posicion: camera.position.toArray(), objetivo: controls.target.toArray() });
+    // dónde cae una pieza en la pantalla (NDC) y qué elige un clic ahí: el pick sin screenshot
+    hook.dondeEsta = (id: string) => {
+      const m = ctx.meshes.get(id);
+      return m ? new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()).project(camera).toArray() : null;
+    };
+    hook.elegirEn = (x: number, y: number) => {
+      raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+      return piezasBajo(raycaster, group).slice(0, 5)
+        .map((h) => [h.object.userData.featureId, Math.round(h.distance), h.object.visible]);
+    };
   }
   const onFitEvent = (ev: Event) => { // detail.id (una pieza) o detail.ids (varias, «Ver» del aviso)
     const detail = (ev as CustomEvent).detail;
@@ -69,6 +80,7 @@ export function instalarErgonomia(ctx: CtxInteraccion): () => void {
     }
     // las piezas (con contexto: una pieza chica no llena la vista), si no la selección, si no el modelo
     const area = areaLibreDe(renderer.domElement);
+    group.updateMatrixWorld(); // las mallas en su pose vista (una puerta recién abierta, sin dibujar)
     const modelo = new THREE.Box3().setFromObject(group);
     let dir = camera.position.clone().sub(controls.target);
     let caja: THREE.Box3 | null = null;
@@ -77,7 +89,7 @@ export function instalarErgonomia(ctx: CtxInteraccion): () => void {
       const d = direccionFrente(mFrente, box, camera.position);
       if (d) {
         dir = d;
-        caja = cajaConApertura(box, new THREE.Box3().setFromObject(mFrente), d);
+        caja = cajaConApertura(box, cajaDeDiseno(mFrente), d);
       }
     }
     caja ??= box ? cajaConContexto(box, modelo) : cajaDe(ctx.meshes, useStore.getState().selection) ?? modelo;

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { useStore } from "../../state/store";
 import type { CtxInteraccion } from "./ctx";
+import { piezasBajo } from "./alApretar";
 
 /* Selección por clic (y el modo «elegir punto» de los formularios); un clic sobre el ViewCube
    reorienta la vista. Salió de Viewport.tsx sin cambiar la lógica (plan piso-con-sombra, F1). */
@@ -20,7 +21,7 @@ export function instalarSeleccion(ctx: CtxInteraccion): () => void {
       -((e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObjects(group.children, false);
+    const hits = piezasBajo(raycaster, group);
     const store = useStore.getState();
 
     // modo "elegir punto" (selectores de aristas/caras en formularios)

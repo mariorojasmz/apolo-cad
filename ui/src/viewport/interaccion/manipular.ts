@@ -6,6 +6,7 @@ import { buildOverlay, ROT_MAT, WORLD_Z } from "../gizmoRot";
 import { crearHoverTiradores } from "./hoverTiradores";
 import { soloLecturaDe } from "../../state/soloLectura";
 import type { CtxInteraccion } from "./ctx";
+import { esquinasVistas, piezasBajo, queHaceElApretar } from "./alApretar";
 
 /* Manipulación directa con el botón izquierdo: agarrar-y-mover un sólido, estirar una caja por
    sus tiradores, rotar por las flechas, subir/bajar con el cono y el recuadro de selección.
@@ -119,11 +120,17 @@ export function instalarManipulacion(ctx: CtxInteraccion): () => void {
       }
     }
     // 2) ¿un SÓLIDO? → AGARRAR y mover ; si no → RECUADRO
-    const hits = raycaster.intersectObjects(group.children, false);
-    if (hits.length && !e.shiftKey && !e.ctrlKey && !e.metaKey && !posing) {
-      const fid = hits[0].object.userData.featureId as string;
+    // (en una pose —la puerta abierta— se elige la pieza donde se VE, sin moverla: alApretar.ts)
+    const hits = piezasBajo(raycaster, group);
+    const fid0 = hits.length ? (hits[0].object.userData.featureId as string) : "";
+    const que = queHaceElApretar({
+      pieza: hits.length > 0, modificador: e.shiftKey || e.ctrlKey || e.metaKey, posando: posing,
+      fija: soloLectura || blockedRef.current.includes(fid0),
+    });
+    if (que !== "recuadro") {
+      const fid = fid0;
       if (!st.selection.includes(fid)) st.select([fid]);
-      if (soloLectura || blockedRef.current.includes(fid)) { e.preventDefault(); return; } // bloqueada o sólo lectura → solo seleccionar
+      if (que === "seleccionar") { e.preventDefault(); return; } // en pose, bloqueada o sólo lectura → solo seleccionar
       const mesh = hits[0].object as THREE.Mesh;
       const z = hits[0].point.z;
       const startPlane = rayPlanePoint(raycaster.ray, z) ?? hits[0].point.clone();
@@ -363,14 +370,8 @@ export function instalarManipulacion(ctx: CtxInteraccion): () => void {
     const ids: string[] = [];
     for (const feat of featuresRef.current) {
       if (!feat.visible) continue;
-      const [ax, ay, az] = feat.bbox.min;
-      const [bx, by, bz] = feat.bbox.max;
-      const corners = [
-        [ax, ay, az], [bx, ay, az], [ax, by, az], [bx, by, az],
-        [ax, ay, bz], [bx, ay, bz], [ax, by, bz], [bx, by, bz],
-      ];
-      const inside = corners.some(([x, y, z]) => {
-        const p = new THREE.Vector3(x, y, z).project(camera);
+      const inside = esquinasVistas(ctx.meshes.get(feat.id), feat.bbox).some((esquina) => {
+        const p = esquina.project(camera);
         if (p.z < -1 || p.z > 1) return false;
         const px = rect.left + ((p.x + 1) / 2) * rect.width;
         const py = rect.top + ((1 - p.y) / 2) * rect.height;

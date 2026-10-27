@@ -46,7 +46,7 @@ export function poseEnArea(
 
 /** La normal de la cara dominante de una malla, en mundo: el autovector mayor de Σ área·n·nᵀ de
    sus triángulos (una placa da la normal de sus dos caras grandes, sin signo). null sin área. */
-export function normalDominante(malla: THREE.Mesh): THREE.Vector3 | null {
+export function normalDominante(malla: THREE.Mesh, matriz?: THREE.Matrix4): THREE.Vector3 | null {
   const g = malla.geometry as THREE.BufferGeometry | undefined;
   const pos = g?.getAttribute("position");
   if (!g || !pos) return null;
@@ -71,16 +71,34 @@ export function normalDominante(malla: THREE.Mesh): THREE.Vector3 | null {
     if (!(w.lengthSq() > 0)) return null;
     v = w.normalize();
   }
+  if (matriz) return v.transformDirection(matriz).normalize();
   malla.updateWorldMatrix(true, false);
   return v.transformDirection(malla.matrixWorld).normalize();
 }
 
-/** La dirección desde la que se mira el frente de `malla`: su normal dominante, hacia AFUERA de
-   `caja` (la del gabinete); si la pieza está en el centro, hacia donde ya estaba la cámara. */
+/** La matriz de mundo de la pieza en su pose de DISEÑO (`userData.baseMatrix`: sin la junta
+   aplicada), o la de ahora si no la tiene. Una puerta ya abierta se mira por su cara cerrada. */
+export function matrizDeDiseno(malla: THREE.Mesh): THREE.Matrix4 {
+  const base = malla.userData.baseMatrix as THREE.Matrix4 | undefined;
+  malla.updateWorldMatrix(true, false);
+  if (!base) return malla.matrixWorld.clone();
+  return malla.parent ? malla.parent.matrixWorld.clone().multiply(base) : base.clone();
+}
+
+/** La caja de la pieza en su pose de diseño (la puerta cerrada). */
+export function cajaDeDiseno(malla: THREE.Mesh): THREE.Box3 {
+  const g = malla.geometry as THREE.BufferGeometry;
+  if (!g.boundingBox) g.computeBoundingBox();
+  return g.boundingBox!.clone().applyMatrix4(matrizDeDiseno(malla));
+}
+
+/** La dirección desde la que se mira el frente de `malla`: su normal dominante EN SU POSE DE
+   DISEÑO (la puerta cerrada, aunque ya esté abierta), hacia AFUERA de `caja` (la del gabinete);
+   si la pieza está en el centro, hacia donde ya estaba la cámara. */
 export function direccionFrente(malla: THREE.Mesh, caja: THREE.Box3, camara: THREE.Vector3): THREE.Vector3 | null {
-  const n = normalDominante(malla);
+  const n = normalDominante(malla, matrizDeDiseno(malla));
   if (!n) return null;
-  const cMalla = new THREE.Box3().setFromObject(malla).getCenter(new THREE.Vector3());
+  const cMalla = cajaDeDiseno(malla).getCenter(new THREE.Vector3());
   const cCaja = caja.getCenter(new THREE.Vector3());
   const afuera = cMalla.clone().sub(cCaja);
   const ref = afuera.lengthSq() > 1e-6 ? afuera : camara.clone().sub(cCaja);
