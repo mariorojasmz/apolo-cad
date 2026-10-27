@@ -35,6 +35,10 @@ describe("avisoJob", () => {
     expect(avisoJob({ type: "job", job_id: "a1" })).toBeNull();
   });
 
+  it("un job que encoló la persona (origen visor) no es «el agente está trabajando»", () => {
+    expect(avisoJob({ type: "job", job_id: "a1", estado: "corriendo", origen: "visor" })).toBeNull();
+    expect(avisoJob({ type: "job", job_id: "a1", estado: "corriendo", origen: "otro" })).toEqual({ job_id: "a1", estado: "corriendo" });
+  });
   it("descarta los campos que no son del aviso", () => {
     expect(avisoJob({ type: "job", job_id: "a1", estado: "ok", resultado: { x: 1 } })).toEqual({ job_id: "a1", estado: "ok" });
   });

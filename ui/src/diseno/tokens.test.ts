@@ -37,12 +37,13 @@ describe("tokens del tema", () => {
     expect(reducido).toMatch(/--mov-normal:\s*0ms/);
   });
 
-  it("el CSS de diseno/, tablero/ y neumatica/ usa sólo tokens: sin colores, tamaños de letra ni duraciones sueltas", () => {
-    const css = [AQUI, join(AQUI, "..", "tablero"), join(AQUI, "..", "neumatica")]
+  it("el CSS de diseno/, tablero/, neumatica/ y pruebas/ usa sólo tokens: sin colores, tamaños de letra ni duraciones sueltas", () => {
+    const css = [AQUI, join(AQUI, "..", "tablero"), join(AQUI, "..", "neumatica"), join(AQUI, "..", "pruebas")]
       .flatMap((dir) => readdirSync(dir).filter((f) => f.endsWith(".css")).map((f) => join(dir, f)))
       .map((f) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "")).join("\n");
     expect(css).toContain(".tb-fila"); // el panel «Tablero» (V8.5 F3b) entra al control
     expect(css).toContain(".nm-esquema"); // y el panel «Neumática» (V8.9 F6)
+    expect(css).toContain(".pr-fila"); // y el panel «Pruebas» (visor-para-evaluar D5)
     expect(css.match(/#[0-9a-f]{3,8}\b|rgba?\(/gi) ?? []).toEqual([]);
     expect(css.match(/font-size:\s*\d/g) ?? []).toEqual([]);
     expect(css.match(/\b\d+m?s\b(?![^(]*\))/g)?.filter((d) => d !== "0s") ?? []).toEqual([]);

@@ -23,7 +23,7 @@ const hola: Extension = {
   ],
 };
 
-const HOY = ["history", "reqs", "bom", "checks", "kin", "mates", "fisica", "ensamblaje", "boceto", "tablero", "neumatica", "mandos", "senales", "plc"];
+const HOY = ["history", "reqs", "bom", "checks", "kin", "mates", "fisica", "ensamblaje", "boceto", "tablero", "neumatica", "pruebas", "mandos", "senales", "plc"];
 
 describe("paneles del núcleo más los de las extensiones", () => {
   it("con el registro vacío quedan los paneles del núcleo, tal cual", () => {

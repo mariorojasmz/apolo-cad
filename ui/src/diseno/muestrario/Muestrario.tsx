@@ -10,6 +10,8 @@ import VueloDemo, { type Demo } from "./VueloDemo";
 import MarcoCajon from "../../visor/MarcoCajon";
 import { EXTENSION_PRUEBA } from "./extensionPrueba";
 import PantallaDemo from "./PantallaDemo";
+import VistaPruebas from "../../pruebas/VistaPruebas";
+import { AHORA_MUESTRARIO, CORRIDAS_DEMO, DETALLE_PRUEBA, PANEL_PRUEBAS } from "./datosPruebas";
 import "./muestrario.css";
 
 /* Muestrario de diseño (plan V8.5 F3b-0, F3b): el panel «Tablero» REAL (`tablero/VistaTablero`)
@@ -67,6 +69,13 @@ export default function Muestrario() {
           if (c) d.recorrido(recorridoDe(PANEL_CON_FALLAS, c));
         }} />
       </Marco>
+      <Marco rotulo="Pruebas · una abierta y otra corriendo">
+        <PruebasDemo />
+      </Marco>
+      <Marco rotulo="Pruebas · sin escenarios">
+        <VistaPruebas panel={{ veredicto: null, escenarios: [] }} abierto={null} detalle={null} corridas={{}} fallos={{}}
+          acciones={ACCIONES_NULAS} />
+      </Marco>
       <Marco rotulo="Mandos · resguardo y relé de seguridad">
         <PanelMandosDemo />
       </Marco>
@@ -83,6 +92,19 @@ export default function Muestrario() {
         <CajonDeExtension />
       </Marco>
     </main>
+  );
+}
+
+const ACCIONES_NULAS = { alternar: () => {}, correr: () => {}, enVivo: () => {}, verLugar: () => {} };
+
+/** El panel «Pruebas» (plan visor-para-evaluar D5) con datos de ejemplo: una prueba abierta con lo
+   que falló y el producto trabado, y otra corriendo (el reloj fijo para la captura). */
+function PruebasDemo() {
+  const [abierto, setAbierto] = useState<string | null>(DETALLE_PRUEBA.nombre);
+  return (
+    <VistaPruebas panel={PANEL_PRUEBAS} abierto={abierto} detalle={abierto === DETALLE_PRUEBA.nombre ? DETALLE_PRUEBA : null}
+      corridas={CORRIDAS_DEMO} fallos={{}} ahora={AHORA_MUESTRARIO}
+      acciones={{ ...ACCIONES_NULAS, alternar: (n) => setAbierto(abierto === n ? null : n) }} />
   );
 }
 

@@ -160,6 +160,29 @@ def get_escenarios(nombre: str | None = None) -> dict:
             raise _http_error(exc) from exc
 
 
+@router.get("/api/pruebas")
+def get_pruebas() -> dict:
+    """Panel «Pruebas» del visor (plan visor-para-evaluar D1): cada escenario con su estado en
+    semáforo, fecha y balance, y el resumen arriba («15 de 16 pasan · 1 vencido»). Read-only."""
+    from apolo.services.pruebas_panel import panel
+
+    with STATE_LOCK:
+        return panel(S.doc)
+
+
+@router.get("/api/pruebas/{nombre}")
+def get_prueba(nombre: str) -> dict:
+    """Un escenario abierto en el panel: lo que falló con su cifra y el producto trabado o
+    perdido con su lugar y su hora (D2). Read-only; 404 con sugerencia si no existe."""
+    from apolo.services.pruebas_panel import detalle
+
+    with STATE_LOCK:
+        try:
+            return detalle(S.doc, nombre)
+        except ServiceError as exc:
+            raise _http_error(exc) from exc
+
+
 class EscenarioIn(BaseModel):
     escenario: dict
 
@@ -203,14 +226,14 @@ class CorrerIn(BaseModel):
 
 
 @router.post("/api/cosim/run", response_model=dict)
-def cosim_run(body: CorrerIn, async_: bool = Query(False, alias="async")):
+def cosim_run(body: CorrerIn, async_: bool = Query(False, alias="async"), origen: str | None = None):
     """Corre la máquina entera con un escenario (D11) y evalúa sus aserciones (D12). Un escenario
     con nombre guarda su resultado con su vigencia (lo lee la puerta de entrega, D14). Con
     `plc_externo` (plan plc-en-el-lazo D6–D8) esos PLC son los de afuera, a ritmo de pared: el
     resultado no es determinista, no tiene veredicto ni se guarda; un lazo cortado es 502."""
     return _job_cosim("cosim", lambda proyecto: _correr(body.escenario, guardar=body.guardar,
                                                         proyecto=proyecto,
-                                                        plc_externo=body.plc_externo), async_)
+                                                        plc_externo=body.plc_externo), async_, origen)
 
 
 class PruebaPlcIn(BaseModel):

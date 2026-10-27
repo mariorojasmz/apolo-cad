@@ -258,7 +258,13 @@ def _sync_or_job(tipo: str, work, async_: bool):
     )
 
 
-def _job_cosim(tipo: str, work, async_: bool):
+def _origen(origen: str | None) -> str | None:
+    """El `origen` de un job pedido por la UI («visor»: la persona lo encoló y el visor no lo
+    cuenta como «el agente está trabajando», plan visor-para-evaluar D9). Otro valor, nada."""
+    return "visor" if origen == "visor" else None
+
+
+def _job_cosim(tipo: str, work, async_: bool, origen: str | None = None):
     """Como `_sync_or_job`, para la co-simulación: `work(proyecto)` toma SUS locks (snapshot bajo
     `STATE_LOCK`, la corrida fuera de todo lock) y revalida `proyecto` (el activo al encolar; None
     en sync) dentro de su `STATE_LOCK`. Con `?async`, 202 + recibo en `COSIM_JOBS`."""
@@ -272,11 +278,12 @@ def _job_cosim(tipo: str, work, async_: bool):
             return work(expected)
 
     return JSONResponse(
-        status_code=202, content={"job_id": COSIM_JOBS.submit(tipo, guarded), "estado": "encolado"}
+        status_code=202, content={"job_id": COSIM_JOBS.submit(tipo, guarded, origen=_origen(origen)),
+                                  "estado": "encolado"}
     )
 
 
-def _job_entregable(tipo: str, work, async_: bool):
+def _job_entregable(tipo: str, work, async_: bool, origen: str | None = None):
     """Un entregable en archivo (memoria, manual) en directo o como JOB (plan manual-rapido F2).
     `work(proyecto)` arma la `Response` con el archivo tomando SUS locks; `proyecto` = el activo
     al encolar (None en directo), que revalida con `_mismo_proyecto` en su primera toma de
@@ -296,7 +303,7 @@ def _job_entregable(tipo: str, work, async_: bool):
                 "tipo": resp.media_type, "nombre": nombre}
 
     return JSONResponse(status_code=202, content={
-        "job_id": ENTREGABLES_JOBS.submit(tipo, guarded), "estado": "encolado"})
+        "job_id": ENTREGABLES_JOBS.submit(tipo, guarded, origen=_origen(origen)), "estado": "encolado"})
 
 
 def _mismo_proyecto(proyecto) -> None:

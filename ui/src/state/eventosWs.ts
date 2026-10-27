@@ -30,9 +30,11 @@ export function mensajeWs(data: unknown): Record<string, unknown> | null {
 }
 
 /** El aviso de job de un mensaje, o null si es de otro tipo, viene roto o trae un estado
-   desconocido («encolado» no se manda; si llegara, se ignora). */
+   desconocido («encolado» no se manda; si llegara, se ignora). Un job con `origen: "visor"` lo
+   encoló la persona (correr una prueba, calcular un plano: `state/jobs.ts`): no es «el agente
+   está trabajando» y tampoco se publica (plan visor-para-evaluar D9). */
 export function avisoJob(m: Record<string, unknown> | null): AvisoJob | null {
-  if (!m || m.type !== "job") return null;
+  if (!m || m.type !== "job" || m.origen === "visor") return null;
   const { job_id, estado } = m;
   if (typeof job_id !== "string" || !job_id || typeof estado !== "string" || !ESTADOS.includes(estado)) return null;
   return { job_id, estado: estado as EstadoJob };

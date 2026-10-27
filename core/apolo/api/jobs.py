@@ -34,6 +34,19 @@ _MAX_WAIT_S = 30.0
 
 _TERMINAL = ("ok", "error")
 
+# El job que corre en ESTE hilo (lo fija el worker): `avance()` le escribe su progreso sin que el
+# closure sepa su id (plan visor-para-evaluar D9). Fuera de un worker, `avance` no hace nada.
+_ACTUAL = threading.local()
+
+
+def avance(progreso: dict) -> None:
+    """El progreso del job que corre en este hilo (`{"hechas", "total", "fase"}`: lo que el
+    cliente lee en `GET /api/jobs/{id}` → `progreso`). Sin job (en directo), no hace nada."""
+    actual = getattr(_ACTUAL, "job", None)
+    if actual is not None:
+        store, job_id = actual
+        store._progreso(job_id, dict(progreso))
+
 
 def _describe_error(exc: BaseException) -> tuple[str, int]:
     """(detail, http_status) de una excepción del closure. Duck-typing DELIBERADO sobre
@@ -68,8 +81,10 @@ class JobStore:
         self._al_cambiar_estado = al_cambiar_estado
 
     # ------------------------------------------------------------------ API pública
-    def submit(self, tipo: str, fn: Callable[[], dict]) -> str:
-        """Encola ``fn`` y devuelve el recibo (``job_id``) al instante."""
+    def submit(self, tipo: str, fn: Callable[[], dict], origen: str | None = None) -> str:
+        """Encola ``fn`` y devuelve el recibo (``job_id``) al instante. ``origen`` (opcional,
+        «visor»: lo encoló la persona desde la UI) viaja en el job y en sus avisos; sin él, todo
+        como siempre (el visor cuenta el job como del agente)."""
         job_id = uuid.uuid4().hex[:8]
         with self._cv:
             self._jobs[job_id] = {
@@ -81,6 +96,7 @@ class JobStore:
                 "http_status": None,
                 "creado": time.time(),
                 "terminado": None,
+                **({"origen": origen} if origen else {}),
             }
             self._order.append(job_id)
             self._ensure_worker()
@@ -133,6 +149,7 @@ class JobStore:
             job_id, fn = self._queue.get()
             self._mark_running(job_id)
             self._avisar(job_id, "corriendo")
+            _ACTUAL.job = (self, job_id)
             try:
                 resultado = fn()  # SIN lock propio: el closure toma STATE_LOCK (lock hoja)
             except BaseException as exc:  # noqa: BLE001 — el error viaja al job, no mata el worker
@@ -142,6 +159,8 @@ class JobStore:
             else:
                 self._finish(job_id, estado="ok", resultado=resultado)
                 self._avisar(job_id, "ok")
+            finally:
+                _ACTUAL.job = None
 
     def _avisar(self, job_id: str, estado: str) -> None:
         """Aviso de cambio de estado. Llamar SIEMPRE sin ``_cv`` sostenido (es código
@@ -150,13 +169,21 @@ class JobStore:
         avisar = self._al_cambiar_estado
         if avisar is None:
             return
+        with self._cv:
+            origen = (self._jobs.get(job_id) or {}).get("origen")
         try:
-            avisar({"job_id": job_id, "estado": estado})
+            avisar({"job_id": job_id, "estado": estado, **({"origen": origen} if origen else {})})
         except BaseException:  # noqa: BLE001
             # El aviso es best-effort: un callback roto no mata el worker (los jobs que
             # esperan en cola se quedarían sin atender) ni cambia el resultado del job,
             # que ya está escrito. El dueño del recibo lo recoge igual por `get`.
             pass
+
+    def _progreso(self, job_id: str, progreso: dict) -> None:
+        with self._cv:
+            job = self._jobs.get(job_id)
+            if job is not None and job["estado"] not in _TERMINAL:
+                job["progreso"] = progreso
 
     def _mark_running(self, job_id: str) -> None:
         with self._cv:
