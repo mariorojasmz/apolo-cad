@@ -6,7 +6,8 @@ formato del insumo, en su docstring). El llamador sostiene STATE_LOCK (sólo se 
 
 - **Agujero** = cara CILÍNDRICA INTERIOR (su normal mira al eje), de la geometría, nunca del
   nombre; los cilindros coaxiales de una misma pieza son UN agujero (las dos paredes de un tubo).
-  Se extraen una vez por pieza.
+  Un COLISO (`calidad_colisos.py`, F3e) es agujero por su ANCHO y recibe los pernos que le caben
+  (`agujeros.pernos_en_coliso`). Se extraen una vez por pieza.
 - **Zona**: la intersección de las cajas de las dos piezas, ensanchada 1 mm (el agujero de una
   placa bajo la huella de la chumacera, no el de la otra punta). Con tornillería de un lado (un
   espárrago, un perno modelado a mano), sólo se juzga la pieza que ATRAVIESA (las cajas se solapan
@@ -52,9 +53,11 @@ def _metrica(texto) -> float | None:
     return float(m[1]) if m else None
 
 
-def agujeros_de(shape) -> list[dict]:
+def agujeros_de(shape, colisos: bool = True) -> list[dict]:
     """Los agujeros de una forma: [{d, p (punto del eje), eje, lo, hi (caja de sus caras)}], uno
-    por línea de eje y Ø (coaxiales del mismo Ø ±0,3 mm = el mismo agujero)."""
+    por línea de eje y Ø (coaxiales del mismo Ø ±0,3 mm = el mismo agujero), más sus COLISOS
+    (`calidad_colisos`: {tipo: "coliso", d = el ancho, largo, p0, p1, …}), que absorben los
+    medios cilindros de sus extremos redondos."""
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.BRepLProp import BRepLProp_SLProps
     from OCP.GeomAbs import GeomAbs_Cylinder
@@ -92,7 +95,16 @@ def agujeros_de(shape) -> list[dict]:
         else:
             mismo["lo"] = tuple(min(mismo["lo"][i], nuevo["lo"][i]) for i in range(3))
             mismo["hi"] = tuple(max(mismo["hi"][i], nuevo["hi"][i]) for i in range(3))
-    return out
+    if not colisos:
+        return out
+    from .calidad_colisos import absorbe, colisos_de
+
+    try:
+        cs = colisos_de(shape)
+    except Exception:  # noqa: BLE001 — sin la medida del coliso, los agujeros redondos de siempre
+        return out
+    # los medios cilindros de un coliso de extremos redondos son ESE coliso, no dos agujeros
+    return [a for a in out if not any(absorbe(c, a) for c in cs)] + cs
 
 
 def _mismo_eje(a: dict, b: dict) -> bool:
@@ -178,10 +190,14 @@ class _Medidor:
                 return {**base, "juzgada": False,
                         "motivo": "base de la tornillería (no la atraviesa: va soldada o roscada)"}
             zona = _cruce(ca, cb, _MARGEN_MM)
+        from apolo.library.calidad.agujeros import cuenta
+
         suyos = self.agujeros(fid, d, zona)
         if registrar:
             self.atribuidos.setdefault(fid, []).extend(suyos)
-        return {**base, "juzgada": True, "agujeros": len(suyos)}
+        colisos = sum(1 for a in suyos if a.get("tipo") == "coliso")
+        return {**base, "juzgada": True, "agujeros": sum(cuenta(a) for a in suyos),
+                **({"colisos": colisos} if colisos else {})}
 
 
 def _tipos(doc) -> dict:

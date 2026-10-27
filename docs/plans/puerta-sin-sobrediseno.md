@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes, memo de masas, campo del codo compartido, get_job resumido; registro v10; la puerta del elevador 378 → 61 s) mergeada; F3d (lo que la entrega no evaluó se justifica por escrito, registro v11) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes, memo de masas, campo del codo compartido, get_job resumido; registro v10; la puerta del elevador 378 → 61 s) mergeada; F3d (lo que la entrega no evaluó se justifica por escrito, registro v11) hecha en su rama, sin mergear; F3e (extremo de eje liso ≤ ½·d no es peligro por OSHA 1910.219(c)(4), el coliso es agujero; registro v13) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -700,3 +700,73 @@ Decisiones tomadas en la implementación (vetables):
   sin junta. Para acotarla, el par.
 - **Sin cambiar la forma de `no_aplica`** (lista de textos que leen la UI, la tool y los tests): las
   piezas viajan en una clave aparte que sólo aparece si hay.
+
+### F3e (2026-10-27): el extremo de eje liso y el coliso
+
+Dos hallazgos del modelador que adelgazaba una faja: la puerta pedía capotas sobre dos chumaceras
+de cola porque 42 sondas llegaban a un extremo de eje AL RAS de la chumacera, y `union.agujeros`
+no contaba un coliso de extremos rectos como agujero (agregó extremos redondos a colisos que ya
+estaban).
+
+**Fuente del ajuste 1, verificada en el texto.** OSHA 29 CFR 1910.219(c)(4) «Projecting shaft
+ends»: (i) «Projecting shaft ends shall present a smooth edge and end and shall not project more
+than one-half the diameter of the shaft unless guarded by nonrotating caps or safety sleeves»;
+(ii) «Unused keyways shall be filled up or covered». Leído en la edición oficial de la GPO
+(<https://www.govinfo.gov/content/pkg/CFR-2023-title29-vol5/xml/CFR-2023-title29-vol5-sec1910-219.xml>)
+y en la copia de Cornell LII (<https://www.law.cornell.edu/cfr/text/29/1910.219>); osha.gov
+rechaza al lector automático (403). Cal/OSHA 8 CCR § 4051
+(<https://www.dir.ca.gov/title8/4051.html>) dice lo mismo y fija desde dónde se mide: «beyond the
+end of the bearing». En ISO 12100 / ISO 14120 / ISO 13857 no hay un umbral de acceso público (de
+pago; no se buscaron copias): ISO 12100 anexo B sólo nombra el enganche en lo que gira.
+
+Qué entró:
+1. **Extremo de eje** (`library/seguridad/extremo_eje.py`, puro; medido en
+   `services/calidad_extremos.py` con rayos OCCT, `calidad_sondas.Trazador`): por cada extremo del
+   peligro «extremo de eje giratorio», d y la lisura con rayos RADIALES contra la pieza de la punta
+   (24 ángulos, a 3 mm de la punta y cada 5 mm de lo que sobresale: un chavetero, plano o escalón
+   cambia el radio), la cara de la punta con rayos axiales a 0,92·r, y el apoyo con rayos axiales
+   desde la punta a r + 1 mm (8 ángulos): la primera pieza que no gira es la cara del apoyo y su
+   distancia lo que sobresale (la punta metida en el material del apoyo = 0). Lo que gira o es
+   tornillería sobre lo que sobresale (chaveta, prisionero, tuerca, acople, piñón) lo hace no liso.
+   Liso y ≤ ½·d → el extremo sale de los objetivos; si los dos salen, el peligro sale de la lista
+   y va a `extremos_exentos` (evidencia de `seguridad.resguardo_iso13857`, con la norma). Sin
+   medida (no se reconoce el eje, ningún apoyo a ½·d), sigue siendo peligro.
+2. **Coliso** (`services/calidad_colisos.py`; ancho con `borde_agujero.abertura`, los rayos de
+   `medir_borde` por sólido, que ahora comparten `anchos_opuestos`): dos caras planas paralelas
+   que se enfrentan con el medio en el hueco, el eje del perno por la arista recta más corta de la
+   pared (el espesor), y la abertura CERRADA en el plano ⊥ al eje con ancho = su separación. Es
+   agujero si el ancho cumple `compatible` (el mismo rango que el Ø) y recibe
+   1 + ⌊(largo − ancho)/(2,2·ancho)⌋ pernos (EN 1993-1-8 tabla 3.3, p1 ≥ 2,2·d0, `P_MIN`). Los
+   medios cilindros de sus extremos redondos son ese coliso: antes contaban como DOS agujeros.
+3. **El lint «barreno sin perno»**: un `drill_hole` que cae sobre el tramo de un coliso atribuido
+   (`p0`–`p1`, los centros de sus extremos) tiene su perno, como el agujero redondo coaxial.
+
+`VERSION_REGISTRO` 12 → 13. Testigos re-congelados a propósito: los cuatro, sólo la versión;
+la faja además cambia su firma porque su `.apolo` se rehízo con tres justificaciones nuevas. Con
+esta regla, en la faja de la plantilla son exentos los dos extremos del tambor de cola (metidos
+en el marco de las UCT) y el (−Y) del motriz (2 mm fuera de la chumacera UCF; el (+Y) lleva el
+acople: sigue siendo peligro), así que «Tapa del eje motriz (−Y)» y las dos «Tapa del tensor»
+salían sobrantes y `diseno.sin_sobrantes` pasaba a FALLA: `JUSTIFICADAS_FAJA` las justifica
+(cubren el sello del inserto del polvo). Ningún veredicto por ítem se movió. Ningún defecto
+sembrado dependía de un extremo al ras. Tests: `tests/test_puerta_f3e.py` (umbral a los dos lados
+de ½·d, chavetero, tuerca; coliso recto y redondo del ancho del paso OK, angosto FALLA; el lint
+con y sin la unión que lo declara).
+
+Decisiones tomadas en la implementación (vetables):
+- **El chavetero cuenta aunque el extremo vaya al ras**: la primera estación radial está siempre a
+  3 mm de la punta (lejos del chaflán), también dentro del apoyo; la muesca que asoma en la punta
+  es lo que (c)(4)(ii) pide cubrir. Los prisioneros del inserto de una chumacera de catálogo no
+  están modelados: no se ven (y en un UC van rehundidos en el aro).
+- **Sin apoyo todo alrededor, peligro**: los 8 rayos axiales tienen que tocar una pieza que no
+  gira a ≤ ½·d + 10 mm; un apoyo parcial (una ménsula a un lado) no basta.
+- **Un coliso corto recibe UN perno** (antes, dos: sus dos medios cilindros); uno largo, los que
+  caben con el paso mínimo de EN 1993-1-8. Una muesca abierta (en U) no es coliso: queda fuera,
+  como antes.
+
+Hallazgos fuera del alcance:
+- `create_belt_conveyor` pone tapas sobre extremos que la norma no pide tapar (las tres de
+  arriba): decidir si la plantilla las quita (cambia el executor: `version`) es fase propia; hasta
+  entonces toda faja de plantilla las justifica o la puerta las da por sobrantes.
+- Un tubo redondo cuyo interior tiene el Ø de un paso de perno sigue contando como agujero
+  (`agujeros_de`, desde F3c); el coliso no repite ese error (el interior de un tubo queda abierto a
+  lo largo).

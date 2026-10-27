@@ -18,7 +18,9 @@ El insumo de una unión (dict):
 
 Cada pieza que se juzga debe tener ≥ `pide` agujeros compatibles con el perno —pasantes o
 roscados: Ø entre 0,75·d (broca de machuelo) y 1,6·d + 2 mm (paso holgado o ranura)— en la zona
-de la unión; con `basta_una`, una sola de ellas. No se juzga (lo decide `services`, con su
+de la unión; con `basta_una`, una sola de ellas. Un COLISO (ranura alargada de extremos redondos
+o rectos, `services/calidad_colisos.py`) es agujero si su ANCHO cumple ese rango, y recibe los
+pernos que caben a lo largo (`pernos_en_coliso`, F3e). No se juzga (lo decide `services`, con su
 motivo) lo de catálogo y lo declarado «(compra…)» (sus agujeros son del fabricante: el builder o el
 bloque a mano no siempre los modelan), la tornillería y los pasadores, una cadena o una banda, una
 chapa perforada (la perforación no se modela), el eje que aprieta un prisionero ni la base sobre
@@ -28,6 +30,8 @@ con «sin perno» en la nota (un cierre de palanca) no llega. Las uniones intern
 """
 
 from __future__ import annotations
+
+import math
 
 from .item import FALLA, NO_APLICA, OK, Item, recortar
 
@@ -41,10 +45,44 @@ D_SIN_METRICA_MM = (3.0, 50.0)
 
 
 def compatible(diametro_mm: float, d: float | None) -> bool:
-    """¿Un agujero de `diametro_mm` sirve para un perno M`d` (pasante o roscado)?"""
+    """¿Un agujero de `diametro_mm` sirve para un perno M`d` (pasante o roscado)? De un COLISO se
+    pasa su ANCHO: el mismo rango."""
     if d is None:
         return D_SIN_METRICA_MM[0] <= diametro_mm <= D_SIN_METRICA_MM[1]
     return D_MIN_FRACCION * d - 1e-6 <= diametro_mm <= D_MAX_FRACCION * d + D_MAX_EXTRA_MM + 1e-6
+
+
+def pernos_en_coliso(ancho: float, largo: float) -> int:
+    """Cuántos pernos caben en un coliso (F3e): uno, y otro más por cada paso p1 ≥ 2,2·d0 de
+    EN 1993-1-8 tabla 3.3 (`borde_agujero.P_MIN`, d0 = el ancho) entre los centros de sus
+    extremos. Un coliso corto es UN agujero (antes sus dos medios cilindros contaban dos)."""
+    from ..borde_agujero import P_MIN
+
+    if ancho <= 0:
+        return 1
+    return 1 + int(max(largo - ancho, 0.0) / (P_MIN * ancho) + 1e-6)
+
+
+def cuenta(agujero: dict) -> int:
+    """Los pernos que recibe un agujero medido: 1, o los de su coliso."""
+    if agujero.get("tipo") == "coliso":
+        return pernos_en_coliso(agujero["d"], agujero.get("largo", agujero["d"]))
+    return 1
+
+
+def distancia_a_tramo(q, p0, p1, eje) -> float:
+    """Distancia de la recta (`q`, `eje` unitario) al tramo p0–p1, medida en el plano ⊥ al eje:
+    0 si la recta pasa por el coliso cuyos extremos tienen sus centros en p0 y p1."""
+    def plano(x):
+        w = tuple(x[i] - q[i] for i in range(3))
+        k = sum(w[i] * eje[i] for i in range(3))
+        return tuple(w[i] - k * eje[i] for i in range(3))
+
+    a, b = plano(p0), plano(p1)
+    ab = tuple(b[i] - a[i] for i in range(3))
+    den = sum(x * x for x in ab)
+    s = 0.0 if den < 1e-12 else max(0.0, min(1.0, -sum(a[i] * ab[i] for i in range(3)) / den))
+    return math.sqrt(sum((a[i] + s * ab[i]) ** 2 for i in range(3)))
 
 
 def juzgar(u: dict) -> tuple[str, str, dict] | None:

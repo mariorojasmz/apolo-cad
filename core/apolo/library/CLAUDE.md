@@ -354,7 +354,9 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   una tapa con bisagra) y no es peligro, pero se mueve (`moviles`). El acople y la salida del
   motorreductor sí lo son (`seguridad/transmision_rigida.py`). Resguardo = la guarda que paró una
   sonda o la declarada en `funciones` (`resguardo`), no toda «tapa»; el piso es el apoyo de lo
-  anclado, no un perno de anclaje.
+  anclado, no un perno de anclaje. El extremo de eje LISO que sobresale ≤ ½·d de su apoyo no es
+  peligro (`seguridad/extremo_eje.py`, OSHA 1910.219(c)(4); medido en `services/calidad_extremos.py`):
+  chavetero, prisionero, tuerca o más saliente, sí; un COLISO es agujero por su ANCHO. (F3e)
 - **Lo declarado se fabrica** (F3c del mismo plan): `union.agujeros` (`calidad/agujeros.py`, medido
   en `services/calidad_agujeros.py`) pide a cada pieza a medida de un `fasten` perno del modelador
   (o de un anclaje con pernos en su nota) los agujeros de su métrica en la zona de la unión; lo de

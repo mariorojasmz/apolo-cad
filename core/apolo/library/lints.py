@@ -111,10 +111,18 @@ def _bolt_lines(scene, catalog) -> list[tuple]:
 def _de_union_declarada(fid, p0, u, dia, declarados) -> bool:
     """¿El taladro (recta p0 + t·u, Ø `dia`) es uno de los agujeros que `union.agujeros` atribuye
     a un fasten perno DECLARADO de su pieza (`declarados[fid]`: {p, eje} de la geometría)? Su eje
-    paralelo y dentro del radio del taladro: es el mismo agujero."""
+    paralelo y dentro del radio del taladro: es el mismo agujero. De un COLISO ({p0, p1}: los
+    centros de sus extremos) basta que el taladro caiga sobre su tramo: el extremo redondo de un
+    coliso hecho con dos `drill_hole` es ese coliso."""
+    from .calidad.agujeros import distancia_a_tramo
+
     for a in declarados.get(fid) or ():
         try:
             if abs(abs(sum(a["eje"][i] * u[i] for i in range(3))) - 1.0) > 1e-3:
+                continue
+            if "p0" in a:
+                if distancia_a_tramo(p0, a["p0"], a["p1"], u) <= dia / 2.0:
+                    return True
                 continue
             if _perp_dist(a["p"], p0, u) <= dia / 2.0:
                 return True

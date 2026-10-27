@@ -66,7 +66,9 @@ DOBLADO y cadena sin tensor; v4 `union.distancia_al_borde`; v5 sólo chapas y al
 `diseno.sin_sobrantes` y el AVISO justificado; v9 (F3b) bisagra de servicio, acople, resguardo =
 lo que cubre un peligro, L10 con rpm; v10 (F3c) `union.agujeros`, espárrago, factor de servicio,
 `vigas`, holgura ≤ 4 mm; v11 (F3d) lo no evaluado se justifica por escrito; v12
-(nombres-por-funcion F2) `interfaz.nombres_por_funcion`.
+(nombres-por-funcion F2) `interfaz.nombres_por_funcion`; v13 (puerta-sin-sobrediseno F3e) el
+extremo de eje LISO que sobresale ≤ ½·d de su apoyo no es peligro (OSHA 1910.219(c)(4)) y el
+COLISO del ancho del paso es agujero de `union.agujeros`.
 """
 
 from __future__ import annotations
@@ -79,7 +81,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "12"  # 12: interfaz.nombres_por_funcion (plan nombres-por-funcion F2)
+VERSION_REGISTRO = "13"  # 13: extremo de eje liso ≤ ½·d y coliso (puerta-sin-sobrediseno F3e)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 

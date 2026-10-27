@@ -119,9 +119,7 @@ def medir_borde(rayos, punto, eje, t0: float, t1: float, d_nominal: float,
         dirs.append(w)
         pared.append(cs[0] if cs else None)
         canto.append(cs[1] if len(cs) > 1 else None)
-    mitad = N_RAYOS // 2
-    anchos = [pared[k] + pared[k + mitad] for k in range(mitad)
-              if pared[k] is not None and pared[k + mitad] is not None]
+    anchos = anchos_opuestos(pared)
     if not anchos:
         return {"estado": "sin_medida", "motivo": "no se reconoce la pared del agujero"}
     ancho = min(anchos)
@@ -169,12 +167,39 @@ def medir_borde(rayos, punto, eje, t0: float, t1: float, d_nominal: float,
             "hacia": [round(x, 4) for x in dirs[k]]}
 
 
+def anchos_opuestos(pared: list) -> list[float]:
+    """a(θ) + a(θ + π) de cada par de rayos opuestos con pared (el agujero de pared a pared): el
+    MENOR es su ancho d0; el mayor, su largo (una ranura)."""
+    mitad = len(pared) // 2
+    return [pared[k] + pared[k + mitad] for k in range(mitad)
+            if pared[k] is not None and pared[k + mitad] is not None]
+
+
+def abertura(rayos, centro, eje, u, alcance: float) -> dict | None:
+    """La abertura que rodea al punto `centro` (en el HUECO) en el plano ⊥ `eje`: `N_RAYOS`
+    rectas desde el centro (la primera según `u`), el primer corte de cada una es la pared (la
+    misma medida que `medir_borde`). → {ancho (d0), largo, cerrada (toda recta toca pared a ≤
+    `alcance`), a0, a180 (la pared según +u y −u)} o None sin pared. La usa `union.agujeros` para el COLISO (F3e): una ranura
+    alargada cuyo ancho es el paso del perno."""
+    v = _cross(eje, u)
+    pared = []
+    for k in range(N_RAYOS):
+        ang = 2.0 * math.pi * k / N_RAYOS
+        w = _add(_add((0.0, 0.0, 0.0), u, math.cos(ang)), v, math.sin(ang))
+        cs = rayos.cortes(centro, w, 0.0, alcance)
+        pared.append(cs[0] if cs else None)
+    anchos = anchos_opuestos(pared)
+    if not anchos:
+        return None
+    return {"ancho": min(anchos), "largo": max(anchos),
+            "cerrada": all(p is not None for p in pared),
+            "a0": pared[0], "a180": pared[N_RAYOS // 2]}  # según ±u: el centro de la ranura
+
+
 def _barra(canto: list, t: float, d0: float, roscado: bool) -> dict | None:
     """`barra` si la pieza, en el agujero, es una barra maciza (t ≥ BARRA_T·d0 y su ancho más
     angosto pared a pared W ≤ BARRA_W·t); si no, None (chapa, ala, pared de tubo: se juzga)."""
-    mitad = len(canto) // 2
-    anchos = [canto[k] + canto[k + mitad] for k in range(mitad)
-              if canto[k] is not None and canto[k + mitad] is not None]
+    anchos = anchos_opuestos(canto)
     if not anchos or t < BARRA_T * d0 - _TOL:
         return None
     w = min(anchos)

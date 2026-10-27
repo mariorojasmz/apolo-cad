@@ -80,6 +80,11 @@ JUSTIFICADAS_FAJA = [
      "+Y, como su par del −Y: la plantilla cierra los dos lados por simetría"},
     {"pieza": "c1_guarda_inf2_2", "porque": "cierra por abajo la ranura banda ↔ larguero del lado "
      "+Y, como su par del −Y: la plantilla cierra los dos lados por simetría"},
+    # F3e de puerta-sin-sobrediseno: el extremo liso al ras de su soporte no es peligro (OSHA
+    # 1910.219(c)(4)); la plantilla igual le pone tapa. Quitarla de la plantilla, fase propia.
+    *({"pieza": p, "porque": "tapa que la plantilla pone sobre un extremo de eje liso al ras de "
+       "su soporte (OSHA 1910.219(c)(4) no la pide): cubre el sello del inserto del polvo"}
+      for p in ("c1_tapa_m1", "c1_tapa_c1", "c1_tapa_c2")),
 ]
 
 
