@@ -27,18 +27,31 @@ router = APIRouter()
 
 
 def _sheet_model(sheet: str, hidden: bool, dims: str = "", section: bool = False, bom: bool = False):
-    from apolo.drawing import compose_sheet
+    """La lámina de conjunto: el HLR fuera de `STATE_LOCK` y la caché por firma (`api/planos.py`,
+    plan visor-para-evaluar D6–D8); la misma lámina de siempre."""
+    from .. import planos
 
-    dims_features = [s for s in dims.split(",") if s] or None
-    with STATE_LOCK:
-        try:
-            return compose_sheet(
-                S.doc.scene, sheet=sheet, include_hidden=hidden, project_name=S.doc.name,
-                dims_features=dims_features, section=section, bom=bom, meta=_drawing_meta(),
-                fasteners=S.doc.fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 (no-op sin cordones)
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return planos.lamina(planos.Opciones.de(sheet, hidden, dims, section, bom))
+
+
+@router.get("/api/drawing/lamina")
+def drawing_lamina(sheet: str = "A3", hidden: bool = False, dims: str = "", section: bool = False,
+                   bom: bool = False) -> dict:
+    """La lámina de conjunto para el diálogo «Planos» del visor (D10): `{lista, svg}` si ya está
+    (o si sólo cambió una casilla: se compone en el momento), o `{lista: false, job_id, previa?,
+    estimado_s?, pasos}` con el HLR como job (origen «visor», progreso en `GET /api/jobs/{id}`)."""
+    from .. import planos
+
+    return planos.pedir(planos.Opciones.de(sheet, hidden, dims, section, bom))
+
+
+@router.get("/api/drawing/lamina.svg")
+def drawing_lamina_svg(k: str) -> Response:
+    """El SVG de una lámina compuesta (la `svg` de `GET /api/drawing/lamina` o de su job)."""
+    from .. import planos
+
+    return Response(content=planos.svg_de(k), media_type="image/svg+xml",
+                    headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.get("/api/drawing.svg")
@@ -167,7 +180,7 @@ def _revelar(fotos: list) -> None:
 
 @router.get("/api/drawingset.pdf")
 def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool = False,
-                   async_: bool = Query(False, alias="async")) -> Response:
+                   async_: bool = Query(False, alias="async"), origen: str | None = None) -> Response:
     """Juego de planos en PDF MULTIPÁGINA: conjunto (con BOM) + 1 lámina por pieza acotada +
     cédula de corte/herraje. `template`: carpinteria/weldment/chapa/generico. `shaded`: el
     conjunto lleva isométrica SOMBREADA a color (estilo Inventor).
@@ -177,19 +190,23 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
     fuera (VTK bajo `RENDER_LOCK`, o matplotlib sin OpenGL). Con `?async=true` va como JOB
     (`_job_entregable`): 202 + recibo; el PDF se baja del resultado."""
     return _job_entregable("drawing_set", lambda proyecto: _juego_pdf(
-        proyecto, template, sheet, shaded), async_)
+        proyecto, template, sheet, shaded), async_, origen)
 
 
 def _juego_pdf(proyecto, template: str, sheet: str, shaded: bool) -> Response:
     from apolo.drawing import sheet_set, sheets_to_pdf
 
+    from .. import planos
+
+    # el HLR del conjunto, fuera de STATE_LOCK (visor-para-evaluar D12): sus vistas de líneas
+    planos.precalcular(proyecto, ("alzado", "planta") if shaded else ("alzado", "planta", "iso"))
     with STATE_LOCK:
         _mismo_proyecto(proyecto)
         try:
             pages = sheet_set(S.doc.scene, project_name=S.doc.name, template=template,
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
                               foto_diferida=True, colors=_feature_colors(),
-                              **sheet_set_maps(S.doc))
+                              avance=planos.avance_laminas, **sheet_set_maps(S.doc))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         fotos = _fotos_de(pages)
@@ -202,24 +219,37 @@ def _juego_pdf(proyecto, template: str, sheet: str, shaded: bool) -> Response:
 
 
 @router.get("/api/drawingset.dwg")
-def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
+def drawingset_dwg(template: str = "generico", sheet: str = "A3",
+                   async_: bool = Query(False, alias="async"), origen: str | None = None) -> Response:
     """Juego de planos en DWG (V5.9): como DWG no es multipágina, devuelve un ZIP con
-    un DWG por lámina. Requiere ODA File Converter instalado."""
-    import io as _io
-    import zipfile
-
-    from apolo.drawing import DwgError, sheet_set, sheet_to_dwg
+    un DWG por lámina. Requiere ODA File Converter instalado. Con `?async=true` va como JOB
+    (`_job_entregable`, como el PDF: plan visor-para-evaluar D12)."""
+    from apolo.drawing import DwgError
     from apolo.drawing.dwg import require_odafc
 
     try:  # sin ODA se niega YA, no tras componer todas las láminas (video-montaje-pulido D5)
         require_odafc()
     except DwgError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _job_entregable("drawing_set_dwg", lambda proyecto: _juego_dwg(proyecto, template, sheet),
+                           async_, origen)
+
+
+def _juego_dwg(proyecto, template: str, sheet: str) -> Response:
+    import io as _io
+    import zipfile
+
+    from apolo.drawing import DwgError, sheet_set, sheet_to_dwg
+
+    from .. import planos
+
+    planos.precalcular(proyecto)
     with STATE_LOCK:
+        _mismo_proyecto(proyecto)
         try:
             pages = sheet_set(S.doc.scene, project_name=S.doc.name, template=template,
-                              meta=_drawing_meta(), sheet=sheet,
-                              colors=_feature_colors(), **sheet_set_maps(S.doc))
+                              meta=_drawing_meta(), sheet=sheet, colors=_feature_colors(),
+                              avance=planos.avance_laminas, **sheet_set_maps(S.doc))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         base = (S.doc.name or "juego").replace("/", "-")

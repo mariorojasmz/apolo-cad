@@ -801,12 +801,34 @@ kbd {
 .btn-busy { display: inline-flex; align-items: center; gap: 5px; }
 
 /* overlay de carga del plano (encima de la lámina mientras genera el SVG) */
-.drawing-view { position: relative; }
+.drawing-view { position: relative; min-height: 240px; }
+/* el progreso del plano (visor-para-evaluar D10): una franja arriba, sobre el plano anterior */
 .drawing-loading {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  gap: 8px; color: var(--muted); font-size: 12px; background: rgba(18, 20, 25, 0.35);
+  position: absolute; top: var(--sp-2); left: 50%; transform: translateX(-50%); z-index: 1;
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; justify-content: center;
+  max-width: calc(100% - var(--sp-4)); padding: var(--sp-2) var(--sp-3);
+  color: var(--text); font-size: var(--fs-cuerpo); background: var(--panel);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2);
 }
 .drawing-loading .spinner { color: var(--accent); }
+.drawing-barra { flex-basis: 100%; height: 3px; border-radius: var(--radius-pill); background: var(--panel2); overflow: hidden; }
+.drawing-barra > span {
+  display: block; height: 100%; background: var(--accent); transform-origin: left;
+  transition: transform var(--mov-normal) var(--curva-suave);
+}
+/* el plano anterior mientras llega el nuevo: se ve, pero no se confunde con el de hoy */
+.drawing-view img.drawing-previa { opacity: 0.45; filter: grayscale(1); }
+.drawing-view img.drawing-sombreada { width: auto; max-width: 100%; max-height: 60vh; margin: var(--sp-8) auto; opacity: 0.85; }
+.drawing-hoja { aspect-ratio: 420 / 297; }
+/* el juego de planos de taller: una línea propia, separada del plano de conjunto */
+.drawing-juego {
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  margin: 0 0 var(--sp-3); padding: var(--sp-2) 0; border-top: 1px solid var(--border);
+}
+.drawing-juego-texto { display: flex; flex-direction: column; gap: 2px; margin-right: auto; min-width: 0; }
+.drawing-juego-texto strong { font-size: var(--fs-cuerpo); font-weight: var(--fw-subtitulo); }
+.drawing-juego-texto .hint { margin: 0; }
+.drawing-estado { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: var(--fs-cuerpo); }
 
 @media (prefers-reduced-motion: reduce) {
   .spinner, .topprogress::before, .skeleton { animation: none; }

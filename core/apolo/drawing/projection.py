@@ -96,21 +96,35 @@ def world_to_view(name: str, p: tuple[float, float, float], center: tuple[float,
     raise ValueError(f"Vista sin mapeo directo: '{name}'")
 
 
-def project_views(
-    scene: dict,
-    views: list[str] | None = None,
-    include_hidden: bool = False,
-) -> dict[str, ViewProjection]:
-    """Proyecta los sólidos visibles de la escena a las vistas pedidas."""
-    compound = _scene_compound(scene)
-
+def marco(shapes) -> tuple[tuple[float, float, float], float]:
+    """(centro, diagonal mayor) del bbox de esas formas: el marco de todas las vistas. Lo calcula
+    quien tiene las formas ORIGINALES (bajo `STATE_LOCK`): la copia sin malla daría otro bbox."""
+    compound = shapes[0] if len(shapes) == 1 else Compound(children=list(shapes))
     bb = compound.bounding_box()
     diag = max(bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z, 1.0)
     center = ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
+    return center, diag
+
+
+def _bounds(proj: ViewProjection) -> None:
+    xs = [x for poly in proj.visible + proj.hidden for x, _ in poly]
+    ys = [y for poly in proj.visible + proj.hidden for _, y in poly]
+    if xs:
+        proj.bounds = (min(xs), min(ys), max(xs), max(ys))
+
+
+def _project_views(scene: dict, views: list[str], include_hidden: bool, marco_de=None) -> dict:
+    compound = _scene_compound(scene)
+    if marco_de is None:
+        bb = compound.bounding_box()
+        diag = max(bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z, 1.0)
+        center = ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
+    else:
+        center, diag = marco_de
     distance = diag * 12.0  # observador lejano ≈ proyección ortográfica
 
     out: dict[str, ViewProjection] = {}
-    for name in views or list(VIEW_SETUP.keys()):
+    for name in views:
         direction, up = VIEW_SETUP[name]
         origin = tuple(center[i] + direction[i] * distance for i in range(3))
         visible_edges, hidden_edges = compound.project_to_viewport(
@@ -127,12 +141,30 @@ def project_views(
                 poly = _edge_to_polyline(edge)
                 if poly:
                     proj.hidden.append(poly)
-        xs = [x for poly in proj.visible + proj.hidden for x, _ in poly]
-        ys = [y for poly in proj.visible + proj.hidden for _, y in poly]
-        if xs:
-            proj.bounds = (min(xs), min(ys), max(xs), max(ys))
+        _bounds(proj)
         out[name] = proj
     return out
+
+
+def _project_views_full(scene: dict, views: list[str], marco_de=None) -> dict:
+    """Las vistas CON sus aristas ocultas (una pasada da las dos): lo que guarda la caché."""
+    return _project_views(scene, views, True, marco_de)
+
+
+def project_views(
+    scene: dict,
+    views: list[str] | None = None,
+    include_hidden: bool = False,
+) -> dict[str, ViewProjection]:
+    """Proyecta los sólidos visibles de la escena a las vistas pedidas. Lee primero la caché de
+    `hlr_cache` (lo que la API calculó fuera de `STATE_LOCK`); si no está, calcula como siempre."""
+    from . import hlr_cache
+
+    nombres = list(views or VIEW_SETUP.keys())
+    hit = hlr_cache.vistas(scene, nombres, include_hidden)
+    if hit is not None:
+        return hit
+    return _project_views(scene, nombres, include_hidden)
 
 
 # eje de corte → (índice de coord, vista de proyección, plano build123d, mapeo 3D→2D)
@@ -143,33 +175,38 @@ _SECTION = {
 }
 
 
-def section_projection(
-    scene: dict, axis: str = "x", offset: float | None = None, include_hidden: bool = False
-) -> tuple[ViewProjection, list[tuple[list[list[tuple[float, float]]], str]], float, str]:
-    """CORTE perpendicular a `axis` ∈ {x,y,z} en `offset` (centro por defecto). Vista de la
-    mitad coord ≤ offset; las caras de corte se devuelven con su MATERIAL (rayado).
-
-    Devuelve (proyección 'corte', [(anillos, material), ...], coord del plano, eje). El
-    primer anillo de cada polígono es el contorno; los siguientes, agujeros.
-    """
-    from build123d import Plane, section
-
-    from apolo.library.catalog import CATALOG
-    from apolo.library.materials import resolve_material
-
+def solidos(scene: dict) -> list:
+    """Las formas que el corte secciona: lo visible que no es superficie."""
     from apolo.kernel.shapes import is_surface
+
+    return [f.shape for f in scene.values() if f.visible and not is_surface(f.shape)]
+
+
+def caja_corte(scene: dict):
+    """El bbox de lo que el corte secciona (None sin sólidos), de las formas ORIGINALES."""
+    solids = solidos(scene)
+    if not solids:
+        return None
+    return (solids[0] if len(solids) == 1 else Compound(children=solids)).bounding_box()
+
+
+def _section_full(scene: dict, axis: str = "x", offset: float | None = None, caja=None):
+    """La parte GEOMÉTRICA del corte, con las aristas ocultas: (proy, [(fid, anillos)], cut, eje).
+    Sin material (lo pone `section_projection`, que tiene las piezas): así la guarda la caché.
+    `caja`: el bbox de las formas originales (`caja_corte`) cuando `scene` son copias."""
+    from build123d import Plane, section
 
     idx, viewname, plane_name, to2d = _SECTION[axis]
     # El corte solo aplica a SÓLIDOS: una superficie (volumen 0) no se secciona y
     # tumbaría el `.solids()` de abajo. Se excluye; se avisa si no queda ningún sólido.
-    solids = [f.shape for f in scene.values() if f.visible and not is_surface(f.shape)]
+    solids = solidos(scene)
     if not solids:
         raise ValueError(
             f"El corte {axis.upper()}-{axis.upper()} no tiene ningún sólido que cortar "
             f"(¿la escena solo tiene superficies? dales espesor con thicken)"
         )
     compound = solids[0] if len(solids) == 1 else Compound(children=solids)
-    bb = compound.bounding_box()
+    bb = caja if caja is not None else compound.bounding_box()
     center = ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
     los = (bb.min.X, bb.min.Y, bb.min.Z)
     cut = center[idx] if offset is None else float(offset)
@@ -196,15 +233,11 @@ def section_projection(
         poly = _edge_to_polyline(edge)
         if poly:
             proj.visible.append(poly)
-    if include_hidden:
-        for edge in hidden_edges:
-            poly = _edge_to_polyline(edge)
-            if poly:
-                proj.hidden.append(poly)
-    xs = [x for poly in proj.visible + proj.hidden for x, _ in poly]
-    ys = [y for poly in proj.visible + proj.hidden for _, y in poly]
-    if xs:
-        proj.bounds = (min(xs), min(ys), max(xs), max(ys))
+    for edge in hidden_edges:
+        poly = _edge_to_polyline(edge)
+        if poly:
+            proj.hidden.append(poly)
+    _bounds(proj)
 
     plane = getattr(Plane, plane_name).offset(cut)
 
@@ -218,8 +251,8 @@ def section_projection(
         return pts
 
     # sección POR FEATURE → cada cara de corte lleva el material de su pieza (rayado)
-    polygons: list[tuple[list[list[tuple[float, float]]], str]] = []
-    for feat in scene.values():
+    polygons: list[tuple[str, list[list[tuple[float, float]]]]] = []
+    for fid, feat in scene.items():
         if not getattr(feat, "visible", True):
             continue
         try:
@@ -228,13 +261,41 @@ def section_projection(
             continue
         if cross is None:
             continue
-        mat = resolve_material(feat, CATALOG)
         for face in cross.faces():
             try:
-                rings = [ring(face.outer_wire())] + [ring(w) for w in face.inner_wires()]
-                polygons.append((rings, mat))
+                polygons.append((fid, [ring(face.outer_wire())] + [ring(w) for w in face.inner_wires()]))
             except Exception:
                 continue
+    return proj, polygons, cut, axis
+
+
+def section_projection(
+    scene: dict, axis: str = "x", offset: float | None = None, include_hidden: bool = False
+) -> tuple[ViewProjection, list[tuple[list[list[tuple[float, float]]], str]], float, str]:
+    """CORTE perpendicular a `axis` ∈ {x,y,z} en `offset` (centro por defecto). Vista de la
+    mitad coord ≤ offset; las caras de corte se devuelven con su MATERIAL (rayado).
+
+    Devuelve (proyección 'corte', [(anillos, material), ...], coord del plano, eje). El
+    primer anillo de cada polígono es el contorno; los siguientes, agujeros. Lee primero la
+    caché de `hlr_cache` (el corte calculado fuera de `STATE_LOCK`).
+    """
+    from apolo.library.catalog import CATALOG
+    from apolo.library.materials import resolve_material
+
+    from . import hlr_cache
+
+    hit = hlr_cache.corte(scene, axis, offset, include_hidden)
+    if hit is None:
+        proj, polys, cut, axis = _section_full(scene, axis, offset)
+        proj = hlr_cache.filtrar(proj, include_hidden)
+    else:
+        proj, polys, cut, axis = hit
+    materiales: dict[str, str] = {}
+    polygons = []
+    for fid, rings in polys:
+        if fid not in materiales:
+            materiales[fid] = resolve_material(scene[fid], CATALOG)
+        polygons.append((rings, materiales[fid]))
     return proj, polygons, cut, axis
 
 

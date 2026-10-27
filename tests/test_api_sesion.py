@@ -187,8 +187,9 @@ CAPAS_API = {
     "sims": {"session", "common"},
     "fea_runs": {"session", "autosave", "guardia_documento"},
     "fachada": {"common", "session"},  # el documento para las rutas de una extensión (F1d)
+    "planos": {"common", "session", "jobs"},  # la lámina del visor: HLR fuera del lock (visor-para-evaluar D6)
     "routers": set(),
-    "routers.*": {"common", "scene", "session", "sims", "fea_runs"},
+    "routers.*": {"common", "scene", "session", "sims", "fea_runs", "planos"},
 }
 
 

@@ -105,7 +105,8 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
               hole_threads: dict[float, str] | None = None,
               thread_rows: list[dict] | None = None,
               fasteners: dict | None = None,
-              foto_diferida: bool = False) -> list[SheetModel]:
+              foto_diferida: bool = False,
+              avance=None) -> list[SheetModel]:
     """Juego de planos PRO (paquete de fabricación): [conjunto con DESPIECE+globos,
     1 lámina por pieza acotada, LISTA DE CORTE, CÉDULA DE HERRAJE]. `template` =
     carpinteria/weldment/chapa/generico (carpinteria/generico incluyen la cédula de
@@ -125,7 +126,10 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
 
     `foto_diferida` (con `shaded`): las isométricas sombreadas quedan RESERVADAS en cada
     `model.hueco_iso` (la de una pieza, con `origen` = su pieza del documento) y la API las
-    dibuja fuera de `STATE_LOCK` con `fotos_planos` (plan manual-rapido F2b)."""
+    dibuja fuera de `STATE_LOCK` con `fotos_planos` (plan manual-rapido F2b).
+
+    `avance(hechas, total)` (opcional) se llama antes de cada lámina de pieza: el progreso del
+    job del visor (plan visor-para-evaluar D12). No cambia ninguna lámina."""
     from collections import Counter
 
     from apolo.commands.registry import Feature
@@ -182,6 +186,8 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         rep = scene.get(r["_rep"])
         if rep is None:
             continue
+        if avance is not None:
+            avance(len(pages), n)
         solid = _pick_solid(rep.shape, r["espesor_mm"], r["ancho_mm"], r["largo_mm"])
         # la Feature sintética DEBE llevar el material de la FILA: sin él, el peso del
         # cajetín re-resuelve por HEURÍSTICA DE NOMBRE y una pieza de acero con palabra

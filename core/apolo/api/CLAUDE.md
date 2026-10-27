@@ -27,9 +27,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
 | `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica y la serie de la marcha |
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
-| `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
+| `drawings` | lámina simple (y la del diálogo «Planos», `/api/drawing/lamina`), desplegado de chapa, juego de planos, plano por intención, fits, roscas |
 | `electrico` | circuito y ERC del tablero; el tablero armado que lee el panel (`/api/tablero`); el panel del aire (`/api/neumatica`) |
-| `cosim` | escenarios de prueba, co-simulación y `test_plc` (job en `COSIM_JOBS`), simulaciones por partes, sesión en vivo vuelta escenario (las terminadas, en `sims.SESIONES_GRABADAS`) |
+| `cosim` | escenarios de prueba (y el panel «Pruebas», `/api/pruebas`), co-simulación y `test_plc` (job en `COSIM_JOBS`), simulaciones por partes, sesión en vivo vuelta escenario (las terminadas, en `sims.SESIONES_GRABADAS`) |
 | `cosim_vivo` | `WS /api/cosim/vivo`: la sesión en vivo (protocolo en su docstring) |
 | `video` | grabación del visor: sesión (con guion y plan), cuadros, foto, tarjetas, rótulos, fallo y cierre que codifica (`media/grabacion.py`); E/S pura |
 | `video_guion` | el guion de montaje + su plan del documento activo para «Grabar video» (lee la escena bajo `STATE_LOCK`) |
@@ -176,6 +176,10 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   después. `jobs.py` no importa FastAPI (`_describe_error` duck-tipea `status_code`/`detail`).
 - Al pasar a corriendo y al terminar, WS `{"type": "job", "job_id", "estado"}` (cableado en
   `common.py`); best-effort: un aviso que lanza se traga. [modo-visor](../../../docs/plans/modo-visor.md) (D10)
+  Un job que encola la PERSONA lleva `?origen=visor` (`_job_cosim`/`_job_entregable(origen=)`): viaja
+  en el job y en su aviso, y el visor no lo cuenta como del agente; sin él, byte-idéntico. Un closure
+  publica su avance con `jobs.avance({hechas, total, fase})` (hilo-local del worker; en directo, nada).
+  [visor-para-evaluar](../../../docs/plans/visor-para-evaluar.md) (D9)
 - Guardia de proyecto: el job captura `S.project_id` al encolar y lo revalida DENTRO del RLock que
   ejecuta el lote; si el proyecto activo cambió → 409 y no aplica. `restore_revision` conserva el
   id (el lote aplica sobre lo restaurado, como en sync).
@@ -230,8 +234,12 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 
 - Bajo `STATE_LOCK` sólo se EXTRAE (OCCT → datos puros: teselado, cascos, XML MuJoCo, STEP); el
   proceso pesado corre fuera con su lock (`RENDER_LOCK`, `PHYSICS_LOCK`, `FEA_LOCK`). Un endpoint
-  nuevo de render o simulación sigue el patrón. `export_stl` y el HLR de los planos siguen bajo
-  el lock (OCCT); su isométrica sombreada, no ([drawing](../drawing/CLAUDE.md)).
+  nuevo de render o simulación sigue el patrón. `export_stl` y el HLR de las láminas por pieza
+  siguen bajo el lock (OCCT); la isométrica sombreada, no ([drawing](../drawing/CLAUDE.md)), ni el
+  HLR del CONJUNTO: `api/planos.py` copia las formas bajo el lock, proyecta las copias con
+  `HLR_LOCK` y compone después leyendo la caché (`drawing/hlr_cache.py`); la lámina compuesta se
+  guarda por firma (`LAMINAS`, en memoria). Un plano nuevo de conjunto pasa por ahí.
+  [visor-para-evaluar](../../../docs/plans/visor-para-evaluar.md) (D6–D8)
 - La serie de la marcha del visor (`GET|POST /api/physics/dynamics/serie`) se cachea EN MEMORIA
   (`sims.MARCHAS`, lock hoja) por firma (log + materiales) y escenario (la petición sin `fps`).
   Toda dinámica exitosa, también la tool `simulate`, deja su escenario como el último del

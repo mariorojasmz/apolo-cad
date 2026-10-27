@@ -144,6 +144,12 @@ reglas están en [services](../services/CLAUDE.md).
   `extraer_foto` bajo el lock, `teselar_foto(ex, STATE_LOCK)` y `dibujar_foto` fuera; lo que la
   composición lee de OCCT (el peso, `calc_report.peso_memoria`) se calcula bajo el lock y llega
   en `meta`. Nunca `render_scene_png` bajo `STATE_LOCK` en un entregable nuevo.
+- **El HLR de una escena se cachea por la identidad de sus formas** (`hlr_cache.py`): una pasada
+  guarda visibles Y ocultas (`include_hidden` filtra; la BOM quita una vista) y el corte va aparte.
+  `project_views`/`section_projection` LEEN la caché y sólo `Pedido.calcular` la llena (sobre
+  COPIAS, con el marco de las originales: la copia sin malla daría otro bbox): una escena
+  sintética (lámina por pieza, explosionada) no la ensucia. Lo que cambie la proyección cambia la
+  clave o vacía la caché. [visor-para-evaluar](../../../docs/plans/visor-para-evaluar.md) (D6–D8)
 - La isométrica SOMBREADA de un plano (`compose_sheet(shaded=True)`) va por `fotos_planos.py`:
   con `foto_diferida=True` (los endpoints) la lámina sólo RESERVA su lugar (`model.hueco_iso`);
   `extraer` en la misma toma del lock, `revelar(…, STATE_LOCK)` fuera: todas las fotos del juego

@@ -38,6 +38,10 @@ lámina en un `<img>`: el clic elige y las líneas se tiñen en vivo). Un estado
 manual ENCLAVADO de una válvula) se LEE de su señal (`<des>.manual`), nunca se guarda en la UI:
 otra pestaña o el agente verían otro. [V8.9](../docs/plans/V8.9-neumatica.md) F6
 
+El panel «Pruebas» (`src/pruebas/`) es el mismo patrón sobre `services/pruebas_panel.py` (el
+semáforo y el resumen salen de ahí); «Correr» encola la co-simulación como job del visor
+(`state/jobs.ts`) y «Verla en vivo» abre la sesión como «Mandos». [visor-para-evaluar](../docs/plans/visor-para-evaluar.md) D1–D5
+
 ## Texto y ayuda: la pantalla se explica sola
 
 **Nunca un texto para tapar una interfaz confusa**: si hay que explicar cómo funciona la
@@ -224,6 +228,11 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   `viewport/pedirEncuadre.ts` con `animar` (vuela, `vuelo.ts`, con contexto alrededor de una pieza
   chica) y `seleccionar` (contorno); sin ellos, `apolo:fit` salta como siempre. El glTF se exporta en el cliente
   (`viewport/exportGltf.ts`); STEP/STL, por endpoint.
+- **Todo encuadre centra en lo que se VE** (`viewport/areaLibre.ts`): lo que flota encima del canvas y
+  lo tapa de lado a lado lleva `data-tapa-vista` (los cajones del visor), nunca una lista de paneles.
+  `frente` (una pieza) mira su cara grande de frente y `despejar` prueba vistas cercanas y, si todas
+  están tapadas, atenúa lo que tapa hasta el próximo encuadre o `apolo:restaurar-atenuadas`
+  (`encuadreLibre.ts`, `atenuar.ts`). [visor-para-evaluar](../docs/plans/visor-para-evaluar.md) D13–D15
 
 ### Layout
 
@@ -257,8 +266,9 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   respuesta saldría marcada como del agente. [plan](../docs/plans/modo-visor.md)
 - Los avisos `{"type": "job"}` del WS se validan en `state/eventosWs.ts` y `connectWs` los publica
   en `window` (`apolo:job`; `apolo:ws-reconectado` en cada reconexión); `visor/trabajando.ts` lleva
-  los jobs corriendo. Todo job cuenta como del agente porque la UI nunca manda `?async`: si algún
-  día encola uno, se filtra ahí por su `job_id` o saldría «el agente está trabajando».
+  los jobs corriendo. Un job que encola la UI (correr una prueba, la lámina de «Planos», el juego)
+  va con `?async=true&origen=visor` por `state/jobs.ts`: su aviso trae `origen` y `avisoJob` lo
+  descarta (no es «el agente está trabajando»). [visor-para-evaluar](../docs/plans/visor-para-evaluar.md) D9
 
 ### Viewport
 
