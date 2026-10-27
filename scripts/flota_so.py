@@ -235,7 +235,7 @@ def siguen_vivos(firma: dict[int, int | None]) -> list[int]:
 def arbol(raiz: int, mapa: dict[int, int] | None = None) -> set[int]:
     """`raiz` y todos sus descendientes vivos (vacío si `raiz` murió). En Windows el pid del
     padre de un huérfano queda viejo y puede apuntar a un pid RECICLADO: un «hijo» que nació
-    antes que su padre no es suyo y no entra."""
+    antes que su padre, o cuya hora (o la del padre) no se puede leer, no es suyo y no entra."""
     mapa = padres() if mapa is None else mapa
     if raiz not in mapa:
         return set()
@@ -253,8 +253,10 @@ def arbol(raiz: int, mapa: dict[int, int] | None = None) -> set[int]:
     def suyo(hijo: int, padre: int) -> bool:
         if not _ES_WINDOWS:  # en POSIX el huérfano pasa a init: el ppid no queda viejo
             return True
+        # sin hora legible (un proceso del sistema, protegido: csrss, winlogon) un pid reciclado
+        # no se puede descartar: NO es suyo (contarlo daba un falso «QUEDA ALGO» en `parar`)
         h, p = hora(hijo), hora(padre)
-        return h is None or p is None or h >= p
+        return h is not None and p is not None and h >= p
 
     vistos, pendientes = {raiz}, [raiz]
     while pendientes:

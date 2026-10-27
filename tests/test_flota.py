@@ -82,8 +82,10 @@ def test_el_tope_real_rechaza_uno_mas_de_los_que_caben(tmp_path):
         flota.arrancar(list(range(1, cabe + 2)), db=str(tmp_path / "x.db"), d=tmp_path)
 
 
-def test_problema_de_dueno_ve_el_zombie_y_el_proceso_ajeno():
+def test_problema_de_dueno_ve_el_zombie_y_el_proceso_ajeno(monkeypatch):
     padres = {40: 4, 4: 1, 41: 40}  # 4 = lanzador, 40 = API, 41 = worker del sandbox
+    # pids ficticios: sus horas también (sin hora legible un hijo no es del árbol)
+    monkeypatch.setattr(so, "creado", {1: 1, 4: 10, 9: 10, 40: 20, 41: 30}.get)
     assert flota.problema_de_dueno(8100, 40, 4, {8100: {40}}, padres) is None
     assert "zombie" in flota.problema_de_dueno(8100, 40, 4, {8100: {40, 77}}, padres)
     assert "nadie" in flota.problema_de_dueno(8100, 40, 4, {}, padres)
@@ -122,6 +124,18 @@ def test_un_hijo_mas_viejo_que_su_padre_no_es_del_arbol(monkeypatch):
     horas = {1: 100, 2: 200, 3: 300, 4: 50}  # 4 nació antes que 2: su ppid=2 es un pid reciclado
     monkeypatch.setattr(so, "creado", horas.get)
     assert so.arbol(1, {1: 0, 2: 1, 3: 2, 4: 2}) == {1, 2, 3}
+
+
+def test_un_hijo_sin_hora_legible_no_es_del_arbol(monkeypatch):
+    """Sin hora de creación (un proceso protegido del sistema: csrss, winlogon) un pid reciclado no
+    se puede descartar: no es suyo. Contarlo daba un falso «QUEDA ALGO» al `parar` una API muerta
+    cuyo pid heredaron procesos del sistema."""
+    monkeypatch.setattr(so, "_ES_WINDOWS", True)
+    horas = {1: 100, 2: 200, 3: None, 5: 300}  # 3 = csrss (sin hora); 5 cuelga de él
+    monkeypatch.setattr(so, "creado", horas.get)
+    assert so.arbol(1, {1: 0, 2: 1, 3: 1, 5: 3}) == {1, 2}
+    horas[1] = None  # sin la hora del padre tampoco se prueba nada
+    assert so.arbol(1, {1: 0, 2: 1}) == {1}
 
 
 def test_deshacer_espera_que_muera_el_arbol_y_suelta_cada_candado(monkeypatch, tmp_path):
