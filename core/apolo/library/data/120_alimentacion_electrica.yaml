@@ -143,8 +143,9 @@ components:
   - ref: FUENTE-24VDC-2.5A
     name: Fuente 24 VDC 2,5 A (riel DIN)
     description: Fuente conmutada de riel DIN, entrada 100-240 VAC (en Lima, entre dos fases de 220 V), salida 24 VDC 2,5 A (60 W) para el mando. Verificar con el proveedor.
-    builder: box
+    builder: fuente_riel
     params: {width: 54, depth: 57, height: 90}
+    zonas: &zonas_fuente {cuerpo: plastico_ral7035, bornes: niquelado, led: {acabado: plastico_verde, fijo: true}, ajuste: {acabado: plastico_azul, fijo: true}, placa: {acabado: plastico_blanco, fijo: true}, clip: plastico_negro}
     tablero: {bornes: &fuente_caras {abajo: [L, N, PE], arriba: [L+, M], fuente: "orden de Mean Well EDR-120-24 / HDR-60-24 (entrada abajo, salida arriba): verificar con la ficha"}}
     weight: 0.2
     specs: {tension_entrada: "100-240 VAC", tension_salida: "24 VDC", corriente_A: 2.5, potencia_W: 60, modulos_DIN: 3, linea_referencia: "orden de Mean Well HDR-60-24 / Phoenix Contact UNO POWER 24 V 2,5 A", cotas_verificadas: false, cost: 35}
@@ -172,8 +173,9 @@ components:
   - ref: FUENTE-24VDC-5A
     name: Fuente 24 VDC 5 A (riel DIN)
     description: Fuente conmutada de riel DIN, entrada 100-240 VAC (en Lima, entre dos fases de 220 V), salida 24 VDC 5 A (120 W) para el mando de un tablero con PLC. Verificar con el proveedor.
-    builder: box
+    builder: fuente_riel
     params: {width: 72, depth: 60, height: 90}
+    zonas: *zonas_fuente
     tablero: {bornes: *fuente_caras}
     weight: 0.35
     specs: {tension_entrada: "100-240 VAC", tension_salida: "24 VDC", corriente_A: 5, potencia_W: 120, modulos_DIN: 4, linea_referencia: "orden de Phoenix Contact UNO POWER 24 V 5 A / Mean Well EDR-120-24", cotas_verificadas: false, cost: 55}

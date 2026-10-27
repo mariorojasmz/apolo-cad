@@ -160,6 +160,14 @@ ACABADOS: dict[str, Acabado] = {
     "plastico_azul": Acabado("Plástico azul", "#0e518d", 0.0, 0.35, pintable=True),
     "plastico_ambar": Acabado("Plástico ámbar", "#dd7907", 0.0, 0.35, pintable=True),
     "plastico_blanco": Acabado("Plástico blanco", "#f7fbf5", 0.0, 0.35, pintable=True),
+    # aparatos de tablero (plan aparatos-de-tablero-realistas, D4): el cuerpo moldeado gris
+    # luminoso RAL 7035 de la aparamenta modular y el antracita RAL 7016 de un variador o de las
+    # tapas de un PLC (sRGB de la «List of RAL colours» de Wikipedia, leída el 2026-10-26:
+    # #CBD0CC y #373F43). La pantalla apagada de un variador es un gris verdoso oscuro y
+    # brillante (criterio de diseño: no es un color de norma). Moldeados: no se pintan.
+    "plastico_ral7035": Acabado("Plástico gris luminoso (RAL 7035)", "#cbd0cc", 0.0, 0.55),
+    "plastico_antracita": Acabado("Plástico antracita (RAL 7016)", "#373f43", 0.0, 0.5),
+    "pantalla": Acabado("Pantalla", "#1b2723", 0.0, 0.12),
 }
 
 #: El acabado de cada `specs.color` de ficha (sin tildes, en minúscula) de un mando o piloto de

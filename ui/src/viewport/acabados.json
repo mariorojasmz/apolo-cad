@@ -352,6 +352,36 @@
       "relieve": null,
       "pintable": true,
       "textura": null
+    },
+    "plastico_ral7035": {
+      "nombre": "Plástico gris luminoso (RAL 7035)",
+      "color": "#cbd0cc",
+      "metalness": 0.0,
+      "roughness": 0.55,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": false,
+      "textura": null
+    },
+    "plastico_antracita": {
+      "nombre": "Plástico antracita (RAL 7016)",
+      "color": "#373f43",
+      "metalness": 0.0,
+      "roughness": 0.5,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": false,
+      "textura": null
+    },
+    "pantalla": {
+      "nombre": "Pantalla",
+      "color": "#1b2723",
+      "metalness": 0.0,
+      "roughness": 0.12,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": false,
+      "textura": null
     }
   },
   "acabado_de_color": {

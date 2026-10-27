@@ -53,12 +53,18 @@ from dataclasses import dataclass
 from .referencias import sugerir
 
 EJES = ("+X", "-X", "+Y", "-Y", "+Z", "-Z")
+#: Los APARATOS de tablero con forma de su familia (plan aparatos-de-tablero-realistas, D2): su
+#: envolvente es la caja `width` × `depth` × `height` de sus params, centrada y con el marco de la
+#: `box` (apoyan por −Y). Los builders viven en `library/builders_aparatos.py` (un test exige
+#: que sean los mismos nombres); aquí sólo los nombres: este módulo no importa la geometría.
+FAMILIAS_APARATO = ("interruptor_modular", "contactor", "guardamotor", "rele_interfaz",
+                    "borne_riel", "plc_compacto", "fuente_riel", "variador_compacto")
 #: La cara de apoyo por familia (builder): la convención del catálogo eléctrico (A3).
 APOYO_POR_FAMILIA = {"box": "-Y", "seta_emergencia": "-Z", "din_rail": "-Y", "canaleta": "-Y",
                      "interruptor_resguardo": "-Z", "panel_puerta": "-Y",
-                     "mando_22": "-Z"}
+                     "mando_22": "-Z", **{f: "-Y" for f in FAMILIAS_APARATO}}
 #: Familias cuya caja es `width` × `depth` × `height` (lo que se valida contra `tablero.puerta`).
-FAMILIAS_CAJA = ("box", "panel_puerta")
+FAMILIAS_CAJA = ("box", "panel_puerta", *FAMILIAS_APARATO)
 BISAGRAS = ("izquierda", "derecha")
 CARAS_PASACABLES = ("inferior", "superior")
 CARAS_ACOPLE = ("frente", "abajo", "arriba", "izquierda", "derecha")

@@ -1,0 +1,161 @@
+{
+ "origen": "plan aparatos-de-tablero-realistas (F1): el centro y las medidas del bbox de cada aparato del tablero de la piloto (`tablero_piloto.json` armado con `layout_tablero` en z = 1200), medidos en main (baba86d) ANTES de que los aparatos dejaran la caja por la forma de su familia. Congelado: la forma nueva no mueve nada.",
+ "aparatos": {
+  "F1": {
+   "centro": [
+    1.5,
+    16.5,
+    1305.0
+   ],
+   "medidas": [
+    54.0,
+    75.0,
+    90.0
+   ]
+  },
+  "F2": {
+   "centro": [
+    46.5,
+    16.5,
+    1305.0
+   ],
+   "medidas": [
+    36.0,
+    75.0,
+    90.0
+   ]
+  },
+  "H1": {
+   "centro": [
+    185.0,
+    -87.5,
+    1235.0
+   ],
+   "medidas": [
+    30.0,
+    45.0,
+    30.0
+   ]
+  },
+  "H2": {
+   "centro": [
+    115.0,
+    -87.5,
+    1235.0
+   ],
+   "medidas": [
+    30.0,
+    45.0,
+    30.0
+   ]
+  },
+  "K1": {
+   "centro": [
+    29.5,
+    16.5,
+    1185.0
+   ],
+   "medidas": [
+    110.0,
+    75.0,
+    100.0
+   ]
+  },
+  "Q1": {
+   "centro": [
+    185.0,
+    -90.0,
+    1315.0
+   ],
+   "medidas": [
+    60.0,
+    80.0,
+    75.0
+   ]
+  },
+  "S0": {
+   "centro": [
+    115.0,
+    -94.5,
+    1315.0
+   ],
+   "medidas": [
+    60.0,
+    77.0,
+    60.0
+   ]
+  },
+  "S1": {
+   "centro": [
+    45.0,
+    -87.0,
+    1315.0
+   ],
+   "medidas": [
+    30.0,
+    50.0,
+    30.0
+   ]
+  },
+  "S2": {
+   "centro": [
+    -25.0,
+    -87.0,
+    1315.0
+   ],
+   "medidas": [
+    30.0,
+    50.0,
+    30.0
+   ]
+  },
+  "T1": {
+   "centro": [
+    120.5,
+    24.0,
+    1185.0
+   ],
+   "medidas": [
+    72.0,
+    60.0,
+    90.0
+   ]
+  },
+  "T2": {
+   "centro": [
+    -130.0,
+    -11.0,
+    1270.0
+   ],
+   "medidas": [
+    140.0,
+    145.0,
+    160.0
+   ]
+  },
+  "X0_1": {
+   "centro": [
+    -22.4,
+    30.5,
+    1086.5
+   ],
+   "medidas": [
+    6.2,
+    47.0,
+    42.5
+   ]
+  },
+  "X0_2": {
+   "centro": [
+    -16.2,
+    30.5,
+    1086.5
+   ],
+   "medidas": [
+    6.2,
+    47.0,
+    42.5
+   ]
+  }
+ }
+}

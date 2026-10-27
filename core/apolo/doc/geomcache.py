@@ -78,7 +78,12 @@ from apolo.commands.state import RegenState
 #    distinto 4 caras de la maneta del selector (índices 10–13): un open caliente y uno frío
 #    darían otro índice de cara (lo que leen `get_topology`, el pick y un selector por cara). Las
 #    zonas por índice coincidirían igual (medido: todas dentro de `frente`). Builder + YAML.
-GEOM_CACHE_EPOCH = 9
+#  v10 (2026-10-26): 39 aparatos de tablero (`ITM-*`, `DIF-*`, `GM-*` sin el auxiliar, `CONT-*`
+#    sin el auxiliar, `RELE-INT-*`, `PLC-*`, `FUENTE-*`, `BORNE-*`, `VFD-*`) dejan `builder: box`
+#    por la forma de su familia con zonas (plan aparatos-de-tablero-realistas D1–D4), con la
+#    MISMA envolvente y los MISMOS params de `insert_component` y de `layout_tablero`: un open
+#    caliente serviría la caja vieja. Builder + YAML del catálogo = no se acota a un executor.
+GEOM_CACHE_EPOCH = 10
 
 
 def _apolo_version() -> str:

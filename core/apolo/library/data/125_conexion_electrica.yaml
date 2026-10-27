@@ -14,8 +14,9 @@ components:
   - ref: BORNE-PASO-2.5
     name: Borne de paso 2,5 mm²
     description: Borne de paso de tornillo para riel DIN, 2,5 mm², gris, ancho 5,2 mm. Verificar con el proveedor.
-    builder: box
+    builder: borne_riel
     params: {width: 5.2, depth: 47, height: 42.5}
+    zonas: &zonas_paso {cuerpo: plastico_gris, bornes: niquelado, marcador: {acabado: plastico_blanco, fijo: true}}
     weight: 0.007
     specs: {seccion_mm2: 2.5, ancho_mm: 5.2, linea_referencia: "orden de Phoenix Contact UT 2,5 / Weidmüller WDU 2.5 / Siemens 8WH1000-0AF00", cotas_verificadas: false, cost: 0.8}
     electrico:
@@ -30,8 +31,9 @@ components:
   - ref: BORNE-PASO-4
     name: Borne de paso 4 mm²
     description: Borne de paso de tornillo para riel DIN, 4 mm², gris, ancho 6,2 mm. Verificar con el proveedor.
-    builder: box
+    builder: borne_riel
     params: {width: 6.2, depth: 47, height: 42.5}
+    zonas: *zonas_paso
     weight: 0.009
     specs: {seccion_mm2: 4, ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact UT 4 / Weidmüller WDU 4 / Siemens 8WH1000-0AG00", cotas_verificadas: false, cost: 1.0}
     electrico:
@@ -46,8 +48,9 @@ components:
   - ref: BORNE-PE-2.5
     name: Borne de tierra 2,5 mm²
     description: Borne de protección (PE) verde-amarillo de tornillo, 2,5 mm², ancho 5,2 mm; hace contacto con el riel DIN, que a su vez se une a la placa y al gabinete. Verificar con el proveedor.
-    builder: box
-    params: {width: 5.2, depth: 47, height: 42.5}
+    builder: borne_riel
+    params: {width: 5.2, depth: 47, height: 42.5, tipo: pe}
+    zonas: &zonas_pe {cuerpo: {acabado: plastico_verde, fijo: true}, franja: {acabado: plastico_amarillo_seguridad, fijo: true}, bornes: niquelado}
     weight: 0.012
     specs: {seccion_mm2: 2.5, ancho_mm: 5.2, linea_referencia: "orden de Phoenix Contact UT 2,5-PE / Weidmüller WPE 2.5 / Siemens 8WH1000-0CF07", cotas_verificadas: false, cost: 2.0}
     electrico:
@@ -62,8 +65,9 @@ components:
   - ref: BORNE-PE-4
     name: Borne de tierra 4 mm²
     description: Borne de protección (PE) verde-amarillo de tornillo, 4 mm², ancho 6,2 mm; hace contacto con el riel DIN. Verificar con el proveedor.
-    builder: box
-    params: {width: 6.2, depth: 47, height: 42.5}
+    builder: borne_riel
+    params: {width: 6.2, depth: 47, height: 42.5, tipo: pe}
+    zonas: *zonas_pe
     weight: 0.015
     specs: {seccion_mm2: 4, ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact UT 4-PE / Weidmüller WPE 4 / Siemens 8WH1000-0CG07", cotas_verificadas: false, cost: 2.5}
     electrico:
@@ -82,8 +86,9 @@ components:
   - ref: BORNE-FUS-5X20
     name: Borne portafusible 5x20
     description: Borne portafusible de palanca para fusible de vidrio 5x20 mm (hasta 6,3 A), ancho 8,2 mm; protege un circuito de mando o una entrada de señal. Verificar con el proveedor.
-    builder: box
-    params: {width: 8.2, depth: 60, height: 62}
+    builder: borne_riel
+    params: {width: 8.2, depth: 60, height: 62, tipo: fusible}
+    zonas: &zonas_fus {cuerpo: plastico_gris, bornes: niquelado, portafusible: plastico_negro}
     weight: 0.02
     specs: {fusible: "5x20 mm", In_max_A: 6.3, ancho_mm: 8.2, linea_referencia: "orden de Phoenix Contact UT 4-HESI (5X20) / Weidmüller WSI 4 / Siemens 8WH1000-1GG08; cartucho del orden de Schurter FST 5x20 (T, IEC 60127-2 hoja 3)", cotas_verificadas: false, cost: 3.5}
     electrico:
