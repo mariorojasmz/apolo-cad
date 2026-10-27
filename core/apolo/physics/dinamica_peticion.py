@@ -41,6 +41,10 @@ class MotorPeticion:
     rampa_s: float = 0.0
     desde_s: float = 0.0
     direccion_transporte: tuple | None = None
+    #: plan motor-a-eje-lineal D2: el motor rotativo mueve una junta PRISMÁTICA por una
+    #: transmisión de radio r (piñón, tambor, husillo: avance/2π); el actuador vive en el eje
+    #: (rad/s, N·m) y MuJoCo lo lleva a la junta con `gear` = 1/r
+    radio_transmision_mm: float | None = None
 
 
 @dataclass
@@ -169,7 +173,7 @@ def _motor(m, k: int) -> MotorPeticion:
     donde = f"motores[{k}]"
     m = _claves(m, {"junta", "modo", "valor", "v_superficie_m_s", "placa", "reduccion", "eta",
                     "frecuencia_hz", "par_max", "kv", "rampa_s", "desde_s",
-                    "direccion_transporte"}, donde)
+                    "direccion_transporte", "radio_transmision_mm"}, donde)
     if not m.get("junta"):
         raise PhysicsError(f"{donde}: falta 'junta' (el nombre de la junta que mueve)")
     modo = m.get("modo")
@@ -186,6 +190,7 @@ def _motor(m, k: int) -> MotorPeticion:
         rampa_s=_f(m, "rampa_s", donde, 0.0, minimo=0.0),
         desde_s=_f(m, "desde_s", donde, 0.0, minimo=0.0),
         direccion_transporte=_vec(m, "direccion_transporte", donde, unitario=True),
+        radio_transmision_mm=_f(m, "radio_transmision_mm", donde, minimo=0.0, abierto=True),
     )
     if modo == "par":
         if out.valor is None:

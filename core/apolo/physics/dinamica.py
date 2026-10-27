@@ -240,7 +240,7 @@ def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = N
             )
         mod.actuadores.append(dm.ActuadorMJ(mot.nombre, dm.nombre_mj("j", mot.junta),
                                             "velocity" if mot.modo == "velocidad" else "motor",
-                                            kv=mot.kv, fuerza_max=mot.fuerza_max))
+                                            kv=mot.kv, fuerza_max=mot.fuerza_max, gear=mot.gear))
         if mot.info.get("inferido"):
             avisos.append(f"Motor de '{mot.junta}': {mot.info['sentido']}")
 

@@ -61,7 +61,7 @@ def _nombre_rayo(des: str) -> str:
     return "sensor_" + re.sub(r"[^A-Za-z0-9_]", "_", des)
 
 
-def _motores(esc, me, modelos: dict) -> list[dict]:
+def _motores(esc, me, modelos: dict, transmisiones: dict) -> list[dict]:
     from apolo.cosim.modelos import Motor
     from apolo.cosim.modelos.motor import placa_v82
 
@@ -82,7 +82,9 @@ def _motores(esc, me, modelos: dict) -> list[dict]:
         peticion.append({"junta": a["junta"], "modo": "velocidad", "placa": placa, "reduccion": m.i,
                          "eta": m.eta_red, "frecuencia_hz": m.fn,
                          **({"direccion_transporte": a["direccion_transporte"]}
-                            if a.get("direccion_transporte") else {})})
+                            if a.get("direccion_transporte") else {}),
+                         # plan motor-a-eje-lineal D2: el motor rotativo a una junta prismática
+                         **({"radio_transmision_mm": transmisiones[des][0]} if des in transmisiones else {})})
     return peticion
 
 
@@ -162,7 +164,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
 
     from apolo.cosim.tipos import revisar, valores_iniciales
 
-    from . import cosim_aire, cosim_externo, escenario_ajustes
+    from . import cosim_aire, cosim_externo, cosim_transmision, escenario_ajustes
     from .cosim_bandas import bandas_quietas, prever
     from .cosim_red import entrada_red, largos_calculados
     from .delivery_inputs import tornilleria_join_bolted
@@ -197,8 +199,10 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
         raise ServiceError(400, str(exc)) from exc
     por_des = {d.designacion: d for d in me.dispositivos}
     sensores, avisos = _sensores(esc, tab.modelos, por_des)
+    transmisiones, hip_tr = cosim_transmision.resolver(doc, esc)  # motor-a-eje-lineal: {} sin ellas
+    hipotesis += hip_tr
     peticion = {**esc.mecanica, "duracion_s": esc.duracion_s, "fps": esc.mecanica.get("fps", 10),
-                "motores": _motores(esc, me, tab.modelos), "sensores": sensores,
+                "motores": _motores(esc, me, tab.modelos, transmisiones), "sensores": sensores,
                 "productos": [dict(p) for p in esc.productos]}
     if esc.flujo is not None:  # balance-de-producto D5: el rastreo, sólo con el bloque
         peticion["flujo"] = {k: esc.flujo[k] for k in ("plazo_s", "quieto_s", "zonas_espera")}
@@ -230,7 +234,8 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     if error:
         raise ServiceError(400, error)
     avisos += [f"mecánica: {a}" for a in dyn.avisos]  # F6: los de la dinámica, todos
-    motores = [AcopleMotor(des, a["junta"], md.nombre, math.copysign(1.0, md.consigna))
+    motores = [AcopleMotor(des, a["junta"], md.nombre, math.copysign(1.0, md.consigna),
+                           **({"irreversible": True} if transmisiones.get(des, (0, False))[1] else {}))
                for (des, a), md in zip(esc.motores.items(), dyn.motores)]
     acoples_s = [AcopleSensor(des, _nombre_rayo(des)) for des, s in esc.sensores.items() if "junta" not in s]
     cilindros, reeds = cosim_aire.acoples(esc, dyn, len(esc.motores))

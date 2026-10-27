@@ -49,6 +49,7 @@ from dataclasses import dataclass, field
 
 from .aserciones import AsercionInvalida, leer_aserciones
 from .flujo import FlujoInvalido, leer_flujo, revisar_aserciones, validar_nombre_sumidero
+from .transmision import leer as leer_transmision
 
 #: Tope de un escenario (s). Es el de la corrida ENTERA: el snapshot lo pasa a la dinámica (cuyo
 #: tope propio, 60 s, es de `simulate` sin escenario, bajo `PHYSICS_LOCK` en la API). Medido
@@ -397,9 +398,14 @@ def _acoples(a) -> tuple[dict, dict, dict]:
     motores, sensores, cilindros = {}, {}, {}
     for des, m in _claves(a.get("motores"), set(a.get("motores") or {}), "acoples.motores").items():
         donde = f"acoples.motores.{des}"
-        m = _claves(m, {"junta", "direccion_transporte"}, donde)
+        m = _claves(m, {"junta", "direccion_transporte", "transmision"}, donde)
         motores[str(des)] = {"junta": _texto(m, "junta", donde), **(
             {"direccion_transporte": m["direccion_transporte"]} if m.get("direccion_transporte") else {})}
+        if m.get("transmision") is not None:  # plan motor-a-eje-lineal D1: a una junta prismática
+            try:
+                motores[str(des)]["transmision"] = leer_transmision(m["transmision"], f"{donde}.transmision")
+            except ValueError as exc:
+                raise EscenarioInvalido(str(exc)) from exc
     for des, s in _claves(a.get("sensores"), set(a.get("sensores") or {}), "acoples.sensores").items():
         donde = f"acoples.sensores.{des}"
         if isinstance(s, dict) and "junta" in s:  # V8.9 D8: el detector magnético de un cilindro

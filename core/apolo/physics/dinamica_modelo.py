@@ -85,6 +85,7 @@ class ActuadorMJ:
     tipo: str                         # velocity | motor
     kv: float = 0.0
     fuerza_max: float | None = None
+    gear: float = 1.0                 # 1/r de una transmisión rotativo → lineal (motor-a-eje-lineal D2)
 
 
 @dataclass
@@ -181,11 +182,13 @@ def to_mjcf(mod: ModeloMJ) -> str:
     for a in mod.actuadores:
         lim = (f'forcelimited="true" forcerange="{-a.fuerza_max:.6g} {a.fuerza_max:.6g}"'
                if a.fuerza_max else 'forcelimited="false"')
+        gear = "1" if a.gear == 1.0 else f"{a.gear:.12g}"  # sin transmisión, el XML de siempre
         if a.tipo == "velocity":
             actuadores.append(f'<velocity name="{a.nombre}" joint="{a.junta}" kv="{a.kv:.6g}" '
-                              f'ctrllimited="false" {lim}/>')
+                              + (f'gear="{gear}" ' if a.gear != 1.0 else "")
+                              + f'ctrllimited="false" {lim}/>')
         else:
-            actuadores.append(f'<motor name="{a.nombre}" joint="{a.junta}" gear="1" '
+            actuadores.append(f'<motor name="{a.nombre}" joint="{a.junta}" gear="{gear}" '
                               f'ctrllimited="false" {lim}/>')
     excluir = "".join(f'<exclude body1="{a}" body2="{b}"/>' for a, b in mod.excluir)
     return (

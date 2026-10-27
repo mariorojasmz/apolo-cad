@@ -42,6 +42,9 @@ class AcopleMotor:
     junta: str                   # junta Apolo que mueve
     actuador: str                # nombre MJCF del `<velocity>` («a0»)
     signo: float                 # +1/−1: el sentido de marcha (D7) en la junta
+    #: plan motor-a-eje-lineal D5: la transmisión a la prismática no se deja arrastrar por la carga
+    #: (sinfín irreversible): sin tensión la junta queda retenida. False = reversible, lo de siempre.
+    irreversible: bool = False
 
 
 @dataclass(frozen=True)

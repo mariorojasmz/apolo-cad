@@ -50,6 +50,7 @@ ARCHIVOS = (
     "services/cosim_bandas.py",
     "services/cosim_red.py",
     "services/cosim_snapshot.py",
+    "services/cosim_transmision.py",
     "services/escenario_ajustes.py",
 )
 
@@ -216,7 +217,15 @@ ARCHIVOS = (
 #: cosim-en-paralelo (sin subir): `COSIM_LOCK` pasa de lock a semáforo de `APOLO_COSIM_PARALELO`
 #: cupos (`cosim/proceso.py`); cada corrida sigue siendo su propio proceso con el mismo snapshot:
 #: 6 corridas a la vez de `flujo_nominal` de la faja 77 con desviador dan UNA sola huella.
-HUELLA: tuple[int, str] = (9, "fb1735a355daa7da")
+#: motor-a-eje-lineal F1 (sin subir, D7; sobre la 9): la transmisión rotativo → lineal
+#: (`acoples.motores.<M>.transmision`, `cosim/transmision.py`, `services/cosim_transmision.py`
+#: —suma a `ARCHIVOS`—, el `gear` del actuador y del acople) sólo actúa si el escenario la trae, y
+#: antes era 400 (clave desconocida, o «'placa' es para juntas de giro»): ningún resultado guardado
+#: la lleva. Sin ella gear = 1 (×1 y /1 exactos, el `<velocity>` sin `gear`): los 9 escenarios
+#: guardados del elevador vertical de la noche del 2026-10-27 (con `atasco` en su eje motriz) dan
+#: la MISMA huella que su resultado guardado (bitácora del plan).
+#: (rebase sobre cosim-en-paralelo: las dos sin efecto en el resultado; huella del código combinado)
+HUELLA: tuple[int, str] = (9, "6e5a591ad87e4da3")
 
 
 def archivos() -> list[Path]:

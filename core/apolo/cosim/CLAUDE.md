@@ -99,6 +99,11 @@ backend: [core/apolo](../CLAUDE.md).
   congela `tests/test_fotograma_contrato.py`. [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (D2)
 - Motor = placa SIEMPRE (el snapshot la arma; sin `forcelimited` no se escribe el tope). El
   atasco es `dof_frictionloss`, no `qfrc_applied` (un par explícito vibra en ω = 0).
+- **Motor a una junta prismática** = `acoples.motores.<M>.transmision` (`transmision.py`; el radio,
+  del `d0` de la pieza del piñón en `services/cosim_transmision.py`): el actuador sigue en el EJE con
+  `gear` = 1/r y el acople lee ese `gear` del MODELO (ω = gear·v, T = F/gear; lo que va en N·m a la
+  junta, ×gear). Nunca una igualdad blanda ni la fuerza en Python. Sin transmisión gear = 1 exacto.
+  [motor-a-eje-lineal](../../../docs/plans/motor-a-eje-lineal.md)
 - La potencia se re-resuelve sólo si algo cambió más de `TOL_POTENCIA`; un dato nuevo que la
   mueva entra en `Tablero._firma_potencia`.
 

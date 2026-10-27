@@ -49,7 +49,9 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   ε = máx(0,02, 3·μ·g·Δt); con 0,02 fijo, a 4 ms la caja derivaba en guiñada (ciclo límite).
 - `<velocity>` CON tope necesita J ≥ kv·Δt o salta la consigna y oscila entre topes (velocidad
   media 0). La inercia del rotor reflejada (J·i²) DOMINA una faja: con placa se suma siempre;
-  si aún falta, se completa y se avisa.
+  si aún falta, se completa y se avisa. Con `radio_transmision_mm` (motor a una prismática) el
+  actuador lleva `gear` = 1/r: consigna, kv y tope quedan en el eje y la armadura y el mínimo pasan
+  a la junta en kg (×gear²). [motor-a-eje-lineal](../../../docs/plans/motor-a-eje-lineal.md)
 - Signo de juntas = mano derecha sobre el eje, igual que la FK (`Rotation` de build123d es
   dextrógira). D7: el sentido de marcha se FIJA con `direccion_transporte`; sin ella se avisa
   (el ancla `eje_motriz` tal cual lleva la banda a la cola).

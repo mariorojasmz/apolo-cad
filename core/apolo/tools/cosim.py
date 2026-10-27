@@ -124,11 +124,15 @@ def registrar(mcp, api, esperar) -> None:
              bobina_cortada (14|12 si tiene dos)), {rama «-K1:13-14», falla: pegado,
              valor: true|false} (UN contacto) o abierto, o {falla: corto, a «-X1:1», b «-X1:PE»,
              R_ohm?}; quitar: true la repara. Ancla «desde falla -K1»; publica «-K1.averia».
-         acoples: {motores: {"-M1": {junta, direccion_transporte}}, sensores: {"-B1": {origen,
-                   direccion, alcance_mm?}} o, un detector de cilindro, {"-BG1": {junta, en_mm,
+         acoples: {motores: {"-M1": {junta, direccion_transporte, transmision?}}, sensores:
+                   {"-B1": {origen, direccion, alcance_mm?}} o, por la posición de una junta
+                   prismática (detector de cilindro, sensor de nivel), {"-BG1": {junta, en_mm,
                    ventana_mm}}, cilindros: {"-MM1": {junta: "<cmd>_vastago"}}},   ← qué junta
                    mueve cada motor y cada cilindro y dónde mira cada sensor: obligatorio para
-                   los motores y los cilindros
+                   los motores y los cilindros. Un motor a una junta PRISMÁTICA (elevador por
+                   cadena, cremallera, husillo) lleva transmision: {pinon: "<pieza PINON-*>"} |
+                   {diametro_primitivo_mm, fuente} | {avance_mm, fuente}, irreversible? (sinfín:
+                   sin tensión retiene); v = ω·r
          mecanica?: {bandas, juntas, timestep, nstep, con_autodeteccion…},   ← una banda HECHA A
                     MANO va en bandas [{pieza, junta_motriz}]: sin ella no avanza y un escenario
                     con cajas encima o aserciones sobre ella es error,

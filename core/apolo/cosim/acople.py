@@ -24,6 +24,13 @@ bloqueo-de-vastago D4) suma su sujeción a esa fricción, como el atasco del mot
 la restricción de fricción de esa junta se ENDURECE (`SOLREF_BLOQUEO`, `SOLIMP_BLOQUEO`): con la de
 MuJoCo por defecto (20 ms, d 0,95) la fricción seca es blanda y el vástago bajo la retención se
 arrastraba a ~40 mm/s (medido en el banco del bloqueo); al soltar vuelve la de la junta.
+
+Motor a una junta PRISMÁTICA (plan motor-a-eje-lineal D2): el actuador vive en el eje de salida y
+MuJoCo lo lleva a la junta con su `gear` (= 1/r, leído del modelo: una sola fuente). ω = gear·v y
+T = F/gear vuelven al modelo del motor como en una junta de giro; la fricción del reductor sin
+tensión y un `atasco` (N·m en el eje) llegan a la junta como F = T·gear. Una transmisión
+IRREVERSIBLE (D5) retiene la junta sin tensión con fricción seca igual al tope nominal del motor,
+endurecida como el bloqueo (si no, la carga se arrastra). Sin transmisión gear = 1: lo de siempre.
 """
 
 from __future__ import annotations
@@ -41,8 +48,15 @@ class AcopleMecanico:
         mj, m = integ.mujoco, integ.m
         self.integ = integ
         act = mj.mjtObj.mjOBJ_ACTUATOR
-        self.motores = [(a.designacion, mj.mj_name2id(m, act, a.actuador), integ.juntas[a.junta][1],
-                         float(a.signo)) for a in motores]
+        topes = {md.nombre: md.fuerza_max or 0.0 for md in (getattr(integ.snap, "motores", None) or [])}
+        self.motores = []
+        for a in motores:
+            ia = mj.mj_name2id(m, act, a.actuador)
+            gear = float(m.actuator_gear[ia, 0])
+            # D5: la retención de una transmisión irreversible, en la junta (N), sólo sin tensión
+            reten = topes.get(a.actuador, 0.0) * gear if getattr(a, "irreversible", False) else 0.0
+            self.motores.append((a.designacion, ia, integ.juntas[a.junta][1], float(a.signo), gear, reten))
+        self.gear_dof = {dof: g for _d, _a, dof, _s, g, _r in self.motores if g != 1.0}
         self.base = [float(x) for x in m.dof_frictionloss]
         self.base_solref = [tuple(float(v) for v in r) for r in m.dof_solref]
         self.base_solimp = [tuple(float(v) for v in r) for r in m.dof_solimp]
@@ -58,12 +72,17 @@ class AcopleMecanico:
     def dof(self, junta: str) -> int:
         return self.integ.juntas[junta][1]
 
+    def friccion_de(self, junta: str, par_Nm: float) -> float:
+        """La fricción seca en la junta de un par en el eje (`atasco`): en una prismática movida
+        por un motor con transmisión, F = T·gear (N); si no, el número tal cual."""
+        return par_Nm * self.gear_dof.get(self.dof(junta), 1.0)
+
     def leer(self) -> tuple[dict, dict]:
         """({motor: (ω, T)} en la salida del reductor, {sensor: detecta}) al final del
         intercambio anterior."""
         d = self.integ.d
-        mec = {des: (s * float(d.qvel[dof]), s * float(d.qfrc_actuator[dof]))
-               for des, _a, dof, s in self.motores}
+        mec = {des: (s * float(d.qvel[dof]) * g, s * float(d.qfrc_actuator[dof]) / g)
+               for des, _a, dof, s, g, _r in self.motores}
         fotos = self.integ.fotos
         det = {des: bool(fotos.estado[k]) for des, k in self.sensores} if fotos else {}
         for des, qa, en, ventana in self.reeds:
@@ -91,7 +110,7 @@ class AcopleMecanico:
                     m.dof_solref[dof] = self.solref_bloqueo if F > 0.0 else self.base_solref[dof]
                     m.dof_solimp[dof] = SOLIMP_BLOQUEO if F > 0.0 else self.base_solimp[dof]
             con_motor = set()
-            for des, a, dof, signo in motores:
+            for des, a, dof, signo, gear, reten in motores:
                 c = comandos[des]
                 kv, F = c["kv"], c["forcerange_Nm"]
                 m.actuator_gainprm[a, 0] = kv
@@ -99,8 +118,14 @@ class AcopleMecanico:
                 m.actuator_forcerange[a, 0] = -F
                 m.actuator_forcerange[a, 1] = F
                 d.ctrl[a] = signo * c["ctrl_rad_s"]
+                suelto = c["k"] == 0.0
                 m.dof_frictionloss[dof] = (base[dof] + atasco.get(dof, 0.0)
-                                           + (c["friccion_Nm"] if c["k"] == 0.0 else 0.0))
+                                           + (c["friccion_Nm"] * gear if suelto else 0.0))
+                if reten:  # D5: sin tensión el sinfín no se deja arrastrar (sólo irreversibles)
+                    if suelto:
+                        m.dof_frictionloss[dof] += reten
+                    m.dof_solref[dof] = self.solref_bloqueo if suelto else self.base_solref[dof]
+                    m.dof_solimp[dof] = SOLIMP_BLOQUEO if suelto else self.base_solimp[dof]
                 con_motor.add(dof)
             for dof, par in atasco.items():
                 if dof not in con_motor:

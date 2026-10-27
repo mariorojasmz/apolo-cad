@@ -12,6 +12,12 @@ Sentido (D7): con `direccion_transporte` el signo de la consigna se calcula para
 superficie de transporte (la cara superior de la banda o la generatriz superior del rodillo)
 avance hacia esa dirección; sin ella, el signo es el del eje de la junta y la salida lo dice.
 
+Transmisión rotativo → lineal (plan motor-a-eje-lineal D2): con `radio_transmision_mm` un motor
+(placa, rpm o par) mueve una junta PRISMÁTICA. El actuador sigue en el EJE de salida (consigna
+rad/s, kv N·m·s/rad, tope N·m: el Kloss de la placa no cambia) y MuJoCo lo lleva a la junta con
+`gear` = 1/r: v = ω·r y F = T/r, exacto, sin restricción blanda ni cuerpo de más. La armadura
+(J·i²) y el mínimo de inercia pasan a la junta en kg (×gear²).
+
 `resolver_motores` corre en la preparación (datos puros); `ControlMotores`, en el bucle
 (con `MotorDatos`, en `dinamica_control.py`: sin el catálogo, para el worker de V8.3).
 """
@@ -88,17 +94,27 @@ def resolver_motores(pet_motores: list, juntas: dict, incluidas: set, bandas_por
             raise PhysicsError(f"{donde}: '{m.junta}' es una junta fija: no se mueve")
         if m.junta not in incluidas:
             raise PhysicsError(f"{donde}: la junta '{m.junta}' quedó fuera de la simulación ({fuera.get(m.junta, 'su padre no está sujeto')})")
-        giro = j["type"] != "prismatica"
+        lineal = m.radio_transmision_mm is not None  # D2: rotativo → lineal, el actuador en el eje
+        if lineal and j["type"] != "prismatica":
+            raise PhysicsError(f"{donde}: 'radio_transmision_mm' lleva un motor rotativo a una junta "
+                               f"PRISMÁTICA; '{m.junta}' es {j['type']}: el motor ya la gira")
+        giro = j["type"] != "prismatica" or lineal
         banda = bandas_por_junta.get(m.junta)
-        radio = banda.radio if banda is not None else radio_por_junta.get(m.junta)
+        radio = (m.radio_transmision_mm * 0.001 if lineal else
+                 banda.radio if banda is not None else radio_por_junta.get(m.junta))
         signo, sentido, inferido = _sentido(m, j, banda, radio)
         info: dict = {"sentido": sentido, "inferido": inferido}
+        gear = 1.0 / radio if lineal else 1.0
+        if lineal:
+            info["transmision"] = {"radio_mm": round(m.radio_transmision_mm, 4),
+                                   "v_mm_s_por_rad_s": round(m.radio_transmision_mm, 4)}
         kv, tope, armadura = m.kv, m.par_max, 0.0
         if m.modo == "par":
             consigna = signo * m.valor
         elif m.placa is not None:
             if not giro:
-                raise PhysicsError(f"{donde}: 'placa' (motor de inducción) es para juntas de giro")
+                raise PhysicsError(f"{donde}: 'placa' (motor de inducción) es para juntas de giro; en "
+                                   "una prismática declara la transmisión ('radio_transmision_mm')")
             try:
                 k_ = kloss_linealizado(m.placa, m.reduccion, m.eta, m.frecuencia_hz)
             except ValueError as exc:
@@ -106,7 +122,7 @@ def resolver_motores(pet_motores: list, juntas: dict, incluidas: set, bandas_por
             consigna = signo * k_["omega_sinc_rad_s"]
             kv = k_["kv"]
             tope = m.par_max or k_["par_max_Nm"]
-            armadura = k_["inercia_reflejada_kgm2"]
+            armadura = k_["inercia_reflejada_kgm2"] * gear ** 2  # en una prismática, kg
             info["modelo"] = "motor de inducción + reductor (Kloss linealizado)"
             info["kloss"] = {c: (round(v, 6) if isinstance(v, float) else v) for c, v in k_.items()}
         else:
@@ -120,11 +136,11 @@ def resolver_motores(pet_motores: list, juntas: dict, incluidas: set, bandas_por
             else:
                 consigna = signo * (m.valor * 2 * math.pi / 60.0 if giro else m.valor * 0.001)
             if kv is None:
-                kv = KV_IDEAL_FACTOR * max(inercia_por_junta.get(m.junta, 0.0), 1e-6) / timestep
+                kv = KV_IDEAL_FACTOR * max(inercia_por_junta.get(m.junta, 0.0), 1e-6) / timestep / gear ** 2
                 info["modelo"] = "fuente ideal: kv = 100·J/Δt (da 'placa' o 'kv' para un motor real)"
         out.append(MotorDatos(
             nombre=f"a{k}", junta=m.junta, modo=m.modo, consigna=float(consigna),
             kv=float(kv or 0.0), fuerza_max=tope, rampa_s=m.rampa_s, desde_s=m.desde_s,
-            armadura=armadura, info=info,
+            armadura=armadura, info=info, gear=gear,
         ))
     return out

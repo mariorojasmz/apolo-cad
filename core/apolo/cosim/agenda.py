@@ -169,7 +169,8 @@ class Agenda:
             junta = d["junta"]
             juntas = self.juntas if self.acople is None else set(self.acople.integ.juntas)
             if self.acople is not None and junta in juntas:
-                self.acople.atasco[self.acople.dof(junta)] = 0.0 if reverso else float(d["par_Nm"])
+                self.acople.atasco[self.acople.dof(junta)] = (
+                    0.0 if reverso else self.acople.friccion_de(junta, float(d["par_Nm"])))
             elif juntas is not None and junta not in juntas:
                 parecida = difflib.get_close_matches(junta, sorted(juntas), n=1)
                 pista = f" ¿Quisiste decir «{parecida[0]}»?" if parecida else ""

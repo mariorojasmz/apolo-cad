@@ -24,8 +24,11 @@ class MotorDatos:
     fuerza_max: float | None = None
     rampa_s: float = 0.0
     desde_s: float = 0.0
-    armadura: float = 0.0       # kg·m²: inercia del rotor reflejada (J·i²)
+    armadura: float = 0.0       # kg·m² (kg en una prismática): inercia del rotor reflejada (J·i²·gear²)
     info: dict = field(default_factory=dict)
+    #: plan motor-a-eje-lineal D2: el `gear` del actuador = 1/r de la transmisión a una junta
+    #: prismática (consigna, kv y tope quedan en el EJE: rad/s, N·m·s/rad, N·m); 1 sin ella
+    gear: float = 1.0
 
 
 def inercia_minima(mot: MotorDatos, timestep: float) -> float:
@@ -34,8 +37,9 @@ def inercia_minima(mot: MotorDatos, timestep: float) -> float:
     Saturado, el actuador es un par constante explícito: en un paso cambia la velocidad en
     F·Δt/J, y la banda lineal alrededor de la consigna mide F/kv. Si J < kv·Δt el paso salta
     la banda y el motor oscila entre los dos topes (medido en F1: tambor de 0,07 kg·m² con
-    480 N·m de tope a 1 ms; la velocidad media salía 0)."""
-    return mot.kv * timestep if (mot.modo == "velocidad" and mot.fuerza_max) else 0.0
+    480 N·m de tope a 1 ms; la velocidad media salía 0). Con transmisión la ganancia en la
+    junta es kv·gear² (el mínimo, en kg)."""
+    return mot.kv * mot.gear ** 2 * timestep if (mot.modo == "velocidad" and mot.fuerza_max) else 0.0
 
 
 class ControlMotores:
