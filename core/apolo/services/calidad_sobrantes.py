@@ -4,8 +4,9 @@ D7 y D9). Lee el documento y reutiliza lo que la corrida de la puerta ya midió.
 **Candidatas**: (a) las piezas que la puerta trata como guarda (los cuerpos de
 `library/seguridad/guardas.revisar_guardas`) y (b) TODA pieza agregada después de la PRIMERA
 corrida de la puerta (`doc.puerta_primera.ultimo_comando`: el comando de mayor número del log en
-esa corrida; sin el dato, ninguna «agregada»). Nunca son candidatas la tornillería (va con lo que
-une), lo que gira o se mueve (es el peligro, no su resguardo), la banda ni los tensores (los
+esa corrida; sin el dato, ninguna «agregada»; lo eléctrico —el `layout_tablero`, los
+dispositivos— no cuenta como agregado: `del_carril`). Nunca son candidatas la tornillería (va con
+lo que une), lo que gira o se mueve (es el peligro, no su resguardo), la banda ni los tensores (los
 tensores que sobran son una nota del ítem de tensión: F1).
 
 **Prueba** (sobre una COPIA del modelo sin la candidata, sin los `fasten`/`ground` que la nombran
@@ -38,89 +39,28 @@ el documento. El llamador sostiene STATE_LOCK.
 from __future__ import annotations
 
 import copy
-import re
 import time
 
 from apolo.library.seguridad.iso13857 import ALCANCE_BRAZO_MM, ALCANCE_DESDE_MUNECA_MM
+
+from .calidad_sobrantes_candidatas import (  # noqa: F401 — re-exportados por identidad
+    MASA_MIN_KG,
+    _tornilleria,
+    candidatas,
+    del_carril,
+    marcar_primera_corrida,
+    numero,
+    ultimo_comando,
+)
 
 #: Un objetivo de un peligro se re-traza sin la candidata si ésta está a menos que esto de él: el
 #: brazo (850 mm) más la mano desde la muñeca (230 mm, ISO 13857 tabla 6). Más lejos, ni el
 #: antebrazo pasa por ella (D7: el costo se acota por zona).
 DIST_INFLUENCIA_MM = ALCANCE_BRAZO_MM + ALCANCE_DESDE_MUNECA_MM
-#: Menos que esto no es una protección ni un refuerzo: herraje (distanciadores, casquillos).
-MASA_MIN_KG = 0.01
 N_DIRECCIONES = 64  # las de la corrida (`controles_seguridad`)
 #: Vueltas de la voraz: la segunda re-prueba lo que una quitada posterior pudo liberar.
 MAX_VUELTAS = 3
-_CID = re.compile(r"c(\d+)")
 _RANGO = {"FALLA": 0, "SIN_EVALUAR": 1, "OK": 2, "NO_APLICA": 3}
-
-
-def numero(command_id) -> int:
-    """El número del comando raíz de un command_id (`c369`, `c40_c3` → 40); -1 si no es uno."""
-    m = _CID.fullmatch(str(command_id or "").split("_")[0])
-    return int(m[1]) if m else -1
-
-
-def ultimo_comando(doc) -> int:
-    return max((numero(c.get("id")) for c in doc.commands), default=0)
-
-
-def marcar_primera_corrida(doc) -> bool:
-    """Anota en el manifest el último comando del log la PRIMERA vez que corre la puerta (D9): lo
-    posterior es lo que «agregó una ronda de corrección». True si lo anotó (el llamador guarda)."""
-    if getattr(doc, "puerta_primera", None) or getattr(doc, "solo_lectura", None):
-        return False
-    doc.puerta_primera = {"ultimo_comando": ultimo_comando(doc), "comandos": len(doc.commands)}
-    return True
-
-
-# ------------------------------------------------------------------ candidatas
-def _tornilleria(doc, piezas) -> tuple[set, dict]:
-    from apolo.library.seguridad.modelo import es_tornilleria
-
-    from .delivery_inputs import exclusiones_declaradas, tornilleria_join_bolted
-
-    jb = tornilleria_join_bolted(doc)
-    return (exclusiones_declaradas(doc)[1] | set(jb)
-            | {i for i, p in piezas.items() if es_tornilleria(p)}), jb
-
-
-def _de_tensores(doc) -> set:
-    from .calidad_tensores import tensores_reconocidos
-
-    out = set()
-    for t in tensores_reconocidos(doc, medir=False):
-        if t.get("tipo") == "take_up":
-            out |= {f for f in doc.scene if f.startswith(f"{t.get('id')}_")}
-        elif t.get("tipo") == "catalogo":
-            out.add(t.get("id"))
-        out |= set(t.get("_piezas") or [])
-    return out
-
-
-def candidatas(doc, an: dict, hardware: set) -> list[dict]:
-    """[{id, nombre, origen: guarda|agregada, masa_kg}] de la más pesada a la más liviana."""
-    from apolo.library.engineering.mass import feature_mass
-    from apolo.library.seguridad.modelo import clase_flexible
-
-    piezas = an["dc"]["piezas"]
-    de_guarda = {i for g in an["guardas"]["guardas"] for i in g["ids"]}
-    ultimo = (getattr(doc, "puerta_primera", None) or {}).get("ultimo_comando")
-    agregadas = set() if ultimo is None else {
-        i for i in piezas if numero(getattr(doc.scene[i], "command_id", None)) > int(ultimo)}
-    fuera = hardware | set(an["moviles"]) | _de_tensores(doc)
-    out = []
-    for i in sorted((de_guarda | agregadas) - fuera):
-        if clase_flexible(piezas[i]):
-            continue
-        masa = feature_mass(doc.scene[i], default_material=doc.default_material())["masa_kg"]
-        if masa < MASA_MIN_KG:
-            continue
-        out.append({"id": i, "nombre": piezas[i].nombre, "masa_kg": round(masa, 3),
-                    "origen": "guarda" if i in de_guarda else "agregada"})
-    out.sort(key=lambda c: (-c["masa_kg"], c["id"]))
-    return out
 
 
 # ------------------------------------------------------------------ la copia sin la candidata
@@ -259,6 +199,7 @@ class Prueba:
         self.peligros = [{**p, "estado": res[p["id"]]["estado"], "llegan_por": {}}
                          for p in sondas["peligros"]
                          if p.get("objetivos") and res[p["id"]]["estado"] in ("OK", "FALLA")]
+        self.en_holgura = [p for p in sondas["peligros"] if p.get("en_holgura")]
         self._tr_base = None
         self._campo_base = None
 
@@ -345,6 +286,11 @@ class Prueba:
                     self._cron("rectas", t0)
                     return {"control": "peligros", "detalle": f"{p['peligro']}: {malo}"}
             self._cron("rectas", t0)
+        t0 = time.perf_counter()
+        malo, tr, empuje = self._holguras(r, dc, tr, empuje)
+        self._cron("rectas", t0)
+        if malo:
+            return {"control": "peligros", "detalle": malo}
         if dc0["piezas"][c].rol != "guarda":
             t0 = time.perf_counter()
             if self._vida_base is None:
@@ -382,6 +328,29 @@ class Prueba:
             p["llegan_por"].update(p.pop("_nuevas", {}))
         self._tr_base = None
         return None
+
+    def _holguras(self, r: set, dc: dict, tr, empuje):
+        """(motivo | None, tr, empuje): un objetivo que la corrida sacó por caer en una holgura
+        funcional (`calidad_sondas.fuera_de_holguras`) vuelve a contar si lo quitado forma esa
+        rendija; con ella abierta, se sondea con las rectas."""
+        from .calidad_codo import BandaEmpujable
+        from .calidad_sondas import Trazador, evaluar_peligro, holgura
+
+        for p in self.en_holgura:
+            puntos = [tuple(h["punto"]) for h in p["en_holgura"] if set(h["entre"]) & r]
+            if not puntos:
+                continue
+            if tr is None:
+                tr, empuje = Trazador(dc["solidos"]), BandaEmpujable(dc, self.nubes)
+            libres = [q for q in puntos if holgura(tr, q) is None]
+            if not libres:
+                continue
+            s, _ms = evaluar_peligro(tr, {**p, "objetivos": libres}, dc["caja"], dc["z_piso"],
+                                     N_DIRECCIONES, empuje.salta)
+            if _llegan(s):
+                return (f"{p['peligro']}: sin ella se abre una holgura funcional y una sonda "
+                        "recta llega"), tr, empuje
+        return None, tr, empuje
 
     def _rectas(self, p: dict, ks: list[int], tr, dc: dict, empuje) -> str | None:
         """Las sondas rectas de los objetivos `ks` del peligro sin lo quitado: None si ninguno

@@ -27,7 +27,17 @@ NUMERICAS: tuple[str, ...] = (
     # la vida L10 de una máquina que no es transportador (F3b de puerta-sin-sobrediseno): las rpm
     # del eje de salida y la carga radial equivalente P por rodamiento, en N
     "rpm_salida", "carga_rodamiento_n",
+    # el factor de servicio de una máquina que no es transportador (F3c): lo que absorbe en el eje
+    # de salida del reductor (kW) o su par ahí (N·m), y las horas de servicio por día (≤ 24)
+    "potencia_absorbida_kw", "par_salida_nm", "horas_dia",
 )
+
+#: El tipo de carga del servicio (AGMA): con `horas_dia`, el factor de servicio que se pide
+#: (`engineering/servicio.py`). Se acepta el masculino y «suave»/«choques» como sinónimos.
+TIPO_CARGA = "tipo_carga"
+_TIPOS_CARGA = {"uniforme": "uniforme", "suave": "uniforme", "moderada": "moderada",
+                "moderado": "moderada", "pesada": "pesada", "pesado": "pesada",
+                "choques": "pesada", "fuerte": "pesada"}
 
 #: Las claves de la ficha del encargo (D1), en el orden en que se piden.
 FICHA: tuple[str, ...] = ("carga_kg", "ancho_producto_mm", "desarmable", "instalacion",
@@ -95,7 +105,17 @@ def _numero(key: str, value) -> float:
         raise ValueError(f"El requisito '{key}' debe ser numérico") from exc
     if key != "inclinacion_deg" and num <= 0:
         raise ValueError(f"El requisito '{key}' debe ser > 0")
+    if key == "horas_dia" and num > 24:
+        raise ValueError("El requisito 'horas_dia' son las horas de servicio por día: ≤ 24")
     return num
+
+
+def _tipo_carga(value) -> str:
+    texto = _sin_tildes(str(value).strip().lower())
+    if texto in _TIPOS_CARGA:
+        return _TIPOS_CARGA[texto]
+    raise ValueError(f"El requisito '{TIPO_CARGA}' es uniforme | moderada | pesada (la clase de "
+                     "carga de AGMA: con horas_dia da el factor de servicio que se pide)")
 
 
 def _si_no(key: str, value) -> bool:
@@ -153,6 +173,8 @@ def _valor(key: str, value):
         return _si_no(key, value)
     if key == "instalacion":
         return _instalacion(value)
+    if key == TIPO_CARGA:
+        return _tipo_carga(value)
     if key == FUNCIONES:
         raise ValueError(_COMO_FUNCIONES)
     if key == "entorno" and not isinstance(value, str):

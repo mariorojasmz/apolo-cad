@@ -50,18 +50,21 @@ def reglas_de_ingenieria(doc, lints: bool = True) -> list[dict]:
 
 def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=None) -> list:
     """Los ítems (`library/calidad/item.Item`) de agarre, distancia al borde y paso de los
-    agujeros (F6), tensor y vida útil del documento.
+    agujeros (F6), agujeros de las uniones declaradas (F3c), tensor y vida útil del documento.
     `reglas` = las de `engineering_check` si el llamador ya las tiene; `contexto` (el memo de la
     corrida de la puerta, protocolo de las fuentes del registro) no lo usa."""
     from apolo.library.calidad.agarre import controlar_agarre
+    from apolo.library.calidad.agujeros import controlar_agujeros
     from apolo.library.calidad.bordes import controlar_bordes
     from apolo.library.calidad.tensor import controlar_tensores
     from apolo.library.calidad.vida_util import controlar_vida_util
     from apolo.library.catalog import CATALOG
 
+    from .calidad_agujeros import insumos_agujeros
     from .calidad_bordes import insumos_bordes
     from .calidad_pernos import _Escena, insumos_pernos
     from .calidad_tensores import lazos
+    from .engineering_rules import servicio_declarado
 
     if reglas is None:
         reglas = reglas_de_ingenieria(doc)
@@ -72,6 +75,8 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
     esc = _Escena(doc.scene)
     pernos = insumos_pernos(doc, escena=esc)
     return (controlar_agarre(pernos) + controlar_bordes(*insumos_bordes(doc, pernos, esc))
+            + controlar_agujeros(insumos_agujeros(doc))
             + controlar_tensores(lazos(doc))
             + controlar_vida_util(reglas, hay_motor=hay_motor, hay_uniones=hay_uniones,
-                                  justificadas=getattr(doc, "justificadas", None) or []))
+                                  justificadas=getattr(doc, "justificadas", None) or [],
+                                  fs_servicio=servicio_declarado(doc)[0]))

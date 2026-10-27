@@ -58,7 +58,10 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         producto, entorno, normativa, notas. Sentido de marcha: sentido_transporte [x, y, z]
         (hacia dónde avanza el ramal de carga; la puerta resguarda sólo la cuña de ENTRADA de
         cada tambor) y reversible (sí/no: las dos cuñas). Vida L10 de una máquina que no es
-        transportador: rpm_salida y carga_rodamiento_n (carga radial P por rodamiento, N). Las
+        transportador: rpm_salida y carga_rodamiento_n (carga radial P por rodamiento, N); su
+        factor de servicio: potencia_absorbida_kw (lo que absorbe en el eje de salida del
+        reductor) o par_salida_nm. Servicio (el FS que se pide, AGMA): tipo_carga (uniforme |
+        moderada | pesada) y horas_dia; sin ellos, 1,25. Las
         funciones y sus alternativas NO van aquí: set_functions. Con esto `engineering_check()` y
         `calc_report()` funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.
         `comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes; registro v10) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -178,6 +178,10 @@ física y la norma piden, y que nada detecta una pieza de protección que sobra.
   peligro, «tapas» como resguardo, la L10 sin las rpm declaradas, las funciones sin canal, el piso
   bajo la losa, el acople y la salida del motorreductor sin peligro, las poses de reposo
   (§ Bitácora F3b).
+- **F3c — lo que la puerta no veía en esas tres máquinas (M).** La unión atornillada declarada sin
+  agujeros (ítem nuevo `union.agujeros`), el espárrago soldado con su tuerca, el factor de servicio
+  fuera de un transportador con el servicio declarado, la flecha sin vigas, el objetivo dentro de
+  una holgura funcional y lo eléctrico como «agregado» a sobrante (§ Bitácora F3c).
 - **F4 — adelgazar la faja de motor central (S, por MCP, fuera del núcleo).** Declarar el sentido,
   sacar las UCT (la cola vuelve a apoyos fijos si los tres tensores alcanzan), sacar lo que F3
   diga que sobra, puerta aprobada y `delivery_check` VERDE; antes/después de masa y costo.
@@ -528,4 +532,88 @@ Decisiones tomadas en la implementación (vetables):
   abierto: peligro; un eje que lo atraviesa también (gira junto a la cara). La «Tapa del eje hueco
   del reductor» que la F3 halló sobrante en la faja de motor central debería pedirla ahora este
   peligro (no medido: esa faja no está en esta máquina; lo verá la F4).
+
+### F3c (2026-10-27): lo que la puerta no veía en esas tres máquinas
+
+Medido en SÓLO LECTURA sobre fotos de las bases (tanque: corrección final, 03:13; mezcladora,
+03:33; elevador, 03:29; las siguen usando otros procesos) y la revisión 4 del tanque («antes de
+corrección 3: uniones atornilladas con sus agujeros»), con `items_funcion_mecanica`,
+`tool_access_report`, los hechos y `controles_seguridad` (sin ERC), antes (`main`) y después (en la
+mezcladora y el elevador el «antes» de agarre, acceso, factor y flecha es la foto de 10 min antes,
+la de las 03:21–03:22; las sondas, la misma foto):
+
+| | mezcladora (219 sólidos) | tanque (121) | elevador (295) |
+|---|---|---|---|
+| `union.agujeros` (nuevo) | FALLA: 17 de 49 uniones (las UCF207 sobre los testeros, la brida del cilindro sobre la caja, la ménsula de reacción, los sellos, el panel neumático, bisagras y lengüetas de la tapa, soportes de interruptores); 5 de 5 anclajes OK | OK: 21 de 21 y 5 de 5 anclajes. Revisión 4: FALLA 8 de 18 (portasello, chumacera ↔ puente, lengüeta, bisagras, prisionero de la hélice) y las 5 placas de piso sin taladros | FALLA: 22 de 46 (respaldo de la plataforma, brazo de reacción, regleta de sensores sin los M18, bisagras de las puertas, actuadores) y 10 de 10 anclajes (placas con un Ø8,5 para M12 químicos) |
+| agarre · retención · largo | OK (56) → OK | SIN_EVALUAR (8 de 12: los espárragos) → OK (12) | SIN_EVALUAR → SIN_EVALUAR: 12 «Perno de amarre …» sin cabeza modelada (el motivo ahora lo dice); los «Tope elástico … con espárrago» ya no son tornillería |
+| `union.acceso_herramienta` | OK (92) → OK | SIN_EVALUAR (8 espárragos) → OK (16; los espárragos los aprieta su tuerca) | SIN_EVALUAR 22 → 20 (pernos sin cabeza, resortes y tuercas sin hexágono modelado) |
+| `accionamiento.factor_servicio` | SIN_EVALUAR «declara carga y largo de paquete» → SIN_EVALUAR «declara `potencia_absorbida_kw` o `par_salida_nm`» | igual; con los 105 W de sus notas: FS = 0,55·0,75/0,105 = 3,93 ≥ 1,25, OK | igual que la mezcladora |
+| `estructura.flecha` | OK (2 vigas; el detector contaba 9) | SIN_EVALUAR (contaba 7 «vigas»: rieles DIN y canaletas del tablero) → NO_APLICA | OK (6; contaba 16) |
+| `riesgos.partes_moviles` | FALLA: 6 sondas a la salida del NMRV con sr 0,2–1,5 mm → OK: sus 4 objetivos caen en la rendija de 2,0 mm entre la «Chumacera lado motor» y la caja | OK → OK (3 peligros) | FALLA → FALLA (cadenas 10 y 15 sondas, eje loco 5: sin cambio, peligros reales) |
+| candidatas a sobrante | 35 (31 «agregadas»: los aparatos del tablero rehecho al final) → 4 (0) | 14 → 14 | 41 (39) → 8 (6) |
+| segundos (mecánica) | 5,1 → 3,8 | 2,9 → 3,0 | 9,7 → 9,3 |
+
+Qué entró, por punto:
+1. **`union.agujeros`** (ítem general nuevo, familia montaje; `library/calidad/agujeros.py`, medido
+   por `services/calidad_agujeros.py`): cada pieza a medida de un `fasten kind=perno` del modelador
+   (comandos `fasten` y `join_bolted`) tiene ≥ `qty` agujeros —caras cilíndricas INTERIORES,
+   coaxiales = uno— de Ø entre 0,75·d y 1,6·d + 2 mm en la intersección de las cajas de las dos
+   piezas; un anclaje con pernos en su nota («4 pernos de expansión M12», «2 tarugos M10», «anclajes
+   químicos M12») los pide en su placa, tantos como dice la nota. `join_bolted` taladra: la ménsula testigo pasa.
+   Defecto sembrado `placa_sin_agujeros`. Costo: una extracción de caras por pieza (≈ 0,1–0,4 s).
+2. **El espárrago** (`library/esparrago.py`): rol anclado («Espárrago…», «Varilla roscada…») +
+   vástago sin cabeza (sin hexágono, cilindros coaxiales de un Ø). Se mide desde su BASE hacia la
+   punta donde va la tuerca (el sentido lo da la tuerca; sin ella, el extremo que apoya): cruza,
+   retención con la tuerca (hilo fuera ≥ 2 pasos) y largo de la serie de espárragos. En el acceso de
+   herramienta no se evalúa: lo aprieta su tuerca, que sí (`esparragos` en el reporte).
+3. **Factor de servicio con lo declarado** (`library/engineering/servicio.py`,
+   `engineering_rules.accionamiento_declarado`): sin transportador, regla «factor de servicio del
+   accionamiento» = P·η / `potencia_absorbida_kw` o T_nominal / `par_salida_nm` (T de la ficha o de
+   9550·P·η / rpm declaradas), contra el FS de su servicio: tabla AGMA por `tipo_carga` (uniforme |
+   moderada | pesada) y `horas_dia` (≤ 3, ≤ 10, > 10), 1,25 sin servicio declarado. El umbral
+   declarado vale también para la motorización de un transportador. Requisitos nuevos y docstring de
+   `set_requirements` (golden: sólo `list_tools`).
+4. **La flecha sin vigas**: el detector `vigas` de los hechos es `vigas_rules.detectar_vigas` (el
+   criterio del control): NO_APLICA con el porqué.
+5. **Holgura funcional** (`calidad_sondas.fuera_de_holguras`, punto del coordinador): un objetivo de
+   ENGANCHE en el aire entre dos piezas a ≤ 4 mm sale de las sondas con su evidencia
+   (`en_holgura`: punto, ancho, las dos piezas); si todos salen, el peligro es OK. La prueba de
+   sobrantes lo vuelve a sondear si quita una de las dos paredes.
+6. **Lo eléctrico no es «agregado»** (`calidad_sobrantes_candidatas.del_carril`, punto del
+   coordinador): lo que dibuja un `layout_tablero`, las refs con ficha eléctrica, las piezas ligadas
+   por `add_device` y las de rol eléctrico salen de las candidatas (b); una guarda sigue siendo (a).
+   Las candidatas se mudaron a su módulo (el tope de 500 líneas).
+
+`VERSION_REGISTRO` 9 → 10. Testigos re-congelados: suman `union.agujeros` (OK en los cuatro: en la
+faja y los rodillos, nada que verificar o los anclajes de la plantilla con sus agujeros) y la
+versión; ningún otro veredicto se movió.
+
+Decisiones tomadas en la implementación (vetables):
+- **Ítem propio, no dentro de `union.agarre`**: agarre mide la tornillería MODELADA; esto, lo
+  DECLARADO que nadie modeló. Dos modos de falla, dos ítems.
+- **Lo que no se juzga** (con su motivo en el insumo): catálogo y lo declarado «(compra…)» (el
+  builder o el bloque a mano no siempre modelan los agujeros del fabricante: el sensor M18 de
+  catálogo no, pero la regleta que lo recibe sí se juzga), tornillería y pasadores (rol anclado),
+  cadena o banda, chapa perforada (la perforación no se modela: se lee del nombre), el eje de una
+  unión con prisionero, la base sobre la que va soldado un espárrago (no la atraviesa), las uniones
+  internas de una plantilla (las responde la plantilla) y las que dicen «sin perno» (cierres de
+  palanca). «Punta roscada» = basta una pieza con el agujero.
+- **El espárrago por el ROL**: la geometría de un espárrago es la de un pasador; el catálogo no los
+  trae. «Perno …» sin cabeza modelada NO se lee como espárrago (el modelo está a medias y lo dice).
+  «con espárrago» es mención (`lints._MENCION_RE`), como «p/ perno». La serie de largos (ISO 13918 /
+  DIN 938) es criterio de compra, a confirmar con el proveedor; la varilla roscada se corta.
+- **El factor de servicio no usa el `atasco`**: es una falla provocada para ver que la protección
+  dispare; dimensionar contra él pediría un motor que nunca se protege. Ni `carga_kg` (el producto).
+  La tabla de AGMA da 0,8 a ≤ 3 h/día de carga uniforme: el piso es 1,0 (criterio propio, más
+  estricto: el par nominal de la ficha no se excede). Con varios motorreductores el requisito es de
+  la máquina: aviso, SIN_EVALUAR (falta un requisito por motor).
+- **Holgura ≤ 4 mm sólo en enganche**: por esa rendija el dedo no entra (ISO 13857 tabla 4 da 2 mm
+  de penetración a la punta en e ≤ 4: toca el borde, no lo que gira adentro) y nada se arrastra
+  (ISO 13854: 25 mm para el dedo). Una cuña o una cadena (atrapamiento) se abre hacia afuera: no se
+  exime. Un punto dentro de un sólido no es rendija (la misma pieza a los dos lados).
+
+Hallazgos fuera del alcance: en el elevador, 12 «Perno de amarre …» modelados como cilindros sin
+cabeza y 8 tuercas y resortes sin hexágono siguen SIN_EVALUAR en agarre y acceso (es el modelo); las
+17/22 uniones sin agujeros de la mezcladora y el elevador, y sus anclajes, son defectos reales que
+sus modeladores tendrán que taladrar (o rehacer con `join_bolted`).
 

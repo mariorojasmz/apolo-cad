@@ -125,6 +125,15 @@ def agujero_al_canto(d):  # F6: el revisor halló agujeros a 1,5 mm del canto de
     d.execute("insert_component", {"component": "TUERCA-M10", "position": {"x": 346, "z": -4}})
 
 
+def placa_sin_agujeros(d):
+    """F3c de puerta-sin-sobrediseno: un `fasten` perno declara dos M8 entre una placa y la base,
+    pero ninguna tiene los agujeros (la chumacera sobre el puente del tanque: pasaba las dos
+    puertas y la encontró un revisor de taller)."""
+    p = _caja(d, "Placa de la chumacera", 60, 60, 8, 100, 0, 16)
+    d.execute("fasten", {"name": "f_chumacera", "a": p, "b": _id(d, "Placa base"),
+                         "kind": "perno", "size": "M8", "qty": 2})
+
+
 def pata_esbelta(d):  # 8 × 8 mm y 1,5 m: pandea con su propio peso y el de la máquina
     p = _caja(d, "Pata esbelta", 8, 8, 1500, 0, 90, 762)
     d.execute("ground", {"name": "gp", "feature": p})
@@ -327,6 +336,8 @@ DEFECTOS = (
             {"union.largo_comercial": FALLA}),
     Defecto("agujero_al_canto", "mensula_atornillada", agujero_al_canto,
             {"union.distancia_al_borde": FALLA}),
+    Defecto("placa_sin_agujeros", "mensula_atornillada", placa_sin_agujeros,
+            {"union.agujeros": FALLA}),
     Defecto("pata_esbelta", "mensula_atornillada", pata_esbelta, {"estructura.pandeo": FALLA}),
     Defecto("contrapeso_en_voladizo", "mensula_atornillada", contrapeso_en_voladizo,
             {"estructura.vuelco": FALLA}),

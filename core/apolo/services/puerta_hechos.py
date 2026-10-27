@@ -31,7 +31,6 @@ _PATA_RE = re.compile(r"^(patas?|columnas?|postes?)\b", re.I)
 _MOTORES = ("motorreductores", "motorreductores_sinfin")
 _RODANTES = {"rodamientos": "rodamiento", "chumaceras": "chumacera"}
 _GIRO = ("giratoria", "continua")
-_VIGA_MIN_MM = 300.0  # un perfil horizontal más corto no trabaja como viga
 #: clase de cada peligro de `peligros_mecanicos` (por el prefijo de su id)
 _CLASE_PELIGRO = {"atrapamiento": "cuna_banda_tambor", "transmision": "transmision",
                   "extremo_eje": "extremo_eje", "giro": "pieza_giratoria",
@@ -42,10 +41,21 @@ def _n(d: dict) -> dict:
     return {k: v for k, v in d.items() if v}
 
 
-def _horizontal_largo(shape) -> bool:
-    bb = shape.bounding_box()
-    dx, dy, dz = bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z
-    return max(dx, dy) >= max(dz, _VIGA_MIN_MM)
+def _vigas(doc) -> dict:
+    """{perfil: n, bastidor_faja: n}: lo que `vigas_rules` calcula como viga (perfil horizontal
+    con dos apoyos por perno o soldadura) y las piezas de un `create_conveyor`, que calcula su
+    regla («flecha del bastidor»). El MISMO criterio que el control (F3c de
+    puerta-sin-sobrediseno): un perfil cualquiera —un riel DIN, una canaleta, las patas de un
+    tanque a compresión— no es una viga y el ítem sale NO_APLICA, no SIN_EVALUAR."""
+    from .vigas_rules import detectar_vigas
+
+    try:
+        det = detectar_vigas(doc)
+    except Exception:  # noqa: BLE001 — aplica igual: la fuente dirá por qué no se evaluó
+        return {"sin_detectar": 1}
+    if det is None:
+        return {}
+    return {"perfil": len(det["vigas"]), "bastidor_faja": len(det["de_faja"])}
 
 
 def _ground_fid(g) -> str | None:
@@ -99,24 +109,18 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         animadas = len(marcha_ejemplo.bandas(doc)[0])
     except Exception:  # noqa: BLE001 — sin la detección, se evalúa igual y dirá por qué
         animadas = len(bandas)
-    tornilleria = {"perno": 0, "madera": 0}
+    tornilleria: dict[str, int] = {}
     for x in solidos.values():
         t = tipo_de_tornilleria(x, CATALOG)
         if t:
-            tornilleria[t] += 1
+            tornilleria[t] = tornilleria.get(t, 0) + 1
     rodantes = {f: _RODANTES[c.category] for f, c in comps.items()
                 if c is not None and c.category in _RODANTES}
     motores = [f for f, c in comps.items() if c is not None and c.category in _MOTORES]
     # lo que gira accionado (una bisagra de servicio no es apoyo rotativo: `calidad_juntas`)
     accionadas = {n for n, c in clasificar(doc).items() if c["accionada"]}
     giran = [j["child"] for n, j in doc.joints.items() if j.get("type") in _GIRO and n in accionadas]
-    vigas = 0
-    for f, c in comps.items():
-        if c is not None and c.cuttable:
-            try:
-                vigas += _horizontal_largo(solidos[f].shape)
-            except Exception:  # noqa: BLE001 — sin bbox no cuenta
-                pass
+    vigas = _vigas(doc)
     partes_moviles, resguardos, consumibles, guardas = _de_f3(doc, contexto)
     anclados = [g for g in (_ground_fid(x) for x in doc.grounds.values()) if g in solidos]
     # un MECANISMO (memoria y familias D15): lo que se mueve por el modelo o un peligro de F3
@@ -135,7 +139,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "accionamientos": _n({"motorreductor": len(motores)}),
         "transmisiones": _n({"cadena": len(cadenas)}),
         "apoyos": _n({"anclaje": len(doc.grounds)}),
-        "vigas": _n({"perfil": vigas}),
+        "vigas": _n(vigas),
         "columnas": _n({"pata": sum(1 for r in rol.values() if _PATA_RE.match(r))}),
         "uniones": _n({"perno": kinds.count("perno"), "soldadura": kinds.count("soldadura")}),
         "uniones_apernadas": _n({"perno": kinds.count("perno")}),

@@ -11,7 +11,9 @@ Cómo se mide:
 - **Eje y cabeza** de la GEOMETRÍA (`fijadores_geom`: hexágono de la cabeza; Allen o cabeza
   cilíndrica: el cilindro coaxial más grueso), nunca del nombre. `t` = 0 en la cara de asiento
   de la cabeza; el largo es lo que el sólido llega más allá. Sin cabeza reconocible: no
-  evaluable (SIN_EVALUAR, nunca OK).
+  evaluable (SIN_EVALUAR, nunca OK). El ESPÁRRAGO (rol «Espárrago …» o «Varilla roscada …» y un
+  vástago sin cabeza, `library/esparrago.py`; F3c de puerta-sin-sobrediseno) mide desde su BASE
+  hacia la punta donde va su tuerca (`geometria_esparrago`): lo que aprieta es la tuerca.
 - **Rayos** paralelos al eje (`kernel/rayo.Rayos`): seis a un radio entre el vástago y la
   cabeza (cruzan la pared alrededor de un taladro de paso, la tuerca y lo que el perno aprieta)
   y cuatro a un radio MENOR que el del vástago (sólo tocan material donde el agujero es más chico
@@ -59,7 +61,8 @@ def _base_perp(eje):
 
 
 def tipo_de_tornilleria(feat, catalog) -> str | None:
-    """'perno' | 'madera' | None (no es un perno que el control mida)."""
+    """'perno' | 'madera' | 'esparrago' | None (no es un perno que el control mida)."""
+    from apolo.library.esparrago import es_esparrago
     from apolo.library.lints import es_nombre_de_tornilleria
 
     comp = catalog.get(getattr(feat, "component", None) or "")
@@ -73,7 +76,41 @@ def tipo_de_tornilleria(feat, catalog) -> str | None:
     nombre = getattr(feat, "name", "") or ""
     if _TUERCA_RE.search(nombre) or not es_nombre_de_tornilleria(nombre):
         return None
-    return "perno"
+    return "esparrago" if es_esparrago(nombre) else "perno"
+
+
+def _es_tuerca(feat, catalog) -> bool:
+    comp = catalog.get(getattr(feat, "component", None) or "")
+    return ((comp is not None and comp.category == "tuercas")
+            or bool(_TUERCA_RE.search(getattr(feat, "name", "") or "")))
+
+
+def geometria_esparrago(esc, solid, catalog) -> dict | None:
+    """La geometría de UN espárrago (`library/esparrago.py`) con su sentido: `t` = 0 en la BASE
+    (el extremo soldado o el que entra en la pieza) y hacia la punta, donde va la TUERCA. El
+    sentido lo da la tuerca (está del lado de la punta); sin tuerca, el extremo que apoya en otra
+    pieza; si los dos o ninguno, None (no evaluable). Formato de `geometria_perno`."""
+    from apolo.library import esparrago as E
+
+    ge = E.geometria_esparrago(solid)
+    if ge is None:
+        return None
+    d, e = ge["d"], ge["eje"]
+    lados = []
+    for base, dir_ in ((ge["p0"], e), (ge["p1"], (-e[0], -e[1], -e[2]))):
+        g = {"asiento": base, "dir": dir_, "cabeza": "esparrago", "d": d, "s": 1.6 * d,
+             "largo": ge["largo"], "tuercas": []}
+        m = _medir(esc, solid, g, 0.0)
+        tuerca = [(a + b) / 2.0 for x in m.values() if _es_tuerca(x["feat"], catalog)
+                  for a, b in _union(x["afuera"]) if -0.05 < a < ge["largo"]]
+        detras = any(a < -0.2 for x in m.values() if not _es_tuerca(x["feat"], catalog)
+                     for a, _b in _union(x["afuera"] + x["adentro"]))
+        lados.append((g, tuerca, detras))
+    con_tuerca = [g for g, tu, _d in lados if tu and min(tu) > ge["largo"] / 2.0]
+    if len(con_tuerca) == 1:
+        return con_tuerca[0]
+    apoyadas = [g for g, tu, de in lados if de and not tu]
+    return apoyadas[0] if len(apoyadas) == 1 else None
 
 
 def _cilindros(solid) -> list[dict]:
@@ -243,6 +280,23 @@ def _medir(esc: _Escena, solid, g: dict, alcance: float) -> dict:
     return out
 
 
+def _sin_geometria(tipo: str, solid) -> str:
+    """Por qué un perno no se puede medir, con cómo seguir."""
+    from apolo.library.esparrago import geometria_esparrago as vastago
+
+    if tipo == "esparrago":
+        return ("espárrago sin tuerca en su punta ni base soldada o roscada reconocibles en la "
+                "geometría")
+    try:
+        sin_cabeza = vastago(solid) is not None
+    except Exception:  # noqa: BLE001
+        sin_cabeza = False
+    if sin_cabeza:
+        return ("vástago sin cabeza modelada: modela la cabeza del perno (o, si es un espárrago, "
+                "nómbralo «Espárrago …»)")
+    return "sin cabeza ni vástago reconocibles en la geometría"
+
+
 def insumo_perno(esc: _Escena, fid: str, feat, solid, tipo: str, esperadas: list[str],
                  catalog) -> dict:
     """El insumo de agarre de UN sólido-perno (formato en `library/calidad/agarre.py`)."""
@@ -251,12 +305,12 @@ def insumo_perno(esc: _Escena, fid: str, feat, solid, tipo: str, esperadas: list
     base = {"fid": fid, "nombre": getattr(feat, "name", fid), "ref": feat.component,
             "madera_screw": tipo == "madera", "esperadas": esperadas}
     try:
-        g = geometria_perno(solid)
+        g = (geometria_esparrago(esc, solid, catalog) if tipo == "esparrago"
+             else geometria_perno(solid))
     except Exception:  # noqa: BLE001 — geometría rara: no evaluable, nunca rompe la puerta
         g = None
     if g is None:
-        return {**base, "evaluable": False, "cabeza": "hex",
-                "motivo": "sin cabeza ni vástago reconocibles en la geometría"}
+        return {**base, "evaluable": False, "cabeza": "hex", "motivo": _sin_geometria(tipo, solid)}
     dn, paso = _metrica(g["d"])
     alcance = max(4.0 * dn, _ALCANCE_MIN_MM)
     medidas = _medir(esc, solid, g, alcance)
@@ -264,9 +318,7 @@ def insumo_perno(esc: _Escena, fid: str, feat, solid, tipo: str, esperadas: list
     largo = g["largo"]
     for ofid, m in medidas.items():
         ofeat = m["feat"]
-        comp = catalog.get(getattr(ofeat, "component", None) or "")
-        es_tuerca = ((comp is not None and comp.category == "tuercas")
-                     or bool(_TUERCA_RE.search(getattr(ofeat, "name", "") or "")))
+        es_tuerca = _es_tuerca(ofeat, catalog)
         adentro = _union(m["adentro"])
         # rosca declarada en el NOMBRE (como los fits): el eje «roscado p/ perno» del tensor se
         # modela con agujero de paso, pero el perno enrosca en él

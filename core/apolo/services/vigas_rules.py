@@ -144,16 +144,42 @@ def _no_aplica(motivos: dict) -> list[str]:
 
 def beam_rules(doc, carga_kg: float | None = None, catalog: dict | None = None) -> list[dict]:
     """Una regla por viga (las de números idénticos, agrupadas). Lista vacía si no hay vigas."""
-    from apolo.assembly.connectivity import build_graph
-    from apolo.library.catalog import CATALOG
     from apolo.library.engineering.viga_continua import EMPOTRAMIENTO, Apoyo
 
     from .roles import BED_RE
 
+    det = detectar_vigas(doc, catalog)
+    if det is None or not det["vigas"]:
+        return []
+    scene, graph, nivel, vigas = det["scene"], det["graph"], det["nivel"], det["vigas"]
+    caja, motivos, catalog = det["caja"], det["motivos"], det["catalog"]
+
+    # carga útil: vigas que tocan lo portante o, sin cama, las más altas
+    camas = {fid for fid, f in scene.items() if BED_RE.search(f.name or "")}
+    portantes = {v for v in vigas if graph["adj"][v] & camas}
+    origen_util = "las vigas que tocan la cama/mesa"
+    if not portantes:
+        tope = max(caja(v)[1][2] for v in vigas)
+        portantes = {v for v in vigas if caja(v)[1][2] >= tope - _TOL_ALTURA}
+        origen_util = "las vigas más altas del bastidor (sin cama/mesa identificable)"
+    p_util = (float(carga_kg or 0.0) * G / len(portantes)) if carga_kg else 0.0
+
+    return _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg,
+                     caja, motivos, catalog, Apoyo, EMPOTRAMIENTO)
+
+
+def detectar_vigas(doc, catalog: dict | None = None) -> dict | None:
+    """Qué es viga (D1) sin calcular nada: {vigas: {fid: _Viga}, de_faja: [fid] (las de un
+    `create_conveyor`, que verifica su regla), motivos, scene, graph, nivel, caja, catalog}; None
+    sin piezas. La usan `beam_rules` y el detector `vigas` de la puerta de publicación
+    (`puerta_hechos`, F3c de puerta-sin-sobrediseno: el MISMO criterio que el control)."""
+    from apolo.assembly.connectivity import build_graph
+    from apolo.library.catalog import CATALOG
+
     catalog = catalog if catalog is not None else CATALOG
     scene = {fid: f for fid, f in doc.scene.items() if not getattr(f, "is_guide", False)}
     if not scene:
-        return []
+        return None
     graph = build_graph(scene, doc.joints, doc.mates, doc.fasteners, doc.grounds)
     nivel = _niveles(graph)
     apoyo_ok = _uniones_apoyo(doc.fasteners)
@@ -167,12 +193,14 @@ def beam_rules(doc, carga_kg: float | None = None, catalog: dict | None = None) 
 
     motivos: dict = defaultdict(list)
     vigas: dict[str, _Viga] = {}
+    en_faja: list[str] = []
     for fid, f in scene.items():
         if fid not in nivel:
             continue  # flota: lo dice la sujeción, no esta regla
         viga, motivo = _candidata(f, caja, catalog)
         if f.command_id in de_faja and (viga or motivo):  # D4: manda la regla de la faja
             motivos["la verifica la regla del transportador (create_conveyor)"].append(f.name)
+            en_faja.append(fid)
             continue
         if viga is None:
             if motivo:
@@ -194,21 +222,8 @@ def beam_rules(doc, carga_kg: float | None = None, catalog: dict | None = None) 
         else:
             motivos["menos de dos apoyos por perno o soldadura (contacto, mate o junta no "
                     "cuentan como apoyo)"].append(f.name)
-    if not vigas:
-        return []
-
-    # carga útil: vigas que tocan lo portante o, sin cama, las más altas
-    camas = {fid for fid, f in scene.items() if BED_RE.search(f.name or "")}
-    portantes = {v for v in vigas if graph["adj"][v] & camas}
-    origen_util = "las vigas que tocan la cama/mesa"
-    if not portantes:
-        tope = max(caja(v)[1][2] for v in vigas)
-        portantes = {v for v in vigas if caja(v)[1][2] >= tope - _TOL_ALTURA}
-        origen_util = "las vigas más altas del bastidor (sin cama/mesa identificable)"
-    p_util = (float(carga_kg or 0.0) * G / len(portantes)) if carga_kg else 0.0
-
-    return _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg,
-                     caja, motivos, catalog, Apoyo, EMPOTRAMIENTO)
+    return {"vigas": vigas, "de_faja": en_faja, "motivos": motivos, "scene": scene,
+            "graph": graph, "nivel": nivel, "caja": caja, "catalog": catalog}
 
 
 def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg, caja,

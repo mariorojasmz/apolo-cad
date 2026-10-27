@@ -290,7 +290,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
 
     from .calidad_codo import BandaEmpujable
     from .calidad_cunas import DESCONOCIDO, llegadas
-    from .calidad_sondas import Trazador, cunas, evaluar_peligro
+    from .calidad_sondas import Trazador, cunas, evaluar_peligro, fuera_de_holguras
 
     t0 = time.perf_counter()
     an = an or _analizar(dc or datos_calidad(doc))
@@ -315,6 +315,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
                                 f"entrada ({ent['sentido'].split('; ', 1)[-1]})")
             if not c["puntos"]:
                 p["motivo"] = c.get("motivo")
+        fuera_de_holguras(tr, p)
         sondas, ms = evaluar_peligro(tr, p, dc["caja"], dc["z_piso"], n_direcciones,
                                      empuje.salta if empuje is not None else None)
         sondas_de[p["id"]] = sondas

@@ -121,8 +121,13 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   los controles que pueden empeorar, de lo barato a lo caro, reutilizando el `analisis` y las
   sondas de la corrida (`contexto`: `f3.sondas`) y el campo de la muñeca rehecho sólo en la zona
   quitada (`CampoAlcance.libre_sin`, idéntico al entero: lo prueba su test). Un apoyo redundante NO
-  sobra. Un control nuevo que una pieza pueda empeorar entra ahí.
-  [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5, D7, D9)
+  sobra. Un control nuevo que una pieza pueda empeorar entra ahí. Lo eléctrico (`del_carril`: el
+  `layout_tablero`, los dispositivos) no es «agregado»; un objetivo de enganche que las sondas
+  sacaron por caer en una holgura ≤ 4 mm (`calidad_sondas.fuera_de_holguras`) se re-sondea si se
+  quita una de sus dos paredes. [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5, D7, D9, F3c)
+- Un detector de `puerta_hechos` usa el criterio de SU control: `vigas` = lo que
+  `vigas_rules.detectar_vigas` calcula como viga (un riel o las patas de un tanque no son vigas:
+  NO_APLICA, no SIN_EVALUAR). (F3c)
 - **Un ítem general nuevo = su defecto sembrado** en `tests/test_defectos_sembrados.py` (una
   mutación mínima de un testigo bueno que lo pone en FALLA) o una exención con su porqué; si no, la
   suite se pone roja. Los testigos (`tests/data/testigos/`, públicos y sintéticos: D16) congelan el

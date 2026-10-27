@@ -21,6 +21,9 @@ from apolo.library.seguridad.sondas import desplazamientos, direcciones, origen,
 GAP_CUNA_MM = 20.0   # separación banda–tambor en el punto de la cuña (< 25 mm de ISO 13854)
 PASO_ARCO_GRADOS = 5.0
 MAX_SONDAS_PELIGRO = 4096
+#: Una rendija de este ancho o menos no deja entrar el dedo (ISO 13857 tabla 4, fila e ≤ 4 mm):
+#: un objetivo de enganche dentro de ella es una holgura funcional, no un peligro (F3c).
+HOLGURA_FUNCIONAL_MM = 4.0
 
 
 class Trazador:
@@ -213,6 +216,49 @@ def cunas(banda_solidos, banda_caja, tambor_caja, redondo, hacia=None) -> dict:
             puntos.append(tuple(q[i] + (r + GAP_CUNA_MM / 2.0) * u[i] for i in range(3)))
     return {"puntos": puntos, "arco_grados": sum(dentro) * PASO_ARCO_GRADOS,
             "bordes": n_bordes, "cuna": cuna}
+
+
+def holgura(tr: Trazador, p, max_mm: float = HOLGURA_FUNCIONAL_MM,
+            n: int = 32) -> tuple[float, tuple[str, str]] | None:
+    """(ancho, (pieza, pieza)) de la rendija en la que está el punto `p` —en el aire, entre DOS
+    piezas distintas que lo encierran a ≤ `max_mm` sumando los dos lados, en alguna dirección— o
+    None. Un punto dentro de un sólido da la misma pieza a los dos lados: no es una rendija."""
+    mejor = None
+    for d in direcciones(n):
+        a = tr.primero(p, d, max_mm)
+        if a is None:
+            continue
+        b = tr.primero(p, tuple(-c for c in d), max_mm - a[0])
+        if b is None or b[1] == a[1]:
+            continue
+        if mejor is None or a[0] + b[0] < mejor[0]:
+            mejor = (a[0] + b[0], (a[1], b[1]))
+    return mejor
+
+
+def fuera_de_holguras(tr: Trazador, peligro: dict) -> dict:
+    """Saca de los objetivos de un peligro de ENGANCHE (lo que gira: eje, cubo, pieza, acople)
+    los que caen dentro de una holgura funcional ≤ 4 mm (F3c de puerta-sin-sobrediseno: el punto
+    de la salida del motorreductor quedaba en la rendija de 2 mm entre la caja y una chumacera, y
+    toda holgura fallaba sin importar su ancho). Criterio: por una rendija ≤ 4 mm no entra el dedo
+    (ISO 13857 tabla 4, la fila más angosta: sólo la PUNTA a 2 mm, que toca el borde de la rendija,
+    no lo que gira adentro) y nada se arrastra por ella (ISO 13854: el dedo pide 25 mm). Una cuña
+    o una cadena (atrapamiento) no: su rendija se abre hacia afuera y ése es su peligro. Muta y
+    devuelve el peligro; los quitados van en `en_holgura` ({punto, ancho_mm, entre: las dos
+    piezas}: la prueba de sobrantes los vuelve a sondear si quita una de ellas)."""
+    if peligro.get("tipo") != "enganche" or not peligro.get("objetivos"):
+        return peligro
+    quedan, quitados = [], []
+    for p in peligro["objetivos"]:
+        h = holgura(tr, p)
+        if h is None:
+            quedan.append(p)
+        else:
+            quitados.append({"punto": [round(c, 2) for c in p], "ancho_mm": round(h[0], 1),
+                             "entre": sorted(h[1])})
+    if quitados:
+        peligro["objetivos"], peligro["en_holgura"] = quedan, quitados
+    return peligro
 
 
 def evaluar_peligro(tr: Trazador, peligro: dict, caja, z_piso: float,

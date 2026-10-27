@@ -5,7 +5,7 @@ perno» que mide `services/calidad_pernos.py` (lo que el eje de cada perno atrav
 El insumo de un perno (dict; `t` = distancia sobre el eje desde la cara de asiento de la cabeza
 hacia la punta, mm):
 
-    {"fid", "nombre", "ref" (ficha o None), "cabeza": "hex"|"allen", "madera_screw": bool,
+    {"fid", "nombre", "ref" (ficha o None), "cabeza": "hex"|"allen"|"esparrago", "madera_screw": bool,
      "d", "paso", "largo",                       # largo bajo cabeza, medido de la geometría
      "tramos": [{"fid", "nombre", "t0", "t1", "rol": "pieza"|"tuerca", "material",
                  "rosca": [(a, b)]}],            # material a radio < d/2: hilo enganchado
@@ -22,7 +22,9 @@ evidencia con sus números):
 - **retención**: con tuerca, le sobran ≥ 2 pasos de hilo; sin tuerca, la rosca engancha
   ≥ 1·d en acero y ≥ 1,5·d en aluminio o fundición (VDI 2230 / criterio de taller); en madera,
   ≥ 2/3 del largo dentro (DIN 571, el criterio de `fijacion.tornillo_madera`).
-- **largo**: el largo es de la serie (ISO 4014/4017/4762; DIN 571) y el catálogo lo vende.
+- **largo**: el largo es de la serie (ISO 4014/4017/4762; DIN 571) y el catálogo lo vende; el
+  ESPÁRRAGO (`cabeza: "esparrago"`, t = 0 en su base y su tuerca en la punta: F3c), de la serie
+  de espárragos, sin ficha.
 """
 
 from __future__ import annotations
@@ -146,6 +148,8 @@ def _retencion(p, largo, d, paso, piezas, tuercas, tramos) -> tuple[tuple, str |
 
 
 def _largo(p: dict, largo: float, d: float) -> tuple:
+    if p.get("cabeza") == "esparrago":
+        return _largo_esparrago(p, largo, d)
     ref = p.get("ref") or ref_para(d, p.get("cabeza", "hex"))
     nums = {"largo_mm": round(largo, 1), "ref": ref}
     if not en_serie(largo, ref):
@@ -156,6 +160,21 @@ def _largo(p: dict, largo: float, d: float) -> tuple:
         return (FALLA, f"{ref}×{largo:g} no está en el catálogo ({ref} {rango})",
                 {**nums, "catalogo_mm": vende})
     return (OK, f"{ref}×{largo:g}", nums)
+
+
+def _largo_esparrago(p: dict, largo: float, d: float) -> tuple:
+    """El espárrago no tiene ficha de catálogo (se compra por su designación): su largo es de la
+    serie de `esparrago.SERIE_ESPARRAGO_MM`; la varilla roscada se corta a medida (DIN 976-1)."""
+    from ..esparrago import SERIE_ESPARRAGO_MM, es_varilla
+
+    nums = {"largo_mm": round(largo, 1), "ref": None, "serie": "espárrago (ISO 13918 / DIN 938)"}
+    if es_varilla(p.get("nombre")):
+        return (OK, f"varilla roscada M{d:g}×{largo:.0f} cortada a medida (DIN 976-1)", nums)
+    if not any(abs(largo - s) <= 0.5 for s in SERIE_ESPARRAGO_MM):
+        return (FALLA, f"{largo:.1f} mm no es un largo de la serie de espárragos (ISO 13918 / "
+                       f"DIN 938: {', '.join(f'{s:g}' for s in SERIE_ESPARRAGO_MM[:12])}…)", nums)
+    return (OK, f"espárrago M{d:g}×{largo:.0f} (serie ISO 13918 / DIN 938; sin ficha de "
+                "catálogo: se compra por su designación)", nums)
 
 
 _CONTROLES = {

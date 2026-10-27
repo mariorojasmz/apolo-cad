@@ -214,8 +214,9 @@ def resultado_peligro(peligro: dict, sondas: list[dict], ms: float,
     """Agrega las sondas de un peligro (rectas y con el brazo doblado): FALLA si alguna alcanza,
     SIN_EVALUAR sin objetivos."""
     alcanzan = [s for s in sondas if s.get("alcanza")]
-    if not peligro.get("objetivos"):
-        estado = "SIN_EVALUAR"
+    holguras = peligro.get("en_holgura") or []
+    if not peligro.get("objetivos"):  # todos en una holgura funcional ≤ 4 mm: no se alcanzan
+        estado = "OK" if holguras else "SIN_EVALUAR"
     else:
         estado = "FALLA" if alcanzan else "OK"
     resguardos = sorted({b for s in sondas for b in s.get("bloquea", ()) if b})
@@ -225,6 +226,7 @@ def resultado_peligro(peligro: dict, sondas: list[dict], ms: float,
             "fallas": alcanzan[:max_evidencias],
             "bloqueado_por": resguardos, "ms": round(ms),
             **({"motivo": peligro["motivo"]} if peligro.get("motivo") else {}),
+            **({"en_holgura": holguras[:max_evidencias]} if holguras else {}),
             **({"sentido": peligro["sentido"]} if peligro.get("sentido") else {})}
 
 

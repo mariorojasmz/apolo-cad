@@ -11,8 +11,8 @@ pasa con los de estructura, fabricabilidad y uniones.
 
 Ids estables (familia):
 - `entrega.semaforo` (montaje), `entrega.gravedad` (estructura), `entrega.no_evaluado` (proceso);
-- `union.acceso_herramienta`, `union.agarre`, `union.retencion`, `union.largo_comercial`
-  (montaje); `union.capacidad`, `union.soldaduras`, `union.dimensionadas` (estructura);
+- `union.acceso_herramienta`, `union.agarre`, `union.retencion`, `union.largo_comercial`,
+  `union.agujeros` (montaje); `union.capacidad`, `union.soldaduras`, `union.dimensionadas` (estructura);
 - `montaje.interferencia_interna` (montaje: choques dentro de un super-comando, D13b);
 - `transmision_flexible.tension` (función: todo lazo — banda, cadena, correa, cable — con un
   tensado reconocido y carrera suficiente); `transmision.capacidad`, `elementos_rodantes.l10`,
@@ -59,31 +59,15 @@ Una extensión suma sus `Entrada`/`Fuente` (ids «prefijo.x») con `Extension.pu
 
 `VERSION_REGISTRO` sube cuando cambia un ítem, un umbral o un `aplica_si`: viaja en `calidad.json`
 junto a la firma del modelo (`services/puerta_publicacion.firma_modelo`), que la fábrica compara
-antes de generar. v2: entra F3 (seguridad y reparabilidad) y la tabla de riesgos. v3 (F6):
-`riesgos.partes_moviles` suma las sondas con el brazo DOBLADO (ISO 13857, tabla 6) y
-`transmision_flexible.tension` acepta sin tensor todo lazo de cadena de centros exactos (D3b
-general, no sólo el de la plantilla de rodillos). v4 (F6): entra `union.distancia_al_borde`
-(`borde.distancia` e ≥ 1,2·d0 —1,5·d0 en ranura— y `borde.paso` p ≥ 2,2·d0, medidos en la
-geometría de cada pieza del taller que cruza un perno: `services/calidad_bordes.py`). v5 (F6):
-`union.distancia_al_borde` juzga sólo CHAPAS y alas; una BARRA maciza (eje redondo o barra
-cuadrada atravesada: tramo del perno t ≥ 1,5·d0 y sección W ≤ 1,25·t, `library/borde_agujero.py`)
-sale de la tabla 3.3 («no_juzgados: barra») y, si es roscada, se juzga su rosca enganchada
-(≥ k·d, VDI 2230). El eje Ø25 «roscado p/ perno» del tensor daba un falso FALLA (e = 12 < 15,6):
-ahí el perno tira según su eje y no aplasta una pared de chapa. v6 (balance-de-producto D9):
-entra `funcion.flujo_de_producto`: una máquina que mueve producto (productos en sus escenarios, o
-bandas con tablero) prueba su balance al ritmo nominal en un escenario de flujo. v7
-(puerta-sin-sobrediseno D3–D4): con el sentido de marcha conocido (escenario, requisito
-`sentido_transporte` o la plantilla `create_belt_conveyor`; nunca con `reversible`)
-`riesgos.partes_moviles` sondea sólo la cuña de ENTRADA de cada tambor —donde la banda llega y
-converge—, no la de salida.
-También en v7 (puerta-sin-sobrediseno D1, D2): `transmision_flexible.tension` mide el tensor de una banda en
-LAZO (carrera × |Σ d·ê_k| de los ramales de su tambor: 2 en una cola con 180°) y SUMA los tensores
-del lazo (uno por tambor); nombra los que no hacen falta como nota.
-v8 (puerta-sin-sobrediseno D5–D11): entra `diseno.sin_sobrantes` y un AVISO justificado por escrito
-(`justificadas`) deja de bloquear `entrega.semaforo`, `riesgos.electrico` e `ingenieria.reglas`.
-v9 (F3b, máquinas que no son fajas): una bisagra de servicio no es peligro; el acople y la salida
-del motorreductor sí; resguardo = lo que cubre un peligro (o declarado), y el soldado con acceso
-por otro lado es cerramiento; el piso es el apoyo de lo anclado; la L10 lee las rpm declaradas.
+antes de generar. Qué cambió en cada una (el porqué, en el plan que la subió): v2 F3 y la tabla de
+riesgos; v3 (F6) brazo DOBLADO y cadena de centros exactos sin tensor; v4 (F6)
+`union.distancia_al_borde`; v5 (F6) esa tabla sólo en chapas y alas; v6 (balance-de-producto D9)
+`funcion.flujo_de_producto`; v7 (puerta-sin-sobrediseno D1–D4) la cuña de ENTRADA y el tensor en
+LAZO, sumados; v8 (D5–D11) `diseno.sin_sobrantes` y el AVISO justificado; v9 (F3b) bisagra de
+servicio, acople y salida del motorreductor, resguardo = lo que cubre un peligro, piso de lo
+anclado, L10 con las rpm declaradas; v10 (F3c) `union.agujeros`, el espárrago con su tuerca, el
+factor de servicio fuera de un transportador y con el servicio declarado, `vigas` con el criterio
+de `vigas_rules`, la holgura funcional ≤ 4 mm y lo eléctrico fuera de las «agregadas».
 """
 
 from __future__ import annotations
@@ -95,7 +79,7 @@ from . import puerta as p
 from . import sobrantes as so
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "9"
+VERSION_REGISTRO = "10"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]
@@ -154,13 +138,22 @@ class Fuente:
 def _ids_de_f2() -> tuple:
     """Los ids que da F2 (sus tablas): el test exige que `_MECANICA` los recoja todos."""
     from .agarre import _CONTROLES as AGARRE
+    from .agujeros import _CONTROLES as AGUJEROS
     from .bordes import _CONTROLES as BORDES
     from .tensor import _CONTROLES as TENSOR
     from .vida_util import _FAMILIAS as VIDA
 
     return (*(c[0] for c in AGARRE.values()), *(c[0] for c in BORDES.values()),
-            *(c[0] for c in TENSOR.values()),
+            *(c[0] for c in TENSOR.values()), *(c[0] for c in AGUJEROS.values()),
             *(f[0] for f in VIDA), "vida.reglas")
+
+
+def hay_alguno(tipos: tuple, porque: str) -> Predicado:
+    """Aplica si el modelo tiene elementos de ALGUNO de los `tipos`."""
+    def predicado(hechos: dict) -> tuple[bool, str]:
+        return any(hay(t, porque)(hechos)[0] for t in tipos), porque
+    predicado.__name__ = "hay_" + "_o_".join(tipos)
+    return predicado
 
 
 #: F2 (función mecánica) → ítems generales.
@@ -175,6 +168,11 @@ _MECANICA = {
                                      "montaje", ("agarre.largo",),
                                      hay("tornilleria", "sin tornillería que medir"),
                                      "tornilleria"),
+    "union.agujeros": General(  # F3c: los pernos DECLARADOS, no sólo los modelados
+        "Cada unión atornillada declarada (y cada anclaje con pernos) tiene sus agujeros en las "
+        "piezas que une", "montaje", ("agujeros.union", "agujeros.anclaje"),
+        hay_alguno(("uniones_apernadas", "apoyos"), "sin uniones atornilladas ni anclajes"),
+        "uniones_apernadas", vacio_ok=("agujeros.union", "agujeros.anclaje")),
     "union.distancia_al_borde": General(
         "Cada agujero de perno en chapa o ala a ≥ 1,2·d0 del canto libre (1,5·d0 en ranura) "
         "y a un paso ≥ 2,2·d0 del vecino; la barra roscada, con su rosca enganchada",
@@ -190,10 +188,10 @@ _MECANICA = {
                                       ("vida.l10",), hay("elementos_rodantes",
                                                          "sin rodamientos ni chumaceras de catálogo"),
                                       "elementos_rodantes"),
-    "accionamiento.factor_servicio": General("Accionamiento con factor de servicio ≥ 1,25",
-                                             "función", ("vida.factor_servicio",),
-                                             hay("accionamientos", "sin accionamiento"),
-                                             "accionamientos"),
+    "accionamiento.factor_servicio": General(
+        "Accionamiento con el factor de servicio de su carga y sus horas (AGMA; 1,25 sin servicio "
+        "declarado)", "función", ("vida.factor_servicio",),
+        hay("accionamientos", "sin accionamiento"), "accionamientos"),
     "transmision.capacidad": General("Cada transmisión con FS ≥ 1,2", "función", ("vida.cadena",),
                                      hay("transmisiones", "sin transmisiones calculables"),
                                      "transmisiones"),
@@ -201,7 +199,10 @@ _MECANICA = {
                                  ("vida.vuelco",), hay("apoyos", "sin apoyos a tierra declarados"),
                                  "apoyos"),
     "estructura.flecha": General("Vigas y bastidor con flecha ≤ L/240", "estructura",
-                                 ("vida.flecha",), hay("vigas", "sin perfiles que trabajen como viga"),
+                                 ("vida.flecha",), hay("vigas", "ningún perfil horizontal apoyado en "
+                                                       "dos puntos por perno o soldadura: lo que "
+                                                       "trabaja a compresión (patas, columnas) lo "
+                                                       "mide el pandeo"),
                                  "vigas"),
     "estructura.pandeo": General("Columnas y patas con FS de pandeo ≥ 3", "estructura",
                                  ("vida.pandeo",), hay("columnas", "sin patas ni columnas"),

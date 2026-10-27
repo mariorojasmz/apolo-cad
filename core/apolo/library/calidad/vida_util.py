@@ -6,7 +6,7 @@ de la ficha de calidad con los umbrales de una máquina INDUSTRIAL (8–10 h/dí
 | ítem | regla(s) | umbral |
 |---|---|---|
 | `vida.l10` | vida L10 de rodamientos | L10h ≥ 20 000 h (ISO 281; vida recomendada SKF/FAG) |
-| `vida.factor_servicio` | motorización · motor · par del motor | FS ≥ 1,25 (AGMA, carga uniforme, 8–10 h/día) |
+| `vida.factor_servicio` | motorización · motor · par del motor · factor de servicio del accionamiento | FS ≥ el del servicio declarado (AGMA; 1,25 = uniforme > 10 h/día) |
 | `vida.cadena` | cadena · transmisión por cadena · cadena desfasada | FS ≥ 1,2 |
 | `vida.vuelco` | estabilidad al vuelco | margen ≥ 10 % de la base |
 | `vida.flecha` | flecha del bastidor · flecha de viga | δ ≤ L/240 |
@@ -25,6 +25,7 @@ El par en el tambor (T_motor / T_requerido) entra tal cual.
 
 from __future__ import annotations
 
+from ..engineering.servicio import REGLA as REGLA_SERVICIO
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, peor, recortar
 
 L10_H = 20000.0
@@ -48,10 +49,10 @@ _FAMILIAS = [  # (id, título, modo de falla, norma, ¿la regla es de la familia
     ("vida.l10", "Vida L10 de los rodamientos ≥ 20 000 h",
      "rodamiento que falla antes de tiempo (paro, eje dañado)",
      "ISO 281 (vida nominal L10)", lambda r: r.startswith("vida L10")),
-    ("vida.factor_servicio", "Factor de servicio del accionamiento ≥ 1,25",
+    ("vida.factor_servicio", "Factor de servicio del accionamiento ≥ el de su servicio",
      "motor o reductor sobrecargado: se calienta y se gasta antes de tiempo",
-     "AGMA (factor de servicio, carga uniforme, 8–10 h/día)",
-     lambda r: r in ("motorización", "motor", "par del motor")),
+     "AGMA (factor de servicio por tipo de carga y horas/día; 1,25 = uniforme > 10 h/día)",
+     lambda r: r in ("motorización", "motor", "par del motor", REGLA_SERVICIO)),
     ("vida.cadena", "Transmisión por cadena con FS ≥ 1,2",
      "cadena que se estira o se rompe por potencia o velocidad",
      "ASME B29.1 · Tsubaki / Renold",
@@ -88,8 +89,9 @@ def _por_estado(regla: dict) -> str:
     return {"ok": OK, "error": FALLA}.get(regla.get("estado"), FALLA)
 
 
-def _juzgar(iid: str, regla: dict) -> tuple[str, dict]:
-    """(estado, números) de UNA regla dentro de su familia, con el umbral de la puerta."""
+def _juzgar(iid: str, regla: dict, fs_servicio: float = FS_SERVICIO) -> tuple[str, dict]:
+    """(estado, números) de UNA regla dentro de su familia, con el umbral de la puerta
+    (`fs_servicio`: el FS que pide el servicio declarado; F3c)."""
     nombre, fs, calc = regla.get("regla", ""), _fs(regla), regla.get("calc") or {}
     if iid == "vida.l10":
         if not calc:
@@ -102,7 +104,9 @@ def _juzgar(iid: str, regla: dict) -> tuple[str, dict]:
             return (NO_APLICA if regla.get("estado") == "ok" and not calc else SIN_EVALUAR), {}
         sf = fs * (MARGEN_MOTORIZACION if nombre == "motorización" else
                    MARGEN_MOTOR_RODILLOS if nombre == "motor" else 1.0)
-        return (OK if sf >= FS_SERVICIO - 1e-6 else FALLA), {"factor_servicio": round(sf, 2)}
+        pide = float(calc.get("fs_requerido") or fs_servicio)
+        return (OK if sf >= pide - 1e-6 else FALLA), {"factor_servicio": round(sf, 2),
+                                                      "pide": pide}
     if iid == "vida.cadena":
         if regla.get("estado") != "ok":
             return FALLA, {"fs": fs}
@@ -128,12 +132,14 @@ def _informativa(nombre: str) -> str | None:
 
 
 def controlar_vida_util(reglas: list[dict], hay_motor: bool = False,
-                        hay_uniones: bool | None = None, justificadas=()) -> list[Item]:
+                        hay_uniones: bool | None = None, justificadas=(),
+                        fs_servicio: float = FS_SERVICIO) -> list[Item]:
     """Los ítems de vida útil. `hay_motor`: la máquina tiene motorreductor (sin regla de
     motorización → SIN_EVALUAR, no NO_APLICA). `hay_uniones`: hay `fasten` perno/soldadura
     (sin reglas de unión y con uniones → todas dimensionadas: OK). `justificadas`: el metadato
     (`justificadas.py`): un `aviso` de `vida.reglas` justificado por escrito pasa (D11 de
-    puerta-sin-sobrediseno); un `error`, nunca."""
+    puerta-sin-sobrediseno); un `error`, nunca. `fs_servicio`: el FS que pide el servicio
+    DECLARADO (`engineering/servicio.fs_requerido`; F3c, D10): 1,25 sin servicio declarado."""
     from .justificadas import citar, del_aviso
 
     usadas: set[int] = set()
@@ -141,7 +147,7 @@ def controlar_vida_util(reglas: list[dict], hay_motor: bool = False,
     for iid, titulo, modo, norma, es in _FAMILIAS:
         mias = [(k, r) for k, r in enumerate(reglas) if es(r.get("regla", ""))]
         usadas.update(k for k, _ in mias)
-        juicios = [(r, *_juzgar(iid, r)) for _, r in mias]
+        juicios = [(r, *_juzgar(iid, r, fs_servicio)) for _, r in mias]
         if iid == "vida.dimensionadas" and not mias and hay_uniones:
             items.append(Item(iid, titulo, OK, modo, norma, detalle="todas dimensionadas"))
             continue
@@ -149,7 +155,9 @@ def controlar_vida_util(reglas: list[dict], hay_motor: bool = False,
             sin_motor = iid == "vida.factor_servicio" and hay_motor
             items.append(Item(iid, titulo, SIN_EVALUAR if sin_motor else NO_APLICA, modo, norma,
                               detalle=("hay motorreductor pero ninguna regla calculó su carga "
-                                       "(declara los requisitos: carga y largo de paquete)"
+                                       "(declara los requisitos: en un transportador, carga y "
+                                       "largo de paquete; en otra máquina, potencia_absorbida_kw "
+                                       "o par_salida_nm)"
                                        if sin_motor else "ninguna regla de esta familia aplica")))
             continue
         estado = peor(e for _, e, _n in juicios)

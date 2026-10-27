@@ -348,6 +348,13 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   motorreductor sí lo son (`seguridad/transmision_rigida.py`). Resguardo = la guarda que paró una
   sonda o la declarada en `funciones` (`resguardo`), no toda «tapa»; el piso es el apoyo de lo
   anclado, no un perno de anclaje.
+- **Lo declarado se fabrica** (F3c del mismo plan): `union.agujeros` (`calidad/agujeros.py`, medido
+  en `services/calidad_agujeros.py`) pide a cada pieza a medida de un `fasten` perno del modelador
+  (o de un anclaje con pernos en su nota) los agujeros de su métrica en la zona de la unión; lo de
+  catálogo o «(compra…)» no se juzga. El ESPÁRRAGO (`esparrago.py`: rol anclado + vástago sin
+  cabeza) se mide desde su base con su tuerca; un «Perno…» sin cabeza modelada sigue sin evaluar.
+  El factor de servicio fuera de un transportador sale de `potencia_absorbida_kw`/`par_salida_nm`
+  contra el FS de su servicio (`engineering/servicio.py`: tabla AGMA por `tipo_carga` y `horas_dia`).
 - **Distancia al borde de un agujero de perno** (`borde_agujero.py`, EN 1993-1-8 tabla 3.3): la
   MISMA medida para la puerta (`calidad/bordes.py`) y `join_bolted` criterio 5. Canto = donde la
   pieza tiene el espesor de la chapa (no la esquina de un tubo, el talón de un ángulo ni un eje);

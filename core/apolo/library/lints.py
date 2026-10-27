@@ -33,8 +33,10 @@ _BOLT_NAME_RE = re.compile(r"\b(perno|tornillo|tuerca|bulón|bulon|esp[aá]rrago
 # lo que sólo MENCIONA la tornillería no es tornillería: «Eje fijo de cola Ø25 g6 (roscado p/
 # perno)» es un EJE que recibe el perno del tensor (plan puerta-de-publicacion D2: era el «1
 # fijador no evaluado» de la faja #1). Se quitan las menciones «p/ perno», «para perno(s)»…
-# y un rol que EMPIEZA por eje/árbol/shaft no es tornillería aunque nombre un perno.
-_MENCION_RE = re.compile(r"(?<!\w)(p/|para|por)\s+(el\s+|los\s+|un\s+)?"
+# y un rol que EMPIEZA por eje/árbol/shaft no es tornillería aunque nombre un perno. «con» también
+# (F3c de puerta-sin-sobrediseno): «Tope elástico de poliuretano Ø60x40 con espárrago M10 (compra)»
+# es un tope que trae su espárrago, no tornillería suelta.
+_MENCION_RE = re.compile(r"(?<!\w)(p/|para|por|con)\s+(el\s+|los\s+|un\s+|su\s+)?"
                          r"(perno|tornillo|bulón|bulon|esp[aá]rrago|allen)s?\b", re.I)
 _EJE_ROL_RE = re.compile(r"^\s*(eje|árbol|arbol|shaft)\b", re.I)
 

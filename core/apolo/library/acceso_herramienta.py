@@ -13,6 +13,8 @@ y se cruza con los vecinos:
 - **Allen** (cabeza con hueco): el brazo corto de la L, coaxial.
 - **remachadora** (remache ciego de catálogo, `herramienta: remachadora`; no tiene hexágono):
   nariz y cabezal coaxiales desde la cabeza (plan union-en-perfil-hueco).
+- un **espárrago** (`esparrago.py`: rol + vástago sin cabeza) no se aprieta: lo hace su TUERCA,
+  que se evalúa como cualquier tuerca; se cuenta en `esparragos`, no en `no_evaluados`.
 
 D2: basta UNA herramienta libre; libre = no corta (> 1 mm³) nada salvo el propio fijador, lo
 que pasa por su agujero (su perno o su eje) y lo que queda del lado del asiento (todo fantasma
@@ -36,6 +38,7 @@ import time
 from dataclasses import dataclass
 
 from .checks import MIN_VOLUME_MM3, _bboxes_overlap
+from .esparrago import es_esparrago, geometria_esparrago
 from .fantasmas_herramienta import Fantasmas, marco
 from .fijadores_geom import FijadorGeom, reconocer_fijadores, reconocer_remache
 from .herramientas import LARGO_LIBRE_COPA_MM, REMACHADORA, brazo_allen, llave_para
@@ -230,6 +233,9 @@ def tool_access_report(scene: dict, *, catalog=None) -> dict | None:
         fjs = reconocer_fijadores(propio.solid)  # uno por hexágono (perno + tuerca fundidos: 2)
         if not fjs and _es_remache(scene[propio.fid], catalog):
             fjs = reconocer_remache(propio.solid)
+        if not fjs and es_esparrago(propio.nombre) and geometria_esparrago(propio.solid):
+            rep["esparragos"] = rep.get("esparragos", 0) + 1  # lo aprieta su tuerca (F3c)
+            continue
         if not fjs:
             rep["no_evaluados"].append({"id": propio.fid, "nombre": propio.nombre,
                                         "motivo": "sin hexágono reconocible"})

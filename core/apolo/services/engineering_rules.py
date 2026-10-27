@@ -85,7 +85,45 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
     rules += beam_rules(doc, carga)
     rules += chain_rules(doc)
     rules += fea_rules(doc)
+    if conveyor is None:  # el transportador calcula su motorización con sus reglas
+        rules += accionamiento_declarado(doc, declarados)
     return rules
+
+
+def servicio_declarado(doc) -> tuple[float, str]:
+    """(FS que pide el servicio declarado, de dónde sale): `library/engineering/servicio.py`."""
+    from apolo.library.engineering.servicio import fs_requerido
+
+    req = doc.requirements or {}
+    return fs_requerido(req.get("tipo_carga"), _num(req.get("horas_dia")))
+
+
+def accionamiento_declarado(doc, declarados: dict | None = None) -> list[dict]:
+    """El factor de servicio de cada motorreductor de catálogo de una máquina que NO es
+    transportador (F3c de puerta-sin-sobrediseno): lo que da la ficha contra lo que la máquina
+    declara que pide (`potencia_absorbida_kw` o `par_salida_nm`), con el FS de su servicio. Sin
+    motorreductor, nada; con varios, el requisito es de la máquina y no dice de cuál: aviso."""
+    from apolo.library.catalog import CATALOG
+    from apolo.library.engineering.servicio import REGLA, regla_factor_servicio
+
+    motores = [(fid, f, c) for fid, f in doc.scene.items()
+               if (c := CATALOG.get(getattr(f, "component", None) or "")) is not None
+               and c.category in ("motorreductores", "motorreductores_sinfin")]
+    if not motores:
+        return []
+    if len(motores) > 1:
+        return [{"regla": REGLA, "estado": "aviso", "piezas": [m[0] for m in motores],
+                 "detalle": f"{len(motores)} motorreductores: el requisito de lo que pide la "
+                            "máquina no dice de cuál; el factor de servicio no se calcula"}]
+    fid, f, c = motores[0]
+    specs = c.specs or {}
+    motor = {"fid": fid, "nombre": f.name or fid, "ref": c.ref,
+             "potencia_kw": specs.get("potencia_kW") or specs.get("potencia_kw"),
+             "torque_nm": specs.get("torque_Nm"),
+             "sinfin": c.category == "motorreductores_sinfin"}
+    rpm = (declarados if declarados is not None else rodamientos_declarados(doc) or {}).get("rpm")
+    fs_req, origen = servicio_declarado(doc)
+    return [regla_factor_servicio(motor, doc.requirements or {}, rpm, fs_req, origen)]
 
 
 def _num(v) -> float | None:
