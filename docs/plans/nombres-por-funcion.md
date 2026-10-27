@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: contrato aprobado (D1–D18 vetables); F0–F6 en main (puerta v12, Mandos y el resto de la UI, revisión a ciegas F5/F5b, la mezcladora real por MCP APROBADA); falta el gate final: Mario juzga «Mandos» en el visor
+estado: implementado
+nota: implementado y en GitHub (F0–F6, puerta v12); Mario juzgó «Mandos» en el visor (2026-10-27, «mucho mejor»); pendiente aparte: nombres de las máquinas ya hechas (tanque, elevador), la placa de leyenda en el 3D y el plano (backlog)
 descripcion: cada mando, piloto y sensor se ve por lo que HACE («Marcha», «Tapa del tanque»), con la designación chica al lado, y la puerta de publicación no aprueba una máquina cuyos mandos no tienen nombre
 ---
 
@@ -740,3 +740,7 @@ una fase (UI + tres frases del servidor).
 
 **Para F6.** Mario juzga «Mandos» con la mezcladora real: los rótulos declarados por `edit_batch` y que
 `en_frase` lea bien sus géneros.
+
+### Cierre (2026-10-27)
+
+Mario abrió «Mandos» de la mezcladora con nombres en el visor y lo dio por bueno («mucho mejor»). Hubo una traba al mostrarlo: el visor con `-Pro` sirve la UI COMPUESTA de la extensión, compilada aparte, y siguió mostrando la vieja hasta recompilarla.
