@@ -193,7 +193,18 @@ def reunir(doc, *, expand, gravedad: dict, registro=None, tiempos: dict | None =
     """Los insumos del registro, salvo la marcha. `gravedad` = {"resultado": dict | None,
     "motivo"}: la simulación que la API corrió con su lock (None = no corrió → SIN_EVALUAR).
     `sobrantes=False` no prueba qué sobra (SIN_EVALUAR): sólo el presupuesto de los defectos
-    sembrados que miran otro ítem; la API la corre siempre."""
+    sembrados que miran otro ítem; la API la corre siempre. La geometría de masa de cada forma se
+    mide UNA vez en la corrida (`engineering/mass.memo_de_geometria`; F3c: las reglas de
+    estructura se rehacen en cada prueba de sobrantes sobre las mismas formas)."""
+    from apolo.library.engineering.mass import memo_de_geometria
+
+    with memo_de_geometria():
+        return _reunir(doc, expand=expand, gravedad=gravedad, registro=registro, tiempos=tiempos,
+                       sobrantes=sobrantes)
+
+
+def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
+            sobrantes: bool) -> dict:
     from apolo.library.delivery import delivery_report
 
     from .delivery_inputs import delivery_inputs

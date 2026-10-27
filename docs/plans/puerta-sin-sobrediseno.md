@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes; registro v10) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes, memo de masas, campo del codo compartido, get_job resumido; registro v10; la puerta del elevador 378 → 61 s) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -612,8 +612,48 @@ Decisiones tomadas en la implementación (vetables):
   (ISO 13854: 25 mm para el dedo). Una cuña o una cadena (atrapamiento) se abre hacia afuera: no se
   exime. Un punto dentro de un sólido no es rendija (la misma pieza a los dos lados).
 
+**El costo de la puerta** (pedido del coordinador sobre su medición del elevador: 83–85 % de la
+puerta en `diseno.sin_sobrantes`, el 92–94 % de eso sobre lo que dibuja `layout_tablero`):
+7. **Memo de la geometría de masa** (`engineering/mass.memo_de_geometria`, abierto por
+   `puerta_publicacion.reunir`): volumen, caja y COM de cada forma una vez por corrida, por
+   `id(shape)` con `is`; el material y la masa se resuelven en cada llamada. ContextVar del hilo,
+   vive lo que dura el `with`: fuera de la puerta, todo igual.
+8. **El campo del brazo doblado una vez**: `controles_seguridad` deja en el `Contexto` su campo y su
+   memo de nubes (`compartido`) y la prueba de sobrantes arranca de ellos (con lo ya quitado
+   recalculado en su zona, `libre_sin`) en vez de re-teselar y rehacer el campo.
+9. **`get_job` de la puerta resumido** (`tools/calidad.de_job`): como la tool; `detail="full"` da todo
+   (golden: dos casos nuevos y los docstrings de `get_job` y `publication_gate`).
+
+Medido en proceso (`reunir` + `evaluar`, gravedad dada por estable, sin marcha; código de `main`
+contra el de la rama, las mismas fotos, una corrida cada uno, la PC sin otra suite):
+
+| | mezcladora | tanque | elevador |
+|---|---|---|---|
+| puerta (pared / CPU) | 76,5 / 79,6 s → **18,5 / 20,4 s** | 20,1 / 21,1 s → **15,1 / 16,6 s** | 378,3 / 402,7 s → **60,8 / 73,9 s** |
+| `sobrantes` | 62,1 s → 4,4 s | 9,2 s → 4,5 s | 322,2 s → 11,6 s |
+| · candidatas (sobran) | 35 (29: el tablero) → 4 (1: «Tapa de ranura testero lado motor») | 14 (1) → 14 (1) | 41 (32) → 8 (2: los bujes antiaplastamiento de las orejas del tensor) |
+| · ingeniería | 18,9 s (28 pruebas) → 0 | 1,8 s (2) → 0,2 s (2) | 201,5 s (32) → 2,8 s (2) |
+| · codo | 40,2 s (30) → 3,9 s (2) | 6,8 s (2) → 3,7 s (2) | 50,8 s (29) → 0 |
+| `fuentes.mecanica` · `memoria` | 3,8 · 0,9 s → 3,0 · 0,6 s | 1,7 · 0,9 s → 2,2 · < 0,5 s | 8,3 · 6,3 s → 3,0 · 3,6 s |
+| payload completo (`get_job` ahora lo resume) | 31,0 → 30,4 kB | — | 52,2 → 58,5 kB (la evidencia de `union.agujeros`) |
+
+Lo que más bajó es el punto 6 (el tablero ya no se prueba); el memo de masas se ve en la ingeniería
+del tanque (1,8 → 0,2 s con las mismas 2 pruebas) y en `memoria`/`mecanica` del elevador. Queda
+`fuentes.seguridad` (~35 s en el elevador: las sondas de F3).
+
+**Propuesta, no implementada (riesgo alto): soltar `STATE_LOCK` entre candidatas.** La puerta
+entera corre bajo el lock (el elevador lo tenía 6 min; ahora ~1 min). Soltarlo entre candidatas
+exige: (a) tomar la `firma` del modelo al empezar y, al retomar el lock, abortar con 409 si cambió
+(la puerta no da veredicto a medias); (b) que la copia superficial `doc_sin` no lea nada del
+`Document` vivo después de soltar (hoy lee `doc.scene`, `doc.fasteners`, el catálogo y el manifest
+en cada prueba: hay que congelarlos en la `Prueba` al empezar); (c) que el `Contexto` (campo,
+sondas, memo de masas) no se comparta con otra corrida. Con 1 min de lock en la máquina más grande
+medida, conviene esperar a que una máquina real lo pida.
+
 Hallazgos fuera del alcance: en el elevador, 12 «Perno de amarre …» modelados como cilindros sin
 cabeza y 8 tuercas y resortes sin hexágono siguen SIN_EVALUAR en agarre y acceso (es el modelo); las
 17/22 uniones sin agujeros de la mezcladora y el elevador, y sus anclajes, son defectos reales que
-sus modeladores tendrán que taladrar (o rehacer con `join_bolted`).
+sus modeladores tendrán que taladrar (o rehacer con `join_bolted`). Los «Bujes pasantes
+antiaplastamiento» de las orejas del tensor del elevador salen sobrantes antes y después: sin
+revisar (¿los pide algo que la puerta no mide, como el aplastamiento del tubo bajo la precarga?).
 

@@ -636,6 +636,8 @@ CASOS = [
     caso("puerta de publicación", "publication_gate"),
     caso("puerta de publicación completa", "publication_gate", {"completo": True}),
     caso("puerta de publicación → recibo", "publication_gate", espera=0),
+    caso("job de la puerta: resumido como la tool", "get_job", {"job_id": "jpu"}),
+    caso("job de la puerta completo", "get_job", {"job_id": "jpu", "detail": "full"}),
     caso("justificaciones", "set_justifications", {"justificadas": [
         {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"}]}),
     caso("justificación corta → 400", "set_justifications", {"justificadas": [

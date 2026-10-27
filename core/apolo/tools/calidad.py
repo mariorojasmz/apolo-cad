@@ -32,6 +32,15 @@ def resumir(r: dict) -> dict:
     return out
 
 
+def de_job(resultado: dict, detail: str) -> dict | None:
+    """El resultado de un job de la PUERTA (lo reconoce por su forma: `version_registro` +
+    `items`) tal como lo da `publication_gate`: resumido, o completo con `detail="full"` (F3c de
+    puerta-sin-sobrediseno: `get_job` devolvía los 54–61 kB de la evidencia). None si no es uno."""
+    if "version_registro" not in resultado or "items" not in resultado:
+        return None
+    return dict(resultado) if detail == "full" else resumir(resultado)
+
+
 def registrar(mcp, esperar, api=None) -> None:
     """Registra `publication_gate`, `set_justifications` y `set_functions` en `mcp`."""
 
@@ -43,8 +52,8 @@ def registrar(mcp, esperar, api=None) -> None:
         OK | FALLA | SIN_EVALUAR | NO_APLICA con su evidencia; se publica SÓLO si todo ítem
         aplicable está OK (SIN_EVALUAR bloquea igual que FALLA: «no se pudo ver» no es «está
         bien»). Corre la gravedad (obligatoria), las interferencias DENTRO de cada super-comando,
-        el agarre de cada perno, el tensor y su carrera, la vida útil (L10 ≥ 20 000 h, factor de
-        servicio ≥ 1,25…), la memoria de cálculo, el ERC, la marcha del video contra el modelo,
+        el agarre de cada perno, los agujeros de cada unión atornillada declarada, el tensor y su
+        carrera, la vida útil (L10 ≥ 20 000 h, factor de servicio del servicio declarado…), la memoria de cálculo, el ERC, la marcha del video contra el modelo,
         las sondas ISO 13857 sobre lo que gira (cuñas, transmisiones, extremos de eje), que cada
         guarda se quite sólo con herramienta, que cada pieza de desgaste se cambie sin cortar y
         que ninguna guarda ni pieza agregada tras la primera corrida SOBRE (diseno.sin_sobrantes:
@@ -52,7 +61,8 @@ def registrar(mcp, esperar, api=None) -> None:
         Devuelve aprobado, conteos, por_familia y `pendientes` (cada ítem que falla o no se pudo
         evaluar, con la pieza y el porqué: corrige el MODELO, no el ítem). `completo=true` trae
         todos los ítems con su evidencia y la tabla de riesgos ISO 12100. Read-only; tarda
-        (simula): si no llega, RECIBO {"job"}: get_job."""
+        (simula): si no llega, RECIBO {"job"}: get_job (resumido igual; completo con
+        detail="full")."""
         payload, job_id = esperar("POST", "/api/puerta-publicacion", {})
         if job_id:
             return _recibo(job_id)

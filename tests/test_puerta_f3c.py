@@ -276,3 +276,33 @@ def test_lo_del_tablero_y_los_dispositivos_no_son_piezas_agregadas():
                if d.commands[[c["id"] for c in d.commands].index(x.command_id.split("_")[0])][
                    "type"] == "layout_tablero"}
     assert tablero and tablero <= carril and motor in carril and guarda not in carril
+
+
+# ------------------------------------------------------------------ 7–9. el costo de la puerta
+def test_la_geometria_de_masa_se_mide_una_vez_por_corrida(monkeypatch):
+    from apolo.library.engineering import mass as M
+
+    d = Document("masas")
+    fid = _caja(d, "Bloque", 100, 50, 20, z=10)
+    sin_memo = M.feature_mass(d.scene[fid])
+    llamadas = []
+    real = M._shape_com
+    monkeypatch.setattr(M, "_shape_com", lambda s: llamadas.append(s) or real(s))
+    with M.memo_de_geometria():
+        a = M.feature_mass(d.scene[fid])
+        b = M.feature_mass(d.scene[fid], default_material="aluminio")  # otro material: otra masa
+        M.scene_mass_properties(d.scene)
+    assert len(llamadas) == 1 and a == sin_memo and b["masa_kg"] != a["masa_kg"]
+    M.feature_mass(d.scene[fid])  # fuera del `with`, sin memo
+    assert len(llamadas) == 2
+
+
+def test_get_job_de_la_puerta_llega_resumido_como_la_tool():
+    from apolo.tools.calidad import de_job
+
+    r = {"aprobado": False, "version_registro": "10", "conteos": {}, "por_familia": {},
+         "items": [{"id": "a", "estado": "FALLA", "evidencia": {"mucho": "x" * 1000}},
+                   {"id": "b", "estado": "OK", "evidencia": {}}]}
+    corto = de_job(r, "diff")
+    assert [p["id"] for p in corto["pendientes"]] == ["a"] and "items" not in corto
+    assert de_job(r, "full") == r and de_job({"features": []}, "diff") is None

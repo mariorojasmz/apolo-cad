@@ -188,7 +188,8 @@ def get_job(job_id: str, detail: str = "diff", wait_s: float = 20, path: str | N
     `path` o en `path`).
     Espera hasta `wait_s` segundos (long-poll: responde en cuanto el job termina) y
     devuelve lo MISMO que habría devuelto la tool (sólidos + `contrato`), o
-    `{"estado": "corriendo"}` si aún no acaba — vuelve a llamar. El resultado queda CACHEADO:
+    `{"estado": "corriendo"}` si aún no acaba — vuelve a llamar. El de publication_gate llega
+    RESUMIDO como la tool (`detail="full"`: todos los ítems). El resultado queda CACHEADO:
     re-preguntar es SIEMPRE seguro (no re-ejecuta nada). Si falló (p. ej. contrato incumplido)
     da el mismo error que daría en directo, y el documento quedó intacto.
     Job desconocido (404) = el servidor se reinició o el job ya se desalojó: la mutación PUDO
@@ -201,6 +202,9 @@ def get_job(job_id: str, detail: str = "diff", wait_s: float = 20, path: str | N
         return _job_receipt(job_id, job["estado"])
     if "archivo" in (job.get("resultado") or {}):
         return entregable.recoger(_api, job_id, job["resultado"], path)
+    puerta = calidad.de_job(job.get("resultado") or {}, detail)
+    if puerta is not None:
+        return json.dumps({**puerta, "job": job_id}, ensure_ascii=False)
     return json.dumps({**_job_result(job.get("resultado") or {}, detail), "job": job_id},
                       ensure_ascii=False)
 

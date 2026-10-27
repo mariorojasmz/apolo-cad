@@ -14,6 +14,9 @@ Unidades: mm, kg.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
+
 from apolo.kernel.shapes import is_surface
 
 from ..catalog import CATALOG
@@ -41,6 +44,48 @@ def _bbox(shape) -> tuple[list[float], list[float]]:
     )
 
 
+#: El memo de la GEOMETRÍA de masa (volumen, caja, COM) de UNA corrida (`memo_de_geometria`): la
+#: puerta de publicación pide `feature_mass` ~20 000 veces sobre las mismas formas (cada prueba de
+#: sobrantes rehace las reglas de estructura; medido: 229 s en un elevador de 325 piezas). Sólo la
+#: geometría: el material, la ficha y la masa se resuelven en cada llamada (cambian sin cambiar la
+#: forma). Por `id(shape)` guardando la referencia y verificando `is` (core/apolo/CLAUDE.md); vive
+#: lo que dura el `with` del hilo que lo abrió (ContextVar), nunca como estado global.
+_MEMO_GEOMETRIA: ContextVar[dict | None] = ContextVar("memo_geometria_masa", default=None)
+
+
+@contextmanager
+def memo_de_geometria():
+    """Mientras dura, la geometría de masa de cada forma se calcula una vez (anidable: el de
+    afuera manda). Quien lo abre garantiza que ninguna forma se muta adentro (regla del
+    regenerate: ningún executor muta un shape in situ)."""
+    if _MEMO_GEOMETRIA.get() is not None:
+        yield
+        return
+    token = _MEMO_GEOMETRIA.set({})
+    try:
+        yield
+    finally:
+        _MEMO_GEOMETRIA.reset(token)
+
+
+def _geometria(shape) -> tuple[float, list[float], list[float], list[float] | None]:
+    """(volumen, mínimos, máximos, COM real o None) de la forma, del memo si hay uno abierto."""
+    memo = _MEMO_GEOMETRIA.get()
+    if memo is not None:
+        hit = memo.get(id(shape))
+        if hit is not None and hit[0] is shape:
+            return hit[1]
+    try:
+        volume = float(shape.volume)
+    except Exception:
+        volume = 0.0
+    mins, maxs = _bbox(shape)
+    val = (volume, mins, maxs, _shape_com(shape))
+    if memo is not None:
+        memo[id(shape)] = (shape, val)
+    return val
+
+
 def feature_mass(feat, catalog: dict | None = None, default_material: str | None = None,
                  parte: float | None = None) -> dict:
     """Propiedades de masa de UNA pieza: masa (catálogo o volumen×densidad),
@@ -50,10 +95,7 @@ def feature_mass(feat, catalog: dict | None = None, default_material: str | None
     volumen; quien SUMA piezas la pasa, o contaría el vástago dos veces)."""
     catalog = catalog if catalog is not None else CATALOG
     material = resolve_material(feat, catalog, default=default_material)
-    try:
-        volume = float(feat.shape.volume)
-    except Exception:
-        volume = 0.0
+    volume, mins, maxs, com = _geometria(feat.shape)
 
     comp = catalog.get(getattr(feat, "component", None) or "")
     if parte is not None:
@@ -65,8 +107,7 @@ def feature_mass(feat, catalog: dict | None = None, default_material: str | None
         masa = volume * density(material)
         fuente = "volumen"
 
-    mins, maxs = _bbox(feat.shape)
-    com = _shape_com(feat.shape) or [round((mins[i] + maxs[i]) / 2.0, 2) for i in range(3)]
+    com = list(com) if com else [round((mins[i] + maxs[i]) / 2.0, 2) for i in range(3)]
     return {
         "name": getattr(feat, "name", ""),
         "material": material,
@@ -116,7 +157,8 @@ def scene_mass_properties(
         cx += m * row["com_mm"][0]
         cy += m * row["com_mm"][1]
         cz += m * row["com_mm"][2]
-        mins, maxs = _bbox(feat.shape)
+        mins, maxs = (_geometria(feat.shape)[1:3] if _MEMO_GEOMETRIA.get() is not None
+                      else _bbox(feat.shape))  # con el memo, ya está (feature_mass la midió)
         for k in range(3):
             gmin[k] = min(gmin[k], mins[k])
             gmax[k] = max(gmax[k], maxs[k])

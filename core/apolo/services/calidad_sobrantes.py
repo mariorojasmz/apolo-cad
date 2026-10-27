@@ -186,7 +186,9 @@ class Prueba:
     def __init__(self, doc, an: dict, sondas: dict, hardware: set, jb: dict):
         self.doc, self.an, self.hardware, self.jb = doc, an, hardware, jb
         self.quitadas: set = set()
-        self.nubes: dict = {}
+        # el teselado y el campo del codo de F3 (F3c): las nubes por pieza no cambian sin otra
+        self.compartido: dict = sondas.get("compartido") or {}
+        self.nubes: dict = self.compartido.get("nubes", {})
         self.ms = {"sujecion": 0.0, "guardas": 0.0, "rectas": 0.0, "ingenieria": 0.0,
                    "codo": 0.0}
         self.etapa = {k: 0 for k in self.ms}
@@ -206,21 +208,35 @@ class Prueba:
     def _campo(self, dc: dict, empuje, r: set):
         """El campo de la muñeca sin lo quitado: la primera vez entero (y el de la base); después,
         el de la base con sólo la zona de `r` recalculada (`CampoAlcance.libre_sin`): el
-        teselado y la distancia de las demás piezas no cambian."""
+        teselado y la distancia de las demás piezas no cambian. La base es el campo que F3 ya
+        armó en la corrida (`compartido`), con lo ya quitado recalculado en su zona."""
+        from .calidad_codo import BandaEmpujable, campo_alcance
+
+        if self._campo_base is None:
+            base = _dc_sin(self.an["dc"], self.quitadas)
+            f3 = self.compartido.get("campo")  # el de la corrida de F3: sin quitar nada (F3c)
+            if f3 is not None and f3.misma_grilla(base["caja"], base["z_piso"]):
+                self._campo_base = (f3 if not self.quitadas else self._sin_zona(
+                    f3, base, BandaEmpujable(base, self.nubes), self.quitadas))
+            if self._campo_base is None:
+                self._campo_base = campo_alcance(base["solidos"], base["caja"], base["z_piso"],
+                                                 BandaEmpujable(base, self.nubes), self.nubes)
+        cb = self._campo_base
+        return (self._sin_zona(cb, dc, empuje, r)
+                or campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"], empuje, self.nubes))
+
+    def _sin_zona(self, cb, dc: dict, empuje, r: set):
+        """El campo `cb` con sólo la zona de `r` recalculada sobre los sólidos de `dc`
+        (`CampoAlcance.libre_sin`); None si la grilla cambió (otra caja o piso)."""
         import numpy as np
 
         from apolo.library.seguridad.alcance import CampoAlcance
 
-        from .calidad_codo import EMPUJE_MM, BandaEmpujable, campo_alcance, nubes_de
+        from .calidad_codo import EMPUJE_MM, nubes_de
 
-        if self._campo_base is None:
-            base = _dc_sin(self.an["dc"], self.quitadas)
-            self._campo_base = campo_alcance(base["solidos"], base["caja"], base["z_piso"],
-                                             BandaEmpujable(base, self.nubes), self.nubes)
-        cb = self._campo_base
         cajas = [self.an["dc"]["piezas"][i].caja for i in r if i in self.an["dc"]["piezas"]]
         if not cajas or not cb.misma_grilla(dc["caja"], dc["z_piso"]):
-            return campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"], empuje, self.nubes)
+            return None
         lo = np.min([c[0] for c in cajas], axis=0) - EMPUJE_MM
         hi = np.max([c[1] for c in cajas], axis=0) + EMPUJE_MM
         a, b = lo - 100.0, hi + 100.0  # la holgura del brazo y del voxel, de sobra

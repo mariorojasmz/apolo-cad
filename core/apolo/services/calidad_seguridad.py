@@ -225,9 +225,11 @@ def _alcanzan(r: dict) -> str:
 
 
 def _con_brazo_doblado(tr, dc: dict, peligros: list[dict], sondas: dict, resultados: dict,
-                       n_direcciones: int, empuje) -> dict:
+                       n_direcciones: int, empuje, compartido: dict | None = None) -> dict:
     """Las sondas con el brazo DOBLADO (`calidad_codo`) sobre los peligros que las rectas dieron
-    por resguardados: el campo del brazo se arma UNA vez y sólo si hace falta. → evidencia."""
+    por resguardados: el campo del brazo se arma UNA vez y sólo si hace falta. → evidencia.
+    `compartido` ({"nubes": memo}) recibe también el `campo`: la prueba de sobrantes arranca de
+    él en vez de rehacerlo (F3c: el mismo campo se armaba dos veces)."""
     from apolo.library.seguridad.peligros import resultado_peligro
 
     from .calidad_codo import campo_alcance, sondas_con_codo
@@ -236,7 +238,10 @@ def _con_brazo_doblado(tr, dc: dict, peligros: list[dict], sondas: dict, resulta
     if not pendientes:
         return {"peligros": 0, "motivo": "ningún peligro quedó resguardado por las rectas"}
     t0 = time.perf_counter()
-    campo = campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"], empuje)
+    campo = campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"], empuje,
+                          (compartido or {}).get("nubes"))
+    if compartido is not None:
+        compartido["campo"] = campo
     ms_campo = (time.perf_counter() - t0) * 1000.0
     for p in pendientes:
         extra, ms = sondas_con_codo(tr, campo, p, n_direcciones, empuje)
@@ -297,7 +302,9 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
     dc, piezas = an["dc"], an["dc"]["piezas"]
     peligros = [dict(p) for p in an["peligros"]]  # se les ponen objetivos: el análisis no cambia
     tr = Trazador(dc["solidos"]) if peligros else None
-    empuje = BandaEmpujable(dc) if peligros and banda_empujable else None  # se empuja (F6)
+    compartido: dict = {"nubes": {}}  # el teselado y el campo del codo, para la de sobrantes
+    empuje = (BandaEmpujable(dc, compartido["nubes"]) if peligros and banda_empujable
+              else None)  # la banda se empuja (F6)
     resultados, sondas_de = {}, {}
     entradas = llegadas(doc, {**an, "peligros": peligros}) if peligros else {}
     for p in peligros:
@@ -320,7 +327,8 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
                                      empuje.salta if empuje is not None else None)
         sondas_de[p["id"]] = sondas
         resultados[p["id"]] = resultado_peligro(p, sondas, ms)
-    doblado = (_con_brazo_doblado(tr, dc, peligros, sondas_de, resultados, n_direcciones, empuje)
+    doblado = (_con_brazo_doblado(tr, dc, peligros, sondas_de, resultados, n_direcciones, empuje,
+                                  compartido if banda_empujable else None)
                if brazo_doblado and peligros else None)
 
     titulo = "Cada peligro mecánico queda fuera del alcance (sondas ISO 13857)"
@@ -370,7 +378,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
         if it_e["estado"] != "NO_APLICA":
             riesgos.append(_fila_electrica(it_e["estado"]))
     return {"items": items, "riesgos": riesgos, "peligros": peligros, "resultados": resultados,
-            "ms": round((time.perf_counter() - t0) * 1000.0)}
+            "compartido": compartido, "ms": round((time.perf_counter() - t0) * 1000.0)}
 
 
 def controles_f3(doc, n_direcciones: int = 64, *, contexto=None, electrico: bool = True) -> dict:
@@ -384,7 +392,8 @@ def controles_f3(doc, n_direcciones: int = 64, *, contexto=None, electrico: bool
     seg = controles_seguridad(doc, an["dc"], n_direcciones, an=an, electrico=electrico)
     if contexto is not None:  # los peligros medidos (objetivos y resguardos) para la prueba de
         # sobrantes (`calidad_sobrantes`), que re-traza sólo los que una pieza toca
-        contexto.una_vez("f3.sondas", lambda: {k: seg[k] for k in ("peligros", "resultados")})
+        contexto.una_vez("f3.sondas", lambda: {k: seg[k] for k in ("peligros", "resultados",
+                                                                   "compartido")})
     rep = controles_reparabilidad(doc, an["dc"], an=an)
     return {"items": seg["items"] + rep["items"], "riesgos": seg["riesgos"],
             "ms": {"seguridad": seg["ms"], "reparabilidad": rep["ms"],

@@ -124,7 +124,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   sobra. Un control nuevo que una pieza pueda empeorar entra ahí. Lo eléctrico (`del_carril`: el
   `layout_tablero`, los dispositivos) no es «agregado»; un objetivo de enganche que las sondas
   sacaron por caer en una holgura ≤ 4 mm (`calidad_sondas.fuera_de_holguras`) se re-sondea si se
-  quita una de sus dos paredes. [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5, D7, D9, F3c)
+  quita una de sus dos paredes. El campo del codo y el teselado salen de F3 (`compartido` en
+  `f3.sondas`), y `reunir` abre `mass.memo_de_geometria`: nada de eso se rehace por candidata.
+  [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5, D7, D9, F3c)
 - Un detector de `puerta_hechos` usa el criterio de SU control: `vigas` = lo que
   `vigas_rules.detectar_vigas` calcula como viga (un riel o las patas de un tanque no son vigas:
   NO_APLICA, no SIN_EVALUAR). (F3c)
