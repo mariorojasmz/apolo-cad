@@ -164,6 +164,11 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   atrás. Sus tablas son espejo de `112_fijacion_ciega.yaml`/`113_tirafondos_hex.yaml`. Madera =
   `materials.es_madera` sobre `resolve_material_vertical` (la guarda del vertical).
   [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md)
+- Remache ciego: su `fasten.size` es el Ø del cuerpo («Ø4.8», DIN 7337; `join_bolted` v2 lo
+  declara) y se dimensiona a cortante en `report_uniones` (`remaches.py`: forma de EN 1993-1-8,
+  cuerpo tubular, criterio declarado). Pandeo de COLUMNAS de perfil de catálogo: `columna.py`
+  (Euler/Johnson, K de AISC C-A-7.1, cabeza libre 2,1); qué es columna, en
+  [services](../services/CLAUDE.md). (F3f de puerta-sin-sobrediseno)
 - Pernos (`bolts.py`): broca de paso ISO 273 serie media (M12 → Ø13.5). Par de apriete
   `tightening_torque_nm` = K·d·(0.7·A_s·R_y) con `TORQUE_K` por condición (seco/zincado/lubricado)
   + `wrench_size_mm`. [devlog § E5](../../../docs/devlog.md)
@@ -357,6 +362,10 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   anclado, no un perno de anclaje. El extremo de eje LISO que sobresale ≤ ½·d de su apoyo no es
   peligro (`seguridad/extremo_eje.py`, OSHA 1910.219(c)(4); medido en `services/calidad_extremos.py`):
   chavetero, prisionero, tuerca o más saliente, sí; un COLISO es agujero por su ANCHO. (F3e)
+  En una máquina ANCLADA (nada que no sea tornillería baja del apoyo de lo anclado:
+  `calidad_seguridad.piso_solido`) el piso es SÓLIDO: ninguna sonda nace ni pasa por debajo, estrecha
+  los haces (`sondas.cruce_piso`) y es pared del brazo (`CampoAlcance(piso_solido)`); el hueco piso ↔
+  panel lo decide la tabla 4. Sobre ruedas, el brazo sigue llegando por debajo. (F3f)
 - **Lo declarado se fabrica** (F3c del mismo plan): `union.agujeros` (`calidad/agujeros.py`, medido
   en `services/calidad_agujeros.py`) pide a cada pieza a medida de un `fasten` perno del modelador
   (o de un anclaje con pernos en su nota) los agujeros de su métrica en la zona de la unión; lo de

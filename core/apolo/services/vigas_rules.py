@@ -146,15 +146,24 @@ def beam_rules(doc, carga_kg: float | None = None, catalog: dict | None = None) 
     """Una regla por viga (las de números idénticos, agrupadas). Lista vacía si no hay vigas."""
     from apolo.library.engineering.viga_continua import EMPOTRAMIENTO, Apoyo
 
-    from .roles import BED_RE
-
     det = detectar_vigas(doc, catalog)
     if det is None or not det["vigas"]:
         return []
     scene, graph, nivel, vigas = det["scene"], det["graph"], det["nivel"], det["vigas"]
     caja, motivos, catalog = det["caja"], det["motivos"], det["catalog"]
+    portantes, p_util, origen_util = _portantes(det, carga_kg)
+    return _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg,
+                     caja, motivos, catalog, Apoyo, EMPOTRAMIENTO)
 
-    # carga útil: vigas que tocan lo portante o, sin cama, las más altas
+
+def _portantes(det: dict, carga_kg: float | None) -> tuple[set, float, str]:
+    """(vigas que reciben la carga útil, N por viga, de dónde): las que tocan lo portante o, sin
+    cama, las más altas. Sin vigas, ninguna."""
+    from .roles import BED_RE
+
+    scene, graph, vigas, caja = det["scene"], det["graph"], det["vigas"], det["caja"]
+    if not vigas:
+        return set(), 0.0, ""
     camas = {fid for fid, f in scene.items() if BED_RE.search(f.name or "")}
     portantes = {v for v in vigas if graph["adj"][v] & camas}
     origen_util = "las vigas que tocan la cama/mesa"
@@ -162,10 +171,27 @@ def beam_rules(doc, carga_kg: float | None = None, catalog: dict | None = None) 
         tope = max(caja(v)[1][2] for v in vigas)
         portantes = {v for v in vigas if caja(v)[1][2] >= tope - _TOL_ALTURA}
         origen_util = "las vigas más altas del bastidor (sin cama/mesa identificable)"
-    p_util = (float(carga_kg or 0.0) * G / len(portantes)) if carga_kg else 0.0
+    return portantes, (float(carga_kg or 0.0) * G / len(portantes)) if carga_kg else 0.0, origen_util
 
-    return _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg,
-                     caja, motivos, catalog, Apoyo, EMPOTRAMIENTO)
+
+def cargas_que_bajan(doc, carga_kg: float | None = None, catalog: dict | None = None,
+                     det: dict | None = None) -> dict | None:
+    """Lo que le llega a cada pieza por el MISMO recorrido de `beam_rules` (D2: de arriba abajo
+    por niveles, repartido por igual; una viga baja sus reacciones, con la carga útil sobre sus
+    portantes): {det, recibido: {fid: [(de quién, N)]}, util_en_vigas: bool}; None sin piezas.
+    La usa el pandeo de columnas (`columnas_rules`, F3f de puerta-sin-sobrediseno)."""
+    from apolo.library.engineering.viga_continua import EMPOTRAMIENTO, Apoyo
+
+    det = det if det is not None else detectar_vigas(doc, catalog)
+    if det is None:
+        return None
+    portantes, p_util, origen_util = _portantes(det, carga_kg)
+    recibido: dict = defaultdict(list)
+    _resolver(det["scene"], det["graph"], det["nivel"], det["vigas"], portantes, p_util,
+              origen_util, carga_kg, det["caja"], defaultdict(list), det["catalog"], Apoyo,
+              EMPOTRAMIENTO, recibido)
+    return {"det": det, "recibido": recibido, "util_en_vigas": bool(p_util),
+            "origen_util": origen_util}
 
 
 def detectar_vigas(doc, catalog: dict | None = None) -> dict | None:
@@ -227,14 +253,15 @@ def detectar_vigas(doc, catalog: dict | None = None) -> dict | None:
 
 
 def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg, caja,
-              motivos, catalog, Apoyo, EMPOTRAMIENTO) -> list[dict]:
+              motivos, catalog, Apoyo, EMPOTRAMIENTO, recibido: dict | None = None) -> list[dict]:
     """Recorre el grafo de arriba abajo: cada pieza baja su carga; cada viga se resuelve con
-    lo que le llegó y baja sus reacciones."""
+    lo que le llegó y baja sus reacciones. `recibido` (fid → [(de quién, N)]) queda con lo que
+    le llegó a cada pieza: lo lee el pandeo de columnas (`columnas_rules`, F3f)."""
     from apolo.library.engineering.viga_bastidor import envolvente, regla_viga
     from apolo.library.engineering.viga_continua import CargaPuntual, CargaRepartida, q_peso_propio_n_mm
     from apolo.library.materials import hatch_pattern, resolve_material, yield_strength, young_modulus
 
-    recibido: dict = defaultdict(list)  # fid → [(de quién, N)]
+    recibido = defaultdict(list) if recibido is None else recibido
     resultados: list[tuple[tuple, dict]] = []
     # orden TOTAL (nivel, nombre, id): con empates, el orden del dict sale de recorrer `set`s y
     # cambia con PYTHONHASHSEED → el representante de un grupo de vigas iguales cambiaría

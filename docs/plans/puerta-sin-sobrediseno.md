@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes, memo de masas, campo del codo compartido, get_job resumido; registro v10; la puerta del elevador 378 → 61 s) mergeada; F3d (lo que la entrega no evaluó se justifica por escrito, registro v11) hecha en su rama, sin mergear; F3e (extremo de eje liso ≤ ½·d no es peligro por OSHA 1910.219(c)(4), el coliso es agujero; registro v13) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes, memo de masas, campo del codo compartido, get_job resumido; registro v10; la puerta del elevador 378 → 61 s) mergeada; F3d (lo que la entrega no evaluó se justifica por escrito, registro v11) y F3e (extremo de eje liso ≤ ½·d no es peligro por OSHA 1910.219(c)(4), el coliso es agujero; registro v13) mergeadas; F3f (el piso de lo anclado es sólido para las sondas, el remache declara su Ø y se dimensiona, el pandeo de columnas de catálogo; registro v14) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -182,6 +182,9 @@ física y la norma piden, y que nada detecta una pieza de protección que sobra.
   agujeros (ítem nuevo `union.agujeros`), el espárrago soldado con su tuerca, el factor de servicio
   fuera de un transportador con el servicio declarado, la flecha sin vigas, el objetivo dentro de
   una holgura funcional y lo eléctrico como «agregado» a sobrante (§ Bitácora F3c).
+- **F3f — tres defectos de la puerta ante el elevador vertical de cajas (M).** Sondas que entraban
+  por debajo de la losa de una máquina anclada, remaches sin cómo declarar su tamaño y columnas
+  que ninguna regla evaluaba ni se podían justificar (§ Bitácora F3f).
 - **F4 — adelgazar la faja de motor central (S, por MCP, fuera del núcleo).** Declarar el sentido,
   sacar las UCT (la cola vuelve a apoyos fijos si los tres tensores alcanzan), sacar lo que F3
   diga que sobra, puerta aprobada y `delivery_check` VERDE; antes/después de masa y costo.
@@ -770,3 +773,79 @@ Hallazgos fuera del alcance:
 - Un tubo redondo cuyo interior tiene el Ø de un paso de perno sigue contando como agujero
   (`agujeros_de`, desde F3c); el coliso no repite ese error (el interior de un tubo queda abierto a
   lo largo).
+
+### F3f (2026-10-27): el piso de lo anclado, los remaches y las columnas
+
+Tres hallazgos del modelador del elevador vertical de cajas de 2 niveles (330 sólidos, anclado con
+10 placas base; paneles hasta 10 mm del piso) que la puerta v13 dejaba en 26 OK / 2 FALLA /
+2 SIN_EVALUAR: la máquina estaba bien. Medido en SÓLO LECTURA sobre su `.apolo` (`reunir` +
+`evaluar` en proceso, gravedad dada por estable, sin marcha), antes → después:
+
+| ítem | antes | después |
+|---|---|---|
+| `riesgos.partes_moviles` | FALLA: cadenas 10 y 15 sondas, todas con la entrada en z = 0 (nacían en el piso BAJO la máquina y subían) | OK: 47 + 53 + 16 sondas paradas por el piso; ninguna llega por el hueco de 10 mm (las cadenas están a ≥ 190 mm del piso y a más de su sr) |
+| `union.dimensionadas` | FALLA: 14 uniones de `join_bolted` con remache ciego sin métrica | OK: declaran «Ø4.8»; 14 reglas «unión remachada», en camino redundante |
+| `estructura.pandeo` | SIN_EVALUAR (el detector contaba 6 roles «columna»/«poste»; ninguna regla los evaluaba ni había cómo justificarlo) | OK: 10 columnas; las 4×4, FS 110,8 y 207,3 (a mano, el modelador: ≈ 130); postes 1½″, FS 7,4–46,4; parantes, 30,6 |
+| puerta (con sobrantes) | — | 30 OK / 0 FALLA / 0 SIN_EVALUAR / 3 NO_APLICA (81,7 s) |
+
+Qué entró:
+1. **El piso de lo anclado es un sólido** (`calidad_seguridad.piso_solido`: hay `ground` y nada que
+   no sea tornillería baja del piso; una máquina colgada de una pared, con piezas por debajo de su
+   anclaje, no). Ninguna sonda nace bajo él (`sondas.origen` → `bajo_piso`, la sonda queda parada
+   con motivo «el piso»), estrecha los haces como una pared (`sondas.cruce_piso`: donde entra, o
+   donde sale el rayo lateral que arranca bajo el piso, el labio de abajo del hueco) y es pared del
+   brazo doblado (`CampoAlcance(piso_solido)`: un voxel a < r_brazo del piso no es transitable y la
+   capa del piso dentro de la caja deja de ser semilla). Lo mismo en la prueba de sobrantes
+   (`_dc_sin`, `misma_grilla`). Sobre ruedas (sin anclaje), todo como antes.
+2. **El hueco piso ↔ panel lo decide la tabla 4.** Medido en un cerramiento sintético con el hueco
+   de 10 mm: un peligro a 100 mm del piso no lo alcanza nada; uno a 3 mm detrás del panel, a la
+   altura del hueco, lo alcanza el DEDO (de frente: abertura < 10 mm, sr 9,5 mm < 80 mm; en
+   diagonal ve < 8 y < 6 mm, también por debajo de su sr): FALLA, como pide ISO 13857.
+3. **El remache declara su Ø**: `fasten.size` acepta «Ø3.2», «Ø4», «Ø4.8», «Ø6.4» (DIN 7337,
+   además de «M…»; params estrictos: «4.8x10» se rechaza) y `join_bolted` lo escribe en el `fasten`
+   de los remaches (todo criterio). La unión remachada se dimensiona a cortante en `report_uniones`
+   (regla «unión remachada · …», familia `vida.uniones`) con `engineering/remaches.py`:
+   F_v = 0,6·Rm·A_cuerpo/γM2 = 2 780 N por Ø4.8.
+4. **Columnas** (`services/columnas_rules.py` + `engineering/columna.py`, dentro de
+   `structure_rules`: checks y memoria): perfil ESTRUCTURAL de catálogo (tubo, ángulo, UPN, IPE)
+   VERTICAL, apoyado abajo por perno o soldadura en su décimo inferior (o anclado); la carga, su
+   peso + lo que le baja por `vigas_rules.cargas_que_bajan` (el MISMO recorrido de la flecha de
+   vigas, que ahora deja lo recibido por pieza); Euler o la parábola de Johnson (λ < λc =
+   π·√(2E/fy)); K de AISC 360-16, Comentario tabla C-A-7.1; FS ≥ 3. El detector `columnas` de la
+   puerta es el de la regla (`detectar_columnas`: patas de la regla vieja, columnas evaluables y no
+   evaluadas). Lo que no se evalúa (base sólo atornillada; rol «columna»/«poste» sin sección de
+   norma) sale como regla `no_evaluada` y `vida.pandeo` la deja SIN_EVALUAR con `como_justificar`
+   ([{regla, piezas}]); con su `justificadas` escrita, OK.
+
+`join_bolted` sube a v2: misma geometría, pero el checkpoint de la caché de geometría guarda los
+fasteners y un open caliente serviría el `fasten` sin tamaño (`test_version_comandos`: el compuesto
+`insert_project` la lleva). `VERSION_REGISTRO` 13 → 14. Testigos re-congelados a propósito: los
+cuatro, sólo la versión (ningún veredicto por ítem se movió). Sin ítem nuevo: los defectos sembrados `pata_esbelta` y el de
+`union.dimensionadas` siguen atrapando. Tests: `tests/test_puerta_f3f.py`.
+
+Decisiones tomadas en la implementación (vetables):
+- **Piso sólido sólo si es el de abajo**: anclada y nada (salvo tornillería) por debajo del apoyo
+  de lo anclado, con 0,5 mm de tolerancia. Una máquina anclada a una pared o con un anclaje que no
+  es el más bajo sigue con el piso de antes (conservador: el brazo llega por debajo).
+- **Capacidad del remache por cálculo, no por ficha**: EN 1993-1-3 §8.3 pide para el remache ciego
+  el valor de ENSAYO del fabricante, que no está en el catálogo. Sustituto declarado: la forma de
+  EN 1993-1-8 tabla 3.4 con el Rm mínimo del 1.4301 (EN 10088-3, 500 MPa) sobre el cuerpo tubular
+  sin el mandril (Ø interior 0,6·d). No se verificó una tabla de ISO 15983 (de pago); un dato de
+  Würth (4 000 N de rotura a cortante para Ø4,8 A2/A2) queda por encima, como debe. El aplastamiento
+  de las chapas (EN 1993-1-3 tabla 8.1) no se calcula: la unión no trae su espesor (hipótesis).
+- **El tornillo para madera (DIN 571) sigue sin tamaño**: su capacidad es de EN 1995 (Johansen) y
+  no hay cálculo; `union.dimensionadas` lo sigue pidiendo. Fase propia si una máquina lo trae.
+- **K = 2,1 siempre** (base empotrada, cabeza libre de desplazarse) aunque la cabeza se una a otra
+  pieza: sin saber si el conjunto está arriostrado, K ≤ 1,2 sería optimista. Una base sólo
+  atornillada se toma ARTICULADA: no evaluada, se justifica (p. ej. «placa de 4 anclajes químicos
+  empotrada según su fabricante») o se suelda.
+- **Sin excentricidad ni flexión combinada** en la columna; la esbeltez de los postes del elevador
+  (λ ≈ 400) supera la recomendación de AISC (KL/r ≤ 200, nota de usuario de E2), que no es
+  requisito: no se exige.
+
+Hallazgos fuera del alcance:
+- En el elevador `transmision_flexible.tension` sale NO_APLICA («sin transmisiones flexibles») con
+  dos cadenas de izaje modeladas a mano (catálogo CADENA-08B-1, sin `create_chain`): el detector
+  sólo reconoce `create_chain` y bandas. Sus tensores existen; revisar en su fase.
+- La BOM no compra los remaches DECLARADOS sin modelar (`tornilleria_declarada` sólo lee «M…»): con
+  `join_bolted` están modelados y se compran; un `fasten` «Ø4.8» a mano, no.

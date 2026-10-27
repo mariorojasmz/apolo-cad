@@ -253,6 +253,12 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   repartidas por igual; una viga baja sus reacciones. Carga útil = puntual MÓVIL sobre las vigas
   que tocan `BED_RE` o, sin cama, las más altas. Piezas de `create_conveyor` → `no_aplica` (D4).
   Sin vigas → `[]` (memoria intacta). [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
+- `columnas_rules.columna_rules` (pandeo, dentro de `structure_rules`): columna = perfil
+  estructural de catálogo VERTICAL apoyado abajo por perno/soldadura (o anclado); la carga, la que
+  baja por `vigas_rules.cargas_que_bajan` (el MISMO recorrido de las vigas). Base sólo atornillada
+  o rol «columna»/«poste» sin sección → regla `no_evaluada` que la puerta deja SIN_EVALUAR y se
+  justifica (regla + piezas). El rol «pata» es de `report_estructura`; el detector `columnas` de
+  la puerta es `detectar_columnas`. [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (F3f)
 - `conveyor_params_from_doc` es de los tres clientes (checks, memoria, tool `engineering_check`
   del agente, que la importa con su nombre viejo). Con un `create_roller_conveyor` (el último
   transportador del log) devuelve sus params con `plantilla` y `conveyor_engineering_check` los

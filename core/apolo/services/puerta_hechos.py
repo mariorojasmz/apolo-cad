@@ -26,9 +26,6 @@ los tres tipos quedan con `sin_detectar` (aplican: la fuente dirá por qué no c
 
 from __future__ import annotations
 
-import re
-
-_PATA_RE = re.compile(r"^(patas?|columnas?|postes?)\b", re.I)
 _MOTORES = ("motorreductores", "motorreductores_sinfin")
 _RODANTES = {"rodamientos": "rodamiento", "chumaceras": "chumacera"}
 _GIRO = ("giratoria", "continua")
@@ -57,6 +54,21 @@ def _vigas(doc) -> dict:
     if det is None:
         return {}
     return {"perfil": len(det["vigas"]), "bastidor_faja": len(det["de_faja"])}
+
+
+def _columnas(doc) -> dict:
+    """{pata, columna, sin_evaluar}: lo que miden las reglas de pandeo —las patas de
+    `report_estructura` y las columnas de `columnas_rules` (evaluables o no evaluadas, que se
+    justifican)—, con el MISMO criterio que el control (F3f de puerta-sin-sobrediseno: antes
+    contaba roles «columna»/«poste» que ninguna regla evaluaba, SIN_EVALUAR sin salida)."""
+    from .columnas_rules import detectar_columnas
+
+    try:
+        c = detectar_columnas(doc)
+    except Exception:  # noqa: BLE001 — aplica igual: la fuente dirá por qué no se evaluó
+        return {"sin_detectar": 1}
+    return _n({"pata": c["patas"], "columna": len(c["evaluables"]),
+               "sin_evaluar": len(c["no_evaluadas"])})
 
 
 def _ground_fid(g) -> str | None:
@@ -88,7 +100,6 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from apolo.library.calidad.nombres import elementos as elementos_operables
     from apolo.library.catalog import CATALOG
     from apolo.library.delivery import MIN_SOLIDOS_SUJECION
-    from apolo.library.materials import piece_role
 
     from . import marcha_ejemplo
     from .calidad_juntas import clasificar
@@ -99,7 +110,6 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
 
     solidos = {f: x for f, x in doc.scene.items() if not getattr(x, "is_guide", False)}
     comps = {f: CATALOG.get(getattr(x, "component", None) or "") for f, x in solidos.items()}
-    rol = {f: piece_role(x.name or "") for f, x in solidos.items()}
     cadenas = [c["id"] for c in comandos_efectivos(doc.commands, doc.variables_resolved)
                if c["type"] == "create_chain"]
     bandas = [lz["id"] for lz in lazos_banda(doc)]
@@ -142,7 +152,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "transmisiones": _n({"cadena": len(cadenas)}),
         "apoyos": _n({"anclaje": len(doc.grounds)}),
         "vigas": _n(vigas),
-        "columnas": _n({"pata": sum(1 for r in rol.values() if _PATA_RE.match(r))}),
+        "columnas": _columnas(doc),
         "uniones": _n({"perno": kinds.count("perno"), "soldadura": kinds.count("soldadura")}),
         "uniones_apernadas": _n({"perno": kinds.count("perno")}),
         "soldaduras": _n({"soldadura": kinds.count("soldadura")}),

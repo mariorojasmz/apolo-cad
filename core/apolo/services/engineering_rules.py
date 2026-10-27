@@ -64,10 +64,11 @@ def inherit_tensor(doc, conveyor: dict | None) -> None:
 def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
     """Chequeo estructural UNIVERSAL (pernos/soldaduras/L10/pandeo/vuelco): aplica a
     cualquier ensamblaje, no exige carga ni faja detectada; más la flecha de las vigas del
-    bastidor (`vigas_rules`), la transmisión por cadena de cada `create_chain` y los
+    bastidor (`vigas_rules`), el pandeo de sus columnas (`columnas_rules`), la transmisión por cadena de cada `create_chain` y los
     resultados FEA guardados (con chequeo de vigencia). Llamar bajo STATE_LOCK."""
     from apolo.library.engineering.report import structure_engineering_check
 
+    from .columnas_rules import columna_rules
     from .fea_rules import fea_rules
     from .transmision_rules import chain_rules
     from .vigas_rules import beam_rules
@@ -83,6 +84,7 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
         rodamientos=declarados,
     )
     rules += beam_rules(doc, carga)
+    rules += columna_rules(doc, carga)  # F3f de puerta-sin-sobrediseno
     rules += chain_rules(doc)
     rules += fea_rules(doc)
     if conveyor is None:  # el transportador calcula su motorización con sus reglas

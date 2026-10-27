@@ -10,7 +10,7 @@ de la ficha de calidad con los umbrales de una máquina INDUSTRIAL (8–10 h/dí
 | `vida.cadena` | cadena · transmisión por cadena · cadena desfasada | FS ≥ 1,2 |
 | `vida.vuelco` | estabilidad al vuelco | margen ≥ 10 % de la base |
 | `vida.flecha` | flecha del bastidor · flecha de viga | δ ≤ L/240 |
-| `vida.pandeo` | pandeo de patas | FS ≥ 3 |
+| `vida.pandeo` | pandeo de patas · pandeo de columna | FS ≥ 3 (la no evaluada, justificada) |
 | `vida.uniones` | unión apernada | utilización ≤ 0,7 |
 | `vida.soldaduras` | soldadura | τ en el admisible (la regla) |
 | `vida.dimensionadas` | uniones / soldaduras sin dimensionar | ninguna |
@@ -63,11 +63,11 @@ _FAMILIAS = [  # (id, título, modo de falla, norma, ¿la regla es de la familia
     ("vida.flecha", "Flecha de vigas y bastidor ≤ L/240",
      "el bastidor cede: la banda se desalinea y la estructura fatiga", "AISC (L/240)",
      lambda r: r.startswith(("flecha del bastidor", "flecha de viga"))),
-    ("vida.pandeo", "Pandeo de patas con FS ≥ 3", "una pata pandea bajo la carga",
-     "Euler / AISC (FS ≥ 3)", lambda r: r.startswith("pandeo")),
+    ("vida.pandeo", "Pandeo de patas y columnas con FS ≥ 3", "una pata o columna pandea bajo "
+     "la carga", "Euler / Johnson · AISC (FS ≥ 3)", lambda r: r.startswith("pandeo")),
     ("vida.uniones", "Uniones apernadas con utilización ≤ 0,7",
      "el perno se corta o la unión se afloja por sobrecarga", "EN 1993-1-8 · ISO 898-1",
-     lambda r: r.startswith("unión apernada")),
+     lambda r: r.startswith(("unión apernada", "unión remachada"))),  # remache: F3f
     ("vida.soldaduras", "Soldaduras dentro del admisible", "el cordón se agrieta bajo la carga",
      "EN 1993-1-8", lambda r: r.startswith("soldadura ·")),
     ("vida.dimensionadas", "Todas las uniones y soldaduras dimensionadas",
@@ -89,10 +89,21 @@ def _por_estado(regla: dict) -> str:
     return {"ok": OK, "error": FALLA}.get(regla.get("estado"), FALLA)
 
 
-def _juzgar(iid: str, regla: dict, fs_servicio: float = FS_SERVICIO) -> tuple[str, dict]:
+def _juzgar(iid: str, regla: dict, fs_servicio: float = FS_SERVICIO,
+            justificadas=()) -> tuple[str, dict]:
     """(estado, números) de UNA regla dentro de su familia, con el umbral de la puerta
-    (`fs_servicio`: el FS que pide el servicio declarado; F3c)."""
+    (`fs_servicio`: el FS que pide el servicio declarado; F3c). Una regla `no_evaluada` (una
+    columna cuyo pandeo no se pudo calcular: F3f) es SIN_EVALUAR salvo justificada por escrito
+    (`justificadas`, con su regla y sus piezas), y dice cómo justificarla."""
+    from .justificadas import citar, del_aviso
+
     nombre, fs, calc = regla.get("regla", ""), _fs(regla), regla.get("calc") or {}
+    if regla.get("no_evaluada"):
+        js = del_aviso(nombre, regla.get("piezas"), justificadas)
+        if js:
+            return OK, {"justificada": citar(js)}
+        return SIN_EVALUAR, {"como_justificar": [{"regla": nombre,
+                                                  "piezas": list(regla.get("piezas") or [])}]}
     if iid == "vida.l10":
         if not calc:
             return SIN_EVALUAR, {}
@@ -147,7 +158,7 @@ def controlar_vida_util(reglas: list[dict], hay_motor: bool = False,
     for iid, titulo, modo, norma, es in _FAMILIAS:
         mias = [(k, r) for k, r in enumerate(reglas) if es(r.get("regla", ""))]
         usadas.update(k for k, _ in mias)
-        juicios = [(r, *_juzgar(iid, r, fs_servicio)) for _, r in mias]
+        juicios = [(r, *_juzgar(iid, r, fs_servicio, justificadas)) for _, r in mias]
         if iid == "vida.dimensionadas" and not mias and hay_uniones:
             items.append(Item(iid, titulo, OK, modo, norma, detalle="todas dimensionadas"))
             continue

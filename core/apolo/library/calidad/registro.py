@@ -68,7 +68,10 @@ lo que cubre un peligro, L10 con rpm; v10 (F3c) `union.agujeros`, espárrago, fa
 `vigas`, holgura ≤ 4 mm; v11 (F3d) lo no evaluado se justifica por escrito; v12
 (nombres-por-funcion F2) `interfaz.nombres_por_funcion`; v13 (puerta-sin-sobrediseno F3e) el
 extremo de eje LISO que sobresale ≤ ½·d de su apoyo no es peligro (OSHA 1910.219(c)(4)) y el
-COLISO del ancho del paso es agujero de `union.agujeros`.
+COLISO del ancho del paso es agujero de `union.agujeros`; v14 (F3f) el piso de lo ANCLADO es un
+sólido para las sondas (ninguna nace ni pasa por debajo; el hueco piso ↔ panel lo decide la tabla
+4), el remache declara su Ø («Ø4.8») y se dimensiona a cortante, y `estructura.pandeo` evalúa las
+columnas de perfil de catálogo (Euler/Johnson, K de AISC) y deja justificar las que no puede.
 """
 
 from __future__ import annotations
@@ -81,7 +84,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "13"  # 13: extremo de eje liso ≤ ½·d y coliso (puerta-sin-sobrediseno F3e)
+VERSION_REGISTRO = "14"  # 14: piso sólido, remaches y columnas (puerta-sin-sobrediseno F3f)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
