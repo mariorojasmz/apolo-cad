@@ -148,7 +148,8 @@ def test_all_new_families_present():
     # +20 de V8.9 F7b (3 reguladores de caudal, 3 silenciadores, 11 racores, detector magnético,
     # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
     # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR); +5 prensaestopas M16–M40 (V8.5 F3)
-    assert len(CATALOG) == 469  # + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    # +2 cables sin PE para aparatos de clase II (CABLE-5X1, CABLE-7X1)
+    assert len(CATALOG) == 471  # + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
 
 
 def test_door_sliding_hardware():

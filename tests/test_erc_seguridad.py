@@ -18,7 +18,7 @@ from apolo.library.catalog import CATALOG
 from apolo.library.electrico.ajustes import validar_ajustes
 from apolo.library.electrico.erc import erc, resumen
 from apolo.library.electrico.ficha import parse_ficha
-from test_electrico_erc import _con, _idx, arranque_variador, disp, w
+from test_electrico_erc import _con, _idx, arranque_variador, cable, disp, w
 
 PE = dict(color="GNYE")
 BU = dict(color="BU", seccion=0.75)
@@ -98,6 +98,107 @@ def test_pe_del_motor_por_un_conductor_suelto_desde_el_variador_es_cadena():
     m = _con(m, cambiar={_idx(m, "-T2:PE", "-M1:PE"): w("-T2:PE", "-M1:PE", **PE)})
     malas = [r for r in erc(m) if r["regla"] == "PE en cadena" and r["estado"] == "error"]
     assert len(malas) == 1 and "es paso de la tierra de -M1 " in malas[0]["detalle"]
+
+
+# ── hilo de protección sin conectar ───────────────────────────────────────────────────────
+
+HILO_PE = "hilo de protección sin conectar"
+
+
+def _con_extremos(m, **por_cable):
+    """El modelo con `desde`/`hasta` declarados en sus cables: {«-W1»: («+TAB1», «-M1»)}."""
+    cables = tuple(dataclasses.replace(c, desde=por_cable[c.designacion][0], hasta=por_cable[c.designacion][1])
+                   if c.designacion in por_cable else c for c in m.cables)
+    return dataclasses.replace(m, cables=cables)
+
+
+@pytest.mark.parametrize("armar", ["directo", "variador"])
+def test_el_pe_del_cable_del_motor_en_sus_dos_extremos_queda_ok(armar):
+    """Verde: el PE de -W1 va de la bornera (directo) o del borne PE del variador (variador) al PE
+    del motor, con los extremos sin declarar (ningún aparato propio en cada punta) o declarados
+    (+TAB1 → -M1). El cable del sensor (3X0.75, sin PE) no cuenta."""
+    from test_electrico_erc import arranque_directo
+
+    m = arranque_directo() if armar == "directo" else arranque_variador()
+    for modelo in (m, _con_extremos(m, **{"-W1": ("+TAB1", "-M1")})):
+        reglas = erc(modelo)
+        fila, = _filas(reglas, HILO_PE)
+        assert fila["estado"] == "ok", fila
+        assert fila["detalle"] == "El hilo de protección del cable llega a un borne de tierra en sus dos extremos."
+        assert fila["elementos"] == ["-W1"] and fila["norma"].startswith("IEC 60204-1 §8.2.1")
+        assert resumen(reglas)["errores"] == 0
+
+
+def test_sin_cables_con_pe_no_hay_fila():
+    m = arranque_variador()
+    m = dataclasses.replace(m, cables=tuple(c for c in m.cables if c.designacion != "-W1"),
+                            conductores=tuple(dataclasses.replace(c, cable=None, hilo=None) if c.cable == "-W1"
+                                              else c for c in m.conductores))
+    assert not _filas(erc(m), HILO_PE)
+
+
+def test_el_pe_del_cable_sin_add_wire_es_error_aunque_el_motor_tenga_tierra():
+    """Rojo: el motor llega a tierra por un conductor suelto y el hilo PE de -W1 queda sin conectar.
+    «Puesta a tierra» y «PE en cadena» siguen ok (el borne PE del motor sí llega): sólo esta regla
+    lo ve."""
+    m = arranque_variador()
+    m = _con(m, cambiar={_idx(m, "-T2:PE", "-M1:PE"): w("-X0:1", "-M1:PE", **PE)})
+    reglas = erc(_con_extremos(m, **{"-W1": ("+TAB1", "-M1")}))
+    malas = [r for r in reglas if r["estado"] == "error"]
+    assert [r["regla"] for r in malas] == [HILO_PE], malas
+    fila = malas[0]
+    assert fila["detalle"].startswith("-W1 (CABLE-4G1.5, +TAB1 → -M1): su hilo de protección PE no está "
+                                      "conectado: ningún add_wire lo usa.")
+    assert fila["elementos"] == ["-W1", "+TAB1", "-M1"] and "conductores" not in fila
+    assert "add_wire(cable=«-W1», hilo=«PE»)" in fila["recomendacion"]
+    assert "clase II" not in fila["recomendacion"]  # el motor y el tablero tienen borne de tierra
+    assert resumen(reglas)["estado"] == "error"
+
+
+def test_el_pe_que_no_llega_al_aparato_es_error():
+    """El hilo PE va de la bornera a otra punta del tablero: -M1 queda sin su conductor (aunque la
+    red PE, que junta todas las tierras, sí pase por el motor por otro lado)."""
+    m = arranque_variador()
+    m = _con(m, cambiar={_idx(m, "-T2:PE", "-M1:PE"): w("-X0:1", "-T2:PE", cable="-W1", hilo="PE")},
+             agregar=(w("-X0:1", "-M1:PE", **PE),))
+    malas = [r for r in erc(_con_extremos(m, **{"-W1": ("+TAB1", "-M1")})) if r["estado"] == "error"]
+    assert [r["regla"] for r in malas] == [HILO_PE]
+    assert "no llega a un borne de tierra en -M1 (llega a -X0:1, -T2:PE)" in malas[0]["detalle"]
+    assert malas[0]["elementos"] == ["-W1", "-M1"] and malas[0]["conductores"]
+    # sin `desde`/`hasta` la regla no sabe dónde termina el cable: le bastan bornes de tierra de dos
+    # aparatos distintos (la bornera y el variador). Por eso los extremos se declaran
+    fila, = _filas(erc(m), HILO_PE)
+    assert fila["estado"] == "ok"
+
+
+def test_el_cable_5g_a_una_botonera_de_clase_ii_es_error_con_el_cable_sin_pe():
+    """El caso del elevador: un CABLE-5G1 a la botonera -S1 (caja aislante, sin borne de tierra en
+    su ficha) con el PE sin conectar. Lleva un cable sin conductor de protección (5X1): ok."""
+    m = arranque_variador()
+    con_5g = dataclasses.replace(m, cables=m.cables + (dataclasses.replace(
+        cable("-W3", "CABLE-5G1"), desde="+TAB1", hasta="-S1"),))
+    fila, = [r for r in erc(con_5g) if r["regla"] == HILO_PE and r["estado"] == "error"]
+    assert fila["detalle"].startswith("-W3 (CABLE-5G1, +TAB1 → -S1): su hilo de protección PE no está conectado")
+    assert "-S1 no tiene borne de tierra" in fila["recomendacion"]
+    assert "cambia -W3 por un cable sin conductor de protección (CABLE-5X1, CABLE-7X1 o CABLE-3X0.75)" \
+        in fila["recomendacion"]
+    # el PE a la bornera del tablero no alcanza: en la botonera no hay dónde terminarlo
+    con_pe = _con(con_5g, agregar=(w("-X0:1", "-S1:13", cable="-W3", hilo="PE"),))
+    fila, = [r for r in erc(con_pe) if r["regla"] == HILO_PE and r["estado"] == "error"]
+    assert "no llega a un borne de tierra en -S1 (no tiene borne de tierra en su ficha)" in fila["detalle"]
+    # el cable sin PE: la regla sólo ve el de -W1, que está bien
+    con_5x = dataclasses.replace(m, cables=m.cables + (dataclasses.replace(
+        cable("-W3", "CABLE-5X1"), desde="+TAB1", hasta="-S1"),))
+    fila, = _filas(erc(con_5x), HILO_PE)
+    assert fila["estado"] == "ok" and fila["elementos"] == ["-W1"]
+
+
+def test_los_cables_sin_pe_del_catalogo_no_tienen_verde_amarillo():
+    from apolo.library.electrico.erc_seguridad import SIN_PE, hilos_pe
+
+    for ref in SIN_PE.replace(" o ", ", ").split(", "):
+        assert not hilos_pe(cable("-W9", ref)), ref
+    assert hilos_pe(cable("-W9", "CABLE-5G1"))[0].id == "PE"
 
 
 # ── canales del STO ───────────────────────────────────────────────────────────────────────

@@ -56,6 +56,9 @@ SENSORES_F7B = ["SENS-MAG-RANURA-PNP", "FOTO-M18-REFLEX"]
 PANEL_Y_RED = {"maniobra_control": ["HMI-7IN-24VDC"], "conexion_electrica": ["CABLE-RJ45-CAT6"]}
 #: V8.9 F8: el presostato (aire + su contacto conmutado)
 PRESOSTATOS = ["PRESOSTATO-1-10BAR"]
+#: los cables sin conductor de protección, para un aparato de clase II (ERC «hilo de protección
+#: sin conectar»)
+SIN_PE = ["CABLE-5X1", "CABLE-7X1"]
 EXISTENTES = ["VFD-1K5-220", "VFD-2K2-220", "ESTOP-40", "BOTONERA-2", "FOTO-M18", "TABLERO-5040",
               "MOTOR-037", "MOTOR-075", "MOTOR-150", "MOTOR-150-EH"] + refs_in_category("motorreductores_sinfin")
 MARCAS = ("SCHNEIDER", "SIEMENS", "ABB", "PHOENIX", "WEIDMULLER", "OMRON", "SICK", "LAPP",
@@ -74,7 +77,7 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     for categoria in NUEVAS_CATEGORIAS:
         extra = {"maniobra_control": ["RS-2C-24VDC"],  # mandos-de-seguridad D3
                  "proteccion_electrica": DIFERENCIALES}.get(categoria, [])  # datos-de-corte D9
-        extra = extra + PANEL_Y_RED.get(categoria, [])
+        extra = extra + PANEL_Y_RED.get(categoria, []) + (SIN_PE if categoria == "conexion_electrica" else [])
         assert sorted(refs_in_category(categoria)) == sorted(NUEVAS[categoria] + extra)
     # + ESTOP-40-CAJA (seta D4) + 8 de union-en-perfil-hueco + 3 UCT + TAMBOR-102-RET (faja v4)
     # + 4 pernos de cuello cuadrado DIN 603 (F6) + 10 del armado del tablero (V8.5 F1a)
@@ -83,11 +86,11 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     # + 20 de V8.9 F7b (accesorios de aire, detector magnético, fotocélula réflex y reflector)
     # + 2 de plc-en-el-lazo F1d1 (el panel de operador y el cable de red)
     # + 1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR)
-    # + 5 prensaestopas M16–M40 (V8.5 F3)
-    assert len(CATALOG) == 469  # + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    # + 5 prensaestopas M16–M40 (V8.5 F3) + 2 cables sin PE (CABLE-5X1, CABLE-7X1)
+    assert len(CATALOG) == 471  # + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
 
 
-@pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS + DIFERENCIALES)
+@pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS + DIFERENCIALES + SIN_PE)
 def test_cada_ref_nueva_es_honesta(ref):
     c = CATALOG[ref]
     s = c.specs
@@ -104,7 +107,7 @@ def test_cada_ref_nueva_es_honesta(ref):
 
 
 def test_conductores_y_cables_por_metro_con_equivalente_local():
-    for ref in NUEVAS["conexion_electrica"]:
+    for ref in NUEVAS["conexion_electrica"] + SIN_PE:
         c = CATALOG[ref]
         if not ref.startswith(("COND-", "CABLE-")):
             continue
@@ -242,7 +245,8 @@ def test_placa_del_motor(ref):
 def test_toda_ficha_nombra_sus_propios_bornes():
     fichas = {ref: c.electrico for ref, c in CATALOG.items() if c.electrico is not None}
     assert len(fichas) == (len(TODAS_NUEVAS) + len(EXISTENTES) + len(SETAS) + len(ELECTROVALVULAS)
-                           + len(DIFERENCIALES) + len(SENSORES_F7B) + sum(map(len, PANEL_Y_RED.values())) + len(PRESOSTATOS))
+                           + len(DIFERENCIALES) + len(SENSORES_F7B) + sum(map(len, PANEL_Y_RED.values())) + len(PRESOSTATOS)
+                           + len(SIN_PE))
     for ref, f in fichas.items():
         ids = f.ids_bornes
         assert len(ids) == len(set(ids)), ref

@@ -253,6 +253,15 @@
     "regla": "PE en cadena"
    },
    {
+    "detalle": "El hilo de protección del cable llega a un borne de tierra en sus dos extremos.",
+    "elementos": [
+     "-W1"
+    ],
+    "estado": "ok",
+    "norma": "IEC 60204-1 §8.2.1 (continuidad del circuito de protección hasta cada masa) · §13.2.2 (el verde-amarillo es sólo el conductor de protección)",
+    "regla": "hilo de protección sin conectar"
+   },
+   {
     "detalle": "Ninguna carga ni borne obligatorio queda suelto.",
     "elementos": [],
     "estado": "ok",

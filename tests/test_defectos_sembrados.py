@@ -184,6 +184,19 @@ def motor_sin_tierra(d):  # el tablero de arranque directo sin el PE del motor
                     if c["params"].get("puntos") != ["-X0:2", "-M1:PE"]])
 
 
+def hilo_pe_suelto(d):
+    """El arranque directo con el PE del motor por un conductor suelto: el motor llega a tierra
+    («puesta a tierra» ok) pero el hilo verde-amarillo del cable -W1 queda sin conectar (el defecto
+    del elevador que vio `pro_esquema`: 13 cables 5G con el PE suelto)."""
+    d.execute_many([wire_pe_suelto(c) for c in arranque_directo()])
+
+
+def wire_pe_suelto(c: dict) -> dict:
+    if c["params"].get("puntos") == ["-X0:2", "-M1:PE"]:
+        return {"type": "add_wire", "params": {"puntos": ["-X0:2", "-M1:PE"], "color": "GNYE"}}
+    return c
+
+
 def mando_sin_rotulo(d):
     """nombres-por-funcion A13: el tablero de arranque directo con el rótulo de cada mando y
     piloto menos uno (-S2, la marcha): quien opera no sabe qué hace ese botón."""
@@ -360,6 +373,7 @@ DEFECTOS = (
     Defecto("cadena_subdimensionada", "mensula", cadena_subdimensionada,
             {"transmision.capacidad": FALLA}),
     Defecto("motor_sin_tierra", "mensula", motor_sin_tierra, {"riesgos.electrico": FALLA}),
+    Defecto("hilo_pe_suelto", "mensula", hilo_pe_suelto, {"riesgos.electrico": FALLA}),
     Defecto("mando_sin_rotulo", "mensula", mando_sin_rotulo,
             {"interfaz.nombres_por_funcion": FALLA}),
     Defecto("escenario_que_falla", "mensula", escenario_que_falla,
@@ -447,6 +461,28 @@ def test_la_puerta_atrapa_el_defecto_sembrado(defecto):
     obtenido = {iid: it[iid]["estado"] for iid in defecto.atrapa}
     assert obtenido == defecto.atrapa, {iid: it[iid]["detalle"] for iid in defecto.atrapa}
     assert r["aprobado"] is False
+
+
+def test_el_hilo_pe_suelto_bloquea_la_puerta_por_su_regla_y_no_se_justifica():
+    """El ERROR del ERC «hilo de protección sin conectar» es el único error que tumba
+    `riesgos.electrico` en `hilo_pe_suelto` (los avisos «aparato de campo sin pieza» son del
+    tablero de prueba, sin piezas 3D) y pone la entrega en ROJO. Con todos los avisos justificados
+    por escrito, el error sigue bloqueando: un error jamás se justifica."""
+    doc = _base("mensula")
+    hilo_pe_suelto(doc)
+    r = _puerta(doc, False)
+    it = _item(r, "riesgos.electrico")
+    assert it["estado"] == FALLA
+    casos = it["evidencia"]["casos"]
+    assert [c["regla"] for c in casos if c["estado"] == "error"] == ["hilo de protección sin conectar"], casos
+    assert {c["regla"] for c in casos if c["estado"] == "aviso"} == {"aparato de campo sin pieza"}
+    assert "-W1" in it["piezas"]
+    assert _item(r, "entrega.semaforo")["evidencia"]["veredicto"] == "ROJO"
+    pp.poner_justificadas(doc, [{"regla": x, "porque": _PORQUE}
+                                for x in ("hilo de protección sin conectar", "aparato de campo sin pieza")])
+    it = _item(_puerta(doc, False), "riesgos.electrico")
+    assert it["estado"] == FALLA and [c["regla"] for c in it["evidencia"]["casos"]] == [
+        "hilo de protección sin conectar"], it["evidencia"]
 
 
 # ------------------------------------------------------------------ el bug que destapó el testigo

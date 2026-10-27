@@ -257,6 +257,46 @@ components:
         tension_aislamiento: "300/500 V"
         temperatura_C: 70
         hilos: [{id: "1", color: BK}, {id: "2", color: BK}, {id: "3", color: BK}, {id: "4", color: BK}, {id: "5", color: BK}, {id: "6", color: BK}, {id: PE, color: GNYE}]
+  # Sin conductor de protección («X» en vez de «G»): para un aparato de clase II (caja aislante,
+  # sin borne PE: botoneras, setas e interruptores de resguardo de plástico). El hilo verde-amarillo
+  # de un «G» tiene que terminar en un borne de tierra en sus dos extremos (ERC «hilo de protección
+  # sin conectar», IEC 60204-1 §8.2.1 y §13.2.2): sin borne en el aparato, va el «X».
+  - ref: CABLE-5X1
+    name: Cable flexible de mando 5x1 sin PE
+    description: Cable flexible multipolar de mando 5x1 mm² (5 hilos negros numerados, SIN verde-amarillo), PVC 300/500 V, por metro, para botoneras, setas e interruptores de campo de caja aislante (clase II, sin borne de tierra). Equivalente local - cable de control multipolar de PVC con hilos numerados sin conductor de protección; verificar con el proveedor.
+    builder: cylinder
+    params: {diameter: 7.7}
+    cuttable: true
+    default_length: 1000
+    weight: 0.10
+    specs: {seccion_mm2: 1, hilos: "5x (sin PE)", tension_aislamiento: "300/500 V", linea_referencia: "orden de LAPP ÖLFLEX CLASSIC 110 5X1", cotas_verificadas: false, cost_por_m: 1.1}
+    electrico:
+      funcion: W
+      simbolo: cable
+      montaje: campo
+      conductor:
+        seccion_mm2: 1
+        tension_aislamiento: "300/500 V"
+        temperatura_C: 70
+        hilos: [{id: "1", color: BK}, {id: "2", color: BK}, {id: "3", color: BK}, {id: "4", color: BK}, {id: "5", color: BK}]
+  - ref: CABLE-7X1
+    name: Cable flexible de mando 7x1 sin PE
+    description: Cable flexible multipolar de mando 7x1 mm² (7 hilos negros numerados, SIN verde-amarillo), PVC 300/500 V, por metro, para una botonera con pilotos o varios interruptores de campo de caja aislante (clase II, sin borne de tierra). Equivalente local - cable de control multipolar de PVC con hilos numerados sin conductor de protección; verificar con el proveedor.
+    builder: cylinder
+    params: {diameter: 8.7}
+    cuttable: true
+    default_length: 1000
+    weight: 0.13
+    specs: {seccion_mm2: 1, hilos: "7x (sin PE)", tension_aislamiento: "300/500 V", linea_referencia: "orden de LAPP ÖLFLEX CLASSIC 110 7X1", cotas_verificadas: false, cost_por_m: 1.5}
+    electrico:
+      funcion: W
+      simbolo: cable
+      montaje: campo
+      conductor:
+        seccion_mm2: 1
+        tension_aislamiento: "300/500 V"
+        temperatura_C: 70
+        hilos: [{id: "1", color: BK}, {id: "2", color: BK}, {id: "3", color: BK}, {id: "4", color: BK}, {id: "5", color: BK}, {id: "6", color: BK}, {id: "7", color: BK}]
   - ref: CABLE-3X0.75
     name: Cable de sensor 3x0,75
     description: Cable flexible de 3 hilos 0,75 mm² marrón/azul/negro (los de un sensor de 3 hilos - BN +, BU -, BK salida), PVC 300/500 V, por metro. Equivalente local de uso común - cordón NLT de 3 hilos - verificar con el proveedor sección, tensión y colores.

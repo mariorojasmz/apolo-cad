@@ -3,7 +3,8 @@
 - Un log VIEJO (V8.1–V8.8: tablero eléctrico + escena) regenera byte-idéntico: firmas, comandos,
   circuito, ERC y BOM contra la foto congelada ANTES de F1b (`data/carril_v81_golden.json`; sólo
   su `chequeo` se re-congeló en V8.9 F7b: la regla nueva «aparato de campo sin pieza» avisa -M1 y
-  -U1, que no tienen pieza 3D; y otra vez con la regla «PE en cadena», que suma su fila ok).
+  -U1, que no tienen pieza 3D; otra vez con la regla «PE en cadena», que suma su fila ok, y otra
+  con «hilo de protección sin conectar», fila ok del PE de -W1).
 - `add_device` acepta refs neumáticas con designación de dos letras (-MM, -QM, -AZ) y `add_tubo`
   une sus puertos: estricto al entrar (clave desconocida con su corrección, un borne no es un
   puerto) y tolerante al regenerar (la clave vieja se ignora; un tubo roto se suprime en la carga).

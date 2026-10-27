@@ -167,10 +167,11 @@ def test_tableros_bien_cableados_quedan_verdes(armar, sto):
     assert not malas, "\n".join(f"{r['regla']}: {r['detalle']}" for r in malas)
     assert resumen(reglas) == {"estado": "ok", "errores": 0, "avisos": 0}
     # una entrada por regla de D7, cada una con su norma o «criterio de diseño»; la del STO,
-    # sólo con un variador que lo tiene
+    # sólo con un variador que lo tiene; la del hilo PE, sólo con un cable que lo lleva
     assert [r["regla"] for r in reglas] == [
         "referencias", "designación duplicada", "cortocircuito", "tensión cruzada",
-        "protección del motor", "puesta a tierra", "PE en cadena", "borne suelto",
+        "protección del motor", "puesta a tierra", "PE en cadena", "hilo de protección sin conectar",
+        "borne suelto",
         "color del conductor", "parada de emergencia", *sto]
     assert all(r["norma"] for r in reglas)
 

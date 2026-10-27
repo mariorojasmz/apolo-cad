@@ -71,7 +71,10 @@ extremo de eje LISO que sobresale ≤ ½·d de su apoyo no es peligro (OSHA 1910
 COLISO del ancho del paso es agujero de `union.agujeros`; v14 (F3f) el piso de lo ANCLADO es un
 sólido para las sondas (ninguna nace ni pasa por debajo; el hueco piso ↔ panel lo decide la tabla
 4), el remache declara su Ø («Ø4.8») y se dimensiona a cortante, y `estructura.pandeo` evalúa las
-columnas de perfil de catálogo (Euler/Johnson, K de AISC) y deja justificar las que no puede.
+columnas de perfil de catálogo (Euler/Johnson, K de AISC) y deja justificar las que no puede; v15
+`riesgos.electrico` con la regla nueva del ERC «hilo de protección sin conectar» (el PE de un
+cable multipolar llega a un borne de tierra en sus dos extremos, IEC 60204-1 §8.2.1): un elevador
+aprobado en v14 con 13 cables 5G de PE suelto ahora falla.
 """
 
 from __future__ import annotations
@@ -84,7 +87,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "14"  # 14: piso sólido, remaches y columnas (puerta-sin-sobrediseno F3f)
+VERSION_REGISTRO = "15"  # 15: el hilo PE de los cables en el ERC de riesgos.electrico
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 

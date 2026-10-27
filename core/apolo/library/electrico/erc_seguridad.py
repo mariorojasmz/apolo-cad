@@ -9,6 +9,18 @@
     diseño): el PE de un cable multipolar que sale del aparato hacia lo que él alimenta (el motor
     por el variador) se termina en el borne PE del aparato, como pide su manual; retirar el
     aparato obliga a desconectar ese cable.
+  - **Hilo de protección sin conectar** (IEC 60204-1 §8.2.1 y §13.2.2): el hilo PE de un cable
+    multipolar (id «PE» o color verde-amarillo de su ficha) termina en un borne de TIERRA en sus
+    DOS extremos (`add_cable.desde`/`hasta`): en una ubicación («+TAB1»), el de un aparato de ella
+    (la bornera o barra PE, o el PE del variador que alimenta el motor); en un aparato, el suyo
+    (su PE o la masa de su caja). Se miden los puntos de los conductores de ESE hilo, resueltos
+    como en las redes, no la red PE entera: ésta junta todas las tierras y aprobaría un hilo que
+    llega al aparato equivocado. ERROR siempre: es la masa que queda sin tierra. «Puesta a tierra»
+    no lo ve porque mira los bornes de tierra de los aparatos, y un hilo sin `add_wire` no es
+    borne de nadie: no está en ninguna red. Un aparato sin borne de tierra en su ficha (caja
+    aislante, clase II) no puede terminar ese hilo: lleva un cable sin conductor de protección
+    (el verde-amarillo es SÓLO el de protección, nunca un hilo de reserva). Un extremo sin
+    declarar lo cubre un borne de tierra de un aparato que no sea el del otro extremo.
   - **Canales del STO** (ISO 13849-1 §6.2.6–6.2.7): los canales de una entrada STO de dos canales
     (`modelo.STO_canales` de la ficha) en la MISMA red pierden la redundancia: una sola falla (un
     contacto pegado) deja pasar la marcha. ERROR si el variador declara `STO_categoria` 3 o 4;
@@ -23,10 +35,16 @@ from __future__ import annotations
 
 from collections import deque
 
-from .modelo import Dispositivo
+from .modelo import Cable, Dispositivo
 from .redes import Analisis, nombre_conductor, resolver
+from .referencias import ReferenciaError, parse_referencia
 
 NORMA_PE = "IEC 60204-1 §8.2.3 (retirar una parte no interrumpe el circuito de protección de las demás)"
+NORMA_HILO_PE = ("IEC 60204-1 §8.2.1 (continuidad del circuito de protección hasta cada masa) · §13.2.2 "
+                 "(el verde-amarillo es sólo el conductor de protección)")
+HILO_PE = "hilo de protección sin conectar"
+#: Cables del catálogo sin conductor de protección, para el aparato de clase II.
+SIN_PE = "CABLE-5X1, CABLE-7X1 o CABLE-3X0.75"
 NORMA_STO = "ISO 13849-1 §6.2.6–6.2.7 (categorías 3 y 4: una sola falla no pierde la función) · IEC 61800-5-2 (STO)"
 
 Punto = tuple[str, str]
@@ -141,6 +159,95 @@ def pe_en_cadena(a: Analisis) -> list[dict]:
                          "conductor: ninguno es paso de la tierra de otro.", NORMA_PE)]
 
 
+# ── hilo de protección del cable ──────────────────────────────────────────────
+
+
+def hilos_pe(cable: Cable) -> list:
+    """Los hilos de protección de un cable: id «PE» o verde-amarillo en su ficha."""
+    return [h for h in cable.hilos if h.id.upper() == "PE" or h.color == "GNYE"]
+
+
+def _extremo(a: Analisis, texto: str | None) -> tuple[str, set[str]] | None:
+    """(texto, aparatos que lo forman) de un extremo de cable, o None si no se declaró: los de una
+    ubicación («+TAB1») o el aparato («-M1», también por su producto si es único)."""
+    t = (texto or "").strip()
+    if not t:
+        return None
+    if t.startswith("+") and "-" not in t:
+        return t, {d.designacion for d in a.dispositivos.values() if d.ubicacion == t}
+    try:
+        des = parse_referencia(t).designacion
+    except ReferenciaError:
+        des = t
+    if des in a.dispositivos:
+        return t, {des}
+    cand = [d for d in a.dispositivos if d.endswith(des)]
+    return t, set(cand) if len(cand) == 1 else set()
+
+
+def _sin_borne_de_tierra(a: Analisis, aparatos: set[str]) -> bool:
+    return not any(b.rol == "tierra" for des in aparatos for b in a.dispositivos[des].bornes)
+
+
+def _faltan(a: Analisis, extremos, con_tierra: set[str]) -> list[tuple[str, bool]]:
+    """[(extremo, ¿ningún aparato suyo tiene borne de tierra?)] de los extremos que el hilo no
+    alcanza en un borne de tierra."""
+    (e1, e2) = extremos
+    if e1 is None and e2 is None:
+        return [("un extremo", False)] * max(0, 2 - len(con_tierra))
+    out = []
+    for e, otro in ((e1, e2), (e2, e1)):
+        if e is None:
+            if not con_tierra - (otro[1] if otro else set()):
+                out.append(("el otro extremo", False))
+        elif not con_tierra & e[1]:
+            out.append((e[0], _sin_borne_de_tierra(a, e[1])))
+    return out
+
+
+def pe_de_cables(a: Analisis) -> list[dict]:
+    cables = [(c, h) for c in a.modelo.cables for h in hilos_pe(c)]
+    if not cables:
+        return []
+    out = []
+    for cable, hilo in cables:
+        idx = [i for i, c in enumerate(a.modelo.conductores) if c.cable == cable.designacion and c.hilo == hilo.id]
+        puntos = [r for i in idx for r in (resolver(p, a.dispositivos)[0] for p in a.modelo.conductores[i].puntos)
+                  if r is not None]
+        tierras = [p for p in puntos if (b := a.dispositivos[p[0]].borne(p[1])) is not None and b.rol == "tierra"]
+        extremos = (_extremo(a, cable.desde), _extremo(a, cable.hasta))
+        faltan = _faltan(a, extremos, {p[0] for p in tierras})
+        if not faltan:
+            continue
+        quien = (f"{cable.designacion} ({cable.ref}"
+                 + (f", {cable.desde or '?'} → {cable.hasta or '?'}" if cable.desde or cable.hasta else "") + ")")
+        if not idx:
+            que = "no está conectado: ningún add_wire lo usa"
+        else:
+            sin = [f"{e} (no tiene borne de tierra en su ficha)" if clase_ii else e for e, clase_ii in faltan]
+            donde = "ninguno de sus dos extremos" if sin == ["un extremo"] * 2 else " ni en ".join(sin)
+            que = (f"no llega a un borne de tierra en {donde} "
+                   f"(llega a {', '.join(_txt(p) for p in puntos) or 'nada'})")
+        clase_ii = [e for e, c in faltan if c]
+        rec = (f"Termina el hilo {hilo.id} con un add_wire(cable=«{cable.designacion}», hilo=«{hilo.id}») de la "
+               "barra o bornera de tierra del tablero al borne PE del aparato (o a la masa de su caja).")
+        if clase_ii:
+            rec += (f" {' y '.join(clase_ii)} no {'tienen' if len(clase_ii) > 1 else 'tiene'} borne de tierra: "
+                    f"si su caja es aislante (clase II), cambia {cable.designacion} por un cable sin conductor de "
+                    f"protección ({SIN_PE}); si es metálica, usa una ref con borne PE. El verde-amarillo no se "
+                    "deja suelto ni se usa de reserva.")
+        out.append(_fila(
+            HILO_PE, "error",
+            f"{quien}: su hilo de protección {hilo.id} {que}. Una masa sin su conductor de protección queda "
+            "sin tierra ante un defecto de aislamiento.",
+            NORMA_HILO_PE, rec, [cable.designacion] + [e for e, _ in faltan if e.startswith(("-", "+", "="))],
+            [i + 1 for i in idx]))
+    ok = ("El hilo de protección del cable llega" if len(cables) == 1 else
+          f"Los {len(cables)} hilos de protección de los cables llegan")
+    return out or [_fila(HILO_PE, "ok", f"{ok} a un borne de tierra en sus dos extremos.", NORMA_HILO_PE,
+                         elementos=[c.designacion for c, _ in cables])]
+
+
 # ── canales del STO ───────────────────────────────────────────────────────────
 
 
@@ -182,4 +289,4 @@ def canales_sto(a: Analisis) -> list[dict]:
                          NORMA_STO, elementos=[d.designacion for d in con_sto])]
 
 
-REGLAS = (pe_en_cadena, canales_sto)
+REGLAS = (pe_en_cadena, pe_de_cables, canales_sto)

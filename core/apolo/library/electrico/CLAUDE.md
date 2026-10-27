@@ -56,6 +56,12 @@ Lo de catálogo y BOM en general: [library](../CLAUDE.md); los modelos de la co-
   «canales del STO» por `modelo.STO_canales` (toda ref con `STO: true` lo trae; fuera de la firma:
   `services/escenarios.FUERA_DE_FIRMA_MODELO`). La categoría del lazo es de la OBRA: ajuste
   opcional `STO_categoria` del variador; sin ella, aviso; con 3 o 4, error.
+- «Hilo de protección sin conectar» (`erc_seguridad.pe_de_cables`, IEC 60204-1 §8.2.1, ERROR
+  siempre): el hilo PE (id o verde-amarillo) de un cable termina en un borne `tierra` en sus DOS
+  extremos (`desde`/`hasta`), medido en los puntos de SUS conductores, no en la red PE (junta todas
+  las tierras). «Puesta a tierra» no lo veía: mira bornes de aparatos y un hilo sin `add_wire` no
+  está en ninguna red (elevador v14: 13 cables 5G con el PE suelto, verde en la puerta v14). Un
+  aparato de clase II (sin borne `tierra` en su ficha) lleva un cable sin PE (`CABLE-5X1`/`7X1`).
 
 ## Tablero 3D: colocación, ruteo y cables
 
