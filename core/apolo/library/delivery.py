@@ -148,13 +148,17 @@ def delivery_report(
         F2b), `{estado ok|aviso|error|no_aplica, piezas, detalle}`; None = la escena no tiene
         interruptores de resguardo ni lengüetas: lo de siempre. Con el resguardo cerrado la
         lengüeta fuera de la ranura (o abierto, dentro) bloquea (ROJO); lo que no se puede
-        verificar (sin lengüeta, sin anclas, emparejamiento ambiguo), AMARILLO.
+        verificar (sin lengüeta, sin anclas, emparejamiento ambiguo), AMARILLO; la apertura sin
+        junta, `no_aplica` con sus piezas en `no_aplica_piezas`.
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
+    `no_aplica_piezas` (sólo si hay): `[{no_aplica, regla, piezas}]`, la sección y los ids de cada
+    `no_aplica` que nombra piezas, para justificarlo por escrito (D11 de puerta-sin-sobrediseno).
     """
     nombre_de = nombre_de or (lambda fid: str(fid))
     bloqueantes: list[dict] = []
     avisos: list[dict] = []
     no_aplica: list[str] = []
+    no_aplica_piezas: list[dict] = []
     ok: list[str] = []
 
     # 1 · interferencias en pose de DISEÑO --------------------------------------
@@ -332,7 +336,8 @@ def delivery_report(
         else:
             ok.append("balance de producto al ritmo nominal")
     if enclavamientos is not None:  # mandos-de-seguridad F2b: sólo con resguardos en la escena
-        _enclavamientos(enclavamientos, bloqueantes, avisos, no_aplica, ok, nombre_de)
+        _enclavamientos(enclavamientos, bloqueantes, avisos, no_aplica, ok, nombre_de,
+                        no_aplica_piezas)
 
     # 10 · reglas de las extensiones (sólo si hay alguna cargada) ------------------------------
     if extensiones is not None:
@@ -352,13 +357,18 @@ def delivery_report(
             "n_avisos": len(avisos),
         },
     }
+    if no_aplica_piezas:
+        out["no_aplica_piezas"] = no_aplica_piezas
     if extensiones is not None:
         out["version_bateria"] = f"{VERSION_BATERIA}{extensiones.get('version', '')}"
     return out
 
 
-def _enclavamientos(filas: list[dict], bloqueantes, avisos, no_aplica, ok, nombre_de) -> None:
-    """Sección «enclavamiento del resguardo»: ¿entra la lengüeta en su interruptor?"""
+def _enclavamientos(filas: list[dict], bloqueantes, avisos, no_aplica, ok, nombre_de,
+                    no_aplica_piezas: list[dict]) -> None:
+    """Sección «enclavamiento del resguardo»: ¿entra la lengüeta en su interruptor? Lo que no
+    verifica (la apertura sin junta) va a `no_aplica` y, con su regla y sus piezas, a
+    `no_aplica_piezas`: se justifica por la regla o por el par."""
     regla = "enclavamiento del resguardo"
     for f in filas:
         if f["estado"] in ("error", "aviso"):
@@ -366,7 +376,11 @@ def _enclavamientos(filas: list[dict], bloqueantes, avisos, no_aplica, ok, nombr
                 "regla": regla, "piezas": _nombres(f.get("piezas") or [], nombre_de),
                 "detalle": f["detalle"]})
         elif f["estado"] == "no_aplica":
-            no_aplica.append(f"{regla}: {f['detalle']}")
+            texto = f"{regla}: {f['detalle']}"
+            no_aplica.append(texto)
+            if f.get("piezas"):
+                no_aplica_piezas.append({"no_aplica": texto, "regla": regla,
+                                         "piezas": list(f["piezas"])})
     if filas and not any(f["estado"] in ("error", "aviso") for f in filas):
         n = sum(1 for f in filas if f["estado"] == "ok" and "medida" in f)  # la fila del cerrado
         ok.append(f"{regla} ({n} interruptor(es), la lengüeta entra)")

@@ -14,7 +14,7 @@ import apolo.api.main as api
 from apolo.doc import Document
 from apolo.library.calidad import justificadas as J
 from apolo.library.calidad.item import FALLA, OK, SIN_EVALUAR
-from apolo.library.calidad.puerta import erc, semaforo_entrega
+from apolo.library.calidad.puerta import erc, no_aplica_justificado, semaforo_entrega
 from apolo.library.calidad.sobrantes import sin_sobrantes
 from apolo.library.calidad.vida_util import controlar_vida_util
 from apolo.services import calidad_sobrantes as CS
@@ -91,6 +91,62 @@ def test_ingenieria_reglas_justifica_el_aviso_no_el_error():
     it = estado(reglas[:1], js)
     assert it.estado == OK and it.evidencia["justificadas"][0]["regla"] == "holgura de servicio"
     assert estado(reglas, js).estado == FALLA
+
+
+# ------------------------------------------------------------------ F3d: lo no evaluado
+_ENCL = ("enclavamiento del resguardo: -B4 c361 «Interruptor -B4» con su lengüeta c363 "
+         "«Lengüeta»: la hoja del resguardo no tiene junta declarada: la apertura no se verifica")
+
+
+def _no_evaluado(js, con_piezas=True):
+    entrega = {"no_aplica": ["gravedad (opt-in: con_gravedad=true — MuJoCo)", _ENCL]}
+    if con_piezas:
+        entrega["no_aplica_piezas"] = [{"no_aplica": _ENCL, "regla": "enclavamiento del resguardo",
+                                        "piezas": ["c361", "c363"]}]
+    return no_aplica_justificado({"entrega": entrega, "hechos": {}, "justificadas": js})
+
+
+def test_la_seccion_de_un_no_evaluado():
+    assert J.seccion(_ENCL) == "enclavamiento del resguardo"
+    assert J.seccion("poses (sin estudios de movimiento declarados)") == "poses"
+    assert J.seccion("un chequeo nuevo") == "un chequeo nuevo"
+
+
+@pytest.mark.parametrize("js", [
+    [{"regla": "enclavamiento del resguardo", "porque": PORQUE}],     # la sección
+    [{"regla": _ENCL, "porque": PORQUE}],                              # el texto de la evidencia
+    [{"regla": "enclavamiento del resguardo", "pieza": "c361", "porque": PORQUE},
+     {"regla": "enclavamiento del resguardo", "pieza": "c363", "porque": PORQUE}],  # el par
+])
+def test_lo_que_la_entrega_no_evaluo_se_justifica_por_escrito(js):
+    """Mezcladora del 2026-10-27: la apertura de -B4 (lengüeta en un aro suelto, sin junta) dejaba
+    `entrega.no_evaluado` en SIN_EVALUAR por más que se justificara: el ítem no leía la lista."""
+    r = _no_evaluado(J.validar_justificadas(js))
+    assert r["estado"] == OK, r["detalle"]
+    assert r["evidencia"]["justificados"][0]["justificacion"][0]["porque"] == PORQUE
+
+
+def test_un_no_evaluado_a_medias_sigue_sin_evaluar_y_dice_como_justificarlo():
+    sin = _no_evaluado([])
+    assert sin["estado"] == SIN_EVALUAR and sin["piezas"] == ["c361", "c363"]
+    assert sin["evidencia"]["como_justificar"] == [
+        {"regla": "enclavamiento del resguardo", "piezas": ["c361", "c363"]}]
+    assert "regla «enclavamiento del resguardo»" in sin["detalle"]
+    # con `pieza`, todas las del par (D11): el interruptor solo no alcanza
+    medio = J.validar_justificadas([{"regla": "enclavamiento del resguardo", "pieza": "c361",
+                                     "porque": PORQUE}])
+    assert _no_evaluado(medio)["estado"] == SIN_EVALUAR
+    # sin las piezas de la entrega, una justificación por pieza no cubre nada
+    par = [{"regla": "enclavamiento del resguardo", "pieza": p, "porque": PORQUE}
+           for p in ("c361", "c363")]
+    assert _no_evaluado(J.validar_justificadas(par), con_piezas=False)["estado"] == SIN_EVALUAR
+    # otra regla no cubre
+    otra = [{"regla": "poses", "porque": PORQUE}]
+    assert _no_evaluado(J.validar_justificadas(otra))["estado"] == SIN_EVALUAR
+    # un texto de más de 300 caracteres casa con lo que guarda el metadato (recortado)
+    largo = "un chequeo nuevo: " + "x" * 400
+    js = J.validar_justificadas([{"regla": largo, "porque": PORQUE}])
+    assert J.del_no_evaluado(largo, [], js) and not J.del_no_evaluado(largo + "y", ["c1"], [])
 
 
 # ------------------------------------------------------------------ D5/D6: el ítem

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes, memo de masas, campo del codo compartido, get_job resumido; registro v10; la puerta del elevador 378 → 61 s) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) mergeadas; F3b (falsos positivos y huecos en máquinas que no son fajas, registro v9) mergeada; F3c (union.agujeros, espárragos, factor de servicio declarado, flecha sin vigas, holgura funcional, lo eléctrico fuera de sobrantes, memo de masas, campo del codo compartido, get_job resumido; registro v10; la puerta del elevador 378 → 61 s) mergeada; F3d (lo que la entrega no evaluó se justifica por escrito, registro v11) hecha en su rama, sin mergear; faltan F4 (adelgazar esa faja por MCP), F5 (Mario la ve) y las poses de reposo (propuesta en § F3b)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -657,3 +657,46 @@ sus modeladores tendrán que taladrar (o rehacer con `join_bolted`). Los «Bujes
 antiaplastamiento» de las orejas del tensor del elevador salen sobrantes antes y después: sin
 revisar (¿los pide algo que la puerta no mide, como el aplastamiento del tubo bajo la precarga?).
 
+
+### F3d (2026-10-27): lo que la entrega no evaluó también se justifica
+
+Medido en la mezcladora de paletas (base en SÓLO LECTURA, la usa otro proceso): `entrega.no_evaluado`
+quedaba SIN_EVALUAR por «enclavamiento del resguardo: -B4 c361 … con su lengüeta c363 …: la hoja
+del resguardo no tiene junta declarada: la apertura no se verifica» (la lengüeta va en el aro de
+acople c362, suelto, con cierres de palanca). El modelador ya tenía `{regla: «enclavamiento del
+resguardo», porque}` y `{regla, pieza: c361, porque}`: nada casaba porque
+`puerta.no_aplica_justificado` no leía `justificadas` (sólo los tres hechos de `_JUSTIFICADOS`) y
+la entrada llegaba como cadena suelta, sin regla ni piezas.
+
+Qué entró:
+- `no_aplica_justificado` lee `justificadas` (`justificadas.del_no_evaluado`): casa por el texto
+  entero (el de `sin_justificar`, recortado a 300 como lo guarda el metadato), por la regla que da
+  la entrega o por la SECCIÓN del texto (`justificadas.seccion`: lo que va antes del primer « (» o
+  «: »). Con `pieza`, el criterio de D11: todas las piezas de la entrada. Un hecho de
+  `_JUSTIFICADOS` sigue ganando; lo que tiene ítem propio (gravedad, acceso) sigue yendo allá. La
+  evidencia lista cada justificación con su porqué; sin justificar, `como_justificar`
+  (`[{regla, piezas?}]`), las piezas del ítem y el detalle dicen con qué regla.
+- La entrega da, sólo si hay, `no_aplica_piezas: [{no_aplica, regla, piezas}]` (hoy: la apertura
+  sin junta del enclavamiento, con el par interruptor + lengüeta); `no_aplica` sigue siendo la
+  lista de textos de siempre.
+- `VERSION_REGISTRO` 10 → 11. Testigos re-congelados: sólo la versión. Golden MCP: el docstring de
+  `set_justifications` (sólo `list_tools`).
+- Defecto sembrado sobre un modelo real (`test_enclavamiento_resguardo::test_la_apertura_sin_junta_
+  se_justifica_por_escrito_en_la_puerta`: SIN_EVALUAR; justificada por la regla o por el par, OK;
+  por una sola pieza del par, SIN_EVALUAR). La exención de `entrega.no_evaluado` en
+  `test_defectos_sembrados` lo cita (ningún testigo lleva interruptor de resguardo).
+
+Mezcladora, antes → después (`delivery_inputs` + `delivery_report` sin gravedad +
+`no_aplica_justificado` con las `justificadas` de la base): SIN_EVALUAR → **OK** («1 chequeo(s) no
+aplican, cada uno con su porqué», por la entrada `{regla: «enclavamiento del resguardo»}`). Con
+sólo `{regla, pieza: c361}` sigue SIN_EVALUAR y el detalle pide c361 y c363.
+
+Decisiones tomadas en la implementación (vetables):
+- **Con `pieza`, todas las de la entrada** (D11), también en el par del enclavamiento: el
+  interruptor solo no la cubre. Lo que pide es una línea más (`pieza: c363`) y la regla general
+  sigue disponible; aflojarlo aquí abriría la puerta a que una pieza justifique entradas ajenas.
+- **La sección cubre todas sus entradas**, como una `regla` sin `pieza` cubre todo aviso de esa
+  regla: una justificación escrita por «enclavamiento del resguardo» vale para cada interruptor
+  sin junta. Para acotarla, el par.
+- **Sin cambiar la forma de `no_aplica`** (lista de textos que leen la UI, la tool y los tests): las
+  piezas viajan en una clave aparte que sólo aparece si hay.

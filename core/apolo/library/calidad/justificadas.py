@@ -9,6 +9,9 @@ o qué pieza se acepta y por qué:
 
 - Un AVISO justificado deja de bloquear en `entrega.semaforo`, `riesgos.electrico` e
   `ingenieria.reglas`; un ERROR nunca se justifica (no se mira la lista).
+- Lo que la puerta de entrega dejó SIN EVALUAR (`entrega.no_evaluado`) se justifica igual: la
+  `regla` es el texto que lista `sin_justificar` o su sección («enclavamiento del resguardo»);
+  con `pieza`, las piezas que esa entrada nombra (el par interruptor + lengüeta).
 - Una pieza SOBRANTE (`diseno.sin_sobrantes`) justificada no es FALLA.
 - La evidencia del ítem lista cada justificación con su porqué: la decisión queda escrita y
   vetable, como la del modelador («cada AMARILLO corregido o justificado»).
@@ -70,6 +73,26 @@ def del_aviso(regla: str | None, piezas, justificadas) -> list[dict]:
     cubiertas = {j["pieza"] for j in mias}
     if piezas and set(piezas) <= cubiertas:
         return [j for j in mias if j["pieza"] in set(piezas)]
+    return []
+
+
+def seccion(texto: str) -> str:
+    """La sección de un `no_aplica` de la puerta de entrega: lo que va antes del primer « (» o
+    «: » («enclavamiento del resguardo: -B4 …» → «enclavamiento del resguardo»)."""
+    cortes = [i for i in (texto.find(" ("), texto.find(": ")) if i > 0]
+    return texto[:min(cortes)].strip() if cortes else texto.strip()
+
+
+def del_no_evaluado(texto: str, piezas, justificadas, regla: str | None = None) -> list[dict]:
+    """Las justificaciones que cubren lo que la puerta de entrega dejó SIN EVALUAR (`no_aplica`):
+    por el texto entero (lo que muestra `sin_justificar`), por su sección o por la `regla` que
+    la entrega dio con sus piezas (`no_aplica_piezas`). Mismo criterio que un aviso: con
+    `pieza`, sólo si cubren todas las piezas que la entrada nombra."""
+    entero = texto.strip()[:MAX_TEXTO]  # como lo guarda `validar_justificadas`
+    for r in dict.fromkeys(x for x in (entero, regla, seccion(texto)) if x):
+        js = del_aviso(r, piezas, justificadas)
+        if js:
+            return js
     return []
 
 

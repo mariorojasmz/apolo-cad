@@ -247,8 +247,9 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1d)
 - Un AVISO se corrige o se JUSTIFICA por escrito (`calidad/justificadas.py`, metadato
   `justificadas`: regla exacta de la evidencia, ≥ 20 caracteres de porqué), nunca se calla con una
-  pieza; un ERROR jamás. Lo leen `semaforo_entrega`, `erc` y `vida.reglas`: un control nuevo que
-  bloquee avisos lo lee igual. `diseno.sin_sobrantes` (`calidad/sobrantes.py`) juzga lo que mide
+  pieza; un ERROR jamás. Lo leen `semaforo_entrega`, `erc`, `vida.reglas` y
+  `no_aplica_justificado` (lo no evaluado: por su texto o sección y, si nombra piezas, por ellas,
+  que la entrega da en `no_aplica_piezas`): un control nuevo que bloquee avisos lo lee igual. `diseno.sin_sobrantes` (`calidad/sobrantes.py`) juzga lo que mide
   `services/calidad_sobrantes.py`. [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5–D11)
 - La banda de `create_belt_conveyor` abraza el radio EXTERIOR de cada tambor (`diametro_mm/2 +
   lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano). Un choque DENTRO de

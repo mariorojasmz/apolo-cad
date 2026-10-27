@@ -199,6 +199,33 @@ def test_la_puerta_bloquea_lo_que_no_entra_y_declara_lo_que_no_verifica():
     assert _reporte(enclavamientos=regla(solo))["veredicto"] == AMARILLO
 
 
+def test_la_apertura_sin_junta_se_justifica_por_escrito_en_la_puerta():
+    """Defecto sembrado de `entrega.no_evaluado` (puerta-sin-sobrediseno F3d): la lengüeta en una
+    pieza suelta (sin junta) deja la apertura sin verificar; la puerta de publicación lo pide
+    verificado o justificado, por la regla o por el par interruptor + lengüeta."""
+    from apolo.library.calidad.item import OK, SIN_EVALUAR
+    from apolo.library.calidad.justificadas import validar_justificadas
+    from apolo.library.calidad.puerta import no_aplica_justificado
+
+    doc, c, lg = _par(14.0)
+    rep = _reporte(enclavamientos=regla(doc))
+    assert rep["no_aplica_piezas"] == [{"no_aplica": rep["no_aplica"][-1],
+                                        "regla": "enclavamiento del resguardo", "piezas": [c, lg]}]
+
+    def item(js):
+        hechos = {"pocos_solidos": True, "sin_estudios": True}  # lo demás que no evaluó
+        return no_aplica_justificado({"entrega": rep, "hechos": hechos,
+                                      "justificadas": validar_justificadas(js)})
+
+    porque = "la hoja es un aro suelto sin bisagra: la apertura la prueba la FAT"
+    sin = item([])
+    assert sin["estado"] == SIN_EVALUAR and sin["evidencia"]["sin_justificar"] == rep["no_aplica"][-1:]
+    assert item([{"regla": "enclavamiento del resguardo", "porque": porque}])["estado"] == OK
+    par = [{"regla": "enclavamiento del resguardo", "pieza": x, "porque": porque} for x in (c, lg)]
+    assert item(par)["estado"] == OK and item(par[:1])["estado"] == SIN_EVALUAR
+    assert "no_aplica_piezas" not in _reporte(enclavamientos=regla(_par(-3.5)[0]))
+
+
 def test_delivery_inputs_lleva_la_seccion_con_resguardos():
     doc, _c, _lg = _par(0.0)
     kw = delivery_inputs(doc, expand=lambda ids: ids)

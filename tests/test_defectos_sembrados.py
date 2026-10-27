@@ -33,11 +33,14 @@ TESTIGOS = Path(__file__).resolve().parent / "data" / "testigos"
 #: Ítems generales SIN defecto sembrado, cada uno con su porqué.
 EXENTOS = {
     "entrega.no_evaluado": (
-        "cada `no_aplica` que da hoy la puerta de entrega está justificado POR CONSTRUCCIÓN "
-        "(sujeción con < 5 sólidos, poses sin estudios o sin poses: el mismo dato que el hecho; "
-        "gravedad y acceso tienen ítem propio): ningún modelo lo dispara. Vigila que un chequeo "
-        "NUEVO de la entrega que no corre no pase como verde; su caso puro: test_puerta_"
-        "publicacion::test_lo_que_la_entrega_no_evaluo_se_justifica_o_bloquea"),
+        "los `no_aplica` de la entrega en una faja, una ménsula o unos rodillos están justificados "
+        "POR CONSTRUCCIÓN (sujeción con < 5 sólidos, poses sin estudios o sin poses: el mismo "
+        "dato que el hecho; gravedad y acceso tienen ítem propio), y ningún testigo lleva "
+        "interruptor de resguardo. Lo dispara la apertura de un enclavamiento sin junta: su "
+        "defecto sembrado, sobre un modelo real, es test_enclavamiento_resguardo::test_la_"
+        "apertura_sin_junta_se_justifica_por_escrito_en_la_puerta (puerta-sin-sobrediseno F3d); "
+        "el caso puro: test_puerta_publicacion::test_lo_que_la_entrega_no_evaluo_se_justifica_"
+        "o_bloquea"),
     "publicado.sustitutos_fieles": (
         "la cinta animada se DERIVA de la sección del sólido de la banda (D13 de la fábrica) y "
         "sólo se autodetecta la banda de create_belt_conveyor, de lazo convexo: ninguna mutación "

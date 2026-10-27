@@ -79,7 +79,7 @@ from . import puerta as p
 from . import sobrantes as so
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "10"
+VERSION_REGISTRO = "11"  # 11: lo no evaluado se justifica por escrito (puerta-sin-sobrediseno F3d)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]

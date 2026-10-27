@@ -74,8 +74,10 @@ def registrar(mcp, esperar, api=None) -> None:
         entera; `[]` la borra). Cada entrada es {regla?, pieza?, porque}: con `regla` (el texto
         EXACTO de `casos[].regla` en la evidencia de entrega.semaforo, riesgos.electrico o
         ingenieria.reglas) un AVISO de esa regla deja de bloquear —con `pieza`, sólo el aviso
-        sobre esas piezas—; con `pieza` sola, una pieza que diseno.sin_sobrantes halla sobrante
-        deja de ser FALLA. Un ERROR nunca se justifica. `porque` (≥ 20 caracteres) dice la razón
+        sobre esas piezas—; lo que entrega.no_evaluado lista sin evaluar se justifica igual, con
+        la regla que muestra su `como_justificar` (y, con `pieza`, cada pieza que nombra); con
+        `pieza` sola, una pieza que diseno.sin_sobrantes halla sobrante deja de ser FALLA. Un
+        ERROR nunca se justifica. `porque` (≥ 20 caracteres) dice la razón
         verificable: la norma, la guía del producto, el pedido del cliente. Primero CORRIGE el
         modelo; justifica sólo lo que de verdad no aplica (nunca agregues una pieza para callar un
         aviso). Metadato: no entra al log ni al deshacer."""

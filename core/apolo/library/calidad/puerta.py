@@ -81,21 +81,43 @@ def gravedad(ins: dict) -> dict:
 
 def no_aplica_justificado(ins: dict) -> dict:
     """Todo lo que la puerta de entrega dejó en `no_aplica` está justificado por el modelo (D1: «no
-    se pudo ver» no es «está bien»). Lo que tiene su propio ítem (gravedad, acceso) va allá."""
+    se pudo ver» no es «está bien»). Lo que tiene su propio ítem (gravedad, acceso) va allá. Lo
+    que ningún hecho justifica pasa si está JUSTIFICADO por escrito (`justificadas`, D11 de
+    puerta-sin-sobrediseno: por el texto, su sección o, si nombra piezas, por esas piezas)."""
+    from .justificadas import citar, del_no_evaluado, seccion
+
     hechos = ins.get("hechos") or {}
-    justificados, sin = [], []
+    js = ins.get("justificadas") or []
+    con_piezas = {x.get("no_aplica"): x for x in (ins["entrega"].get("no_aplica_piezas") or [])}
+    justificados, sin, piezas = [], [], []
     for texto in (ins["entrega"].get("no_aplica") or []):
         if texto.startswith(_CON_ITEM_PROPIO):
             continue
         regla = next((x for x in _JUSTIFICADOS if texto.startswith(x[0])), None)
         if regla is not None and hechos.get(regla[1]):
             justificados.append({"no_aplica": texto, "porque": regla[2]})
+            continue
+        np = con_piezas.get(texto) or {}
+        j = del_no_evaluado(texto, np.get("piezas"), js, np.get("regla"))
+        if j:
+            justificados.append({"no_aplica": texto, "justificacion": citar(j)})
         else:
             sin.append(texto)
+            piezas += np.get("piezas") or []
     if sin:
+        como: dict[str, list] = {}
+        for t in sin:
+            np = con_piezas.get(t) or {}
+            ps = como.setdefault(np.get("regla") or seccion(t), [])
+            ps += [x for x in (np.get("piezas") or []) if x not in ps]
+        pista = "; ".join(f"regla «{r}»" + (f" (con `pieza`, cada una de {', '.join(ps)})"
+                                           if ps else "") for r, ps in list(como.items())[:3])
         return _r(SIN_EVALUAR, f"{len(sin)} chequeo(s) de la puerta de entrega sin evaluar ni "
-                               "justificar: " + "; ".join(sin[:3]),
-                  {"sin_justificar": sin, "justificados": justificados})
+                               "justificar: " + "; ".join(sin[:3]) + ". Verifícalo en el modelo "
+                               f"o justifícalo por escrito con set_justifications: {pista}",
+                  {"sin_justificar": sin, "justificados": justificados,
+                   "como_justificar": [{"regla": r, **({"piezas": ps} if ps else {})}
+                                       for r, ps in como.items()]}, piezas)
     return _r(OK, "nada quedó sin evaluar" if not justificados else
               f"{len(justificados)} chequeo(s) no aplican, cada uno con su porqué",
               {"justificados": justificados})
