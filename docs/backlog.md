@@ -102,8 +102,27 @@ Del montaje de los amortiguadores (amortiguador-externo F2, 2026-10-26):
 - `engineering_check(grupo="unión apernada")` no considera la fuerza del choque de un amortiguador;
   con `detail="full"` devuelve ~72 KB.
 - `join_bolted` centra siempre los pernos (no hay desplazamiento).
-- «Barreno sin perno» en un agujero que sí tenía `fasten` (`delivery_check`).
+- «Barreno sin perno» en un agujero que sí tenía `fasten` (`delivery_check`). Cerrado en 9710638:
+  el lint acepta los agujeros que `union.agujeros` atribuye a un perno declarado.
 - `get_simulation` de una sesión anterior da 404.
+
+Del tanque y la faja de motor central ante la puerta v12 (2026-10-27):
+
+- **El rótulo genérico se rechaza tarde.** Un rótulo como «Seguridad abierta» lo rechaza recién
+  `publication_gate`; `add_device` lo acepta callado. El criterio de `calidad/nombres.py` podría
+  avisar en la respuesta de la mutación.
+- **El schema no dice las claves de `estados` de cada ref** (`estados.claves`). Se deducen de la
+  sugerencia o del error.
+- **`join_bolted` contra una chumacera de catálogo** (UCFL205) falla con «no cruza material»: los
+  agujeros de fábrica de la ref no son anclas.
+- **Un `$k` dentro de un conjunto** (`a: "$5+$6"` en un `fasten`) no se reemplaza.
+- **`set_justifications` con `pieza` no aplica** si el aviso trae `piezas: []`.
+- **`remove_commands(con_dependientes=true)` deja cosas sueltas**: no arrastra los `drill_hole`
+  sobre la pieza borrada ni los `fasten` por conjuntos.
+- **La UCFL205 no se espeja sola**: del lado +Y va con `rotation z=180` a mano.
+- **`diseno.sin_sobrantes` usa gravedad de cuerpo rígido** y no ve la flexión de una chapa: marcó
+  como sobrantes las orejas que impiden que una capota de 2 mm quede en voladizo de 670 mm
+  (σ ≈ 577 MPa contra 250). El modelador las justificó por escrito.
 
 ## Rendimiento y concurrencia
 
