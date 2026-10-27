@@ -78,7 +78,8 @@ def _mando(des: str, m, d) -> dict:
 
 class Fotograma:
     """Arma la tabla y empaca cada fotograma de una `Corrida`. Se crea ANTES del primer
-    intercambio: la pose inicial P(0) es la del fotograma 0 de la dinámica."""
+    intercambio: la pose inicial P(0) es la del fotograma 0 de la dinámica, o la de DISEÑO si una
+    junta arranca fuera de ella (`inicial`, plan motor-a-eje-lineal F4: la malla es la de diseño)."""
 
     def __init__(self, corrida):
         self.c = c = corrida
@@ -86,8 +87,10 @@ class Fotograma:
         dyn = integ.snap
         d = integ.d
         self.cuerpos = [(cu["name"], integ.bid_cuerpo[cu["name"]]) for cu in dyn.cuerpos]
-        self.p0_inv = [np.linalg.inv(np.asarray(_pose_matrix(d.xpos[b], d.xquat[b]), float))
-                       for _, b in self.cuerpos]
+        diseno = getattr(integ, "poses_diseno", None) or {}  # `inicial`: la malla es la de diseño
+        self.p0_inv = [np.linalg.inv(np.asarray(diseno[n] if n in diseno else _pose_matrix(d.xpos[b], d.xquat[b]),
+                                                float))
+                       for n, b in self.cuerpos]
         self.juntas = list(dyn.juntas)
         self.senales: list[str] = []
         self._idx: dict[str, int] = {}

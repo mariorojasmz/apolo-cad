@@ -39,7 +39,12 @@ from apolo.physics.dinamica_cuerpos import (
 from apolo.physics.dinamica_datos import DynamicsSnapshot
 from apolo.physics.dinamica_integrador import Integrador
 from apolo.physics.dinamica_motores import inercia_minima, resolver_motores
-from apolo.physics.dinamica_peticion import MAX_PRODUCTOS, instancias_producto, parse_peticion
+from apolo.physics.dinamica_peticion import (
+    MAX_PRODUCTOS,
+    instancias_producto,
+    parse_peticion,
+    posicion_inicial,
+)
 from apolo.physics.hull import cascos
 from apolo.physics.sensores import SensorDatos
 from apolo.physics.sim import MM, PhysicsError
@@ -96,6 +101,24 @@ def _geoms_cascos(nombre: str, cascos_mm: list) -> list:
             continue
         out.append(dm.GeomMJ("mesh", nombre if not out else f"{nombre}__{k}",
                              vertices=[tuple(c * MM for c in v) for v in verts]))
+    return out
+
+
+def _iniciales(pet, juntas: dict, cls) -> dict:
+    """{junta: q0 en m | rad} de las juntas con `inicial` (plan motor-a-eje-lineal F4). Una junta
+    que no existe o que quedó fuera de la simulación es error: arrancaría en la pose de diseño
+    sin decirlo (la FK ignora los nombres desconocidos; aquí no)."""
+    out = {}
+    moviles = [n for n, j in juntas.items() if j.get("type") != "fija"]
+    for n, op in pet.juntas.items():
+        if op.inicial is None:
+            continue
+        q0 = posicion_inicial(n, op.inicial, juntas.get(n), moviles)
+        if n not in cls.cuerpos:
+            raise PhysicsError(f"juntas.{n}.inicial: '{n}' queda fuera de la simulación "
+                               f"({cls.fuera.get(juntas[n].get('child'), 'su cuerpo no está sujeto')}): "
+                               "no hay nada que poner en esa posición")
+        out[n] = q0
     return out
 
 
@@ -197,6 +220,7 @@ def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = N
             snap.piezas.append({"name": cuerpo_mj[n], "id": p, "nombre": getattr(scene[p], "name", p),
                                 "com": [round(float(c), 3) for c in origen]})
 
+    snap.inicial = _iniciales(pet, todas, cls)
     bandas_por_junta = {}
     for k, (pieza, junta, radio, direccion, mu, mu_cama) in enumerate(bandas_req):
         if junta not in cls.cuerpos:

@@ -100,6 +100,7 @@ class Integrador:
         self.nac = Nacimientos(mujoco, m, self.bid_prod, [p["name"] for p in prods])
         self._estacion: dict = {}
         self._rehacer_estacion()
+        self.poses_diseno = self._arrancar_fuera_de_diseno(getattr(snap, "inicial", None) or {})
         mujoco.mj_forward(m, d)
         self.dt_int = snap.timestep * snap.nstep
         self.n_int = max(1, int(round(snap.duracion_s / self.dt_int)))
@@ -111,6 +112,20 @@ class Integrador:
         self._prox += self._paso_frame
         self._t0: float | None = None
         self.hechos = 0
+
+    def _arrancar_fuera_de_diseno(self, inicial: dict) -> dict | None:
+        """Las juntas con `inicial` (plan motor-a-eje-lineal F4) arrancan ahí: su qpos antes del
+        primer `mj_forward`. Devuelve la pose de DISEÑO de cada cuerpo (mm, 4×4), la referencia de
+        lo que se dibuja sobre la malla de diseño (serie del visor, GIF, vivo); None sin `inicial`
+        (P(0) ya es la de diseño: lo de siempre, sin otro `mj_forward`)."""
+        if not inicial:
+            return None
+        mujoco, m, d = self.mujoco, self.m, self.d
+        mujoco.mj_forward(m, d)
+        diseno = {c: _pose_matrix(d.xpos[b], d.xquat[b]) for c, b in self.bid_cuerpo.items()}
+        for n, q0 in inicial.items():
+            d.qpos[self.juntas[n][0]] = q0
+        return diseno
 
     # ── lo que V8.2 tenía como clausuras ─────────────────────────────────────────────────────
 
@@ -279,17 +294,22 @@ class Integrador:
                                self.bid_prod, self.vadr, pared, retiro=self.retiro,
                                nacimientos=(self.nac, self.pendientes),
                                flujo=(self.flujo.salida(float(self.d.time), self.pendientes, self.nac)
-                                      if self.flujo else None))
+                                      if self.flujo else None),
+                               poses_diseno=self.poses_diseno)
 
 
 def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas, giro, activo,
-                    bid_prod, vadr, pared, retiro=None, nacimientos=None, flujo=None) -> dict:
+                    bid_prod, vadr, pared, retiro=None, nacimientos=None, flujo=None,
+                    poses_diseno=None) -> dict:
     """La salida D9 de V8.2 (formato del animador de gravedad y de caída, trazas por junta).
     Un producto RETIRADO por un sumidero sale con la posición en que se retiró y `retirado_s`;
     `resumen.productos_retirados` sólo existe si alguno se retiró. Uno que nació TARDE porque su
     lugar de entrada estaba ocupado lleva `nacio_s`; los que no llegaron a nacer por eso van en
     `resumen.productos_sin_nacer`, con su aviso (sólo si los hay: sin espera, la salida de V8.2).
-    Con el balance de producto (`flujo`, plan balance-de-producto) va en `flujo`; sin él, nada."""
+    Con el balance de producto (`flujo`, plan balance-de-producto) va en `flujo`; sin él, nada.
+    Con juntas que arrancan fuera de la pose de diseño (`inicial`, plan motor-a-eje-lineal F4),
+    `poses_diseno` = {cuerpo: pose 4×4 en la pose de diseño}: lo animado se refiere a ella, no al
+    fotograma 0; sin ellas, la clave no existe."""
     prods = snap.productos
     res_prod, caidos = {}, []
     retiro = retiro or {}
@@ -352,4 +372,5 @@ def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas,
         },
         "avisos": avisos,
         **({"flujo": flujo} if flujo is not None else {}),
+        **({"poses_diseno": poses_diseno} if poses_diseno is not None else {}),
     }

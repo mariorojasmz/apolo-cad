@@ -48,6 +48,7 @@ ARCHIVOS = (
     "physics/sim.py",
     "services/cosim_aire.py",
     "services/cosim_bandas.py",
+    "services/cosim_inicial.py",
     "services/cosim_red.py",
     "services/cosim_snapshot.py",
     "services/cosim_transmision.py",
@@ -225,7 +226,15 @@ ARCHIVOS = (
 #: guardados del elevador vertical de la noche del 2026-10-27 (con `atasco` en su eje motriz) dan
 #: la MISMA huella que su resultado guardado (bitácora del plan).
 #: (rebase sobre cosim-en-paralelo: las dos sin efecto en el resultado; huella del código combinado)
-HUELLA: tuple[int, str] = (9, "6e5a591ad87e4da3")
+#: motor-a-eje-lineal F4 (sin subir, sobre la 9): `mecanica.juntas.<j>.inicial` (dónde ARRANCA la
+#: junta: `cosim/escenario_mecanica.py`, `physics/dinamica_peticion.posicion_inicial`, el qpos del
+#: `Integrador` y `services/cosim_inicial.py` —suma a `ARCHIVOS`—) sólo actúa si el escenario la
+#: trae, y antes era 400 (clave desconocida en la petición): ningún resultado guardado la lleva. Sin
+#: ella el `Integrador` no hace nada nuevo y la salida no suma `poses_diseno`. La forma de
+#: `mecanica.juntas` se revisa ahora AL DECLARAR con las mismas reglas que la petición aplicaba al
+#: correr. Medido: los 7 escenarios guardados de la mezcladora y los 10 del elevador de la noche
+#: del 2026-10-27 dan la MISMA huella que su resultado guardado (bitácora del plan).
+HUELLA: tuple[int, str] = (9, "f07515babb440891")
 
 
 def archivos() -> list[Path]:

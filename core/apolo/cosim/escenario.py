@@ -20,7 +20,9 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
                  {"t": 2, "tipo": "falla", "rama": "-S0:11-12", "falla": "pegado", "valor": true},
                  {"t": 3, "tipo": "falla", "falla": "corto", "a": "-X1:1", "b": "-X1:PE"},
                  {"t": 0, "tipo": "producto", "nombre": "caja", "dims_mm": […], …}],
-     "mecanica": {…claves de la petición de V8.2: bandas, juntas, fps, timestep, nstep, sumideros…},
+     "mecanica": {…claves de la petición de V8.2: bandas, juntas, fps, timestep, nstep, sumideros…;
+                  juntas.<junta>.inicial = dónde ARRANCA (mm o grados desde la pose de diseño,
+                  plan motor-a-eje-lineal F4; su forma, en `escenario_mecanica.py`)},
      "acoples": {"motores": {"-M1": {"junta": "j_tambor", "direccion_transporte": [1, 0, 0]}},
                  "sensores": {"-B1": {"origen": […], "direccion": […], "alcance_mm": 800}}},
      "trazas": {"analogicas_hz": 50, "senales": ["-K1:A1.U_V"]},
@@ -48,7 +50,7 @@ import math
 from dataclasses import dataclass, field
 
 from .aserciones import AsercionInvalida, leer_aserciones
-from .flujo import FlujoInvalido, leer_flujo, revisar_aserciones, validar_nombre_sumidero
+from .flujo import FlujoInvalido, leer_flujo, revisar_aserciones
 from .transmision import leer as leer_transmision
 
 #: Tope de un escenario (s). Es el de la corrida ENTERA: el snapshot lo pasa a la dinámica (cuyo
@@ -359,40 +361,6 @@ def _fuga(e: dict, donde: str) -> dict:
     return out
 
 
-def _vec3(v, donde: str, *, unitario: bool = False) -> None:
-    if (not isinstance(v, list) or len(v) != 3
-            or any(not isinstance(c, (int, float)) or isinstance(c, bool) or not math.isfinite(c) for c in v)):
-        raise EscenarioInvalido(f"{donde}: se espera [x, y, z] (tres números), llegó {v!r}")
-    if unitario and not any(v):
-        raise EscenarioInvalido(f"{donde}: la normal no puede ser [0, 0, 0] (apunta al lado que retira)")
-
-
-def _sumideros(mecanica: dict) -> None:
-    """`mecanica.sumideros` (los de la petición de V8.2, F6 de puerta-de-publicacion): planos
-    {punto_mm, normal, nombre?} que RETIRAN el producto que los pasa (el nombre: la salida que
-    cuenta el balance, plan balance-de-producto D3). Se validan al declarar el escenario, no a
-    mitad de la preparación de la dinámica."""
-    lista = mecanica.get("sumideros")
-    if lista is None:
-        return
-    if not isinstance(lista, list):
-        raise EscenarioInvalido("mecanica: «sumideros» es una lista de {punto_mm: [x, y, z], normal: [x, y, z]}")
-    for k, s in enumerate(lista):
-        donde = f"mecanica.sumideros[{k}]"
-        s = _claves(s, {"punto_mm", "normal", "nombre"}, donde)
-        for c in ("punto_mm", "normal"):
-            if s.get(c) is None:
-                raise EscenarioInvalido(f"{donde}: falta «{c}» [x, y, z] (el plano que retira el producto "
-                                        "que lo pasa: punto en mm y normal hacia el lado que retira)")
-        _vec3(s["punto_mm"], f"{donde}.punto_mm")
-        _vec3(s["normal"], f"{donde}.normal", unitario=True)
-        if s.get("nombre") is not None:
-            try:
-                validar_nombre_sumidero(s["nombre"], donde)
-            except FlujoInvalido as exc:
-                raise EscenarioInvalido(str(exc)) from None
-
-
 def _acoples(a) -> tuple[dict, dict, dict]:
     a = _claves(a, {"motores", "sensores", "cilindros"}, "acoples")
     motores, sensores, cilindros = {}, {}, {}
@@ -465,7 +433,9 @@ def leer_escenario(d) -> Escenario:
         x = _evento(e, k, duracion)
         (productos if isinstance(x, dict) else eventos).append(x)
     mecanica = dict(_claves(d.get("mecanica"), set(CLAVES_MECANICA), "mecanica"))
-    _sumideros(mecanica)
+    from .escenario_mecanica import revisar as revisar_mecanica  # perezoso: importa de aquí
+
+    revisar_mecanica(mecanica)
     motores, sensores, cilindros = _acoples(d.get("acoples"))
     tr = _claves(d.get("trazas"), {"analogicas_hz", "senales"}, "trazas")
     try:

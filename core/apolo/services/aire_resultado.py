@@ -10,7 +10,9 @@ Cómo se mide (criterio de medición, declarado en `medicion`):
   - una carrera de AVANCE es el tramo en que x sube del 2 % al 98 % del máximo que alcanzó en la
     corrida; la de RETROCESO, el tramo siguiente en que baja del 98 % al 2 %. Los cruces se
     interpolan linealmente entre muestras (las analógicas van a `analogicas_hz`, 50 Hz por
-    defecto: la resolución se declara);
+    defecto: la resolución se declara). Un cilindro que ARRANCA extendido (`mecanica.juntas.<j>.
+    inicial`, plan motor-a-eje-lineal F4) mide su PRIMER retroceso desde el 98 % de donde arrancó
+    hasta el 2 % del máximo; su avance, el primero que haga después;
   - `x_max_mm` dice hasta dónde llegó: si no llega a la carrera, la carga lo frenó o el tope de la
     junta no se alcanzó (la memoria lo compara con la carrera del servicio);
   - `v_max_m_s`: la mayor |v| muestreada de `<des>.v_m_s` (el pico entre muestras puede ser algo
@@ -48,13 +50,18 @@ def _carreras(t: list, x: list) -> dict:
         if x[i - 1] < hi <= x[i] and t_lo is not None:
             t_hi, k = _cruce(t, x, i, hi), i
             break
-    if t_hi is None:
+    # arrancó EXTENDIDO (`inicial`, motor-a-eje-lineal F4): su primer retroceso vale, desde el 98 %
+    # de donde arrancó (el golpe contra el tope lleva el máximo unos mm más allá)
+    arriba = x[0] > 0.5 * xmax
+    if t_hi is None and not arriba:
         return out
-    out["t_avance_s"] = round(t_hi - t_lo, 4)
+    if t_hi is not None:
+        out["t_avance_s"] = round(t_hi - t_lo, 4)
     t_baja = None
-    for i in range(k + 1, len(x)):  # retroceso: de `hi` hacia abajo hasta `lo`
-        if t_baja is None and x[i - 1] > hi >= x[i]:
-            t_baja = _cruce(t, x, i, hi)
+    sale = ALTO * x[0] if arriba else hi
+    for i in range(1 if arriba else k + 1, len(x)):  # retroceso: de `hi` hacia abajo hasta `lo`
+        if t_baja is None and x[i - 1] > sale >= x[i]:
+            t_baja = _cruce(t, x, i, sale)
         if t_baja is not None and x[i - 1] > lo >= x[i]:
             out["t_retroceso_s"] = round(_cruce(t, x, i, lo) - t_baja, 4)
             break

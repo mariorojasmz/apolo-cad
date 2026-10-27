@@ -352,7 +352,8 @@ def physics_dynamics_gif(body: DynamicsIn) -> Response:
         raise HTTPException(status_code=400, detail=res.get("mensaje", "Nada que simular"))
     try:
         gif = render_dynamics_gif(escena, res["productos"], res["frames"], view=body.view,
-                                  size_px=body.size_px, max_fotogramas=body.max_frames)
+                                  size_px=body.size_px, max_fotogramas=body.max_frames,
+                                  poses_diseno=res.get("poses_diseno"))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:  # sin Pillow

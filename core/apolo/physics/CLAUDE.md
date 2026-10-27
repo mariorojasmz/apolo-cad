@@ -76,7 +76,8 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   engomado) salen inclinados y la tolerancia de 0,5 mm del tramo plano deja fuera el ramal
   (`tests/test_dinamica_banda_a_mano.py`).
 - La serie del visor (`dinamica_serie.py`) manda cada cuerpo RELATIVO a su pose inicial
-  (T(t) = P(t)·P(0)⁻¹, como el GIF): el origen del cuerpo MuJoCo no es el de la malla. La
+  (T(t) = P(t)·P(0)⁻¹, como el GIF; con `juntas.<j>.inicial`, P(0) = `poses_diseno`, la pose de
+  diseño: [motor-a-eje-lineal](../../../docs/plans/motor-a-eje-lineal.md) F4): el origen del cuerpo MuJoCo no es el de la malla. La
   velocidad de banda sale del `BandaDatos` del snapshot (`e`, `radio`), no de la salida D9.
   [visor-realista](../../../docs/plans/visor-realista.md) (F2)
 - Productos con `cada_s`: antes de nacer esperan estacionados lejos (MuJoCo no crea cuerpos en

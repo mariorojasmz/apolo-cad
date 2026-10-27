@@ -129,7 +129,8 @@ def _rotulo(img, texto: str) -> None:
 
 
 def render_dynamics_gif(esc: EscenaGif, productos: list, frames: list, *, view: str = "iso",
-                        size_px: int = 640, max_fotogramas: int = MAX_FOTOGRAMAS_GIF) -> bytes:
+                        size_px: int = 640, max_fotogramas: int = MAX_FOTOGRAMAS_GIF,
+                        poses_diseno: dict | None = None) -> bytes:
     """FASE VTK (fuera de `STATE_LOCK`, toma `RENDER_LOCK`): el GIF de la marcha. ValueError si
     no hay nada que animar; RuntimeError si falta Pillow; lo que lance VTK sin contexto OpenGL
     sube tal cual (la API lo vuelve 503, como `motion_gif`)."""
@@ -146,7 +147,7 @@ def render_dynamics_gif(esc: EscenaGif, productos: list, frames: list, *, view: 
     if not frames:
         raise ValueError("Nada que animar: la simulación no devolvió fotogramas")
     sel = _fotogramas_gif(frames, max_fotogramas)
-    pose0 = frames[0]["poses"]
+    pose0 = {**frames[0]["poses"], **(poses_diseno or {})}  # `inicial`: la malla es la de diseño
     inv0 = {c: np.linalg.inv(np.asarray(pose0[c], float)) for c in set(esc.cuerpo_de.values())
             if c in pose0}
     relativas = [{c: np.asarray(fr["poses"][c], float) @ inv for c, inv in inv0.items()}

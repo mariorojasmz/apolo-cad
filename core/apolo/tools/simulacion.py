@@ -76,7 +76,8 @@ def registrar(mcp, api, esperar) -> None:
         - bandas: sólo si la banda no es la de create_belt_conveyor (esa se detecta, y si su
           tambor no tiene junta se usa la virtual '{comando}_eje_motriz'): [{pieza, junta_motriz,
           radio_mm?, direccion_transporte?, mu?, mu_cama?}].
-        - juntas: {nombre: {amortiguamiento, friccion, armadura}}.
+        - juntas: {nombre: {amortiguamiento, friccion, armadura, inicial}} (inicial = dónde
+          ARRANCA: mm o grados desde la pose de diseño, dentro de sus límites).
         - con_autodeteccion: cuenta los contactos geométricos como sujeción (exploración); por
           defecto sólo lo DECLARADO, como gravity_test.
         - opciones: fps, timestep (1 ms), nstep (2), gravedad, modelo_banda ('contacto' |

@@ -28,8 +28,11 @@ def wire(*puntos: str, **p) -> dict:
     return {"type": "add_wire", "params": {"puntos": list(puntos), **p}}
 
 
-def empujador(valvula: str = "VAL-52-MONO-G18", carrera: int = CARRERA, servicio: dict | None = None):
-    """(documento, cid del cilindro); `servicio`, el del cilindro en su `add_device` (F4)."""
+def empujador(valvula: str = "VAL-52-MONO-G18", carrera: int = CARRERA, servicio: dict | None = None,
+              avanza_en_reposo: bool = False):
+    """(documento, cid del cilindro); `servicio`, el del cilindro en su `add_device` (F4). Con
+    `avanza_en_reposo` los tubos de las cámaras van cruzados: la válvula en reposo alimenta la A
+    (el vástago sale sin señal, como la compuerta que cierra en reposo de la mezcladora)."""
     d = Document("empujador")
     cid = d.execute("create_pneumatic_cylinder", {
         "ref": "CIL-ISO15552-32", "carrera": carrera, "montaje": "pies", "eje": "+X", "puertos": "+Z",
@@ -53,8 +56,8 @@ def empujador(valvula: str = "VAL-52-MONO-G18", carrera: int = CARRERA, servicio
         dev("CIL-ISO15552-32", pieza=f"{cid}_cuerpo", **({"servicio": servicio} if servicio else {})),
         tubo("-AZ1:2", "-QM1:1", "TUBO-PU-8", largo_m=0.5),
         tubo("-QM1:2", "-QM2:1", "TUBO-PU-8", largo_m=1.0),
-        tubo("-QM2:4", "-MM1:A", largo_m=1.0),
-        tubo("-QM2:2", "-MM1:B", largo_m=1.0),
+        tubo("-QM2:4", "-MM1:B" if avanza_en_reposo else "-MM1:A", largo_m=1.0),
+        tubo("-QM2:2", "-MM1:A" if avanza_en_reposo else "-MM1:B", largo_m=1.0),
         dev("RED-3F-220V-60HZ", "-G1", ubicacion="+RED"),
         dev("ITM-C2-2P", "-F1", ubicacion="+TAB1"),
         dev("FUENTE-24VDC-2.5A", "-T1", ubicacion="+TAB1"),

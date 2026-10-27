@@ -1,6 +1,6 @@
 ---
 estado: implementado
-nota: F0–F2 hechas (2026-10-27) y verificadas en el elevador vertical real; COSIM_EPOCH sigue en 9. Fuera, con su fase propia si hace falta: el freno de motor como pieza mecánica (F3), la posición inicial de una junta en el escenario (F4) y el rendimiento de la transmisión (F5)
+nota: F0–F2 y F4 hechas (2026-10-27) y verificadas en el elevador vertical y la mezcladora reales; COSIM_EPOCH sigue en 9. Pendientes, con su fase propia si hace falta: el freno de motor como pieza mecánica (F3) y el rendimiento de la transmisión (F5)
 descripcion: en la co-simulación un motor rotativo mueve una junta prismática (elevador por cadena o cable, cremallera, correa, husillo) por su transmisión declarada; la plataforma sube con su carga a v = ω·r y los sensores de nivel la ven de verdad
 ---
 
@@ -82,6 +82,36 @@ descripcion: en la co-simulación un motor rotativo mueve una junta prismática 
   guardados del elevador dan la MISMA huella que su resultado guardado. Se actualizó la huella de
   `tests/test_cosim_epoch.py` y `services/cosim_transmision.py` entró a sus `ARCHIVOS`.
 
+Decisiones de la F4 (para vetar):
+
+- **D8 — `inicial` va en `mecanica.juntas.<junta>`**, junto a `friccion`/`amortiguamiento`/
+  `armadura` (el modelador lo intentó ahí sin que nadie se lo dijera), en las unidades y el signo de
+  `set_motion`: mm o grados medidos DESDE la pose de diseño. Lo acepta también la dinámica suelta
+  (`simulate`, `juntas.<j>.inicial`): es la misma petición. El MJCF sigue horneado en la pose de
+  diseño; la junta arranca con su qpos.
+- **D9 — Validado al declarar**: la forma, en `cosim/escenario_mecanica.py` (que sale de
+  `escenario.py`: tamaño); contra el documento (junta que exista con «¿quisiste decir?», que se
+  mueva, dentro de [lower, upper]; una continua, cualquier ángulo), en `escenarios.poner` y en el
+  snapshot con UNA regla, `physics.dinamica_peticion.posicion_inicial`. La forma de
+  `mecanica.juntas` se revisa ahora al declarar (antes, al correr, con las mismas reglas).
+- **D10 — El aire no declara presión de arranque**: cada cámara arranca a la presión de lo que su
+  válvula EN REPOSO le une (la `HIPOTESIS_ARRANQUE` de V8.9, que no dependía de la posición) y con el
+  volumen de la posición inicial (la x del vástago sale del qpos en el primer intercambio). Un
+  cilindro en reposo contra su tope tiene la cámara que lo sostiene a la presión de la línea y la
+  otra a la atmósfera: no hay equilibrio que inventar (el tope absorbe la fuerza neta). Una cámara
+  bloqueada (centro cerrado) arranca a la atmósfera, como en la pose de diseño. Descartado: una
+  `presion_inicial` por cámara en el escenario (una cifra sin fuente para el caso que ya resuelve
+  la válvula).
+- **D11 — Lo que depende de que la junta arranque en 0, revisado**: los sensores por junta y las
+  fotoceldas ya leen el estado (nada que hacer); el visor (serie, GIF) y el vivo dibujaban
+  T = P(t)·P(0)⁻¹ con P(0) = el fotograma 0, que ahora no es la malla: la salida suma
+  `poses_diseno` SÓLO con `inicial` y los tres la usan; las carreras del aire
+  (`services/aire_resultado`) medían el avance desde x = 0: un cilindro que arranca extendido mide
+  su primer retroceso desde el 98 % de donde arrancó. Los productos siguen en coordenadas del
+  MUNDO (la hipótesis lo recuerda): uno sobre la plataforma se declara donde está al arrancar.
+- **D12 — Sin subir `COSIM_EPOCH`**: antes `inicial` era 400 (clave desconocida en la petición) y
+  sin él el `Integrador` no hace nada nuevo. `services/cosim_inicial.py` entra a `ARCHIVOS`.
+
 ## Alternativas descartadas
 
 - **Igualdad `equality/joint polycoef`** entre una junta de giro del motor (el eje motriz) y la
@@ -109,9 +139,12 @@ descripcion: en la co-simulación un motor rotativo mueve una junta prismática 
   MJCF y el acople de siempre.
 - **F3 (pendiente)**: el freno de motor de resorte como efecto mecánico (fricción en la junta
   mientras su bobina no lo libera), ligado a la bobina del tablero (-Y1 del elevador es un relé).
-- **F4 (pendiente)**: la posición inicial de una junta en el escenario (`mecanica.juntas.q0`):
-  hoy la plataforma arranca en la pose de diseño, así que «bajar desde el nivel 1» se prueba sólo
-  como ida y vuelta.
+- **F4 (physics + cosim + services, S/M, hecha)**: la posición inicial de una junta en el
+  escenario (`mecanica.juntas.<j>.inicial`, D8–D12): `posicion_inicial` y el qpos del `Integrador`,
+  `poses_diseno` en la salida (serie, GIF, vivo), `cosim/escenario_mecanica.py`,
+  `services/cosim_inicial.py` (al declarar y en el snapshot, con su hipótesis), las carreras del
+  aire desde arriba, los docstrings de `set_scenario` y `simulate` (golden re-congelado) y
+  `tests/test_junta_inicial.py`.
 - **F5 (pendiente)**: rendimiento de la transmisión (husillo trapecial) en el tope y la corriente.
 
 ## Lo que este plan NO hace
@@ -152,3 +185,32 @@ descripcion: en la co-simulación un motor rotativo mueve una junta prismática 
   55 que suponía el atasco de 31,5 N·m); -B6 (lenta) a 12,05 s, -B2 a 13,45 s: 1473 mm en 11,9 s
   desde la orden; para en 1477,4 mm y queda ahí (la carga sigue encima, -B3 nunca). Ida y vuelta
   (-S21 a 18 s): baja, -B5 lenta a 27,9 s, -B1 a 29,0 s, para en 8,2 mm y desbloquea la puerta 0.
+
+**F4 (2026-10-27).** Base `7c38fb6`. Las dos máquinas, leídas en SÓLO LECTURA (copias en memoria
+del proyecto 1 de cada `apolo.db`; nada se escribió).
+
+- **Mezcladora** (`mezcladora-paletas-200l`, compuerta en `c68_vastago` 0–200 mm, dibujada ABIERTA
+  en x = 0; la válvula en reposo la cierra): sus 7 escenarios con `inicial: 200` (cerrada), pasados
+  por `escenarios.poner` y corridos: los 7 PASAN. El arranque ya no golpea: x(0) = 200,0 mm,
+  pA = la línea, pB = 0 bar, |v| ≤ 0,002 m/s en los que no descargan. `ciclo_nominal` mide avance
+  0,430 s y retroceso 0,506 s (la cota a mano: 0,464 / 0,540 s) y pico 0,562 m/s
+  (`desacoplar_en_descarga`, 0,561). La memoria del aire con esos resultados: **energía al fin de
+  carrera 20,61 J (4,29 kg a 3,10 m/s, ERROR) → 0,68 J (a 0,562 m/s, OK; admite 2,3 J)**; caudal
+  pico de -QM1 1049 → 190 NL/min (aviso → OK) y el de -AZ1, igual. Los 21 J eran el artefacto del
+  arranque abierto con la cámara B a la atmósfera.
+- **Elevador** (`elevador-vertical-cajas-2n`): `bajar_desde_n1` = el `bajar` guardado sin el rodeo
+  (sin `atasco` ni `sensor_pegado`), con `-M1 → j_plataforma` y `transmision {pinon: "c33",
+  irreversible: true}`, los seis inductivos por junta (los centros de la F2, ± 20 mm), la carga de
+  50 kg sobre el piso c26 a la cota de arranque y `inicial: 1477.4` (donde paró la subida medida en la
+  F2, dentro de -B2). PASA sus 7 aserciones: -B2 activo a t = 0, rearme y -S11 → `bajar` a 1,58 s,
+  -B6 a 2,35 s, -B5 (lenta) a 11,45 s, -B1 a 12,58 s; para en 8,1 mm (13,6 s: `desbloq0`; `desbloq1`
+  nunca tras la orden), bajada a 147,7 mm/s, la carga termina apoyada (z = 278,1 mm). Trampa medida:
+  con la carga declarada sobre la placa de respaldo (2,3 m) chocaba con la estructura de arriba y
+  empujaba la plataforma 50 mm al arrancar; los productos van donde está la pieza AL ARRANCAR.
+- **Banco** (`tests/test_junta_inicial.py`): desde 700 mm reversible baja y -B1 la ve a 510 ± 8 mm;
+  irreversible queda (< 0,5 mm); el brazo giratorio arranca a 45° y la serie parte girada 45°; una
+  continua acepta 400°; `inicial: 0` da la misma corrida muestra a muestra. El empujador con la
+  válvula que lo saca en reposo: dibujado retraído sale a > 3 m/s (6,18 medido); arrancando a
+  200 mm, |v| < 0,01 m/s y pA = 6 bar, pB = 0.
+- **Vigencia**: con el código nuevo, los 7 escenarios guardados de la mezcladora y los 10 del
+  elevador, SIN cambios, dan la MISMA huella que su resultado guardado (17 de 17).

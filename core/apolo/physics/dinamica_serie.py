@@ -8,7 +8,9 @@ que el visor reproduce a 60 fps interpolando, sin volver a pedir nada:
 - `cuerpos`: por cuerpo de junta, la transformación RELATIVA a su pose inicial,
   T(t) = P(t)·P(0)⁻¹, como `x, y, z, qx, qy, qz, qw` (mm; cuaternión en el orden de three.js)
   aplanados por muestra. El visor la aplica sobre la malla de diseño de cada pieza del cuerpo:
-  no depende de dónde puso MuJoCo el origen del cuerpo (lo mismo hace el GIF).
+  no depende de dónde puso MuJoCo el origen del cuerpo (lo mismo hace el GIF). Con una junta
+  que arranca fuera de la pose de diseño (`inicial`), P(0) es la pose de DISEÑO
+  (`poses_diseno` de la salida), no la del fotograma 0.
 - `productos`: pose ABSOLUTA del centro de cada caja desde la muestra `desde` (la primera en la
   que existe: con `cada_s` nacen en su hora) hasta la última en que existe (un sumidero la
   retira: sus poses son más cortas que `t`); el visor dibuja la caja con `dims_mm`.
@@ -70,12 +72,13 @@ def serie_reproduccion(res: dict, bandas=(), *, hz: int) -> dict:
     frames = res.get("frames") or []
     t = [f["t"] for f in frames]
     cuerpos = {}
+    diseno = res.get("poses_diseno") or {}  # juntas con `inicial`: la malla es la de diseño
     for c in res.get("cuerpos") or []:
         nombre = c["name"]
         mats = [np.asarray(f["poses"][nombre], float) for f in frames if nombre in f["poses"]]
         if len(mats) != len(frames) or not mats:
             continue
-        p0_inv = np.linalg.inv(mats[0])
+        p0_inv = np.linalg.inv(np.asarray(diseno[nombre], float) if nombre in diseno else mats[0])
         poses = [v for m in mats for v in _pq(m @ p0_inv)]
         cuerpos[nombre] = {"junta": c["junta"], "piezas": list(c["piezas"]), "poses": poses}
     productos = []

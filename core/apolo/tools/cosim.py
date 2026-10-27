@@ -135,7 +135,10 @@ def registrar(mcp, api, esperar) -> None:
                    sin tensión retiene); v = ω·r
          mecanica?: {bandas, juntas, timestep, nstep, con_autodeteccion…},   ← una banda HECHA A
                     MANO va en bandas [{pieza, junta_motriz}]: sin ella no avanza y un escenario
-                    con cajas encima o aserciones sobre ella es error,
+                    con cajas encima o aserciones sobre ella es error; juntas {"<junta>":
+                    {friccion?, amortiguamiento?, armadura?, inicial?}}: inicial = dónde ARRANCA
+                    (mm o grados desde la pose de diseño, como set_motion; dentro de sus límites:
+                    la plataforma en el nivel 1, la compuerta cerrada); sin él, la pose de diseño,
          trazas?: {analogicas_hz, senales},
          ajustes?: {"-T2": {"sobrecarga_s": 5}},   ← ajustes de PRUEBA sólo de este escenario
                    (validados como en add_device): el proyecto, el manual y la memoria siguen con

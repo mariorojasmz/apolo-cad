@@ -31,3 +31,6 @@ class DynamicsSnapshot:
     #: el balance de producto (plan balance-de-producto D5): {plazo_s, quieto_s, zonas_espera,
     #: sumideros: [nombres]}; None = no se rastrea (la salida de siempre)
     flujo: dict | None = None
+    #: plan motor-a-eje-lineal F4: {junta: q0 (m | rad)} donde ARRANCA cada junta que lo declara;
+    #: vacío = todas en la pose de diseño (el MJCF es siempre el de la pose de diseño)
+    inicial: dict = field(default_factory=dict)

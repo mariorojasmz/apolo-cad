@@ -211,6 +211,9 @@ def poner(doc, nombre: str, esc: dict) -> dict:
 
     esc = resolver_ritmo(doc, esc)  # balance-de-producto D7: se GUARDA el número, no «nominal»
     e = leer(esc)
+    from .cosim_inicial import validar as validar_iniciales
+
+    validar_iniciales(doc, e)  # motor-a-eje-lineal F4: los límites de la junta, AL DECLARAR
     if e.ajustes:  # D5: contra el tablero si ya está (si no, al correrlo: como los dispositivos)
         from .electrico import modelo
         from .escenario_ajustes import validar as validar_ajustes

@@ -164,7 +164,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
 
     from apolo.cosim.tipos import revisar, valores_iniciales
 
-    from . import cosim_aire, cosim_externo, cosim_transmision, escenario_ajustes
+    from . import cosim_aire, cosim_externo, cosim_inicial, cosim_transmision, escenario_ajustes
     from .cosim_bandas import bandas_quietas, prever
     from .cosim_red import entrada_red, largos_calculados
     from .delivery_inputs import tornilleria_join_bolted
@@ -201,6 +201,8 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     sensores, avisos = _sensores(esc, tab.modelos, por_des)
     transmisiones, hip_tr = cosim_transmision.resolver(doc, esc)  # motor-a-eje-lineal: {} sin ellas
     hipotesis += hip_tr
+    cosim_inicial.validar(doc, esc)  # motor-a-eje-lineal F4: dónde arranca cada junta ([] sin ella)
+    hipotesis += cosim_inicial.hipotesis(doc, esc)
     peticion = {**esc.mecanica, "duracion_s": esc.duracion_s, "fps": esc.mecanica.get("fps", 10),
                 "motores": _motores(esc, me, tab.modelos, transmisiones), "sensores": sensores,
                 "productos": [dict(p) for p in esc.productos]}

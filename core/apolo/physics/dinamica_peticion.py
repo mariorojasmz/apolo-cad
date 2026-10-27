@@ -95,6 +95,41 @@ class JuntaOpciones:
     amortiguamiento: float = 0.0
     friccion: float = 0.0
     armadura: float = 0.0
+    #: plan motor-a-eje-lineal F4: dónde ARRANCA la junta (mm o grados, el `q` de `set_motion`
+    #: medido desde la pose de diseño); None = en la pose de diseño (la corrida de siempre)
+    inicial: float | None = None
+
+
+#: Tolerancia de `inicial` contra los límites de la junta (mm | grados): el valor de un extremo
+#: escrito con decimales de más no se rechaza.
+TOL_INICIAL = 1e-6
+
+
+def posicion_inicial(nombre: str, valor: float, junta: dict | None, nombres=()) -> float:
+    """`inicial` de la junta `nombre` en unidades de MuJoCo (m | rad), validado contra su tipo y
+    sus límites (los mismos `lower`/`upper` que la FK y `set_motion`). `PhysicsError` con la
+    corrección. Una sola regla para el escenario al declarar y la dinámica al preparar."""
+    donde = f"juntas.{nombre}.inicial"
+    if junta is None:
+        parecida = difflib.get_close_matches(str(nombre), sorted(nombres), n=1)
+        pista = f" ¿Quisiste decir '{parecida[0]}'?" if parecida else ""
+        raise PhysicsError(f"{donde}: la junta '{nombre}' no existe.{pista} Juntas móviles: "
+                           f"{', '.join(sorted(nombres)) or 'ninguna'}")
+    tipo = junta.get("type")
+    if tipo not in ("giratoria", "continua", "prismatica"):
+        raise PhysicsError(f"{donde}: '{nombre}' es una junta {tipo or 'sin tipo'}: no se mueve, no tiene "
+                           "posición inicial")
+    v = float(valor)
+    if not math.isfinite(v):
+        raise PhysicsError(f"{donde}: debe ser un número finito")
+    unidad = "mm" if tipo == "prismatica" else "°"
+    if tipo != "continua":
+        lo, hi = float(junta["lower"]), float(junta["upper"])
+        if v < lo - TOL_INICIAL or v > hi + TOL_INICIAL:
+            raise PhysicsError(f"{donde} = {v:g} {unidad} fuera de los límites de '{nombre}' "
+                               f"[{lo:g}, {hi:g}] {unidad} (se mide desde la pose de diseño, como en set_motion)")
+        v = min(max(v, lo), hi)
+    return v / 1000.0 if tipo == "prismatica" else math.radians(v)
 
 
 @dataclass
@@ -345,12 +380,13 @@ def parse_peticion(req: dict | None, *, duracion_max_s: float | None = None) -> 
         raise PhysicsError("flujo: hace falta al menos un sumidero (la salida del producto)")
     juntas = _claves(req.get("juntas"), set(req.get("juntas") or {}), "juntas")
     for nombre, op in juntas.items():
-        op = _claves(op, {"amortiguamiento", "friccion", "armadura"}, f"juntas.{nombre}")
+        op = _claves(op, {"amortiguamiento", "friccion", "armadura", "inicial"}, f"juntas.{nombre}")
         d = f"juntas.{nombre}"
         pet.juntas[str(nombre)] = JuntaOpciones(
             amortiguamiento=_f(op, "amortiguamiento", d, 0.0, minimo=0.0),
             friccion=_f(op, "friccion", d, 0.0, minimo=0.0),
             armadura=_f(op, "armadura", d, 0.0, minimo=0.0),
+            inicial=_f(op, "inicial", d),
         )
     nombres = [p.nombre for p in pet.productos] + [s.nombre for s in pet.sensores]
     repetidos = sorted({n for n in nombres if nombres.count(n) > 1})

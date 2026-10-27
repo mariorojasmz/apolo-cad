@@ -104,6 +104,11 @@ backend: [core/apolo](../CLAUDE.md).
   `gear` = 1/r y el acople lee ese `gear` del MODELO (ω = gear·v, T = F/gear; lo que va en N·m a la
   junta, ×gear). Nunca una igualdad blanda ni la fuerza en Python. Sin transmisión gear = 1 exacto.
   [motor-a-eje-lineal](../../../docs/plans/motor-a-eje-lineal.md)
+- **Dónde arranca una junta** = `mecanica.juntas.<j>.inicial` (mm | °, desde la pose de diseño):
+  sus límites, con `dinamica_peticion.posicion_inicial` al declarar y al preparar; va al qpos ANTES
+  del primer `mj_forward` (el MJCF sigue en la pose de diseño). Lo que se dibuja sobre la malla de
+  diseño (serie, GIF, vivo) toma P(0) de `poses_diseno`, nunca del fotograma 0; un dato que dependa
+  de que la junta arranque en 0 (las carreras de `services/aire_resultado`) se revisa. (F4)
 - La potencia se re-resuelve sólo si algo cambió más de `TOL_POTENCIA`; un dato nuevo que la
   mueva entra en `Tablero._firma_potencia`.
 
