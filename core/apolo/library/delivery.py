@@ -24,7 +24,8 @@ VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 #: La versión de la batería del núcleo: súbela si cambia un chequeo o su umbral. Sólo se publica
 #: con reglas de extensión (`version_bateria` = «1+nombre.version_entrega»); sin ellas, el
 #: resultado es el de siempre (plan puntos-de-extension-entregables, D3).
-VERSION_BATERIA = 2  # 2: el balance de producto (plan balance-de-producto, D10)
+VERSION_BATERIA = 3  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
+#                      enclavamiento de los resguardos (plan mandos-de-seguridad, F2b)
 
 # Umbral de sujeción (compartido con la alarma ambiental de la capa API): bajo esto
 # —un croquis de 2-3 piezas— exigir anclajes sería ruido. Conservador a propósito:
@@ -103,6 +104,7 @@ def delivery_report(
     escenarios: list[dict] | None = None,
     extensiones: dict | None = None,
     flujo: dict | None = None,
+    enclavamientos: list[dict] | None = None,
 ) -> dict:
     """Agrega los chequeos de cierre en un SEMÁFORO. Entradas (todas computadas por
     el llamador — aquí no corre ningún motor):
@@ -142,6 +144,11 @@ def delivery_report(
         balance-de-producto D10) `{estado ok|aviso|error, detalle}`; None = sin escenarios o la
         máquina no mueve producto: lo de siempre. Un balance vigente que no cuadra bloquea (ROJO);
         sin escenario de flujo al ritmo nominal (o sin capacidad declarada), AMARILLO.
+      - `enclavamientos`: las filas de `services/enclavamientos.regla` (plan mandos-de-seguridad
+        F2b), `{estado ok|aviso|error|no_aplica, piezas, detalle}`; None = la escena no tiene
+        interruptores de resguardo ni lengüetas: lo de siempre. Con el resguardo cerrado la
+        lengüeta fuera de la ranura (o abierto, dentro) bloquea (ROJO); lo que no se puede
+        verificar (sin lengüeta, sin anclas, emparejamiento ambiguo), AMARILLO.
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
     """
     nombre_de = nombre_de or (lambda fid: str(fid))
@@ -324,6 +331,8 @@ def delivery_report(
                 "regla": "balance de producto", "piezas": [], "detalle": flujo.get("detalle", "")})
         else:
             ok.append("balance de producto al ritmo nominal")
+    if enclavamientos is not None:  # mandos-de-seguridad F2b: sólo con resguardos en la escena
+        _enclavamientos(enclavamientos, bloqueantes, avisos, no_aplica, ok, nombre_de)
 
     # 10 · reglas de las extensiones (sólo si hay alguna cargada) ------------------------------
     if extensiones is not None:
@@ -346,6 +355,21 @@ def delivery_report(
     if extensiones is not None:
         out["version_bateria"] = f"{VERSION_BATERIA}{extensiones.get('version', '')}"
     return out
+
+
+def _enclavamientos(filas: list[dict], bloqueantes, avisos, no_aplica, ok, nombre_de) -> None:
+    """Sección «enclavamiento del resguardo»: ¿entra la lengüeta en su interruptor?"""
+    regla = "enclavamiento del resguardo"
+    for f in filas:
+        if f["estado"] in ("error", "aviso"):
+            (bloqueantes if f["estado"] == "error" else avisos).append({
+                "regla": regla, "piezas": _nombres(f.get("piezas") or [], nombre_de),
+                "detalle": f["detalle"]})
+        elif f["estado"] == "no_aplica":
+            no_aplica.append(f"{regla}: {f['detalle']}")
+    if filas and not any(f["estado"] in ("error", "aviso") for f in filas):
+        n = sum(1 for f in filas if f["estado"] == "ok" and "medida" in f)  # la fila del cerrado
+        ok.append(f"{regla} ({n} interruptor(es), la lengüeta entra)")
 
 
 def _de_extension(r: dict, bloqueantes, avisos, ok, nombre_de) -> None:

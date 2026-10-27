@@ -138,6 +138,10 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
 
     with _cronometro(tiempos, "flujo"):
         flujo = regla_entrega(doc)  # balance-de-producto D10: con escenarios y producto
+    from .enclavamientos import regla as regla_enclavamientos
+
+    with _cronometro(tiempos, "enclavamientos"):
+        enclavamientos = regla_enclavamientos(doc)  # mandos-de-seguridad F2b: sólo con resguardos
     with _cronometro(tiempos, "integridad"):
         integridad = doc.check_integrity()
     with _cronometro(tiempos, "poses"):
@@ -153,6 +157,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         **({"electrico": erc} if erc is not None else {}),
         **({"escenarios": escenarios} if escenarios is not None else {}),
         **({"flujo": flujo} if flujo is not None else {}),
+        **({"enclavamientos": enclavamientos} if enclavamientos is not None else {}),
         **({"acceso_herramienta": acceso} if acceso is not None else {}),
         n_solidos=len(doc.scene),
         interferencias=rep_inter["interferencias"],

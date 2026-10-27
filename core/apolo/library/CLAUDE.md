@@ -301,7 +301,13 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   gravedad opt-in. ERC, acceso de herramienta y escenarios de prueba (V8.3 D14) entran SÓLO si existen: sin ellos,
   la puerta da lo de siempre. Las reglas de una extensión (`Extension.entrega`,
   `entrega_extension.py`) van al final con `id` y `origen`; sólo con ellas sale `version_bateria`
-  («2+nombre.v»: `VERSION_BATERIA` sube si cambia un chequeo del núcleo).
+  («3+nombre.v»: `VERSION_BATERIA` sube si cambia un chequeo del núcleo).
+- **¿Entra la lengüeta?** (`enclavamiento.py`, puro; lectura y emparejamiento en
+  `services/enclavamientos.py`): con el resguardo cerrado la lengüeta de un interruptor de
+  actuador separado está en su ranura (`specs.insercion_min_mm` de la ficha ≤ profundidad ≤
+  fondo, su sección dentro de la de la ranura) y, con junta, abierto está fuera; ROJO en la
+  puerta si no. Marco SÓLO de las anclas `ranura`/`punta` + `fijacion_1/2` y las cotas del builder,
+  nunca del bbox. [mandos-de-seguridad](../../../docs/plans/mandos-de-seguridad.md) (F2b)
   [plan](../../../docs/plans/puntos-de-extension-entregables.md)
 - Lo que no puede correr va en `no_aplica`: jamás cuenta verde. Un asiento ≤ `EXCESS_TOL_MM3`
   (`checks.py`) se tolera y se DECLARA (`contactos_tolerados`). Tornillería flotante = AVISO, no

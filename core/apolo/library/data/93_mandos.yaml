@@ -186,6 +186,10 @@ components:
       fijacion: "2 × M5"
       prensaestopa: M20
       actuador: RESG-LENGUETA
+      # lo que tiene que entrar la lengüeta para que el interruptor cierre: lo verifica la puerta
+      # de entrega en el 3D (`library/enclavamiento.py`, plan mandos-de-seguridad F2b)
+      insercion_min_mm: 12
+      insercion_fuente: "criterio de diseño, a confirmar con la ficha de la línea (la cota del actuador insertado y su tolerancia): la ranura de 16 mm menos 4 mm de juego"
       linea_referencia: "orden de Telemecanique Sensors XCSPA792 (2 NC; ex Schneider Preventa) / Siemens SIRIUS 3SE5112 con actuador aparte"
       cotas_verificadas: false
       cost: 40

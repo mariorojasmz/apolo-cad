@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude el 2026-10-23 como la parte pública del ajuste A7 de un plan de seguridad funcional fuera del núcleo (aprobado por Mario; las alternativas de ingeniería las decide Claude, vetables); F1 mergeada (ESTOP-40-2NC y su caja, RESG-2NC con lengüeta, RS-2C-24VDC; modelos resguardo y rele_seguridad; pareja verde/roja de categoría 3 en los tests; sin bump de epoch); F1b mergeada (la máquina viva abre y cierra el resguardo, muestra el relé y su «no rearma», y la falla del relé pide su salida); revisión de diseño a ciegas hecha; líneas de referencia corregidas el 2026-10-26 (setas de 1 y 2 NC, resguardo de 2 NC, relé de seguridad → Siemens 3SK1, variadores → Delta MS300 con STO; `VFD-1K5-220` a 7,5 A: bitácora «Cifras de fichas y líneas corregidas»); falta F2 (verifica con Mario)
+nota: contrato escrito por Claude el 2026-10-23 como la parte pública del ajuste A7 de un plan de seguridad funcional fuera del núcleo (aprobado por Mario; las alternativas de ingeniería las decide Claude, vetables); F1 mergeada (ESTOP-40-2NC y su caja, RESG-2NC con lengüeta, RS-2C-24VDC; modelos resguardo y rele_seguridad; pareja verde/roja de categoría 3 en los tests; sin bump de epoch); F1b mergeada (la máquina viva abre y cierra el resguardo, muestra el relé y su «no rearma», y la falla del relé pide su salida); revisión de diseño a ciegas hecha; líneas de referencia corregidas el 2026-10-26 (setas de 1 y 2 NC, resguardo de 2 NC, relé de seguridad → Siemens 3SK1, variadores → Delta MS300 con STO; `VFD-1K5-220` a 7,5 A: bitácora «Cifras de fichas y líneas corregidas»); F2b hecha en la rama del worktree, sin mergear (la puerta de entrega verifica en el 3D que la lengüeta entre en la ranura con el resguardo cerrado y salga abierto: ROJO si no; `VERSION_BATERIA` 2 → 3); falta F2 (verifica con Mario)
 descripcion: mandos para funciones de seguridad de dos canales en el catálogo y en la co-simulación: seta de dos NC, interruptor de resguardo con actuador separado y relé de seguridad
 ---
 
@@ -88,6 +88,10 @@ Rutas relativas a `core/apolo/`, medidas sobre `1b0a8ff`.
   canales; el rearme; un canal pegado que no deja rearmar); la faja de prueba de categoría 3:
   un NC pegado → para igual (verde); el de un canal con su NC pegado → no para (rojo); la huella
   de los escenarios de antes sin cambio.
+- **F2b — ¿Entra la lengüeta?** (`library`, `services` · S): la puerta de entrega mide en el 3D
+  que, con el resguardo cerrado, la lengüeta esté en la ranura de su interruptor y, con la junta de
+  la hoja en su otro extremo, fuera. Nace de dos máquinas del 2026-10-27 con la lengüeta fuera y
+  todo en verde (bitácora).
 - **F2 — Verifica** (S): en la máquina viva, sobre una copia de la faja piloto recableada con la
   seta de dos NC, simular el NC pegado y apretar la seta. Mario lo ve.
 
@@ -253,3 +257,72 @@ bornes y la envolvente de los variadores con la línea nueva; `I_entrada_A`; los
 
 **Vigencia.** Sin `GEOM_CACHE_EPOCH`, versión de comando ni `COSIM_EPOCH`. Sólo la firma de los
 documentos que usan `VFD-1K5-220` (D-h).
+
+### F2b (2026-10-27): ¿entra la lengüeta?
+
+**Por qué.** Dos máquinas modeladas por MCP esta noche (una mezcladora con tapa y un tanque con
+boca de inspección), cada una con su `RESG-2NC` y su `RESG-LENGUETA` en la hoja, dejaron la
+lengüeta FUERA de la ranura con el resguardo cerrado (en una, 3,5 mm por encima del cabezal; en la
+otra, la punta justo en la boca). El ERC, la puerta de entrega y la FAT dieron verde: la
+co-simulación toma el contacto como cerrado sin mirar la geometría. Lo vio un revisor a ciegas con
+`measure`. En la vida real la máquina no arranca, o el operario puentea el enclavamiento.
+
+**Qué hace.** `library/enclavamiento.py` (puro) y `services/enclavamientos.py` (lee, empareja y
+posa); entra en `delivery_check` como sección «enclavamiento del resguardo» SÓLO si la escena tiene
+interruptores de resguardo o lengüetas (sin ellos, la puerta da lo de siempre).
+- **Cerrado**: profundidad = (punta − boca) · eje de la ranura, con `insercion_min_mm` ≤
+  profundidad ≤ fondo (16 mm), y la sección de la lengüeta (sus 4 esquinas en la punta y donde
+  cruza la boca) dentro de la de la ranura. Error = ROJO.
+- **Abierto**: con junta, en el valor de la junta más lejano al cerrado la lengüeta tiene que estar
+  fuera (la punta no pasó la boca, o ninguna esquina cae en la sección de la ranura). Error = ROJO.
+- **No verificable** = AMARILLO: interruptor sin lengüeta, lengüeta sin interruptor, pieza sin
+  las anclas, emparejamiento ambiguo, y la lengüeta unida a una hoja que gira sin colgar de su
+  junta (el modelo no la mueve al abrir). Sin junta en la hoja, `no_aplica` (nunca verde).
+
+**Cifras de las dos máquinas** (sólo lectura de `C:\t\maq\…\apolo.db`, proyecto 1; el caso malo,
+moviendo la lengüeta en una copia en memoria con `edit` de su `position.z` y regenerando):
+
+| máquina | estado actual | lengüeta en la boca | 3,5 mm por encima | puerta actual |
+|---|---|---|---|---|
+| mezcladora-paletas-200l (-B1 c66 / c67, junta `j_tapa_carga` 0–100°) | entra 12,0 mm; abierta (100°) sale | ROJO | ROJO | AMARILLO por otras reglas; la sección, OK |
+| tanque-agitador-500l (-B1 c44 / c45, junta `j_tapa_boca` 0–105°) | entra 12,5 mm; abierta (105°) sale | ROJO | ROJO | VERDE con la sección OK |
+
+La sección tarda 16 ms de CPU en cada una (199 y 107 sólidos).
+
+**Decisiones (para vetar).**
+- **D-l, emparejamiento.** Interruptor = pieza cuya ficha nombra su actuador (`specs.actuador`);
+  lengüeta = pieza cuya ref es el actuador de alguna ficha. Primero por DESIGNACIÓN (la del
+  dispositivo que liga al interruptor o, sin carril, la de su nombre; la lengüeta cuyo nombre la
+  lleva, si es una sola); el resto por cercanía (punta ↔ boca, la menor entre la pose de diseño y
+  los extremos de la junta), de menor a mayor. Si otra pieza libre queda a menos de 20 mm más que
+  la elegida (`AMBIGUO_MM`), aviso que las nombra; el par se evalúa igual.
+- **D-m, el mínimo de inserción** es `specs.insercion_min_mm: 12` de `RESG-2NC`: **criterio de
+  diseño, a confirmar** con la ficha de la línea (la cota del actuador insertado y su tolerancia no
+  se pudieron leer: la página de producto de se.com no la publica en texto). Ranura de 16 mm menos
+  4 mm de juego. Las dos máquinas corregidas quedan en 12,0 y 12,5 mm: pasan justo; si la ficha
+  pide más, las dos caen en ROJO, que es lo correcto. Una ficha sin el dato usa 12
+  (`INSERCION_MIN_DEFECTO`).
+- **D-n, la tolerancia de alineación es la holgura del propio par** (±1 mm de ancho, ±0,5 mm de
+  canto: ranura 20 × 4,5, lengüeta 18 × 3,5), medida en las esquinas: más allá la lengüeta choca
+  con el cabezal. Con la lengüeta inclinada lo dicen las esquinas de la boca (5° por el canto ya
+  no entra).
+- **D-o, la geometría sale de las anclas que ya había** (`ranura`, `punta`, `fijacion_1/2`: el
+  marco completo) y de las cotas del builder (`RESG_RANURA`, `RESG_LENGUETA`), nunca del bbox. No
+  se agregó ninguna ancla: así un open caliente (la caché guarda las anclas de cada Feature) da lo
+  mismo que uno frío y no hay bump de `GEOM_CACHE_EPOCH`. La geometría no cambió.
+- **D-p, poses**: la de diseño y los extremos (`lower`, `upper`) de la primera junta no `fija`
+  subiendo por la cadena de la lengüeta, con la FK del servidor (`feature_location`, las anclas
+  con la misma `Location` que la forma). Cerrado = la de diseño si entra, si no el primer extremo
+  en que entra (una hoja dibujada abierta); abierto = el valor más lejano al cerrado.
+- **D-q, sólo en la puerta de entrega, no en el ERC**: el ERC entra a la puerta por su sección
+  «eléctrico» y la misma falla saldría dos veces; además la verificación vale sin carril (un
+  interruptor y su lengüeta sin `add_device`). `electrical_check` no la muestra.
+- **D-r, `VERSION_BATERIA` 2 → 3**: chequeo nuevo del núcleo. Sólo se publica con extensiones
+  («3+nombre.v»): una extensión que compare la cadena con «2+…» tiene que actualizarse.
+
+**Verificación.** `tests/test_enclavamiento_resguardo.py` (16): bien puesta = OK; 3,5 mm por
+encima, en la boca, corta (8 mm) y hasta el fondo = ROJO; corrida 1,5 mm de lado = ROJO y 0,9 mm
+= OK; inclinada 5° = desalineada; con junta, abierta = fuera; dibujada abierta con junta
+prismática = cerrado en el extremo; junta que no la saca = ROJO; unida a la hoja sin colgar de su
+junta = aviso; sin lengüeta = aviso; sin resguardos = sin sección; dos pares a 30 mm sin
+designación = aviso de ambigüedad, con ella no; la designación gana a la cercanía.
