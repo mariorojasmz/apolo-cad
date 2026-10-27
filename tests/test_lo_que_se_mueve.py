@@ -1,8 +1,9 @@
 """Plan lo-que-se-mueve, D2: en una pose que no es la de diseño, el `fasten` entre piezas que
 mueven juntas DISTINTAS deja de excluir su choque de la puerta de entrega. Una unión «artefacto»
 (la plataforma del elevador «unida» a los tramos de cadena que atravesaba en la pose de +1500 mm)
-deja ver el choque; un tope legítimo que sólo toca en la pose de diseño se separa y no da falso
-positivo; los `fasten` de un super-comando de cadena siguen excluidos."""
+deja ver el choque; un tope legítimo que toca en la pose de diseño y la bisagra que toca en todo el
+recorrido siguen excluidos (no dan falso positivo); los `fasten` de un super-comando de cadena
+también."""
 
 from __future__ import annotations
 
@@ -79,8 +80,7 @@ def test_el_tope_que_solo_toca_en_diseno_no_da_falso_positivo():
     d, ids = _elevador()
     d.execute("fasten", {"name": "tope", "a": ids["plataforma"], "b": ids["tope"],
                          "kind": "contacto"})
-    uniones = uniones_entre_juntas(d)
-    assert set(uniones) == {frozenset((ids["plataforma"], ids["tope"]))}
+    assert uniones_entre_juntas(d) == {}  # se toca en diseño: su unión no es un artefacto
     # a 200 mm no llega al tramo de cadena (x ≥ 270): sólo cuenta el tope
     d.set_motion("subir", [{"t": 0, "values": {"sube": 0}}, {"t": 1, "values": {"sube": 200}}])
     ins = delivery_inputs(d, expand=_sin_grupos)
@@ -98,7 +98,10 @@ def test_la_union_sigue_excluyendo_si_la_pose_no_mueve_sus_juntas():
     brazo = _caja(d, "Brazo", 40, 40, 100, x=0, y=400)
     d.execute("add_joint", {"name": "gira", "type": "giratoria", "parent": ids["base"],
                             "child": brazo, "axis": {"z": 1}, "lower": -90, "upper": 90})
+    d.execute("fasten", {"name": "artefacto", "a": ids["plataforma"], "b": ids["tramo"],
+                         "kind": "contacto"})
     uniones = uniones_entre_juntas(d)
+    assert set(uniones) == {frozenset((ids["plataforma"], ids["tramo"]))}
     assert liberadas_en_pose(uniones, {"sube": 0, "gira": 30}) == set()
     assert liberadas_en_pose(uniones, {"sube": 300, "gira": 30}) == set(uniones)
     d.set_motion("subir", [{"t": 0, "values": {"sube": 0, "gira": 0}},
@@ -130,3 +133,22 @@ def test_los_fasten_de_una_cadena_no_cuentan():
     otro = _caja(d, "Soporte", 40, 40, 40, x=0, y=360, z=600)
     d.execute("fasten", {"name": "a_mano_2", "a": a, "b": otro, "kind": "contacto"})
     assert [u["union"] for u in uniones_entre_juntas(d).values()] == ["a_mano_2"]
+
+
+def test_la_bisagra_que_se_toca_en_todo_el_recorrido_no_da_falso_positivo():
+    """Las dos mitades de una bisagra, unidas por su pasador, giran una contra otra y se tocan en
+    diseño: la tapa abierta no las hace «chocar» (falso positivo de la mezcladora a 95°)."""
+    d = Document()
+    base = _caja(d, "Bastidor", 200, 200, 20, z=-10)
+    d.execute("ground", {"name": "g", "feature": base})
+    tapa = _caja(d, "Tapa", 200, 200, 4, z=12)
+    fija = _caja(d, "Media bisagra fija", 40, 10, 20, y=105, z=0)
+    movil = _caja(d, "Media bisagra móvil", 40, 10, 20, y=105, z=20)
+    d.execute("fasten", {"name": "sold_fija", "a": fija, "b": base, "kind": "soldadura",
+                         "throat_mm": 3, "length_mm": 40})
+    d.execute("add_joint", {"name": "abre", "type": "giratoria", "parent": base, "child": tapa,
+                            "origin": {"x": 0, "y": 105, "z": 10}, "axis": {"x": 1},
+                            "lower": 0, "upper": 95, "arrastrar": False})
+    d.execute("add_joint", {"name": "jf_movil", "type": "fija", "parent": tapa, "child": movil})
+    d.execute("fasten", {"name": "pasador", "a": fija, "b": movil, "kind": "contacto"})
+    assert uniones_entre_juntas(d) == {}

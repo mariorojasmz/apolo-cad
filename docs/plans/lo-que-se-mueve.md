@@ -229,3 +229,8 @@ Lo que pediría una pieza sin norma es AVISO justificable por escrito.
     7,4 s por candidata en la tapa del tensor. Sin apoyos (el testigo tal cual), 0 ms.
   - Testigos re-congelados sólo por la versión y el ítem nuevo (NO_APLICA en faja y ménsulas, OK
     en rodillos, que además estaba en v14).
+- **Ajuste de D2 (2026-10-27, al pasar las 4 máquinas por v16):** la mezcladora dio un choque
+  falso a 95°: las dos mitades de la bisagra de la tapa, unidas por su pasador, se tocan en todo el
+  recorrido. Un par que ya se TOCA en la pose de diseño (≤ 0,05 mm) sigue excluido en las poses
+  (`delivery_inputs._se_tocan`); la unión «artefacto» tapa un choque que en diseño no existe, y
+  ésa sigue contando. Riesgo que queda: un artefacto entre piezas que ya se tocan en diseño.

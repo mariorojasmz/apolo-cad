@@ -55,7 +55,10 @@ def uniones_entre_juntas(doc, pares: set | None = None) -> dict[frozenset, dict]
     también los que corrió un compuesto, por el command_id de una pieza «cadena|»/«izaje|»): la
     cadena sigue a su pieza por la FK de izaje o es la de la marcha, no una unión rígida. Tampoco
     el par padre-hijo de una junta: lo sigue excluyendo `joint_pairs` (en pose, su
-    interpenetración se mide contra la de diseño)."""
+    interpenetración se mide contra la de diseño). Ni el par que ya se TOCA en la pose de diseño
+    (`_se_tocan`): las dos mitades de una bisagra, un eje en su buje giran una contra otra y se
+    tocan en todo el recorrido (la tapa de la mezcladora daba un choque falso a 95°); la unión
+    «artefacto» tapa un choque que en diseño no existe, y ésa sigue contando."""
     from apolo.library.calidad.cadenas import COMANDOS
     from apolo.library.checks import joint_pairs
 
@@ -77,7 +80,24 @@ def uniones_entre_juntas(doc, pares: set | None = None) -> dict[frozenset, dict]
         ja, jb = _juntas_que_mueven(doc, f["a"]), _juntas_que_mueven(doc, f["b"])
         if ja[:1] != jb[:1] and par not in out:  # distinta junta móvil: alguna no es `fija`
             out[par] = {"union": nombre, "juntas": (ja, jb)}
-    return {p: v for p, v in out.items() if p not in excluidos}
+    return {p: v for p, v in out.items() if p not in excluidos and not _se_tocan(doc, p)}
+
+
+#: Hasta esta distancia (mm) dos piezas se TOCAN en la pose de diseño (contacto o solape).
+TOCA_MM = 0.05
+
+
+def _se_tocan(doc, par: frozenset) -> bool:
+    """¿Las dos piezas del par se tocan o solapan en la pose de diseño? Sin forma, no."""
+    from apolo.kernel.measure import measure_distance
+
+    a, b = (doc.scene.get(i) for i in par)
+    if getattr(a, "shape", None) is None or getattr(b, "shape", None) is None:
+        return False
+    try:
+        return measure_distance(a.shape, b.shape)["dist_mm"] <= TOCA_MM
+    except ValueError:
+        return False
 
 
 def liberadas_en_pose(uniones: dict[frozenset, dict], valores: dict) -> set[frozenset]:
