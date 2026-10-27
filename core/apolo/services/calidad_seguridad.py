@@ -187,6 +187,7 @@ def _analizar(dc: dict) -> dict:
     from apolo.library.seguridad.modelo import clase_flexible
     from apolo.library.seguridad.peligros import cuerpos, giro, peligros_mecanicos
 
+    from .calidad_extremos import filtrar_extremos
     from .calidad_salidas import peligros_de_salida
 
     piezas, juntas, uniones = dc["piezas"], dc["juntas"], dc["uniones"]
@@ -195,10 +196,12 @@ def _analizar(dc: dict) -> dict:
     tambores = _tambor_por_cuerpo(tocan, piezas, gira, juntas, uniones)
     # lo que mueve la mano (una junta de servicio) se mueve: no es resguardo fijo ni ancla un cable
     moviles = gira | {i for i, p in piezas.items() if clase_flexible(p)} | dc.get("servicio", set())
-    peligros = (peligros_mecanicos(piezas, juntas, uniones, gira, tambores, acoples)
-                + peligros_de_salida(dc, cuerpos(gira, juntas, uniones)))
+    # el extremo de eje LISO que sobresale ≤ ½·d de su apoyo no es peligro (OSHA 1910.219(c)(4))
+    peligros, exentos = filtrar_extremos(
+        dc, peligros_mecanicos(piezas, juntas, uniones, gira, tambores, acoples), gira)
+    peligros += peligros_de_salida(dc, cuerpos(gira, juntas, uniones))
     return {"dc": dc, "tocan": tocan, "gira": gira, "tambores": tambores, "moviles": moviles,
-            "acoples": sorted(acoples), "peligros": peligros,
+            "acoples": sorted(acoples), "peligros": peligros, "extremos_exentos": exentos,
             "guardas": revisar_guardas(piezas, uniones, moviles),
             "desgaste": piezas_de_desgaste(piezas)}
 
@@ -333,9 +336,14 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
 
     titulo = "Cada peligro mecánico queda fuera del alcance (sondas ISO 13857)"
     modo = "atrapamiento o enganche de manos y brazos en lo que gira o en una cuña"
+    exentos = an.get("extremos_exentos") or []
+    con_exentos = {"extremos_exentos": exentos} if exentos else {}
     if not peligros:
         it_res = item(ID_RESGUARDO, titulo, "NO_APLICA", modo, NORMA_13857,
-                      {"motivo": "ninguna pieza gira ni se mueve"})
+                      {"motivo": ("lo que gira sólo tiene extremos de eje lisos que sobresalen "
+                                  "≤ ½·d de su apoyo (OSHA 1910.219(c)(4)): no son peligro"
+                                  if exentos else "ninguna pieza gira ni se mueve"),
+                       **con_exentos})
     else:
         estados = [r["estado"] for r in resultados.values()]
         estado = ("FALLA" if "FALLA" in estados else
@@ -346,7 +354,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
               "direcciones": n_direcciones, "rayos": tr.n_rayos,
               "excepcion": "el ramal de carga de la banda (zona de trabajo) no es peligro; "
                            "sus cuñas con los tambores sí",
-              **({"brazo_doblado": doblado} if doblado is not None else {})}
+              **({"brazo_doblado": doblado} if doblado is not None else {}), **con_exentos}
         it_res = item(ID_RESGUARDO, titulo, estado, modo, NORMA_13857, ev,
                       [i for p in malos for i in p["piezas"]],
                       "; ".join(f"{p['peligro']}: {resultados[p['id']]['estado']} "

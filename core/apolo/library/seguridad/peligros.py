@@ -26,7 +26,8 @@ Peligros (cada uno con su conjunto de piezas peligrosas y sus puntos objetivo de
 - **salida del motorreductor** (enganche, `transmision_rigida`): donde un eje que gira entra o
   sale de la caja de un motorreductor (el cubo del eje hueco); sus puntos, de `services`;
 - **extremo de eje giratorio** (enganche): los dos extremos axiales del cuerpo que contiene un
-  eje giratorio o un tambor de catálogo (eje integral);
+  eje giratorio o un tambor de catálogo (eje integral); `services/calidad_extremos` quita el
+  extremo LISO que sobresale ≤ ½·d de su apoyo (`extremo_eje.py`: OSHA 1910.219(c)(4));
 - **pieza giratoria** (enganche): un cuerpo hijo de junta que no es nada de lo anterior.
 
 Declarado: el rodillo PORTANTE liso (tubo de un transportador de rodillos) y la cara del tambor
@@ -132,9 +133,10 @@ def _es_transmision(p: Pieza, gira: set[str], acoples: set[str]) -> bool:
     return p.id in gira and (p.categoria == "transmision" or bool(_TRANSMISION_RE.search(p.nombre)))
 
 
-def _extremos(cuerpo: set[str], piezas: dict[str, Pieza]) -> list[tuple]:
-    """Los dos extremos axiales del cuerpo, sobre el eje de su pieza redonda más larga, 3 mm
-    hacia adentro."""
+def _extremos(cuerpo: set[str], piezas: dict[str, Pieza]) -> list[dict]:
+    """Los dos extremos axiales del cuerpo, sobre el eje de su pieza redonda más larga: {punto
+    (3 mm hacia adentro), lado (−1 | +1), eje (0/1/2), centro (de la línea), punta (la coordenada
+    del extremo), pieza (la que llega a él)}. `services/calidad_extremos` mide cada uno."""
     redondas = [piezas[i] for i in cuerpo if piezas[i].redondo is not None]
     if not redondas:
         return []
@@ -142,10 +144,13 @@ def _extremos(cuerpo: set[str], piezas: dict[str, Pieza]) -> list[tuple]:
     lo = min(piezas[i].caja[0][r.eje] for i in cuerpo)
     hi = max(piezas[i].caja[1][r.eje] for i in cuerpo)
     out = []
-    for v in (lo + 3.0, hi - 3.0):
+    for lado, punta, v in ((-1, lo, lo + 3.0), (1, hi, hi - 3.0)):
         q = list(r.centro)
         q[r.eje] = v
-        out.append(tuple(q))
+        k = 0 if lado < 0 else 1
+        pieza = sorted(i for i in cuerpo if abs(piezas[i].caja[k][r.eje] - punta) <= 0.01)[0]
+        out.append({"punto": tuple(q), "lado": lado, "eje": r.eje, "centro": r.centro,
+                    "punta": punta, "pieza": pieza})
     return out
 
 
@@ -193,12 +198,13 @@ def peligros_mecanicos(piezas: dict[str, Pieza], juntas: list[dict], uniones: li
     hijas = {j["child"] for j in juntas if de_giro(j)}
     for c in bodies:
         if any(piezas[i].rol == "eje" or piezas[i].categoria == "tambores" for i in c):
-            puntos = _extremos(c, piezas)
-            if puntos:
+            extremos = _extremos(c, piezas)
+            if extremos:
                 eje = sorted(c, key=lambda i: (piezas[i].rol != "eje", piezas[i].nombre))[0]
                 out.append({"id": f"extremo_eje:{eje}", "tipo": "enganche",
                             "peligro": f"Extremos de eje giratorio: {piezas[eje].nombre}",
-                            "piezas": sorted(c), "objetivos": puntos})
+                            "piezas": sorted(c), "objetivos": [x["punto"] for x in extremos],
+                            "extremos": extremos})
             continue
         if c & usados or not (c & hijas):
             continue
@@ -227,7 +233,8 @@ def resultado_peligro(peligro: dict, sondas: list[dict], ms: float,
             "bloqueado_por": resguardos, "ms": round(ms),
             **({"motivo": peligro["motivo"]} if peligro.get("motivo") else {}),
             **({"en_holgura": holguras[:max_evidencias]} if holguras else {}),
-            **({"sentido": peligro["sentido"]} if peligro.get("sentido") else {})}
+            **({"sentido": peligro["sentido"]} if peligro.get("sentido") else {}),
+            **({"extremos": peligro["extremos"]} if peligro.get("extremos") else {})}
 
 
 def tabla_riesgos(peligros: list[dict], resultados: dict[str, dict], piezas: dict[str, Pieza],
