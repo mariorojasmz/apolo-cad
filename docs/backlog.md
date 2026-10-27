@@ -154,8 +154,9 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
   las cotas caen fuera del marco (el puente del tanque, la placa de amarre del elevador), y en la
   de conjunto las tablas pisan el rótulo de la isométrica. Hace falta un control que mida cada
   cota y cada tabla contra el marco y el cajetín antes de entregar el juego.
-- **`tests/test_negocio_fuera.py` es frágil**: busca por subcadena y marca «shorts» dentro de
-  «short circuits». Debería cortar por palabra entera.
+- **`tests/test_negocio_fuera.py` es frágil**: busca por subcadena, así que una palabra del
+  negocio en plural la encuentra dentro de una frase técnica en inglés («short circuits»).
+  Debería cortar por palabra entera.
 - **El tablero no lleva placa de leyenda**: en `docs/readme/tablero-3d.png` los mandos de la
   puerta no tienen texto. Con el rótulo de [nombres-por-funcion](plans/nombres-por-funcion.md),
   el dato ya existe para grabarlo en el 3D y en el plano del tablero (plan aparte, § 7 del plan).
