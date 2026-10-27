@@ -56,33 +56,20 @@ export function girar(m: MandoVivo, valor: string | number): Accion {
   return { accion: "girar", dispositivo: m.designacion, valor: v };
 }
 
+/** Llevar un mando que SE QUEDA a uno de sus estados (el segmento elegido, D9): el seccionador
+ *  o el resguardo a «cerrado» o «abierto» (`cerrar`/`abrir`), el selector a una posición. */
+export function llevarA(m: MandoVivo, clave: string): Accion {
+  if (m.tipo === "selector") return girar(m, clave);
+  return base(clave === "cerrado" ? "cerrar" : "abrir", m);
+}
+
 /** Un pulsador se mantiene apretado mientras dura el clic (su soltar importa). */
 export function esMomentaneo(m: MandoVivo): boolean {
   return m.tipo === "pulsador" && (m.retorno ?? "resorte") === "resorte";
 }
 
-const NOMBRES: Record<string, string> = {
-  pulsador: "Pulsador",
-  seta: "Seta de emergencia",
-  selector: "Selector",
-  seccionador: "Seccionador",
-  resguardo: "Resguardo",
-};
-
-/** Cómo se llama el tipo de mando en pantalla. */
-export function nombreTipo(m: MandoVivo): string {
-  return NOMBRES[m.tipo] ?? "Mando";
-}
-
-/** El tipo con su estado, para los que se quedan como los dejas: «Resguardo abierto», «Seta de
- *  emergencia presionada» (el estado en texto, no sólo en la tapa); sin señal todavía, o en un
- *  pulsador, sólo el tipo. */
-export function nombreConEstado(m: MandoVivo, e: EstadoMando = {}): string {
-  const tipo = nombreTipo(m);
-  if (m.tipo === "seta" && e.retenida !== undefined) return `${tipo} ${e.retenida ? "presionada" : "liberada"}`;
-  if ((m.tipo !== "seccionador" && m.tipo !== "resguardo") || e.cerrado === undefined) return tipo;
-  return `${tipo} ${e.cerrado ? "cerrado" : "abierto"}`;
-}
+/* Cómo se LLAMA cada mando no sale de aquí: lo da el servidor (`rotulo`, `estados`; plan
+   nombres-por-funcion D13) y lo arma `nombresMandos.ts`. Aquí sólo el verbo del botón. */
 
 /** El rótulo del botón según lo que va a hacer. */
 export function rotuloAccion(m: MandoVivo, e: EstadoMando = {}): string {

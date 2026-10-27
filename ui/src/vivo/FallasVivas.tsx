@@ -3,7 +3,7 @@ import IconoSeveridad from "../diseno/IconoSeveridad";
 import { useVivo } from "./estado";
 import { useFallasActivas } from "./FallasActivas";
 import {
-  activaIgual, armarFalla, camposDe, nombreTipoFalla, objetivosDe, rotuloFalla,
+  activaIgual, armarFalla, camposDe, objetivosDe, rotuloFalla,
   type Campo, type Elegido, type EventoFalla, type Objetivo,
 } from "./fallas";
 import { enviarEvento } from "./sesion";
@@ -96,9 +96,10 @@ export default function FallasVivas({ quieto, alSimular = enviarEvento }: Props)
   );
 }
 
+/** «Seguridad de tapa y seta · -K2», «Contacto 13-14 · Seguridad de tapa y seta», «Cable Red →
+ *  Interruptor general»: el nombre lo da el servidor (nombres-por-funcion D13). */
 function opcionObjetivo(o: Objetivo) {
-  const nombre = o.clase === "dispositivo" ? o.designacion : o.id;
-  return <option key={o.clave} value={o.clave}>{nombre} · {nombreTipoFalla(o.tipo)}</option>;
+  return <option key={o.clave} value={o.clave}>{o.nombre}</option>;
 }
 
 function CampoValor({ c, valor, quieto, alCambiar }: {

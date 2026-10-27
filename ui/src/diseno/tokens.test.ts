@@ -40,7 +40,10 @@ describe("tokens del tema", () => {
   it("el CSS de diseno/, tablero/, neumatica/ y pruebas/ usa sólo tokens: sin colores, tamaños de letra ni duraciones sueltas", () => {
     const css = [AQUI, join(AQUI, "..", "tablero"), join(AQUI, "..", "neumatica"), join(AQUI, "..", "pruebas")]
       .flatMap((dir) => readdirSync(dir).filter((f) => f.endsWith(".css")).map((f) => join(dir, f)))
+      // la fila de «Mandos» (nombres-por-funcion D9); el resto de `vivo/` lleva el color físico
+      .concat(join(AQUI, "..", "vivo", "mandos.css"))
       .map((f) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "")).join("\n");
+    expect(css).toContain(".segmentado");
     expect(css).toContain(".tb-fila"); // el panel «Tablero» (V8.5 F3b) entra al control
     expect(css).toContain(".nm-esquema"); // y el panel «Neumática» (V8.9 F6)
     expect(css).toContain(".pr-fila"); // y el panel «Pruebas» (visor-para-evaluar D5)

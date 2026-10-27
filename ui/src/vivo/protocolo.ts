@@ -5,9 +5,27 @@ import type { CadenaSerie, FajaSerie } from "../viewport/marcha/serie";
    los JSON cortos y del fotograma binario, y el texto para la persona de cada cierre. Puro: sin
    WebSocket ni three.js (se prueba en node). */
 
+/** El nombre por FUNCIÓN de un aparato (plan nombres-por-funcion D3, D9–D11): lo suma la API a
+ *  cada fila del `inicio` (`services/nombres_aparatos.py`). Un servidor anterior no lo trae: la UI
+ *  cae a la designación, nunca a una tabla propia. */
+export interface NombreAparato {
+  /** «Marcha», «Tapa del tanque»: lo que hace, como en su placa. */
+  rotulo?: string;
+  /** De dónde salió el rótulo: «declarado», «pieza», «derivado» o «tipo». */
+  origen?: string;
+  /** «energia», «seguridad», «operacion», «pilotos» o «lecturas». */
+  grupo?: string;
+  /** El nombre de cada estado o posición, en el orden de su ficha («cerrado» → «Cerrada»). */
+  estados?: Record<string, string>;
+  /** Una frase para la ⓘ, si el modelador la escribió. */
+  descripcion?: string;
+  /** Los relés de seguridad que rearma este mando. */
+  rearma?: string[];
+}
+
 /** Un mando del tablero (pulsador, seta, selector, seccionador, resguardo) como lo publica el
  *  `inicio`. */
-export interface MandoVivo {
+export interface MandoVivo extends NombreAparato {
   designacion: string;
   tipo: string;
   ref: string;
@@ -24,7 +42,7 @@ export interface MandoVivo {
   senales: string[];
 }
 
-export interface PilotoVivo {
+export interface PilotoVivo extends NombreAparato {
   designacion: string;
   ref: string;
   color: string | null;
@@ -33,7 +51,7 @@ export interface PilotoVivo {
   senal: string;
 }
 
-export interface DispositivoVivo {
+export interface DispositivoVivo extends NombreAparato {
   designacion: string;
   tipo: string;
   ref: string;
@@ -68,6 +86,9 @@ export interface AparatoFallas {
   designacion: string;
   tipo: string;
   fallas: FallaCatalogo[];
+  /** El nombre por función (nombres-por-funcion F1); un servidor anterior no lo trae. */
+  rotulo?: string;
+  origen?: string;
 }
 
 /** Un contacto (o un conductor con largo) que se puede pegar o cortar (D3, D6). */
@@ -76,6 +97,9 @@ export interface RamaVivo {
   tipo: "contacto" | "conductor" | string;
   red: string;
   dispositivo?: string;
+  /** «Contacto 13-14 · Seguridad de tapa y seta», «Cable Red → Interruptor general»: el cable por
+   *  sus extremos, nunca su id (nombres-por-funcion F1). */
+  nombre?: string;
 }
 
 export interface InicioVivo {
@@ -83,6 +107,8 @@ export interface InicioVivo {
   version: number;
   proyecto: number | null;
   escenario: string;
+  /** «Ciclo nominal»: el escenario para la persona (el id va en `escenario`). */
+  titulo_escenario?: string;
   firma: string;
   ventana_s: number;
   max_s: number;

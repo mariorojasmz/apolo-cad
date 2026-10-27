@@ -3,7 +3,7 @@ import { esperaDe, estadoDeMando } from "./accionar";
 import { readFileSync } from "node:fs";
 import { ACABADO_DE_COLOR, ACABADOS } from "../viewport/acabados";
 import type { ZonaOut } from "../types";
-import { alApretar, alSoltar, colorFisico, EMISION_PILOTO, encendido, girar, materialesQueBrillan, nombreConEstado,
+import { alApretar, alSoltar, colorFisico, EMISION_PILOTO, encendido, girar, llevarA, materialesQueBrillan,
   rotuloAccion, tonoEncendido } from "./mandos";
 import type { MandoVivo } from "./protocolo";
 
@@ -59,11 +59,6 @@ describe("mando → mensaje", () => {
     expect(alSoltar(B2)).toBeNull();
     expect(rotuloAccion(B2, { cerrado: true })).toBe("Abrir");
     expect(rotuloAccion(B2, { cerrado: false })).toBe("Cerrar");
-    expect(nombreConEstado(B2, { cerrado: false })).toBe("Resguardo abierto");
-    expect(nombreConEstado(B2)).toBe("Resguardo"); // sin señal todavía
-    expect(nombreConEstado(S0, { retenida: true })).toBe("Seta de emergencia presionada");
-    expect(nombreConEstado(S0, { retenida: false })).toBe("Seta de emergencia liberada");
-    expect(nombreConEstado(S0)).toBe("Seta de emergencia"); // sin señal todavía
     expect(rotuloAccion(S1)).toBe("Presionar"); // un solo verbo para apretar un mando
     expect(estadoDeMando(B2, { lecturas: { "-B2.cerrado": 0 }, esperadas: {} })).toEqual({ cerrado: false });
     expect(esperaDe({ accion: "cerrar", dispositivo: "-B2" }, B2)).toEqual({ senal: "-B2.cerrado", valor: 1 });
@@ -73,6 +68,17 @@ describe("mando → mensaje", () => {
     expect(girar(S5, "I")).toEqual({ accion: "girar", dispositivo: "-S5", valor: "I" });
     expect(girar(S1, 1.4)).toEqual({ accion: "girar", dispositivo: "-S1", valor: 1 });
     expect(alApretar(S5)).toBeNull();
+  });
+
+  it("un segmento lleva el mando a ese estado: cerrar/abrir o girar (nombres-por-funcion D9)", () => {
+    expect(llevarA(Q1, "abierto")).toEqual({ accion: "abrir", dispositivo: "-Q1" });
+    expect(llevarA(B2, "cerrado")).toEqual({ accion: "cerrar", dispositivo: "-B2" });
+    expect(llevarA(S5, "II")).toEqual({ accion: "girar", dispositivo: "-S5", valor: "II" });
+  });
+
+  it("la UI no guarda nombres de tipo de mando (los da el servidor, D13)", () => {
+    const fuente = readFileSync(new URL("./mandos.ts", import.meta.url), "utf8");
+    expect(fuente).not.toMatch(/Seta de emergencia|"Seccionador"|"Resguardo"|"Selector"/);
   });
 });
 

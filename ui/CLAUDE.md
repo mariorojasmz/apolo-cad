@@ -368,7 +368,9 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   `BarraVivo`); el árbol en el panel «Señales» y el ST con valores en «PLC» (el texto sale del log,
   `add_program.fuente`; global `-K1.v`, local `-K1.Main.v`).
 - «Simular falla» (`vivo/FallasVivas.tsx`, `FallasActivas.tsx` en la barra): lo que se ofrece sale
-  SIEMPRE de `inicio.fallas`/`inicio.ramas`; `fallas.ts` sólo le pone nombre. La activa de un aparato
+  SIEMPRE de `inicio.fallas`/`inicio.ramas`; `fallas.ts` sólo nombra la FALLA (el aparato y el cable, el
+  servidor: `rotulo`, `nombre`). «Mandos» se lee en `vivo/nombresMandos.ts` (grupos, segmentos con el
+  estado LEÍDO, veredicto) y su fila en `FilaMando.tsx`. La activa de un aparato
   llega en `<des>.averia` (textos); la de una RAMA no publica señal y se lleva por el ack de su evento
   (`conAckDeRama`). [cosim-fallas](../docs/plans/cosim-fallas.md) D7
 - Agarrar y mover: el pointerdown selecciona y arma un `movePick` pendiente; el arrastre real

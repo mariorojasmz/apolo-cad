@@ -4,7 +4,7 @@ import { segundos } from "../../viewport/marcha/serie";
 import { rotuloFase, textoFactor } from "../../vivo/barra";
 import FallasActivas from "../../vivo/FallasActivas";
 import FallasVivas from "../../vivo/FallasVivas";
-import { AccionarMando, Lecturas, ListaMandos } from "../../vivo/PanelMandos";
+import { AccionarMando, Lecturas, ListaMandos, Pilotos } from "../../vivo/PanelMandos";
 import { accionarLocal, prepararSesionDemo, simularLocal } from "./datosVivo";
 import ChipsVivo from "../../vivo/ChipsVivo";
 import { EXTENSION_PRUEBA } from "./extensionPrueba";
@@ -13,7 +13,8 @@ import "../../viewport/marcha/marcha.css";
 /* «Mandos», «Simular falla» y las fallas activas de la barra (planes cosim-fallas D7 y
    mandos-de-seguridad) en el muestrario, con una sesión viva de ejemplo (`datosVivo.ts`): los
    mandos, simular y quitar cambian lo que se ve como lo haría el servidor. La barra lleva el chip
-   de la extensión de prueba (plan plc-en-el-lazo D13). `?fallas=0|1|3` (por defecto 1) y
+   de la extensión de prueba (plan plc-en-el-lazo D13). `?fallas=0|1|3` (por defecto 1),
+   `?mandos=rearmar|marcha|sin-energia|seta|tapa` (el estado de los mandos, `datosVivo.ts`) y
    `?lista=1` (la lista de la barra abierta). */
 
 const q = () => new URLSearchParams(window.location.search);
@@ -22,12 +23,13 @@ const q = () => new URLSearchParams(window.location.search);
 function useSesionDemo(): void {
   useState(() => {
     const n = Number(q().get("fallas") ?? 1);
-    prepararSesionDemo(Number.isFinite(n) ? Math.max(0, Math.min(3, n)) : 1);
+    prepararSesionDemo(Number.isFinite(n) ? Math.max(0, Math.min(3, n)) : 1, q().get("mandos") ?? undefined);
     return true;
   });
 }
 
-/** La seta, el resguardo y el rearme, con lo que leen el relé de seguridad y el motor. */
+/** «Mandos» de la mezcladora (plan nombres-por-funcion F3): el veredicto, los 8 mandos en sus
+ *  grupos, los 4 pilotos y las lecturas del motor y los dos relés de seguridad. */
 export function PanelMandosDemo() {
   useSesionDemo();
   return (
@@ -35,6 +37,7 @@ export function PanelMandosDemo() {
       <AccionarMando.Provider value={accionarLocal}>
         <ListaMandos quieto={false} />
       </AccionarMando.Provider>
+      <Pilotos />
       <Lecturas />
     </div>
   );

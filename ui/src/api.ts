@@ -190,8 +190,9 @@ export const api = {
 
   // la última marcha simulada del proyecto como serie de tiempo (visor-realista D4)
   marcha: () => fetch("/api/physics/dynamics/serie").then((r) => json<SerieMarcha>(r)),
-  // los escenarios guardados (co-simulación): la sesión viva elige uno de base (V8.4)
-  escenarios: () => fetch("/api/escenarios").then((r) => json<{ escenarios: { nombre: string }[] }>(r)),
+  // los escenarios guardados (co-simulación): la sesión viva elige uno de base (V8.4). Salen del
+  // panel «Pruebas», que trae el `titulo` humanizado («Ciclo nominal», nombres-por-funcion D14)
+  escenarios: () => fetch("/api/pruebas").then((r) => json<{ escenarios: { nombre: string; titulo?: string }[] }>(r)),
   // el tablero armado que muestra el panel «Tablero» (V8.5 D13): la lista y el de una ubicación
   tableros: () => fetch("/api/tablero").then((r) => json<TablerosOut>(r)),
   tablero: (ubicacion: string) =>

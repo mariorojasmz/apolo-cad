@@ -193,7 +193,7 @@ describe("la sesión viva con aire", () => {
 
   it("el cilindro dice su carrera y sus presiones, con la etiqueta 3D sólo elegido", () => {
     const [l] = lecturasDe(ini, ["-MM1.x_mm", "-MM1.pA_bar", "-MM1.pB_bar"]);
-    expect(l.rotulo).toBe("Cilindro");
+    expect(l.rotulo).toBeUndefined(); // sin rótulo del servidor, la fila muestra la designación (nombres-por-funcion D13)
     expect(l.soloElegida).toBe(true);
     const v: Record<string, number> = { "-MM1.x_mm": 199.6, "-MM1.pA_bar": 6, "-MM1.pB_bar": 0.04 };
     expect(textoLectura(l, (s) => v[s])).toBe("Carrera 200 mm · avance 6,0 bar · retroceso 0,0 bar");

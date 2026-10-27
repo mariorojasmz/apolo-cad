@@ -32,8 +32,11 @@ export interface LineaLectura {
 export interface Lectura {
   designacion: string;
   tipo: string;
-  /** Rótulo corto del dispositivo: «Motor», «Variador», «Contador del PLC». */
-  rotulo: string;
+  /** Lo que HACE el aparato, del servidor (`rotulo` del `inicio`, plan nombres-por-funcion D13):
+   *  «Motor de mezcla», «Seguridad del recipiente». Sin él, la fila muestra la designación. */
+  rotulo?: string;
+  /** La frase de su ⓘ, si el modelador la escribió. */
+  descripcion?: string;
   pieza?: string;
   lineas: LineaLectura[];
   /** Su etiqueta 3D sólo con la pieza elegida (el cilindro, V8.9 D12: con varios, una maraña). */
@@ -57,23 +60,18 @@ export function lecturasDe(ini: Pick<InicioVivo, "dispositivos">, nombres: reado
   const hay = new Set(nombres);
   const out: Lectura[] = [];
   for (const d of ini.dispositivos) {
-    let rotulo = "";
     let lineas: LineaLectura[] = [];
     if (d.tipo === "motor") {
-      rotulo = "Motor";
       lineas = [
         { senal: `${d.designacion}.rpm`, unidad: "rpm", decimales: 0 },
         { senal: `${d.designacion}.I_A`, unidad: "A", decimales: 1 },
       ];
     } else if (d.tipo === "variador") {
-      rotulo = "Variador";
       lineas = [{ senal: `${d.designacion}.f_Hz`, unidad: "Hz", decimales: 1 }];
     } else if (d.tipo === "plc") {
-      rotulo = "Contador del PLC";
       const c = senalContador(d.designacion, nombres);
-      lineas = c ? [{ senal: c, unidad: "", decimales: 0 }] : [];
+      lineas = c ? [{ senal: c, unidad: "", decimales: 0, prefijo: "Contador" }] : [];
     } else if (d.tipo === "rele_seguridad") {
-      rotulo = "Relé de seguridad";
       lineas = [
         { senal: `${d.designacion}.salidas`, unidad: "", decimales: 0, si: "Habilita la marcha", no: "Corta la marcha" },
         // con los dos canales cerrados es la razón por la que no rearma (un canal pegado)
@@ -82,7 +80,6 @@ export function lecturasDe(ini: Pick<InicioVivo, "dispositivos">, nombres: reado
           cuando: [`${d.designacion}.canal1`, `${d.designacion}.canal2`] },
       ];
     } else if (d.tipo === "cilindro") {
-      rotulo = "Cilindro";
       lineas = [
         { senal: `${d.designacion}.x_mm`, unidad: "mm", decimales: 0, prefijo: "Carrera", piso: 0,
           ...(d.carrera_mm ? { techo: d.carrera_mm } : {}) },
@@ -92,7 +89,8 @@ export function lecturasDe(ini: Pick<InicioVivo, "dispositivos">, nombres: reado
     }
     lineas = lineas.filter((l) => hay.has(l.senal));
     if (lineas.length) {
-      out.push({ designacion: d.designacion, tipo: d.tipo, rotulo, pieza: d.pieza, lineas,
+      out.push({ designacion: d.designacion, tipo: d.tipo, pieza: d.pieza, lineas,
+        ...(d.rotulo ? { rotulo: d.rotulo } : {}), ...(d.descripcion ? { descripcion: d.descripcion } : {}),
         ...(d.tipo === "cilindro" ? { soloElegida: true } : {}) });
     }
   }

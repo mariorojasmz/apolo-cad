@@ -1,0 +1,39 @@
+/* La fila de «Mandos» (plan nombres-por-funcion D9–D12): jerarquía por PESO y TAMAÑO, sin cajas ni
+   colores nuevos. Lo que hace el aparato en `--fw-medio`; la designación detrás, en `--fs-nota` y
+   tinta secundaria (el electricista la encuentra, no estorba). Sólo tokens del tema: lo vigila
+   `diseno/tokens.test.ts`. El color FÍSICO de la tapa y la lámpara sigue en `vivo.css`. */
+
+.panel-mandos .veredicto { margin-bottom: var(--sp-1); }
+.panel-mandos .pista { margin: 0 0 var(--sp-2); }
+.grupo-mandos + .grupo-mandos { margin-top: var(--sp-1); }
+
+.cabeza-aparato {
+  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2); row-gap: var(--sp-1);
+  flex: 1 1 auto; min-width: 0;
+}
+.rotulo-aparato { color: var(--text); font-size: var(--fs-cuerpo); font-weight: var(--fw-medio); min-width: 0; }
+.designacion-aparato {
+  color: var(--muted); font-size: var(--fs-nota); font-weight: var(--fw-nota);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.cabeza-aparato .ayuda-btn { align-self: center; }
+.cabeza-aparato .ayuda-nota { flex-basis: 100%; }
+
+/* el estado leído junto al botón («Liberada», «Falta rearmar») o del piloto; con su control, un
+   solo bloque a la derecha que en angosto baja entero */
+.fila-mando-accion {
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2);
+  flex: none; margin-left: auto; max-width: 100%;
+}
+.estado-mando { color: var(--muted); font-size: var(--fs-cuerpo); white-space: nowrap; }
+
+/* un mando que se queda: sus estados con nombre, marcado el que dice la señal */
+.segmentado {
+  display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+}
+.segmentado button {
+  border: none; border-radius: 0; background: none; color: var(--muted);
+  font-size: var(--fs-cuerpo); padding: var(--sp-1) var(--sp-2); white-space: nowrap;
+}
+.segmentado button + button { border-left: 1px solid var(--border); }
+.segmentado button.marcado { background: var(--accent-soft); color: var(--text); font-weight: var(--fw-medio); }

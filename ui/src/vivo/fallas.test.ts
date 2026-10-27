@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  activaIgual, activasDe, armarFalla, camposDe, conAckDeRama, elegidoInicial, nombreTipoFalla, objetivosDe,
+  activaIgual, activasDe, armarFalla, camposDe, conAckDeRama, elegidoInicial, objetivosDe,
   resumenActivas, rotuloFalla, valorDe, type EventoFalla, type Objetivo,
 } from "./fallas";
 import type { InicioVivo } from "./protocolo";
@@ -182,8 +182,7 @@ describe("las activas", () => {
 });
 
 describe("el diferencial (plan datos-de-corte-y-acometida D8)", () => {
-  it("tiene nombre de tipo y sus fallas se dicen como las de una protección", () => {
-    expect(nombreTipoFalla("diferencial")).toBe("Interruptor diferencial");
+  it("sus fallas se dicen como las de una protección", () => {
     const inicio: Pick<InicioVivo, "fallas" | "ramas"> = {
       fallas: [{ designacion: "-F1", tipo: "diferencial", fallas: [{ falla: "no_dispara", pide: "" }, { falla: "abierto", pide: "" }] }],
       ramas: [],
@@ -200,8 +199,7 @@ describe("el panel de operador (plc-en-el-lazo D12)", () => {
   };
   const panel = objetivosDe(ini)[0];
 
-  it("tiene nombre de tipo y de falla; no pide valor", () => {
-    expect(nombreTipoFalla("hmi")).toBe("Panel de operador");
+  it("tiene nombre de falla; no pide valor", () => {
     expect(rotuloFalla(panel, "apagada")).toBe("Pantalla apagada");
     expect(camposDe(panel, panel.fallas[0])).toEqual([]);
     expect(armarFalla(panel, panel.fallas[0])).toEqual({ tipo: "falla", dispositivo: "-P2", falla: "apagada" });
@@ -211,5 +209,40 @@ describe("el panel de operador (plc-en-el-lazo D12)", () => {
     const [a] = activasDe({ "-P2.averia": "apagada" }, ini);
     expect(a.frase).toBe("pantalla apagada en -P2");
     expect(a.quitar).toEqual({ tipo: "falla", dispositivo: "-P2", falla: "apagada", quitar: true });
+  });
+});
+
+describe("con los nombres del servidor (nombres-por-funcion D13)", () => {
+  const ini: Pick<InicioVivo, "fallas" | "ramas"> = {
+    fallas: [{ designacion: "-K2", tipo: "rele_seguridad", rotulo: "Seguridad de tapa y seta", origen: "derivado",
+      fallas: [{ falla: "detenido", pide: "" }] }],
+    ramas: [
+      { id: "-K2:13-14", tipo: "contacto", red: "mando", dispositivo: "-K2", nombre: "Contacto 13-14 · Seguridad de tapa y seta" },
+      { id: "c160", tipo: "conductor", red: "potencia", nombre: "Cable Red de suministro → Interruptor general" },
+    ],
+  };
+
+  it("la lista nombra el aparato por lo que hace, con la designación detrás; el cable, por sus extremos", () => {
+    expect(objetivosDe(ini).map((o) => o.nombre)).toEqual([
+      "Seguridad de tapa y seta · -K2", "Contacto 13-14 · Seguridad de tapa y seta", "Cable Red de suministro → Interruptor general"]);
+    // un servidor anterior: la designación o el id, nunca un nombre de tipo de la UI
+    expect(objetivosDe(INICIO).find((o) => o.clave === "d:-K2")!.nombre).toBe("-K2");
+    expect(objetivosDe(INICIO).find((o) => o.clave === "r:-W3")!.nombre).toBe("-W3");
+  });
+
+  it("las activas dicen dónde por su nombre, sin repetir «contacto» ni «cable»", () => {
+    const ramas: EventoFalla[] = [{ tipo: "falla", rama: "-K2:13-14", falla: "pegado", valor: true },
+      { tipo: "falla", rama: "c160", falla: "abierto" }];
+    expect(activasDe({ "-K2.averia": "detenido" }, ini, ramas).map((a) => a.frase)).toEqual([
+      "relé detenido en Seguridad de tapa y seta",
+      "contacto 13-14 pegado cerrado en Seguridad de tapa y seta",
+      "cable cortado en Red de suministro → Interruptor general",
+    ]);
+  });
+
+  it("la UI no guarda nombres de tipo de aparato", async () => {
+    const { readFileSync } = await import("node:fs");
+    const fuente = readFileSync(new URL("./fallas.ts", import.meta.url), "utf8");
+    expect(fuente).not.toMatch(/"Interruptor termomagnético"|"Guardamotor"|"Relé de seguridad"/);
   });
 });

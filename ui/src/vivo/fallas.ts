@@ -16,10 +16,13 @@ export interface EventoFalla {
   quitar?: true;
 }
 
-/** A qué se le pone la falla: un aparato del `inicio.fallas` o una rama del `inicio.ramas`. */
+/** A qué se le pone la falla: un aparato del `inicio.fallas` o una rama del `inicio.ramas`.
+ *  `nombre` es lo que se lee en la lista (nombres-por-funcion D13): el rótulo y la designación de
+ *  un aparato, el contacto o el cable por sus extremos; sin rótulo (un servidor anterior), la
+ *  designación o el id, nunca un nombre de tipo inventado aquí. */
 export type Objetivo =
-  | { clase: "dispositivo"; clave: string; designacion: string; tipo: string; fallas: FallaCatalogo[] }
-  | { clase: "rama"; clave: string; id: string; tipo: string; fallas: FallaCatalogo[] };
+  | { clase: "dispositivo"; clave: string; designacion: string; tipo: string; nombre: string; fallas: FallaCatalogo[] }
+  | { clase: "rama"; clave: string; id: string; tipo: string; nombre: string; fallas: FallaCatalogo[] };
 
 /** Las dos fallas de una rama (D3); `pegado` pide cómo queda el contacto. */
 const FALLAS_CONTACTO: FallaCatalogo[] = [
@@ -31,32 +34,17 @@ const FALLAS_CONDUCTOR: FallaCatalogo[] = [{ falla: "abierto", pide: "" }];
 /** Los aparatos y las ramas que se pueden hacer fallar, en el orden del `inicio`. */
 export function objetivosDe(inicio: Pick<InicioVivo, "fallas" | "ramas">): Objetivo[] {
   const aparatos: Objetivo[] = (inicio.fallas ?? []).filter((a) => a.fallas.length).map((a: AparatoFallas) => ({
-    clase: "dispositivo", clave: `d:${a.designacion}`, designacion: a.designacion, tipo: a.tipo, fallas: a.fallas,
+    clase: "dispositivo", clave: `d:${a.designacion}`, designacion: a.designacion, tipo: a.tipo,
+    nombre: a.rotulo ? `${a.rotulo} · ${a.designacion}` : a.designacion, fallas: a.fallas,
   }));
   const ramas: Objetivo[] = (inicio.ramas ?? []).map((r: RamaVivo) => ({
-    clase: "rama", clave: `r:${r.id}`, id: r.id, tipo: r.tipo,
+    clase: "rama", clave: `r:${r.id}`, id: r.id, tipo: r.tipo, nombre: r.nombre || r.id,
     fallas: r.tipo === "contacto" ? FALLAS_CONTACTO : FALLAS_CONDUCTOR,
   }));
   return [...aparatos, ...ramas];
 }
 
 // ── nombres ──────────────────────────────────────────────────────────────────────────────────
-
-const TIPOS: Record<string, string> = {
-  contactor: "Contactor", rele: "Relé", pulsador: "Pulsador", seta: "Seta de emergencia",
-  selector: "Selector", seccionador: "Seccionador", sensor: "Sensor", piloto: "Piloto",
-  itm: "Interruptor termomagnético", guardamotor: "Guardamotor", rele_termico: "Relé térmico",
-  fusible: "Fusible", plc: "PLC", variador: "Variador", fuente: "Fuente",
-  resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
-  diferencial: "Interruptor diferencial", hmi: "Panel de operador",
-  electrovalvula: "Electroválvula", cilindro: "Cilindro", frl: "Filtro-regulador", valvula_corte: "Válvula de corte",
-  contacto: "Contacto", conductor: "Cable",
-};
-
-/** El nombre del tipo de aparato o de rama, para la lista. */
-export function nombreTipoFalla(tipo: string): string {
-  return TIPOS[tipo] ?? "Aparato";
-}
 
 /** Rótulo de la opción y frase para la barra («contacto soldado»), por falla y tipo. */
 interface Nombre { rotulo: string; frase: (arg?: string) => string }
@@ -273,6 +261,9 @@ export function activasDe(
 ): FallaActiva[] {
   const tipos = new Map((inicio?.fallas ?? []).map((a) => [a.designacion, a.tipo]));
   const tiposRama = new Map((inicio?.ramas ?? []).map((r) => [r.id, r.tipo]));
+  // dónde, por su nombre (nombres-por-funcion D13); sin él, la designación o el id del servidor
+  const rotulos = new Map((inicio?.fallas ?? []).map((a) => [a.designacion, a.rotulo || a.designacion]));
+  const nombresRama = new Map((inicio?.ramas ?? []).map((r) => [r.id, r.nombre]));
   const out: FallaActiva[] = [];
   for (const [senal, texto] of Object.entries(textos)) {
     if (!senal.endsWith(".averia") || !texto) continue;
@@ -286,7 +277,8 @@ export function activasDe(
       const v = valorParaQuitar(falla, arg, tipo);
       if (v !== undefined) quitar.valor = v;
       const que = nombreDe(falla, tipo, "dispositivo").frase(arg);
-      out.push({ clave: `${des}|${etiqueta}`, frase: `${que} en ${des}`, que, donde: des, quitar });
+      const donde = rotulos.get(des) ?? des;
+      out.push({ clave: `${des}|${etiqueta}`, frase: `${que} en ${donde}`, que, donde, quitar });
     }
   }
   for (const r of ramas) {
@@ -294,10 +286,24 @@ export function activasDe(
     const tipo = tiposRama.get(r.rama) ?? "contacto";
     const base = nombreDe(r.falla, tipo, "rama").frase();
     const como = r.falla === "pegado" ? (r.valor === false ? " abierto" : " cerrado") : "";
-    out.push({ clave: `r:${r.rama}|${r.falla}`, frase: `${base}${como} en ${r.rama}`, que: `${base}${como}`, donde: r.rama,
+    const { que, donde } = dondeRama(`${base}${como}`, r.rama, nombresRama.get(r.rama));
+    out.push({ clave: `r:${r.rama}|${r.falla}`, frase: `${que} en ${donde}`, que, donde,
       quitar: { tipo: "falla", rama: r.rama, falla: r.falla, quitar: true } });
   }
   return out;
+}
+
+/** La falla de una rama dicha sin repetir «contacto» ni «cable»: el nombre del servidor es
+ *  «Contacto 13-14 · <aparato>» o «Cable <de> → <a>» (`services/nombres_aparatos.py`), y queda
+ *  «contacto 13-14 pegado cerrado en <aparato>», «cable cortado en <de> → <a>». Con otro nombre,
+ *  tal cual; sin nombre (un servidor anterior), el id. */
+function dondeRama(que: string, id: string, nombre: string | undefined): { que: string; donde: string } {
+  if (!nombre || nombre === id) return { que, donde: id };
+  const contacto = /^Contacto (\S+) · (.+)$/.exec(nombre);
+  if (contacto && que.startsWith("contacto")) return { que: que.replace(/^contacto/, `contacto ${contacto[1]}`), donde: contacto[2] };
+  const cable = /^Cable (.+)$/.exec(nombre);
+  if (cable && que.startsWith("cable")) return { que, donde: cable[1] };
+  return { que, donde: nombre };
 }
 
 /** Las fallas de rama no publican `averia` (son de la red, no de un aparato): la UI las lleva

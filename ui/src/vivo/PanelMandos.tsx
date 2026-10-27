@@ -1,27 +1,32 @@
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
+import Veredicto from "../diseno/Veredicto";
+import Pista from "../ui/Pista";
 import VerDetalle from "../ui/VerDetalle";
-import { abreYCierra, estadoDeMando, estadoDesdeValor, senalDeEstado, valorVisto } from "./accionar";
 import { useVivo } from "./estado";
+import { CabezaAparato, FilaMando, FilaPiloto, leidasDe } from "./FilaMando";
 import { lecturasDe, textoLectura } from "./lecturas";
-import { alApretar, alSoltar, colorFisico, encendido, esMomentaneo, girar, nombreConEstado, rotuloAccion, type Accion } from "./mandos";
-import type { MandoVivo, PilotoVivo } from "./protocolo";
-import { abrirSesion, accionar, reiniciarSesion } from "./sesion";
+import { gruposDeMandos, veredictoMandos } from "./nombresMandos";
+import { abrirSesion, reiniciarSesion } from "./sesion";
 import { abrirPanel } from "./abrirPanel";
 import EventosVivos from "./EventosVivos";
 import FallasVivas from "./FallasVivas";
 import AccionamientoManual from "../neumatica/AccionamientoManual";
 import "./vivo.css";
+import "./mandos.css";
+
+export { AccionarMando } from "./FilaMando";
 
 /* Panel «Mandos» de la máquina viva (plan V8.4 D4): el camino PRINCIPAL para manejar la
    máquina, tenga o no la botonera modelada. Sin sesión: elegir el escenario y abrirla. Con
-   sesión: cada mando del tablero con su color físico (pulsador = mientras lo mantienes
-   apretado; seta = queda retenida hasta liberarla), los pilotos encendidos en su color y las
-   lecturas del motor, el variador, el contador y el relé de seguridad; «Provocar atasco», el
-   accionamiento manual de las electroválvulas (plegado, V8.9 D12) y el paso a «Señales» y «PLC». */
+   sesión (plan nombres-por-funcion D9–D13): arriba el veredicto (sólo hechos leídos de las
+   señales) y, una vez, que también se accionan en el 3D; después cada mando por lo que HACE
+   —agrupados por propósito si son más de 5—, los pilotos y las lecturas, con la designación
+   chica detrás; «Provocar atasco», el accionamiento manual de las electroválvulas (plegado, V8.9
+   D12) y el paso a «Señales» y «PLC». La fila vive en `FilaMando.tsx`. */
 
-/** Cómo se manda la acción de un mando: por el WebSocket; el muestrario la simula. */
-export const AccionarMando = createContext<(a: Accion, m: MandoVivo) => void>(accionar);
+/** El título humanizado de cada escenario («Ciclo nominal»), para «Preparando…» mientras abre. */
+const titulos = new Map<string, string>();
 
 export default function PanelMandos() {
   const fase = useVivo((s) => s.fase);
@@ -30,7 +35,9 @@ export default function PanelMandos() {
   return (
     <section className="history panel-mandos">
       {fase === "cerrada" && <Apertura />}
-      {fase === "abriendo" && <p className="hint">Preparando la simulación de «{escenario}»…</p>}
+      {fase === "abriendo" && (
+        <p className="hint">Preparando la simulación de «{(escenario && titulos.get(escenario)) || escenario}»…</p>
+      )}
       {fase === "error" && problema && (
         <div className="mandos-problema">
           <p className="estado-aviso">{problema.texto}</p>
@@ -53,7 +60,7 @@ export default function PanelMandos() {
 }
 
 function Apertura() {
-  const [nombres, setNombres] = useState<string[] | null>(null);
+  const [escenarios, setEscenarios] = useState<{ nombre: string; titulo?: string }[] | null>(null);
   const [elegido, setElegido] = useState("");
   const [fallo, setFallo] = useState<string | null>(null);
   useEffect(() => {
@@ -61,9 +68,10 @@ function Apertura() {
     api.escenarios()
       .then((r) => {
         if (!vivo) return;
-        const ns = r.escenarios.map((e) => e.nombre);
-        setNombres(ns);
-        setElegido(ns.includes("marcha") ? "marcha" : ns[0] ?? "");
+        const es = r.escenarios;
+        for (const e of es) if (e.titulo) titulos.set(e.nombre, e.titulo);
+        setEscenarios(es);
+        setElegido(es.some((e) => e.nombre === "marcha") ? "marcha" : es[0]?.nombre ?? "");
       })
       .catch((e) => vivo && setFallo(e instanceof Error ? e.message : String(e)));
     return () => {
@@ -71,8 +79,8 @@ function Apertura() {
     };
   }, []);
   if (fallo) return <p className="estado-aviso">No pudimos leer los escenarios: {fallo}</p>;
-  if (!nombres) return <p className="hint">Buscando los escenarios…</p>;
-  if (!nombres.length) {
+  if (!escenarios) return <p className="hint">Buscando los escenarios…</p>;
+  if (!escenarios.length) {
     return (
       <p className="hint">
         Aquí vas a manejar la máquina con los botones de su tablero. Hace falta un escenario: pídele al agente que
@@ -85,9 +93,9 @@ function Apertura() {
       <h3>Máquina viva</h3>
       <p className="hint">Aprietas sus botones y la ves andar en tiempo real.</p>
       <div className="kin-actions">
-        {nombres.length > 1 && (
+        {escenarios.length > 1 && (
           <select value={elegido} onChange={(e) => setElegido(e.target.value)} aria-label="Escenario">
-            {nombres.map((n) => <option key={n} value={n}>{n}</option>)}
+            {escenarios.map((e) => <option key={e.nombre} value={e.nombre}>{e.titulo || e.nombre}</option>)}
           </select>
         )}
         <button className="primary" disabled={!elegido} onClick={() => void abrirSesion(elegido)}>
@@ -108,14 +116,7 @@ function Tablero() {
     <>
       {rechazo && <p className="estado-aviso">{rechazo}</p>}
       <ListaMandos quieto={quieto} />
-      {inicio.pilotos.length > 0 && (
-        <>
-          <h3>Pilotos</h3>
-          <ul className="lista-mandos">
-            {inicio.pilotos.map((p) => <FilaPiloto key={p.designacion} p={p} />)}
-          </ul>
-        </>
-      )}
+      <Pilotos />
       <Lecturas />
       <EventosVivos quieto={quieto} />
       <FallasVivas quieto={quieto} />
@@ -129,156 +130,55 @@ function Tablero() {
   );
 }
 
-/** «Mandos»: cada mando del tablero con su control. */
+/** «Mandos»: el veredicto, la pista del 3D y cada mando con su control, en grupos si son más de 5. */
 export function ListaMandos({ quieto }: { quieto: boolean }) {
   const mandos = useVivo((s) => s.inicio?.mandos);
   if (!mandos) return null;
+  if (!mandos.length) {
+    return (
+      <>
+        <h3>Mandos</h3>
+        <p className="hint">El tablero no tiene mandos que se aprieten.</p>
+      </>
+    );
+  }
   return (
     <>
-      <h3>Mandos</h3>
-      {mandos.length ? (
-        <ul className="lista-mandos">
-          {mandos.map((m) => <FilaMando key={m.designacion} m={m} quieto={quieto} />)}
-        </ul>
-      ) : (
-        <p className="hint">El tablero no tiene mandos que se aprieten.</p>
-      )}
+      <VeredictoVivo />
+      {mandos.some((m) => m.pieza) && <Pista>También los accionas con clic en el 3D.</Pista>}
+      {gruposDeMandos(mandos).map((g) => (
+        <div key={g.clave} className="grupo-mandos">
+          <h3>{g.titulo}</h3>
+          <ul className="lista-mandos">
+            {g.mandos.map((m) => <FilaMando key={m.designacion} m={m} quieto={quieto} />)}
+          </ul>
+        </div>
+      ))}
     </>
   );
 }
 
-/** El color físico como variables CSS de la tapa (y el fondo amarillo de la seta). */
-function tapa(color: string | null, fondo?: string): CSSProperties {
-  return {
-    "--tapa": colorFisico(color) ?? "var(--panel3)",
-    "--fondo-tapa": colorFisico(fondo) ?? "transparent",
-  } as CSSProperties;
+/** El veredicto de arriba: lo que bloquea la marcha, leído de las señales (D12). */
+function VeredictoVivo() {
+  const inicio = useVivo((s) => s.inicio);
+  const lecturas = useVivo((s) => s.lecturas);
+  const textos = useVivo((s) => s.textos);
+  if (!inicio) return null;
+  const v = veredictoMandos(inicio, leidasDe({ lecturas, textos }));
+  return v ? <Veredicto severidad={v.severidad} frase={v.frase} nota={v.nota} /> : null;
 }
 
-function FilaMando({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
-  // selectores PRIMITIVOS: un objeto nuevo por lectura re-renderizaría sin fin
-  const senal = senalDeEstado(m);
-  const v = useVivo((s) => (senal ? valorVisto(s, senal) : undefined));
-  const estado = estadoDesdeValor(m, v);
-  const accionado = v !== undefined && v >= 0.5 && !abreYCierra(m);
+/** «Pilotos»: cada lámpara por lo que avisa, con su color físico y si está encendida. */
+export function Pilotos() {
+  const pilotos = useVivo((s) => s.inicio?.pilotos);
+  if (!pilotos?.length) return null;
   return (
-    <li className="fila-mando">
-      <span className={`tapa-mando tapa-${m.tipo}${accionado ? " accionada" : ""}`} style={tapa(m.color, m.fondo)} aria-hidden />
-      <div className="fila-mando-nombre">
-        <strong>{m.designacion}</strong>
-        <span className="hint">{nombreConEstado(m, estado)}{m.pieza ? " · también con clic en el 3D" : ""}</span>
-      </div>
-      <div className="fila-mando-control">
-        {m.tipo === "selector" ? (
-          <Selector m={m} quieto={quieto} />
-        ) : m.tipo === "pulsador" ? (
-          <>
-            {(m.actuadores?.length ?? 0) > 1
-              ? m.actuadores!.map((a) => <BotonMando key={a} m={m} actuador={a} rotulo={a} quieto={quieto} />)
-              : <BotonMando m={m} rotulo={rotuloAccion(m, estado)} quieto={quieto} activo={accionado} />}
-            {m.potenciometro && <Potenciometro m={m} quieto={quieto} />}
-          </>
-        ) : (
-          <BotonMando m={m} rotulo={rotuloAccion(m, estado)} quieto={quieto}
-            activo={m.tipo === "seta" ? estado.retenida : abreYCierra(m) ? estado.cerrado === false : undefined} />
-        )}
-      </div>
-    </li>
-  );
-}
-
-/** Un botón que se comporta como el mando: el pulsador con resorte vuelve al soltar. */
-function BotonMando({ m, rotulo, actuador, quieto, activo }: {
-  m: MandoVivo; rotulo: string; actuador?: string; quieto: boolean; activo?: boolean;
-}) {
-  const accionar = useContext(AccionarMando);
-  const [abajo, setAbajo] = useState(false);
-  const abajoRef = useRef(false); // el soltar puede llegar dos veces antes del re-render
-  const apretar = () => {
-    const a = alApretar(m, { ...estadoDeMando(m, useVivo.getState()), actuador });
-    if (a) accionar(a, m);
-    abajoRef.current = true;
-    setAbajo(true);
-  };
-  const soltar = () => {
-    if (!abajoRef.current) return;
-    abajoRef.current = false;
-    setAbajo(false);
-    const a = alSoltar(m, { actuador });
-    if (a) accionar(a, m);
-  };
-  const tecla = (e: KeyboardEvent, bajar: boolean) => {
-    if (e.key !== " " && e.key !== "Enter") return;
-    e.preventDefault();
-    if (bajar && !e.repeat && !abajoRef.current) apretar();
-    if (!bajar) soltar();
-  };
-  return (
-    <button
-      type="button"
-      className={`boton-mando${abajo || activo ? " apretado" : ""}`}
-      disabled={quieto}
-      aria-pressed={activo ?? abajo}
-      aria-label={`${rotulo} ${m.designacion}`}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId); // soltar fuera del botón también suelta
-        } catch {
-          /* puntero sin captura (sintético): basta el pointerup */
-        }
-        apretar();
-      }}
-      onPointerUp={soltar}
-      onPointerCancel={soltar}
-      onLostPointerCapture={esMomentaneo(m) ? soltar : undefined}
-      onKeyDown={(e) => tecla(e, true)}
-      onKeyUp={(e) => tecla(e, false)}
-    >
-      {rotulo}
-    </button>
-  );
-}
-
-function Selector({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
-  const accionar = useContext(AccionarMando);
-  const [pos, setPos] = useState<string | null>(null);
-  return (
-    <div className="selector-mando" role="group" aria-label={`Posiciones de ${m.designacion}`}>
-      {(m.posiciones ?? []).map((p) => (
-        <button key={p} type="button" disabled={quieto} aria-pressed={pos === p} className={pos === p ? "apretado" : ""}
-          onClick={() => {
-            setPos(p);
-            accionar(girar(m, p), m);
-          }}>
-          {p}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Potenciometro({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
-  const accionar = useContext(AccionarMando);
-  const valor = useVivo((s) => s.lecturas[`${m.designacion}.potenciometro`]);
-  return (
-    <input type="range" min={0} max={1} step={0.01} disabled={quieto} value={valor ?? 0}
-      aria-label={`Potenciómetro de ${m.designacion}`}
-      onChange={(e) => accionar(girar(m, Number(e.target.value)), m)} />
-  );
-}
-
-function FilaPiloto({ p }: { p: PilotoVivo }) {
-  const on = useVivo((s) => encendido(s.lecturas[p.senal]));
-  return (
-    <li className="fila-mando">
-      <span className={`lampara${on ? " encendida" : ""}`} style={tapa(p.color)} aria-hidden />
-      <div className="fila-mando-nombre">
-        <strong>{p.designacion}</strong>
-        <span className="hint">Piloto</span>
-      </div>
-      <span className="estado-piloto">{on ? "Encendido" : "Apagado"}</span>
-    </li>
+    <>
+      <h3>Pilotos</h3>
+      <ul className="lista-mandos">
+        {pilotos.map((p) => <FilaPiloto key={p.designacion} p={p} />)}
+      </ul>
+    </>
   );
 }
 
@@ -299,10 +199,7 @@ export function Lecturas() {
           const nota = textoLectura(l, (s) => lecturas[s], true);
           return (
             <li key={l.designacion} className="fila-mando fila-lectura">
-              <div className="fila-mando-nombre">
-                <strong>{l.designacion}</strong>
-                <span className="hint">{l.rotulo}</span>
-              </div>
+              <CabezaAparato a={l} />
               <span className="valor-lectura">
                 {textoLectura(l, (s) => lecturas[s])}
               </span>

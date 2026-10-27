@@ -53,6 +53,7 @@ describe("lecturas", () => {
     expect(l[0].lineas.map((x) => x.senal)).toEqual(["-M1.rpm", "-M1.I_A"]);
     expect(l[0].pieza).toBe("c682");
     expect(l[2].lineas[0].senal).toBe("-K1.Main.cuenta");
+    expect(textoLectura(l[2], () => 12)).toBe("Contador 12");
     expect(senalContador("-K1", ["-K1.Main.en_marcha"])).toBeNull();
     expect(lecturasDe(ini, ["-M1.par_Nm"])).toEqual([]); // sin sus señales, nada
   });
@@ -66,9 +67,11 @@ describe("lecturas", () => {
   });
 
   it("relé de seguridad: sus salidas en palabras y, si espera el ciclo, por qué no rearma", () => {
-    const rele = { dispositivos: [{ designacion: "-K2", tipo: "rele_seguridad", ref: "RS-2C-24VDC" }] };
+    const rele = { dispositivos: [{ designacion: "-K2", tipo: "rele_seguridad", ref: "RS-2C-24VDC", rotulo: "Seguridad de tapa y seta" }] };
     const [l] = lecturasDe(rele, ["-K2.salidas", "-K2.canal1", "-K2.espera_ciclo"]);
-    expect(l.rotulo).toBe("Relé de seguridad");
+    // el nombre lo da el servidor (nombres-por-funcion D13); sin él, la fila muestra la designación
+    expect(l.rotulo).toBe("Seguridad de tapa y seta");
+    expect(lecturasDe({ dispositivos: [{ ...rele.dispositivos[0], rotulo: undefined }] }, ["-K2.salidas"])[0].rotulo).toBeUndefined();
     expect(l.lineas.map((x) => x.senal)).toEqual(["-K2.salidas", "-K2.espera_ciclo"]);
     const valores: Record<string, number> = { "-K2.salidas": 1, "-K2.espera_ciclo": 0, "-K2.canal1": 1, "-K2.canal2": 1 };
     expect(textoLectura(l, (s) => valores[s])).toBe("Habilita la marcha");

@@ -18,8 +18,9 @@ import "./muestrario.css";
    con datos de ejemplo (`datosTablero.ts`, la forma de la API) en sus cuatro estados, al ancho de
    un panel de Dockview, junto a un visor de ejemplo con el vuelo de cámara, la puerta y el
    recorrido de un conductor. Es la base de la revisión de diseño a ciegas (D14). Abajo,
-   «Mandos» (con el resguardo y el relé de seguridad), «Simular falla» y la barra de la sesión
-   viva con datos de ejemplo (planes cosim-fallas D7 y mandos-de-seguridad). Al final, el cajón
+   «Mandos» (la mezcladora de paletas: 8 mandos, 4 pilotos y 2 relés, plan nombres-por-funcion
+   F3; `?mandos=` elige su estado), «Simular falla» y la barra de la sesión viva con datos de
+   ejemplo (planes cosim-fallas D7 y mandos-de-seguridad). Al final, el cajón
    del visor con un panel de extensión de prueba que pide el ancho de una lámina
    (`extensionPrueba.tsx`, plan puntos-de-extension-entregables D7), y su chip en la barra y su
    pantalla sobre un panel de operador girado (plan plc-en-el-lazo D13).
@@ -76,7 +77,7 @@ export default function Muestrario() {
         <VistaPruebas panel={{ veredicto: null, escenarios: [] }} abierto={null} detalle={null} corridas={{}} fallos={{}}
           acciones={ACCIONES_NULAS} />
       </Marco>
-      <Marco rotulo="Mandos · resguardo y relé de seguridad">
+      <Marco rotulo="Mandos · mezcladora de paletas">
         <PanelMandosDemo />
       </Marco>
       <Marco rotulo="Mandos · simular falla">

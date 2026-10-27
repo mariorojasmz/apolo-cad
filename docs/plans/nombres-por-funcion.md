@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado (D1–D18 vetables); fix «pandea» y F0 hechos (ajustes A1–A18 en la Bitácora); F1 (dato y respaldo) hecha en la rama worktree-agent-ad1e9b7996718701f, sin mergear; siguen F2–F6
+nota: contrato aprobado (D1–D18 vetables); fix «pandea», F0 y F1 (dato y respaldo) en main; F3 («Mandos», UI) hecha en la rama worktree-agent-ac988adf99a4b9939, sin mergear; siguen F2, F4, F5 y F6
 descripcion: cada mando, piloto y sensor se ve por lo que HACE («Marcha», «Tapa del tanque»), con la designación chica al lado, y la puerta de publicación no aprueba una máquina cuyos mandos no tienen nombre
 ---
 
@@ -498,3 +498,48 @@ Sólo lectura. Verifiqué 26 afirmaciones con archivo:línea: se corrigen 4 (A16
 `test_pruebas_panel` (comparaba la fila entera y faltaba `titulo`). Se corrigió y se re-corrió
 verde junto con los gates de documentos; ruff limpio. El golden v81 (`test_neumatica_carril`) quedó
 byte-idéntico y las cuatro firmas de `test_firma_dispositivo` no se movieron.
+
+### F3 — «Mandos» por función (2026-10-27)
+
+**Hecho** (sólo `ui/src/vivo/`, el muestrario y su gate de tokens).
+- `protocolo.ts`: `NombreAparato` (`rotulo`, `origen`, `grupo`, `estados`, `descripcion`, `rearma`) en
+  mandos, pilotos y dispositivos; `rotulo` en `fallas`, `nombre` en `ramas`, `titulo_escenario`.
+- `nombresMandos.ts` (puro): nombre principal y designación secundaria, grupos (D11), segmentos y el
+  segmento LEÍDO (A18: `<des>.cerrado` en `lecturas`, `<des>.posicion` en `textos`), el estado junto
+  al botón (D10) y el veredicto (D12).
+- `FilaMando.tsx` (la fila, `CabezaAparato` con la ⓘ de D16, pilotos) y `Segmentado.tsx` (recibe el
+  valor; sin `useState`). `PanelMandos.tsx` queda en 214 líneas.
+- `mandos.css`, sólo tokens, entra a `diseno/tokens.test.ts`.
+- Se borraron `NOMBRES`/`nombreTipo`/`nombreConEstado` de `mandos.ts`, `TIPOS`/`nombreTipoFalla` de
+  `fallas.ts` y los rótulos por tipo de `lecturas.ts`. Sin rótulo (servidor anterior) se muestra la
+  designación sola.
+- «Simular falla»: «Seguridad de tapa y seta · -K2», el contacto y el cable con el `nombre` del
+  servidor. Las activas, «contacto 13-14 pegado cerrado en Seguridad de tapa y seta».
+- La apertura lista el `titulo` humanizado: `api.escenarios` lee `/api/pruebas` (trae `titulo`
+  desde F1); `/api/escenarios` no se tocó, porque cambiarlo movía el golden del MCP.
+- Muestrario: «Mandos · mezcladora de paletas» con 8 mandos, 4 pilotos, 2 relés y las fallas con
+  rótulos. `?mandos=rearmar|marcha|sin-energia|seta|tapa` fija el estado inicial.
+
+**Decisiones con criterio (vetables).**
+- **`--fs-chico` no existe**: la designación va en `--fs-nota` (11 px), el más chico del tema. No
+  se crea un token para lo mismo.
+- **Veredicto**: el primer hecho que bloquea es la frase y los demás van en la nota. Si cortan
+  TODOS los relés, «La seguridad corta la marcha»; si corta uno, va por su nombre. El resguardo se
+  dice con SU estado declarado («Tapa del tanque abierta»); un estado de varias palabras va tras
+  dos puntos («Recipiente bajo la descarga: sin recipiente»). La severidad es `aviso` y, sin nada
+  que bloquee, `bien`.
+- **El segmento marcado sale sólo de la señal** (`lecturas`/`textos`), sin las `esperadas`: si el
+  servidor rechaza, no se ve nada que no pasó. La tapa y el botón siguen con `valorVisto`.
+- **Seccionador o resguardo sin `estados`** (servidor anterior): el botón con verbo de siempre, no
+  un segmentado con las claves crudas.
+- **La seta** dice «Liberada/Presionada» junto a su botón (el estado de un botón, no un nombre de
+  tipo). El rearme, «Falta rearmar/Rearmada» sólo si todos sus relés publicaron `salidas`.
+- **El estado y el control van en un bloque**: en angosto bajan juntos, nunca el botón solo.
+- **Fuera de F3** (F4 o una fase propia): `arbolSenales.ts` conserva su `TIPOS` (lo usa
+  `PanelSenales`, de F4) y `neumatica/AccionamientoManual.tsx` sigue con `.fila-mando-nombre`. Sólo
+  se tocó una línea de `neumatica/neumatica.test.ts` (el cilindro sin rótulo ya no se llama «Cilindro»):
+  ojo al mergear con F4.
+
+**Cifras.** `npm test`: 76 archivos y 619 tests, verde, con `nombresMandos.test.ts` nuevo (13).
+`npm run build` verde. Visto en el muestrario a 420 px y en el ancho de columna: rearmar, abrir el
+seccionador y abrir la tapa cambian el veredicto, el segmento y el estado.
