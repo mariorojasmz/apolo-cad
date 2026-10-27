@@ -183,6 +183,15 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
 - **El tablero no lleva placa de leyenda**: en `docs/readme/tablero-3d.png` los mandos de la
   puerta no tienen texto. Con el rótulo de [nombres-por-funcion](plans/nombres-por-funcion.md),
   el dato ya existe para grabarlo en el 3D y en el plano del tablero (plan aparte, § 7 del plan).
+- **El cortante del remache usa siempre el Rm del inox** (`join_bolted` v2, puerta v14): un
+  remache DIN 7337 de aluminio o de acero tiene otro Rm. Hay que leerlo del material del remache.
+- **La plantilla `create_belt_conveyor` agrega tapas que la norma no pide**: la faja de motor
+  central bajó de 292 a 280 kg al quitar capotas y UCT que sólo pedía la puerta vieja. Revisar qué
+  piezas pone la plantilla por defecto contra la regla OSHA 1910.219(c)(4)(i) de la v13.
+- **Una cadena modelada a mano da NO_APLICA en la tensión**: sólo se evalúa la de la plantilla.
+  Una cadena que no viene del super-comando no se revisa.
+- **En el elevador, la designación de un mismo resguardo no coincidía entre el esquema y el
+  modelo** (-RZ1/-RZ2): falta un chequeo de que cada aparato tenga la misma designación en los dos.
 
 ## Geometría y catálogo
 
