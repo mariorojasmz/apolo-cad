@@ -74,6 +74,9 @@ bandas con tablero) prueba su balance al ritmo nominal en un escenario de flujo.
 `sentido_transporte` o la plantilla `create_belt_conveyor`; nunca con `reversible`)
 `riesgos.partes_moviles` sondea sólo la cuña de ENTRADA de cada tambor —donde la banda llega y
 converge—, no la de salida.
+También en v7 (puerta-sin-sobrediseno D1, D2): `transmision_flexible.tension` mide el tensor de una banda en
+LAZO (carrera × |Σ d·ê_k| de los ramales de su tambor: 2 en una cola con 180°) y SUMA los tensores
+del lazo (uno por tambor); nombra los que no hacen falta como nota.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F2 (sólo la cuña de ENTRADA cuando se conoce el sentido, registro v7) mergeada; faltan D11 (avisos justificables), F1 (el tensor cuenta lo que estira el lazo y suma los tensores), F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; faltan D11 (avisos justificables) y F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -282,3 +282,58 @@ Para ver la otra cuña se declaró −X (la «entrada» de −X es la salida rea
 el deflector hace falta (entrada); la guarda de transferencia sólo resguardaba la cuña de salida
 y, para `resguardo_iso13857`, sobra (F3 dirá si sirve a otro ítem: la transferencia de producto
 no se modela como peligro); la guarda lateral no bloquea ninguna de las dos, como en la F0.
+### F1 (2026-10-26): el tensor en lazo y la suma
+
+Hecho: `library/ruta_faja_modelo.py` suma `ramales`/`factor_lazo` (puros: el arco de contacto de
+la línea media con el tambor, los dos ramales libres y |Σ d·ê_k|); `services/calidad_tensores_lazo.py`
+(nuevo) arma el marco de la banda (eje = normal de sus caras laterales), corta su sección por el
+centro del ancho con `seccion_plano` (el mismo corte de la marcha en el visor), saca la línea media
+con `linea_media` y le pone a cada tensor `tambor`, `factor_lazo`, `abrazamiento_deg` y
+`factor_motivo`; `library/calidad/tensor.py` suma por tambor, nombra los que no hacen falta y mide
+el agarre de CADA tensor. `VERSION_REGISTRO` = "7". Lo requerido no cambió.
+
+**La faja de motor central de la F0** (sólo lectura, con este código): lazo 4738,1 mm, pide 67,4.
+
+| tensor | carrera | abrazamiento | factor | Δlazo |
+|---|---|---|---|---|
+| tambor de cabeza (`create_take_up`) | 24 mm | 180° | 2,00 | 48,0 mm |
+| tambor de desvío +X (`create_take_up`) | 24 mm | 89,9° | 1,00 | 24,0 mm |
+| tambor de desvío −X (`create_take_up`) | 24 mm | 89,9° | 1,00 | 24,0 mm |
+| las dos `UCT205-150` de cola (un mismo tambor) | 150 mm | 180° | 2,00 | 300,0 mm (una vez) |
+
+Con todo: 396 mm. **Sin las UCT: 96,0 ≥ 67,4 → el ítem pasa**; la nota además nombra un desvío
+como prescindible (72 ≥ 67,4 sin él). `lazos(doc)` pasó de ≈ 2,1 a ≈ 2,2 s en esa faja (el corte de
+la banda). La desproporción de la F0 era la regla: el lazo ya se tensaba con lo del usuario.
+
+Testigos re-congelados (`--en-proceso --congelar`): sólo cambió `version_registro` 6 → 7 en los
+cuatro; ningún veredicto se movió (la faja testigo ya pasaba con su UCT: 150 × 2 = 300 contra
+≈ 104; los lazos de la de rodillos son cadenas, sin cambio). Defectos sembrados nuevos:
+`tensor_a_medias` (0,45 × lo que pide en la cola = 0,9 en lazo: FALLA, el factor no da más de 2) y
+`sin_tensor` (sin UCT ni metadato: SIN_EVALUAR, que bloquea, como hoy); `tensor_sin_carrera` sigue
+en FALLA (20 mm × 2 = 40 contra ≈ 104).
+
+Decisiones tomadas en la implementación (vetables):
+
+- **Un tambor cuenta una vez.** Tensores cuyos centros caen a ≤ 10 mm en el plano del lazo mueven
+  el mismo tambor (las dos UCT de un eje, o un take-up y un metadato sobre el mismo): un aporte,
+  el menor del grupo. Sin esto D2 sumaba 600 mm por las dos UCT de cola.
+- **El centro del tambor** es el de la pieza que corre: el eje del `create_take_up`, la caja de la
+  unidad de catálogo (el builder `take_up_unit` tiene el agujero en su centro) o la pieza tensada
+  del metadato (la primera que no es perno ni la banda). A más de 500 mm de la línea media no es un
+  tambor que la banda toque: factor 1.
+- **La dirección** es el eje del perno tensor medido; el `eje` del metadato; la de una UCT sale de
+  su caja en el plano (calza con L × H del builder: la carrera va por L). Girada fuera de los ejes
+  o sin dirección → factor 1 y la evidencia lo dice (`nota` del aporte).
+- **Sin piso:** un tambor que corre ⟂ a sus ramales aporta 0 (antes, su carrera entera).
+- **Cadenas sin cambio**: el mejor tensor contra 3 %·L/2 de centros. Ya está en centros (no tiene
+  el error de la banda) y sumar sin agrupar por eje contaría dos veces los dos soportes de un eje.
+- **«No hacen falta»**: voraz del de más carrera al de menos (el mecanismo más grande primero); va
+  en el texto y en `evidencia.no_hacen_falta`, nunca como falla. Un tensor sin carrera medida no
+  suma (si los demás no alcanzan, FALLA como hoy) y se lista en `sin_carrera`.
+- **Agarre de cada tensor** del lazo (antes sólo del mejor): en la faja de F0 entran los tres
+  take-up y pasan.
+
+Hallazgo fuera del alcance: `tensores_reconocidos` toma por tensor toda ref de catálogo con
+`specs.carrera_mm`, y los amortiguadores hidráulicos (`134_amortiguadores.yaml`) la tienen; uno
+junto a una banda contaría como tensor (con factor 1, sin dirección). Conviene reconocer la unidad
+por su familia (`take_up_unit`) o su categoría: va como fase propia si se confirma.

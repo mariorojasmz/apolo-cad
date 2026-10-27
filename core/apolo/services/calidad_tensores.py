@@ -21,7 +21,9 @@ con holgura → SIN_EVALUAR). Es un criterio de la cadena entre dos ruedas de ej
 plantilla (D14; F6 de puerta-de-publicacion).
 
 Un tensor actúa sobre un lazo si su caja toca la del lazo (banda, estirada a lo largo del eje de
-sus tambores: el tensor va en el muñón) o la de un piñón (cadena), con `_HOLGURA_MM` de margen.
+sus tambores: el tensor va en el muñón) o la de un piñón (cadena), con `_HOLGURA_MM` de margen. En
+una banda, `calidad_tensores_lazo.anotar` le suma a cada tensor su tambor y lo que alarga el LAZO
+por mm de carrera (D1 de puerta-sin-sobrediseno).
 """
 
 from __future__ import annotations
@@ -242,6 +244,7 @@ def tensores_reconocidos(doc, medir: bool = True) -> list[dict]:
              {"tipo": "take_up", "id": cid, "nombre": nombre, "carrera_mm": None, "motivo": "",
               "pernos": []})
         t["_caja"] = _union_cajas([_caja_de(doc, f) for f in fids])
+        t["_anclas"] = [f"{cid}_eje"]
         out.append(t)
     for fid, f in doc.scene.items():
         comp = CATALOG.get(getattr(f, "component", None) or "")
@@ -255,7 +258,7 @@ def tensores_reconocidos(doc, medir: bool = True) -> list[dict]:
                     "carrera_mm": None if carrera is None else float(carrera),
                     "motivo": "" if carrera is not None else
                     f"la ficha {comp.ref} no tabula su carrera de tensado",
-                    "pernos": [], "_caja": _caja_de(doc, fid)})
+                    "pernos": [], "_caja": _caja_de(doc, fid), "_anclas": [fid]})
     for k, decl in enumerate(getattr(doc, "tensores", None) or []):
         piezas = [p for p in decl.get("piezas", []) if p in doc.scene]
         caja = _union_cajas([_caja_de(doc, p) for p in piezas])
@@ -269,6 +272,7 @@ def tensores_reconocidos(doc, medir: bool = True) -> list[dict]:
             t = {"tipo": "declarado", "id": f"tensores[{k}]", "nombre": nombre,
                  "carrera_mm": float(decl["carrera_mm"]), "motivo": "", "pernos": []}
         t["_caja"], t["_piezas"] = caja, piezas
+        t["_anclas"], t["_eje"] = [p for p in piezas if p not in pernos], decl.get("eje")
         out.append(t)
     return out
 
@@ -288,8 +292,12 @@ def lazos(doc, medir: bool = True, cadenas: bool = True) -> list[dict]:
     for lz in lazos_banda(doc) + (lazos_cadena(doc) if cadenas else []):
         propios = lz.pop("_tensores", [])
         caja = lz.pop("_caja")
-        actuan = [t for t in tensores
+        actuan = [dict(t) for t in tensores
                   if _tocan(t["_caja"], caja) or lz["id"] in t.get("_piezas", [])]
+        if medir and lz["tipo"] == "banda" and actuan:  # D1 de puerta-sin-sobrediseno
+            from .calidad_tensores_lazo import anotar
+
+            anotar(doc, lz, actuan)
         lz["tensores"] = propios + [{k: v for k, v in t.items() if not k.startswith("_")}
                                     for t in actuan]
         if lz["tensores"]:  # con tensor, los centros no son fijos: D3b no aplica

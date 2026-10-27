@@ -8,10 +8,19 @@ Un lazo (dict):
      "tensores": [{"tipo": "take_up"|"catalogo"|"plantilla"|"declarado", "id", "nombre",
                    "carrera_mm": float|None, "motivo": str,
                    "pernos": [{"insumo": <insumo de agarre>, "movil": fid,
-                               "antes": mm, "despues": mm}]}]}
+                               "antes": mm, "despues": mm}],
+                   # sólo en bandas (D1 de puerta-sin-sobrediseno, `services/calidad_tensores_lazo`):
+                   "tambor": int|None, "factor_lazo": float|None, "abrazamiento_deg": float|None,
+                   "factor_motivo": str}]}
 
 `pernos` son los pernos que MUEVEN la pieza tensada (`movil`): la pieza corre `antes` mm hacia la
 cabeza y `despues` mm hacia la punta sobre el eje del perno (la carrera es la suma).
+
+`factor_lazo` es lo que alarga el LAZO cada mm que corre el tambor (|Σ d·ê_k| sobre los ramales
+libres de su tambor: 2 en un tambor de cola con 180° que corre a lo largo de sus ramales, menos en
+un desvío); None (sin línea media, sin dirección o fuera de [0, 2]) cuenta 1, como antes, y la
+evidencia dice por qué. `tambor` agrupa los tensores que mueven el MISMO tambor (las dos UCT de un
+eje): cuentan una vez, con el menor aporte del grupo.
 
 Los requisitos:
 - **reconocido**: todo lazo tiene un mecanismo de tensado reconocido (`create_take_up`, unidad
@@ -23,17 +32,22 @@ Los requisitos:
   con el criterio de reemplazo al 3 % para el mantenimiento (precedente: los transportadores de
   rodillos vivos lazo a lazo comerciales van a centros fijos). Es un criterio GENERAL (D14), no de
   la plantilla: la F6 lo sacó de `create_roller_conveyor`;
-- **carrera**: banda ≥ 1 % del largo del lazo + 20 mm de montaje (estiramiento de servicio de una
-  banda de PVC de 2 capas 0,5–1 %: CEMA y fabricantes); cadena ≥ 3 % del largo / 2 sobre la línea
-  de centros (estirado de reemplazo del 3 %, Tsubaki/Renold: la regla de la plantilla);
-- **agarre en toda la carrera**: cada perno tensor pasa el control de agarre con la pieza tensada
-  en los DOS extremos de su carrera (`agarre.evaluar_perno` con la pieza corrida).
+- **carrera**: banda: lo que RECUPERAN del lazo sus tensores (Σ por tambor de carrera × factor:
+  D1 y D2 de puerta-sin-sobrediseno; se ajustan por separado y se suman) ≥ 1 % del largo del lazo
+  + 20 mm de montaje (estiramiento de servicio de una banda de PVC de 2 capas 0,5–1 %: CEMA y
+  fabricantes). La evidencia lista el aporte de cada tambor y nombra los tensores que NO hacen
+  falta (sin ellos el lazo sigue cumpliendo: voraz, del de más carrera al de menos), como nota.
+  Cadena: carrera de centros del MEJOR tensor ≥ 3 % del largo / 2 (estirado de reemplazo del 3 %,
+  Tsubaki/Renold: la regla de la plantilla; ya está en centros, sin factor ni suma);
+- **agarre en toda la carrera**: cada perno tensor de CADA tensor del lazo pasa el control de
+  agarre con la pieza tensada en los DOS extremos de su carrera (`agarre.evaluar_perno` con la
+  pieza corrida).
 """
 
 from __future__ import annotations
 
 from .agarre import evaluar_perno
-from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, peor, recortar
+from .item import FALLA, MAX_CASOS, NO_APLICA, OK, SIN_EVALUAR, Item, peor, recortar
 
 ESTIRAMIENTO_BANDA = 0.01   # 1 % del largo del lazo
 MONTAJE_BANDA_MM = 20.0     # + 20 mm para montar la banda
@@ -48,7 +62,7 @@ def carrera_requerida(tipo: str, largo_mm: float) -> float:
 
 
 def _criterio(tipo: str) -> str:
-    return ("carrera ≥ 1 %·L + 20 mm" if tipo == "banda"
+    return ("lazo recuperado (Σ carrera × factor) ≥ 1 %·L + 20 mm" if tipo == "banda"
             else "carrera de centros ≥ 3 %·L / 2")
 
 
@@ -75,9 +89,90 @@ def agarre_en_carrera(t: dict) -> tuple[str, str, list]:
 
 
 def _mejor(tensores: list[dict]) -> dict:
-    """El tensor de MÁS carrera (el que decide si el lazo se puede tensar)."""
+    """El tensor de MÁS carrera (el que nombra el reconocimiento y decide en una cadena)."""
     con = [t for t in tensores if t.get("carrera_mm") is not None]
     return max(con, key=lambda t: t["carrera_mm"]) if con else tensores[0]
+
+
+def _aporte(t: dict, tipo: str) -> dict:
+    carrera = float(t["carrera_mm"])
+    f = t.get("factor_lazo") if tipo == "banda" else 1.0
+    a = {"tensor": t["id"], "nombre": t["nombre"], "carrera_mm": round(carrera, 1),
+         "factor": 1.0 if f is None else f, "lazo_mm": carrera * (1.0 if f is None else f)}
+    if t.get("abrazamiento_deg") is not None:
+        a["abrazamiento_deg"] = t["abrazamiento_deg"]
+    if f is None and tipo == "banda":
+        a["nota"] = f"factor 1: {t.get('factor_motivo') or 'sin la línea media del lazo'}"
+    return a
+
+
+def aportes(tensores: list[dict], tipo: str) -> list[dict]:
+    """Un aporte por TAMBOR (los tensores con carrera de un mismo `tambor` cuentan una vez, con el
+    menor): [{tensor, nombre, carrera_mm, factor, lazo_mm, tensores, nombres, nota?}], en mm de
+    lazo (en una cadena, de centros)."""
+    grupos: dict = {}
+    for t in tensores:
+        if t.get("carrera_mm") is None:
+            continue
+        clave = t["id"] if t.get("tambor") is None else ("tambor", t["tambor"])
+        grupos.setdefault(clave, []).append(_aporte(t, tipo))
+    out = []
+    for grupo in grupos.values():
+        a = min(grupo, key=lambda x: x["lazo_mm"])
+        out.append({**a, "tensores": [x["tensor"] for x in grupo],
+                    "nombres": [x["nombre"] for x in grupo]})
+    return out
+
+
+def sobrantes(aps: list[dict], pide: float) -> list[dict]:
+    """Los aportes que se pueden quitar y el lazo sigue cumpliendo (D2): voraz, del de más carrera
+    (el mecanismo más grande) al de menos; lo quitado queda quitado."""
+    total = sum(a["lazo_mm"] for a in aps)
+    out = []
+    for a in sorted(aps, key=lambda x: (-x["carrera_mm"], -x["lazo_mm"])):
+        if total - a["lazo_mm"] >= pide - 1e-6:
+            total -= a["lazo_mm"]
+            out.append(a)
+    return out
+
+
+def _carrera(lazo: dict, tensores: list[dict], nums: dict) -> tuple:
+    tipo = lazo["tipo"]
+    pide = carrera_requerida(tipo, lazo["largo_mm"])
+    aps = aportes(tensores, tipo)
+    if tipo != "banda":  # cadena: el mejor, en centros (sin factor ni suma)
+        aps = [max(aps, key=lambda a: a["lazo_mm"])]
+    total = sum(a["lazo_mm"] for a in aps)
+    estado = OK if total >= pide - 1e-6 else FALLA
+    n = {**nums, "carrera_mm": round(max(a["carrera_mm"] for a in aps), 1),
+         "pide_mm": round(pide, 1), "criterio": _criterio(tipo)}
+    if tipo != "banda":
+        return estado, f"carrera {total:.1f} mm; pide {pide:.1f} mm ({_criterio(tipo)})", n
+    n["lazo_recuperado_mm"] = round(total, 1)
+    n["aportes"] = [{**a, "lazo_mm": round(a["lazo_mm"], 1)} for a in aps]
+    sin = [t["nombre"] for t in tensores if t.get("carrera_mm") is None]
+    if sin:
+        n["sin_carrera"] = sin
+    partes = "; ".join(f"{a['nombre']}: {a['carrera_mm']:g} × {a['factor']:.2f} = "
+                       f"{a['lazo_mm']:.1f}" for a in aps)
+    txt = (f"los tensores recuperan {total:.1f} mm de lazo ({partes}); pide {pide:.1f} mm "
+           f"({_criterio(tipo)})")
+    if estado == OK and (sob := sobrantes(aps, pide)):
+        n["no_hacen_falta"] = [nm for a in sob for nm in a["nombres"]]
+        txt += f"; no hacen falta: {', '.join(n['no_hacen_falta'])}"
+    return estado, txt, n
+
+
+def _agarre(tensores: list[dict]) -> tuple[str, str, list]:
+    """El agarre de CADA tensor del lazo (D2): el peor, con los casos de todos."""
+    res = [(t, *agarre_en_carrera(t)) for t in tensores]
+    estado = peor([e for _t, e, _x, _c in res])
+    casos = [{"tensor": t["id"], **c} for t, _e, _x, cs in res for c in cs]
+    if estado == NO_APLICA:
+        return estado, res[0][2], casos
+    con = sum(1 for _t, e, _x, _c in res if e != NO_APLICA)
+    return estado, (f"en los dos extremos de la carrera ({con} tensor(es) con perno)"
+                    if estado == OK else f"{len(casos)} extremo(s) sin agarre"), casos
 
 
 def reemplazo_cadena(paso_mm: float) -> str:
@@ -123,20 +218,16 @@ def evaluar_lazo(lazo: dict) -> dict:
         return {"reconocido": sin, "carrera": sin, "agarre": sin}
     t = _mejor(tensores)
     nums = {**nums, "tensor": t["id"], "tensor_tipo": t["tipo"]}
-    out = {"reconocido": (OK, f"{t['tipo']}: {t['nombre']}", nums)}
-    carrera = t.get("carrera_mm")
+    otros = f" (y {len(tensores) - 1} más)" if len(tensores) > 1 else ""
+    out = {"reconocido": (OK, f"{t['tipo']}: {t['nombre']}{otros}", nums)}
     if largo is None:
         out["carrera"] = (SIN_EVALUAR, lazo.get("motivo") or "no se pudo medir el largo del lazo",
                           nums)
-    elif carrera is None:
+    elif t.get("carrera_mm") is None:
         out["carrera"] = (SIN_EVALUAR, t.get("motivo") or "el tensor no declara su carrera", nums)
     else:
-        pide = carrera_requerida(tipo, largo)
-        n = {**nums, "carrera_mm": round(carrera, 1), "pide_mm": round(pide, 1),
-             "criterio": _criterio(tipo)}
-        txt = f"carrera {carrera:.1f} mm; pide {pide:.1f} mm ({_criterio(tipo)})"
-        out["carrera"] = (OK if carrera >= pide - 1e-6 else FALLA, txt, n)
-    e, txt, casos = agarre_en_carrera(t)
+        out["carrera"] = _carrera(lazo, tensores, nums)
+    e, txt, casos = _agarre(tensores)
     out["agarre"] = (e, txt, {**nums, **recortar(casos)})
     return out
 
@@ -172,14 +263,25 @@ def controlar_tensores(lazos: list[dict]) -> list[Item]:
         mant = sorted({r[clave][2]["mantenimiento"] for _, r in res
                        if r[clave][0] == OK and "mantenimiento" in r[clave][2]})
         fijos = sum(1 for _, r in res if r[clave][0] == OK and "mantenimiento" in r[clave][2])
+        # D2: lo que aporta cada tambor y los tensores que no hacen falta (nota, no falla)
+        aps = [{"lazo": lz.get("nombre"), **a} for lz, r in res
+               for a in r[clave][2].get("aportes", [])]
+        sobran = [{"lazo": lz.get("nombre"), "tensores": r[clave][2]["no_hacen_falta"]}
+                  for lz, r in res if r[clave][2].get("no_hacen_falta")]
+        detalle = ("no aplica a ningún lazo" if estado == NO_APLICA else
+                   f"{len(res) - len(malos)} de {len(res)} lazos cumplen")
+        if sobran:
+            detalle += "; no hacen falta: " + "; ".join(", ".join(s["tensores"]) for s in sobran)
         items.append(Item(
             iid, titulo, estado, modo, norma,
             evidencia={"lazos": len(res), "ok": sum(1 for e in estados if e == OK),
                        **({"centros_fijos": fijos, "mantenimiento": mant} if mant else {}),
+                       **({"aportes": aps[:MAX_CASOS]} if aps else {}),
+                       **({"aportes_omitidos": len(aps) - MAX_CASOS}
+                          if len(aps) > MAX_CASOS else {}),
+                       **({"no_hacen_falta": sobran} if sobran else {}),
                        **recortar(casos)},
-            piezas=piezas,
-            detalle=("no aplica a ningún lazo" if estado == NO_APLICA else
-                     f"{len(res) - len(malos)} de {len(res)} lazos cumplen"),
+            piezas=piezas, detalle=detalle,
         ))
     return items
 

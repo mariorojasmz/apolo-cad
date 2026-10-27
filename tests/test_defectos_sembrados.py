@@ -22,7 +22,7 @@ from tablero_electrico import arranque_directo
 
 import apolo.api.main as api
 from apolo.doc import Document
-from apolo.library.calidad.item import FALLA, OK
+from apolo.library.calidad.item import FALLA, OK, SIN_EVALUAR
 from apolo.library.calidad.registro import REGISTRO, Entrada, Fuente, evaluar
 from apolo.services import escenarios as E
 from apolo.services import puerta_publicacion as pp
@@ -213,6 +213,21 @@ def tensor_sin_carrera(d):  # sin la UCT y un tensor declarado de 20 mm (pide ~1
                         "eje": "x"}])
 
 
+def sin_tensor(d):  # la cola sin UCT ni tensor declarado: no hay con qué retensar
+    _editar_faja(d, tensor="ninguno")
+
+
+def tensor_a_medias(d):  # D1 de puerta-sin-sobrediseno: la cola cuenta 2×, no más
+    from apolo.library.calidad.tensor import carrera_requerida
+    from apolo.services.calidad_tensores import lazos
+
+    _editar_faja(d, tensor="ninguno")
+    (lz,) = lazos(d, medir=False)
+    pide = carrera_requerida("banda", lz["largo_mm"])  # 0,45·pide × 2 = 0,9 de lo que pide
+    poner_tensores(d, [{"piezas": [_id(d, "Faja de banda · Tambor de cola")],
+                        "carrera_mm": round(0.45 * pide, 1), "eje": "x"}])
+
+
 def carga_de_300_kg(d):  # el encargo pide 300 kg: rodamientos, motor y memoria no dan
     d.set_requirements({**d.requirements, "carga_kg": 300})
 
@@ -308,6 +323,11 @@ DEFECTOS = (
             {"funcion.flujo_de_producto": FALLA}),
     Defecto("motor_movido", "faja", motor_movido, {"montaje.interferencia_interna": FALLA}),
     Defecto("tensor_sin_carrera", "faja", tensor_sin_carrera,
+            {"transmision_flexible.tension": FALLA}),
+    # sin tensor no hay qué medir: SIN_EVALUAR, que bloquea como FALLA (D1 de la puerta)
+    Defecto("sin_tensor", "faja", sin_tensor,
+            {"transmision_flexible.tension": SIN_EVALUAR}),
+    Defecto("tensor_a_medias", "faja", tensor_a_medias,
             {"transmision_flexible.tension": FALLA}),
     Defecto("carga_de_300_kg", "faja", carga_de_300_kg,
             {"elementos_rodantes.l10": FALLA, "accionamiento.factor_servicio": FALLA,

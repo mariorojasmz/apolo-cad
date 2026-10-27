@@ -23,6 +23,11 @@ centro del ancho, que `services/marcha_visual.py` extrae con OCCT y manda como p
 
 Sin un lazo cerrado en la sección (una banda hecha como caja, o tramos que no se funden), devuelve
 None y el llamador cae al casco convexo de siempre.
+
+- **Ramales de un tambor** (`ramales`, `factor_lazo`; puerta-sin-sobrediseno D1): los dos tramos
+  libres que salen del arco de contacto de la línea media con un tambor de centro conocido, y lo
+  que alarga el lazo correr ese tambor en una dirección (la derivada del largo respecto de su
+  centro: Σ d·ê_k). Lo usa el control del tensor (`calidad/tensor.py`).
 """
 
 from __future__ import annotations
@@ -229,3 +234,72 @@ def ruta_modelo(banda: PiezaPlano, piezas: list[PiezaPlano], seccion: dict | Non
                     apoyos_fuera=[e for _k, e in sorted(fuera, key=lambda x: x[0])],
                     tramos=tramos, modelo=[(float(a), float(b)) for a, b in lazo],
                     combables=combables, origen="seccion")
+
+
+#: Hasta dónde (mm) se sigue un ramal libre para tomar su dirección.
+RAMAL_MM = 30.0
+#: Un vértice de la línea media toca el tambor si queda a ≤ r·(1 + rel) + mm de su centro, con r
+#: lo más cerca que pasa la línea media.
+TOL_ARCO_MM, TOL_ARCO_REL = 1.0, 0.01
+
+
+def _seguir(lazo: np.ndarray, i: int, paso: int, tope: int) -> np.ndarray:
+    """La dirección del ramal libre que sale del vértice `i` hacia `paso` (±1): hasta el primer
+    vértice a ≥ `RAMAL_MM` (o el último antes de dar la vuelta, `tope` vértices)."""
+    n, p0 = len(lazo), lazo[i]
+    k = i
+    for _ in range(max(1, tope)):
+        k = (k + paso) % n
+        if math.dist(lazo[k], p0) >= RAMAL_MM:
+            break
+    v = lazo[k] - p0
+    return v / max(math.hypot(*v), 1e-12)
+
+
+def ramales(media, centro) -> tuple[list[np.ndarray], float, float] | None:
+    """([ê del ramal que llega, ê del ramal que sale], radio de contacto, abrazamiento °) de la
+    línea media antihoraria `media` alrededor del CENTRO de un tambor: los ê apuntan del arco de
+    contacto hacia los vecinos. El arco es la racha de vértices a ≤ r·(1 + `TOL_ARCO_REL`) +
+    `TOL_ARCO_MM` que contiene el más cercano. Sin vértices en contacto (la línea pasa rasante
+    por el medio de un tramo) los dos ramales son opuestos; None si toda la línea toca."""
+    lazo = np.asarray(media, float)
+    n = len(lazo)
+    if n < 3:
+        return None
+    c = np.asarray(centro, float)
+    d, k, _q = distancia_polilinea(c[None, :], lazo)
+    r = float(d[0])
+    dist = np.hypot(*(lazo - c).T)
+    toca = dist <= r * (1.0 + TOL_ARCO_REL) + TOL_ARCO_MM
+    if toca.all():
+        return None
+    i_cerca = int(np.argmin(dist))
+    if not toca[i_cerca]:  # rasante: el punto de contacto está dentro del tramo k
+        t = lazo[(int(k[0]) + 1) % n] - lazo[int(k[0])]
+        t = t / max(math.hypot(*t), 1e-12)
+        return [-t, t], r, 0.0
+    i0 = i1 = i_cerca
+    while toca[(i0 - 1) % n]:
+        i0 = (i0 - 1) % n
+    while toca[(i1 + 1) % n]:
+        i1 = (i1 + 1) % n
+    racha = [(i0 + j) % n for j in range((i1 - i0) % n + 1)]
+    rel = lazo[racha] - c
+    ang = np.arctan2(rel[:-1, 0] * rel[1:, 1] - rel[:-1, 1] * rel[1:, 0],
+                     np.einsum("ij,ij->i", rel[:-1], rel[1:]))
+    libres = n - len(racha)
+    return ([_seguir(lazo, i0, -1, libres), _seguir(lazo, i1, +1, libres)], r,
+            math.degrees(abs(float(np.sum(ang)))))
+
+
+def factor_lazo(media, centro, direccion) -> tuple[float | None, float, str]:
+    """(factor, abrazamiento °, motivo) de un tensor cuyo tambor de centro `centro` corre en
+    `direccion` (en el plano de la sección; su norma ≤ 1 es la parte de la carrera que cae en
+    él): correrlo t alarga el lazo t·|Σ d·ê_k| (D1 de puerta-sin-sobrediseno). Un tambor de cola
+    con 180° que corre a lo largo de sus ramales da 2; uno que corre ⟂ a ellos, 0. Factor None
+    con el motivo si el contacto no es un arco."""
+    r = ramales(media, centro)
+    if r is None:
+        return None, 0.0, "la línea media del lazo no deja ver los ramales de su tambor"
+    (e1, e2), _radio, abrazo = r
+    return abs(float(np.dot(np.asarray(direccion, float), e1 + e2))), round(abrazo, 1), ""
