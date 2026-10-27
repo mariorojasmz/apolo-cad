@@ -99,10 +99,12 @@ class CampoAlcance:
     Semillas (la vara de las sondas rectas, `sondas.origen`): fuera de la caja de la máquina = 0;
     la capa del piso dentro de la caja = la distancia horizontal al borde de la caja (el brazo
     llega por el piso, por debajo de la máquina). `puntos`: muestras de TODAS las superficies
-    (`muestrear_triangulos`); `caja` = ((lo), (hi)); `z_piso`: la grilla empieza ahí."""
+    (`muestrear_triangulos`); `caja` = ((lo), (hi)); `z_piso`: la grilla empieza ahí. `libre`: los
+    voxeles transitables ya calculados para ESTA grilla (`libre_sin`: la prueba de sobrantes
+    rehace sólo la zona de la pieza que quita); con él, `puntos` no se usa."""
 
     def __init__(self, puntos, caja, z_piso: float, paso: float = PASO_GRILLA_MM,
-                 r_brazo: float = R_BRAZO_MM, alcance: float = ALCANCE_BRAZO_MM):
+                 r_brazo: float = R_BRAZO_MM, alcance: float = ALCANCE_BRAZO_MM, libre=None):
         import numpy as np
 
         lo, hi = (np.asarray(c, dtype=float) for c in caja)
@@ -115,8 +117,10 @@ class CampoAlcance:
         self.paso, self.alcance = paso, alcance
         self.r_brazo = max(r_brazo, paso * math.sqrt(3.0) / 2.0 + 0.01)
         forma = tuple(int(v) for v in np.maximum(1, np.ceil((top - self.lo) / paso)))
-        self.forma = forma
-        libre = self._transitables(np.asarray(puntos, dtype=float), forma)
+        self.forma, self.caja, self.z_piso = forma, (tuple(lo), tuple(hi)), float(z_piso)
+        if libre is None or tuple(libre.shape) != forma:
+            libre = self._transitables(np.asarray(puntos, dtype=float), forma)
+        self.libre = libre
         c = [self.lo[k] + (np.arange(forma[k]) + 0.5) * paso for k in range(3)]
         fuera_xy = ((c[0] < lo[0]) | (c[0] > hi[0]))[:, None] | ((c[1] < lo[1]) | (c[1] > hi[1]))[None, :]
         semillas = np.full(forma, np.inf, dtype=np.float32)
@@ -132,16 +136,46 @@ class CampoAlcance:
         antebrazo[antebrazo > alcance] = np.inf
         self._prof = antebrazo
 
-    def _transitables(self, pts, forma):
-        """Voxeles cuyo centro está a ≥ r_brazo de toda muestra (descontado el error de muestreo)."""
+    def misma_grilla(self, caja, z_piso: float) -> bool:
+        """¿La grilla de `caja`/`z_piso` es ésta? (sólo entonces sirve `libre_sin`)."""
+        lo, hi = (tuple(float(v) for v in c) for c in caja)
+        return ((lo, hi) == tuple(tuple(float(v) for v in c) for c in self.caja)
+                and float(z_piso) == self.z_piso)
+
+    def libre_sin(self, pts, lo_mm, hi_mm):
+        """`libre` con la caja [lo_mm, hi_mm] recalculada sobre `pts` (las muestras que quedan
+        cerca de esa zona; las de más lejos no cambian nada: sólo cuentan a ≤ r_brazo). Fuera de
+        la zona, igual que ahora: lo que cambia al quitar una pieza está a su lado."""
+        import numpy as np
+
+        h = self.paso
+        holgura = self.r_brazo + h * math.sqrt(3.0) / 2.0 + 0.5 + 2.0 * h
+        a = np.maximum(0, np.floor((np.asarray(lo_mm) - self.lo) / h).astype(int) - 1)
+        b = np.minimum(self.forma, np.ceil((np.asarray(hi_mm) - self.lo) / h).astype(int) + 2)
+        if np.any(b <= a):
+            return self.libre
+        m = int(math.ceil(holgura / h))
+        ea, eb = np.maximum(0, a - m), np.minimum(self.forma, b + m)
+        pts = np.asarray(pts, dtype=float).reshape(-1, 3)
+        origen = self.lo + ea * h
+        sub = self._transitables(pts, tuple(int(v) for v in eb - ea), origen)
+        out = self.libre.copy()
+        i, j = a - ea, b - ea
+        out[a[0]:b[0], a[1]:b[1], a[2]:b[2]] = sub[i[0]:j[0], i[1]:j[1], i[2]:j[2]]
+        return out
+
+    def _transitables(self, pts, forma, origen=None):
+        """Voxeles cuyo centro está a ≥ r_brazo de toda muestra (descontado el error de muestreo);
+        `origen`: la esquina de la (sub)grilla (por defecto, la de la máquina)."""
         import numpy as np
         from scipy.ndimage import distance_transform_edt
         from scipy.spatial import cKDTree
 
         h = self.paso
+        origen = self.lo if origen is None else origen
         ocupado = np.zeros(forma, dtype=bool)
         if len(pts):
-            ijk = np.floor((pts - self.lo) / h).astype(np.int64)
+            ijk = np.floor((pts - origen) / h).astype(np.int64)
             ok = np.all((ijk >= 0) & (ijk < np.array(forma)), axis=1)
             ocupado[tuple(ijk[ok].T)] = True
         if not ocupado.any():
@@ -152,7 +186,7 @@ class CampoAlcance:
         libre = seguro.copy()
         cand = np.argwhere(dudoso)
         if len(cand):
-            centros = self.lo + (cand + 0.5) * h
+            centros = origen + (cand + 0.5) * h
             dist, _ = cKDTree(pts).query(centros, k=1, distance_upper_bound=self.r_brazo)
             libre[tuple(cand[dist >= self.r_brazo].T)] = True
         return libre

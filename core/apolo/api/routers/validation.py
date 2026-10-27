@@ -1,6 +1,6 @@
 """Rutas de validación: chequeos, aserciones `verify`, puerta de entrega, puerta de publicación,
 requisitos (y la identificación comercial del proyecto, que viaja con ellos), stack-up y los
-tensores declarados (metadato de la puerta de publicación).
+tensores, funciones y justificaciones declarados (metadatos de la puerta de publicación).
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
 `main.py`. El dominio (aserciones, insumos de la puerta, reglas de ingeniería, evaluación de
@@ -246,6 +246,7 @@ def _puerta_publicacion(proyecto) -> dict:
     from apolo.library.calidad.registro import evaluar, vigente
     from apolo.services import marcha_ejemplo as me
     from apolo.services import puerta_publicacion as pp
+    from apolo.services.calidad_sobrantes import marcar_primera_corrida
 
     registro = vigente()  # el del núcleo más los ítems de las extensiones cargadas (F1d)
     t0 = time.perf_counter()
@@ -253,6 +254,8 @@ def _puerta_publicacion(proyecto) -> dict:
     with STATE_LOCK:
         _mismo_proyecto(proyecto)
         firma = pp.firma(S.doc)
+        if marcar_primera_corrida(S.doc):  # D9 de puerta-sin-sobrediseno: lo de después, «agregado»
+            _autosave()
     gravedad = _gravedad_obligatoria()  # (a) STATE_LOCK extrae, (b) PHYSICS_LOCK simula
     tiempos["gravedad"] = round(time.perf_counter() - t0, 2)
     with STATE_LOCK:
@@ -400,6 +403,34 @@ def put_funciones(body: FuncionesIn) -> dict:
             raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
         _autosave()
         return {"ok": True, "funciones": funciones}
+
+
+class JustificadasIn(BaseModel):
+    justificadas: list = []
+
+
+@router.get("/api/justificadas")
+def get_justificadas() -> dict:
+    """Los avisos y las piezas aceptados POR ESCRITO (plan puerta-sin-sobrediseno D6/D11):
+    [{regla?, pieza?, porque}]. Un aviso justificado deja de bloquear la puerta; un error, nunca."""
+    with STATE_LOCK:
+        return {"justificadas": S.doc.justificadas}
+
+
+@router.put("/api/justificadas")
+def put_justificadas(body: JustificadasIn) -> dict:
+    """Reemplaza las justificaciones (metadato: no entra al log ni al undo)."""
+    from apolo.services.errors import ServiceError
+    from apolo.services.puerta_publicacion import poner_justificadas
+
+    with STATE_LOCK:
+        _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
+        try:
+            justificadas = poner_justificadas(S.doc, body.justificadas)
+        except ServiceError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        _autosave()
+        return {"ok": True, "justificadas": justificadas}
 
 
 class StackupIn(BaseModel):

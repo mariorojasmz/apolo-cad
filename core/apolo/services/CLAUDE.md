@@ -115,6 +115,14 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   fuente; `firma_modelo` es la firma única que comparte con la fábrica de publicaciones (fuera del
   núcleo: la lee del `.apolo`). Las reglas de la
   memoria salen de `memoria_reglas.py` (también el PDF). (F1)
+- **¿Sobra una pieza?** (`calidad_sobrantes.py`, `diseno.sin_sobrantes`): candidatas = guardas +
+  piezas posteriores a la PRIMERA corrida de la puerta (`doc.puerta_primera`, la anota el endpoint);
+  prueba voraz sobre una copia SUPERFICIAL (`doc_sin`: sin regenerar, las formas compartidas) con
+  los controles que pueden empeorar, de lo barato a lo caro, reutilizando el `analisis` y las
+  sondas de la corrida (`contexto`: `f3.sondas`) y el campo de la muñeca rehecho sólo en la zona
+  quitada (`CampoAlcance.libre_sin`, idéntico al entero: lo prueba su test). Un apoyo redundante NO
+  sobra. Un control nuevo que una pieza pueda empeorar entra ahí.
+  [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5, D7, D9)
 - **Un ítem general nuevo = su defecto sembrado** en `tests/test_defectos_sembrados.py` (una
   mutación mínima de un testigo bueno que lo pone en FALLA) o una exención con su porqué; si no, la
   suite se pone roja. Los testigos (`tests/data/testigos/`, públicos y sintéticos: D16) congelan el

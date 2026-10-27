@@ -55,6 +55,7 @@ METODOS_EN_ORDEN = {
     "/api/project/comercial": ["GET", "PUT"],  # identificación comercial (cotizacion-identificada D1)
     "/api/tensores": ["GET", "PUT"],  # tensores declarados (puerta-de-publicacion D3)
     "/api/funciones": ["GET", "PUT"],  # solución declarada por función (D15)
+    "/api/justificadas": ["GET", "PUT"],  # lo aceptado por escrito (D11)
     "/api/stackup": ["GET", "PUT", "DELETE"],
     "/api/motion": ["GET", "PUT", "DELETE"],
     "/api/physics/dynamics/serie": ["GET", "POST"],  # la marcha del visor (visor-realista D4)

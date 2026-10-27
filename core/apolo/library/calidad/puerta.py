@@ -32,19 +32,32 @@ def _r(estado: str, detalle: str, evidencia: dict | None = None, piezas=()) -> d
 
 def semaforo_entrega(ins: dict) -> dict:
     """La puerta de entrega en VERDE (con gravedad). AMARILLO también bloquea: un aviso de cierre
-    es algo que el modelador no resolvió (D2)."""
+    es algo que el modelador no resolvió (D2), salvo que esté JUSTIFICADO por escrito
+    (`justificadas`, D11 de puerta-sin-sobrediseno); un bloqueante nunca se justifica."""
+    from .justificadas import citar, del_aviso
+
     rep = ins["entrega"]
     v = rep.get("veredicto")
-    malos = [*rep.get("bloqueantes", []), *rep.get("avisos", [])]
-    casos = [{"regla": m.get("regla"), "detalle": m.get("detalle"),
-              "piezas": (m.get("piezas") or [])[:12]} for m in malos]
-    piezas = [p for m in malos for p in (m.get("piezas") or [])]
     if v == VERDE:
         return _r(OK, "puerta de entrega en VERDE",
                   {"chequeos_ok": (rep.get("resumen") or {}).get("chequeos_ok", [])})
-    return _r(FALLA, f"puerta de entrega en {v}: {len(rep.get('bloqueantes', []))} bloqueante(s) y "
-                     f"{len(rep.get('avisos', []))} aviso(s)", {"veredicto": v, **recortar(casos)},
-              piezas)
+    js = ins.get("justificadas") or []
+    bloq, avisos, justificados = list(rep.get("bloqueantes", [])), [], []
+    for m in rep.get("avisos", []):
+        j = del_aviso(m.get("regla"), m.get("piezas"), js)
+        (justificados.append({"regla": m.get("regla"), "justificacion": citar(j)}) if j
+         else avisos.append(m))
+    ev_j = {"justificados": justificados} if justificados else {}
+    if not bloq and not avisos:
+        return _r(OK, f"puerta de entrega en {v} con {len(justificados)} aviso(s) justificado(s) "
+                      "por escrito", {"veredicto": v, **ev_j})
+    malos = [*bloq, *avisos]
+    casos = [{"regla": m.get("regla"), "detalle": m.get("detalle"),
+              "piezas": (m.get("piezas") or [])[:12]} for m in malos]
+    piezas = [p for m in malos for p in (m.get("piezas") or [])]
+    extra = f" ({len(justificados)} justificado(s))" if justificados else ""
+    return _r(FALLA, f"puerta de entrega en {v}: {len(bloq)} bloqueante(s) y {len(avisos)} "
+                     f"aviso(s){extra}", {"veredicto": v, **recortar(casos), **ev_j}, piezas)
 
 
 def gravedad(ins: dict) -> dict:
@@ -150,16 +163,29 @@ def memoria(ins: dict) -> dict:
 
 
 def erc(ins: dict) -> dict:
-    """El tablero eléctrico sin errores ni avisos del ERC."""
+    """El tablero eléctrico sin errores ni avisos del ERC; un aviso JUSTIFICADO por escrito pasa
+    (D11 de puerta-sin-sobrediseno), un error nunca."""
+    from .justificadas import citar, del_aviso
+
     reglas = ins.get("electrico") or []
-    malas = [r for r in reglas if r.get("estado") in ("error", "aviso")]
+    js = ins.get("justificadas") or []
+    malas, justificados = [], []
+    for r in reglas:
+        if r.get("estado") == "error":
+            malas.append(r)
+        elif r.get("estado") == "aviso":
+            j = del_aviso(r.get("regla"), r.get("elementos"), js)
+            (justificados.append({"regla": r.get("regla"), "justificacion": citar(j)}) if j
+             else malas.append(r))
+    ev = {"reglas": len(reglas), **({"justificados": justificados} if justificados else {})}
     if malas:
         casos = [{"regla": r.get("regla"), "estado": r.get("estado"),
                   "detalle": r.get("detalle")} for r in malas]
         return _r(FALLA, f"{len(malas)} regla(s) del ERC en error o aviso",
-                  {"reglas": len(reglas), **recortar(casos)},
+                  {**ev, **recortar(casos)},
                   [e for r in malas for e in (r.get("elementos") or [])])
-    return _r(OK, f"{len(reglas)} regla(s) del ERC en orden", {"reglas": len(reglas)})
+    extra = f" ({len(justificados)} aviso(s) justificado(s))" if justificados else ""
+    return _r(OK, f"{len(reglas)} regla(s) del ERC en orden{extra}", ev)
 
 
 def escenarios(ins: dict) -> dict:

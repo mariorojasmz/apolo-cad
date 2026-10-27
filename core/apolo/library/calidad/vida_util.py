@@ -14,7 +14,7 @@ de la ficha de calidad con los umbrales de una máquina INDUSTRIAL (8–10 h/dí
 | `vida.uniones` | unión apernada | utilización ≤ 0,7 |
 | `vida.soldaduras` | soldadura | τ en el admisible (la regla) |
 | `vida.dimensionadas` | uniones / soldaduras sin dimensionar | ninguna |
-| `vida.reglas` | todas las demás | `error` → FALLA; `aviso` → FALLA salvo las INFORMATIVAS |
+| `vida.reglas` | todas las demás | `error` → FALLA; `aviso` → FALLA salvo las INFORMATIVAS y las JUSTIFICADAS |
 
 Factor de servicio: el reductor de catálogo no publica su capacidad nominal, así que se toma la
 del motorreductor a su potencia de placa (FS del reductor ≥ 1 a placa, lo que garantiza el par
@@ -128,10 +128,14 @@ def _informativa(nombre: str) -> str | None:
 
 
 def controlar_vida_util(reglas: list[dict], hay_motor: bool = False,
-                        hay_uniones: bool | None = None) -> list[Item]:
+                        hay_uniones: bool | None = None, justificadas=()) -> list[Item]:
     """Los ítems de vida útil. `hay_motor`: la máquina tiene motorreductor (sin regla de
     motorización → SIN_EVALUAR, no NO_APLICA). `hay_uniones`: hay `fasten` perno/soldadura
-    (sin reglas de unión y con uniones → todas dimensionadas: OK)."""
+    (sin reglas de unión y con uniones → todas dimensionadas: OK). `justificadas`: el metadato
+    (`justificadas.py`): un `aviso` de `vida.reglas` justificado por escrito pasa (D11 de
+    puerta-sin-sobrediseno); un `error`, nunca."""
+    from .justificadas import citar, del_aviso
+
     usadas: set[int] = set()
     items = []
     for iid, titulo, modo, norma, es in _FAMILIAS:
@@ -161,8 +165,11 @@ def controlar_vida_util(reglas: list[dict], hay_motor: bool = False,
     juicios = []
     for r in resto:
         nombre = r.get("regla", "")
+        j = del_aviso(nombre, r.get("piezas"), justificadas) if r.get("estado") == "aviso" else []
         if r.get("estado") == "aviso" and _informativa(nombre):
             juicios.append((r, OK, {"informativa": _informativa(nombre)}))
+        elif j:
+            juicios.append((r, OK, {"justificada": citar(j)}))
         else:
             juicios.append((r, _por_estado(r), {}))
     titulo = "Ninguna otra verificación de ingeniería en error o aviso"
@@ -173,10 +180,13 @@ def controlar_vida_util(reglas: list[dict], hay_motor: bool = False,
         return items
     casos = [{"regla": r.get("regla"), "estado": e, "detalle": r.get("detalle")}
              for r, e, _n in juicios if e != OK]
+    justificadas_ev = [{"regla": r.get("regla"), "justificacion": n["justificada"]}
+                       for r, _e, n in juicios if n.get("justificada")]
     items.append(Item(
         "vida.reglas", titulo, peor(e for _, e, _n in juicios), modo,
         "memoria de cálculo (cada regla cita su norma)",
         evidencia={"reglas": len(juicios), "informativas": sorted(
-            {r.get("regla") for r, _e, n in juicios if n.get("informativa")}), **recortar(casos)},
+            {r.get("regla") for r, _e, n in juicios if n.get("informativa")}), **recortar(casos),
+                   **({"justificadas": justificadas_ev} if justificadas_ev else {})},
         detalle=f"{len(juicios) - len(casos)} de {len(juicios)} reglas cumplen"))
     return items

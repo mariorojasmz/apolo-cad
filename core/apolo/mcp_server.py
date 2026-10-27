@@ -265,7 +265,7 @@ simulacion.registrar(mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _submit
 cosim.registrar(mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _submit_and_wait(*a, **k))
 estructura.registrar(mcp, lambda *a, **k: _api(*a, **k))  # declare_structure (uniones-en-lote D3)
 cirugia.registrar(mcp, lambda *a, **k: _mutacion(*a, **k))  # remove_commands (cirugia-liviana)
-calidad.registrar(mcp, lambda *a, **k: _submit_and_wait(*a, **k))  # puerta de publicación (F1)
+calidad.registrar(mcp, lambda *a, **k: _submit_and_wait(*a, **k), lambda *a, **k: _api(*a, **k))
 notas.registrar(mcp, lambda *a, **k: _api(*a, **k))  # memoria del agente (F6 de la puerta)
 extensiones.registrar_tools(mcp, globals())  # las de extensiones, al final (nucleo-abierto A3)
 

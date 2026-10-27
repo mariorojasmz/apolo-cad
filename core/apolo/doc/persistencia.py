@@ -87,7 +87,7 @@ class PersistenciaDocumento:
                         **({"comercial": self.comercial} if self.comercial else {}),
                         "fea": self.fea,
                         "stackups": self.stackups,
-                        "escenarios": self.escenarios, **({"tensores": self.tensores} if self.tensores else {}), **({"funciones": self.funciones} if self.funciones else {}), **ext_manifest.al_manifest(self),
+                        "escenarios": self.escenarios, **({"tensores": self.tensores} if self.tensores else {}), **({"funciones": self.funciones} if self.funciones else {}), **({"justificadas": self.justificadas} if self.justificadas else {}), **({"puerta_primera": self.puerta_primera} if self.puerta_primera else {}), **ext_manifest.al_manifest(self),
                         "agent_notes": self.agent_notes,
                     },
                     indent=2,
@@ -156,6 +156,8 @@ class PersistenciaDocumento:
         doc.stackups = manifest.get("stackups", {})  # cadenas de cotas (V7.3)
         doc.escenarios = manifest.get("escenarios", {})  # pruebas de la máquina (V8.3 D12)
         doc.tensores, doc.funciones, doc.agent_notes = (manifest.get(k, []) for k in ("tensores", "funciones", "agent_notes"))
+        doc.justificadas = list(manifest.get("justificadas") or [])  # puerta-sin-sobrediseno D11
+        doc.puerta_primera = dict(manifest.get("puerta_primera") or {})  # D9: sin él, nada «agregado»
         doc.ext = ext_manifest.de_manifest(manifest)  # la de toda extensión, instalada o no (F1d)
         # guardia de seq: el próximo cmd_id nunca debe colisionar con uno del log aunque
         # el manifest venga sin `seq` o con un `seq` menor que el mayor c-id vivo (un log

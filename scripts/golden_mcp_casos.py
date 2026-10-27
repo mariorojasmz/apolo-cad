@@ -393,6 +393,8 @@ RUTAS = [
     ("POST", r"/api/connections/remove", J({**escena(), "conexiones_borradas": ["f1", "g1"]})),
     ("POST", r"/api/delivery-check", J({"veredicto": "VERDE", "bloqueantes": []})),
     ("POST", r"/api/puerta-publicacion", _encolado("jpu")),
+    ("PUT", r"/api/justificadas", J({"ok": True, "justificadas": [
+        {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"}]})),
     ("POST", r"/api/assembly/stability", J({"n_grounded": 2, "n_dynamic": 1, "fell": [],
                                             "estables": ["c1"], "settled": True,
                                             "mensaje": "ok", "frames": [1, 2]})),
@@ -630,6 +632,12 @@ CASOS = [
     caso("puerta de publicación", "publication_gate"),
     caso("puerta de publicación completa", "publication_gate", {"completo": True}),
     caso("puerta de publicación → recibo", "publication_gate", espera=0),
+    caso("justificaciones", "set_justifications", {"justificadas": [
+        {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"}]}),
+    caso("justificación corta → 400", "set_justifications", {"justificadas": [
+        {"regla": "salud · degradado", "porque": "no aplica"}]}, rutas={
+        ("PUT", r"/api/justificadas"): J({"detail": "justificadas[0].porque: explica por qué se "
+                                                    "acepta en al menos 20 caracteres"}, 400)}),
     caso("gravedad", "gravity_test"),
     caso("gravedad con gif", "gravity_test", {"with_autodetect": True, "exclude": ["c3"],
                                               "seconds": 1.5, "path": "gravedad.gif"}),

@@ -21,6 +21,8 @@ Ids estables (familia):
 - `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
   (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado);
 - `fabricabilidad` y `memoria.veredicto` y `diseno.soluciones_por_funcion` (proceso);
+- `diseno.sin_sobrantes` (proceso: ninguna guarda ni pieza agregada por una ronda de corrección
+  sobra; `sobrantes.py`, insumo de `services/calidad_sobrantes.py`, sólo en esta puerta);
 - `riesgos.electrico` (seguridad); `publicado.sustitutos_fieles` (publicado: lo que el visor o el
   video dibujan en lugar de un sólido —la banda animada, mañana un cable— es fiel al modelo);
 - F3 (fuente «seguridad»): `riesgos.partes_moviles`,
@@ -77,6 +79,8 @@ converge—, no la de salida.
 También en v7 (puerta-sin-sobrediseno D1, D2): `transmision_flexible.tension` mide el tensor de una banda en
 LAZO (carrera × |Σ d·ê_k| de los ramales de su tambor: 2 en una cola con 180°) y SUMA los tensores
 del lazo (uno por tambor); nombra los que no hacen falta como nota.
+v8 (puerta-sin-sobrediseno D5–D11): entra `diseno.sin_sobrantes` y un AVISO justificado por escrito
+(`justificadas`) deja de bloquear `entrega.semaforo`, `riesgos.electrico` e `ingenieria.reglas`.
 """
 
 from __future__ import annotations
@@ -85,9 +89,10 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from . import puerta as p
+from . import sobrantes as so
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "7"
+VERSION_REGISTRO = "8"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]
@@ -291,6 +296,13 @@ REGISTRO: tuple = (
             hay("sustitutos_animados", "nada se dibuja en lugar de su sólido (sin banda animada)"),
             p.marcha, "sustitutos_animados"),
     Fuente("seguridad", "apolo.services.calidad_seguridad:items_seguridad", MAPA_SEGURIDAD),
+    Entrada("diseno.sin_sobrantes", "Ninguna guarda ni pieza agregada sobra: a cada una la pide "
+            "un control", "una protección o un refuerzo que no sirve a ningún peligro ni "
+            "requisito: cuesta, pesa y estorba el servicio (lo agregó una ronda de corrección y "
+            "quedó)", "criterio de diseño (D5/D9 de puerta-sin-sobrediseno: lo que se agregó para "
+            "aprobar sigue siendo necesario para aprobar)", "proceso",
+            hecho("sobrantes_candidatas", "sin guardas ni piezas agregadas después de la primera "
+                                          "corrida de la puerta"), so.sin_sobrantes),
 )
 
 

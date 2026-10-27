@@ -46,6 +46,23 @@ TOQUE_CUNA_MM = 20.0
 EMPUJE_MM = 15.0
 
 
+def nubes_de(solidos: dict, fids, nubes: dict | None = None):
+    """La nube de las piezas `fids` ({fid: [Solid]}); `nubes` = memo por pieza (la prueba de
+    sobrantes rearma el campo sin una pieza: el teselado de las demás no cambia)."""
+    import numpy as np
+
+    partes = []
+    for fid in fids:
+        if nubes is None:
+            partes.append(_nube(solidos.get(fid, [])))
+        else:
+            if fid not in nubes:
+                nubes[fid] = _nube(solidos.get(fid, []))
+            partes.append(nubes[fid])
+    partes = [x for x in partes if len(x)]
+    return np.concatenate(partes) if partes else np.zeros((0, 3))
+
+
 def _nube(solidos) -> list:
     import numpy as np
 
@@ -68,7 +85,7 @@ class BandaEmpujable:
     tambor, ni cama, ni otra pieza que no sea guarda ni banda: un tramo libre) no bloquea. Donde la
     banda abraza un tambor o asienta en la cama no se mueve."""
 
-    def __init__(self, dc: dict):
+    def __init__(self, dc: dict, nubes: dict | None = None):
         import numpy as np
         from scipy.spatial import cKDTree
 
@@ -79,9 +96,9 @@ class BandaEmpujable:
         guardas = {i for i, p in piezas.items() if p.rol == "guarda"}
         self._kd_guarda = self._kd_apoyo = None
         if self.bandas and guardas:
-            pg = _nube([s for i in guardas for s in dc["solidos"].get(i, [])])
-            pa = _nube([s for i, ss in dc["solidos"].items()
-                        if i not in guardas and i not in self.bandas for s in ss])
+            pg = nubes_de(dc["solidos"], sorted(guardas), nubes)
+            pa = nubes_de(dc["solidos"], [i for i in dc["solidos"]
+                                          if i not in guardas and i not in self.bandas], nubes)
             self._kd_guarda = cKDTree(pg) if len(pg) else None
             self._kd_apoyo = cKDTree(pa) if len(pa) else None
         self._np = np
@@ -103,16 +120,18 @@ class BandaEmpujable:
         return fid in self.bandas and bool(self.empujable([q])[0])
 
 
-def campo_alcance(solidos: dict, caja, z_piso: float, empuje: BandaEmpujable | None = None):
+def campo_alcance(solidos: dict, caja, z_piso: float, empuje: BandaEmpujable | None = None,
+                  memo: dict | None = None):
     """El `CampoAlcance` de la máquina: muestras del teselado de render de cada sólido; las de una
-    banda dentro de la abertura de una guarda no cuentan (`empuje`)."""
+    banda dentro de la abertura de una guarda no cuentan (`empuje`). `memo`: las nubes por pieza
+    ya teseladas (`nubes_de`)."""
     import numpy as np
 
     from apolo.library.seguridad.alcance import CampoAlcance
 
     nubes = []
-    for fid, lista in solidos.items():
-        pts = _nube(lista)
+    for fid in solidos:
+        pts = nubes_de(solidos, [fid], memo)
         if empuje is not None and fid in empuje.bandas and len(pts):
             pts = pts[~empuje.empujable(pts)]
         nubes.append(pts)

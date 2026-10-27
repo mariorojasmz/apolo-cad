@@ -10,9 +10,10 @@ from __future__ import annotations
 _MOTORES = ("motorreductores", "motorreductores_sinfin")
 
 
-def reglas_de_ingenieria(doc) -> list[dict]:
+def reglas_de_ingenieria(doc, lints: bool = True) -> list[dict]:
     """Las reglas que da `/api/checks` (transportador con los requisitos guardados + estructura
-    universal + lints), sin interferencias: la entrada de `controlar_vida_util`."""
+    universal + lints), sin interferencias: la entrada de `controlar_vida_util`. `lints=False`
+    las deja fuera (la prueba de sobrantes: sin la pieza, sus barrenos quedan sin perno)."""
     from apolo.commands.expressions import resolve_params
     from apolo.library import conveyor_engineering_check
     from apolo.library.lints import predelivery_lints
@@ -39,6 +40,8 @@ def reglas_de_ingenieria(doc) -> list[dict]:
                 conveyor, carga_kg=carga, largo_paquete_mm=largo_paq,
                 velocidad_m_s=float(req.get("velocidad_m_s") or 0), ancho_paquete_mm=ancho_paq)
     reglas += structure_rules(doc, carga, conveyor)
+    if not lints:
+        return reglas
     reglas += predelivery_lints(
         doc.scene, doc.commands, doc.fasteners, doc.grounds, doc.joints, doc.mates,
         resolve=lambda p: resolve_params(p, doc.variables_resolved))
@@ -70,4 +73,5 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
     pernos = insumos_pernos(doc, escena=esc)
     return (controlar_agarre(pernos) + controlar_bordes(*insumos_bordes(doc, pernos, esc))
             + controlar_tensores(lazos(doc))
-            + controlar_vida_util(reglas, hay_motor=hay_motor, hay_uniones=hay_uniones))
+            + controlar_vida_util(reglas, hay_motor=hay_motor, hay_uniones=hay_uniones,
+                                  justificadas=getattr(doc, "justificadas", None) or []))

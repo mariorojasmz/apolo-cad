@@ -73,6 +73,8 @@ class Document(EdicionDocumento, MetadatosDocumento, IntegridadDocumento, Persis
         self.stackups: dict[str, dict] = {}  # cadenas de cotas con nombre (V7.3) → {eslabones, requisito}
         self.escenarios: dict[str, dict] = {}  # V8.3 D12: nombre → {escenario, resultado?} (services/escenarios)
         self.tensores, self.funciones = [], []  # puerta-de-publicacion D3 y D15: declarados
+        self.justificadas: list[dict] = []  # puerta-sin-sobrediseno D6/D11: avisos y piezas justificados
+        self.puerta_primera: dict = {}  # D9: el último comando del log en la PRIMERA corrida de la puerta
         self.ext: dict[str, dict] = {}  # datos de cada extensión (doc/ext_manifest.py, nucleo-abierto F1d)
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
         self.regen_suppressed: list[dict] = []  # SUPRIMIDOS por una carga tolerante (transitorio, NUNCA al manifest; vacío si estricto)

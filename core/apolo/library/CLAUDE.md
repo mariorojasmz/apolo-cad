@@ -240,6 +240,11 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   corre la puerta entera pasa `vigente()` a `reunir` y a `evaluar`, y `version(registro)` los
   firma («6+nombre.v»); `evaluar(registro=None)` sigue siendo sólo el núcleo (testigos).
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1d)
+- Un AVISO se corrige o se JUSTIFICA por escrito (`calidad/justificadas.py`, metadato
+  `justificadas`: regla exacta de la evidencia, ≥ 20 caracteres de porqué), nunca se calla con una
+  pieza; un ERROR jamás. Lo leen `semaforo_entrega`, `erc` y `vida.reglas`: un control nuevo que
+  bloquee avisos lo lee igual. `diseno.sin_sobrantes` (`calidad/sobrantes.py`) juzga lo que mide
+  `services/calidad_sobrantes.py`. [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5–D11)
 - La banda de `create_belt_conveyor` abraza el radio EXTERIOR de cada tambor (`diametro_mm/2 +
   lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano). Un choque DENTRO de
   un super-comando no lo ve `interference_report(exclude_pairs=same_command_pairs)`: el

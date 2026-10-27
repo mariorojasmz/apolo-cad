@@ -282,6 +282,20 @@ def resguardo_sin_declarar(d):  # D15: nadie dijo por qué las guardas son así
     d.funciones = [f for f in d.funciones if f["funcion"] != "resguardo"]
 
 
+def guarda_redundante(d):
+    """puerta-sin-sobrediseno D5: una chapa por fuera de la guarda del tambor de cola, atornillada
+    a ella, que cubre el MISMO hueco (la ronda de corrección que agrega y no quita)."""
+    g = _id(d, "Faja de banda · Guarda del tambor de cola")
+    bb = d.scene[g].shape.bounding_box()
+    afuera = -1 if (bb.min.X + bb.max.X) / 2 < 0 else 1
+    x = (bb.min.X - 3.5) if afuera < 0 else (bb.max.X + 3.5)
+    c = _caja(d, "Guarda exterior de cola", 3, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z, x,
+              (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
+    d.execute("fasten", {"name": "f_guarda_ext", "a": c, "b": g, "kind": "perno", "size": "M8",
+                         "qty": 2})
+    return c
+
+
 @dataclass(frozen=True)
 class Defecto:
     nombre: str
@@ -345,6 +359,7 @@ DEFECTOS = (
             {"riesgos.partes_moviles": FALLA}),
     Defecto("resguardo_sin_declarar", "faja", resguardo_sin_declarar,
             {"diseno.soluciones_por_funcion": FALLA}),
+    Defecto("guarda_redundante", "faja", guarda_redundante, {"diseno.sin_sobrantes": FALLA}),
 )
 
 
@@ -356,17 +371,24 @@ def generales() -> set[str]:
     return out
 
 
-def _puerta(doc, gravedad_real: bool) -> dict:
+def _puerta(doc, gravedad_real: bool, sobrantes: bool = False) -> dict:
+    """`sobrantes`: probar qué sobra (lo caro de una máquina con guardas, ~35 s en la faja) sólo
+    en el defecto que lo mira."""
     if gravedad_real:  # el endpoint entero: la gravedad de MuJoCo (sin banda no hay marcha)
         api.DOC = doc
         r = TestClient(api.app).post("/api/puerta-publicacion")
         assert r.status_code == 200, r.text
         return r.json()
+    ins = _insumos(doc, sobrantes)
+    return evaluar(ins)
+
+
+def _insumos(doc, sobrantes: bool = False) -> dict:
     ins = pp.reunir(doc, expand=lambda x: x, gravedad={
         "resultado": {"fell": [], "estables": list(doc.scene), "n_grounded": len(doc.grounds)},
-        "motivo": ""})
+        "motivo": ""}, sobrantes=sobrantes)
     ins["marcha"] = {"resultado": "sin_marcha", "detalle": "no se corre en los defectos"}
-    return evaluar(ins)
+    return ins
 
 
 # ------------------------------------------------------------------ cobertura
@@ -388,7 +410,7 @@ def test_cada_item_general_tiene_su_defecto_o_su_exencion():
 def test_la_puerta_atrapa_el_defecto_sembrado(defecto):
     doc = _base(defecto.base)
     defecto.mutar(doc)
-    r = _puerta(doc, defecto.gravedad_real)
+    r = _puerta(doc, defecto.gravedad_real, "diseno.sin_sobrantes" in defecto.atrapa)
     it = {i["id"]: i for i in r["items"]}
     obtenido = {iid: it[iid]["estado"] for iid in defecto.atrapa}
     assert obtenido == defecto.atrapa, {iid: it[iid]["detalle"] for iid in defecto.atrapa}
@@ -454,3 +476,58 @@ def test_las_rectas_no_ven_la_ranura_junto_a_la_banda():
     f = malos[0]["fallas"][0]
     assert f["via"] == "brazo doblado" and f["distancia_mm"] <= 850 and len(f["codo"]) == 3
     assert "con el brazo doblado" in it["detalle"]
+
+
+# ------------------------------------------------------------------ puerta-sin-sobrediseno F3 + D11
+_PORQUE = "barreno de drenaje del agua de lavado: va sin perno a propósito"
+
+
+def _item(r: dict, iid: str) -> dict:
+    return next(i for i in r["items"] if i["id"] == iid)
+
+
+def test_de_dos_guardas_que_cubren_el_mismo_hueco_sobra_una_y_justificada_pasa():
+    """D5 voraz: la chapa exterior (pesa más y se prueba antes) sobra porque la guarda de
+    cola sigue cubriendo; la guarda, ya sin la chapa, la pide la cuña de cola. D6: justificada por
+    escrito, la misma medición sale OK."""
+    from apolo.library.calidad.registro import evaluar as evaluar_registro
+
+    doc = _base("faja")
+    extra = guarda_redundante(doc)
+    ins = _insumos(doc, sobrantes=True)
+    it = _item(evaluar_registro(ins), "diseno.sin_sobrantes")
+    assert it["estado"] == FALLA and it["piezas"] == [extra], it["detalle"]
+    nec = {c["id"]: c for c in it["evidencia"]["necesarias"]}
+    guarda = _id(doc, "Faja de banda · Guarda del tambor de cola")
+    assert nec[guarda]["la_pide"] in ("peligros", "sujeción"), nec[guarda]
+    ins["justificadas"] = [*ins["justificadas"], {"pieza": extra, "porque": _PORQUE}]
+    it = _item(evaluar_registro(ins), "diseno.sin_sobrantes")
+    assert it["estado"] == OK and extra in [j["id"] for j in it["evidencia"]["justificadas"]]
+
+
+def _barreno_sin_perno(d):  # un Ø9 en la placa base, lejos de la ménsula: aviso (lint)
+    d.execute("drill_hole", {"feature": _id(d, "Placa base"), "position": {"x": 120, "y": 70,
+                                                                          "z": 12},
+                             "axis": "-z", "diameter": 9})
+
+
+def test_un_aviso_justificado_deja_de_bloquear_y_un_error_nunca():
+    """D11: el AMARILLO de un barreno sin perno (aviso de la entrega y de la memoria) pasa
+    justificado por escrito; el ROJO de un choque, justificado igual, sigue bloqueando."""
+    doc = _base("mensula_atornillada")
+    _barreno_sin_perno(doc)
+    r = _puerta(doc, False)
+    sem = _item(r, "entrega.semaforo")
+    assert sem["estado"] == FALLA and sem["evidencia"]["veredicto"] == "AMARILLO", sem
+    reglas = sorted({c["regla"] for c in sem["evidencia"]["casos"]})
+    pp.poner_justificadas(doc, [{"regla": x, "porque": _PORQUE} for x in reglas])
+    r = _puerta(doc, False)
+    for iid in ("entrega.semaforo", "ingenieria.reglas"):
+        assert _item(r, iid)["estado"] == OK, _item(r, iid)["detalle"]
+    assert _item(r, "entrega.semaforo")["evidencia"]["justificados"]
+
+    doc = _base("mensula_atornillada")
+    escombro(doc)
+    pp.poner_justificadas(doc, [{"regla": "interferencias en diseño", "porque": _PORQUE}])
+    sem = _item(_puerta(doc, False), "entrega.semaforo")
+    assert sem["estado"] == FALLA and sem["evidencia"]["veredicto"] == "ROJO", sem

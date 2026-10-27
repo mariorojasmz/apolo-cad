@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; faltan D11 (avisos justificables) y F3 (las piezas que sobran), F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
+nota: contrato escrito (2026-10-26) con la F0 medida en una faja de motor central; F0b hecha (10 hallazgos en la bitácora); F1 (el tensor en lazo y sumado) y F2 (sólo la cuña de ENTRADA con sentido conocido) mergeadas, registro v7; F3 + D11 (las piezas que sobran y los avisos justificables, registro v8) hechas; faltan F4 (adelgazar esa faja por MCP) y F5 (Mario la ve)
 descripcion: La puerta de publicación deja de obligar al agente a poner tensores y guardas que no hacen falta, y avisa cuando una pieza de protección sobra
 ---
 
@@ -337,3 +337,95 @@ Hallazgo fuera del alcance: `tensores_reconocidos` toma por tensor toda ref de c
 `specs.carrera_mm`, y los amortiguadores hidráulicos (`134_amortiguadores.yaml`) la tienen; uno
 junto a una banda contaría como tensor (con factor 1, sin dirección). Conviene reconocer la unidad
 por su familia (`take_up_unit`) o su categoría: va como fase propia si se confirma.
+
+### F3 + D11 (2026-10-27): lo que sobra y los avisos justificables
+
+Qué entró:
+- **D11** — metadato `justificadas` (`[{regla?, pieza?, porque}]`, `library/calidad/justificadas.py`;
+  setter `services/puerta_publicacion.poner_justificadas`, `GET|PUT /api/justificadas`, tool MCP
+  `set_justifications`). `porque` < 20 caracteres, clave desconocida o pieza inexistente → 400. Un
+  AVISO cuya `regla` (el texto exacto de `casos[].regla`) está justificada deja de bloquear en
+  `entrega.semaforo`, `riesgos.electrico` y `ingenieria.reglas`; con `pieza`, sólo si TODAS las
+  piezas del aviso lo están. Un error nunca (no se mira la lista). La evidencia lista lo justificado
+  con su porqué. Entra a la firma del modelo sólo si hay (sin él, la firma de siempre).
+- **D9, la primera corrida** — el endpoint de la puerta anota en el manifest `puerta_primera =
+  {ultimo_comando, comandos}` la PRIMERA vez que corre (fuera de la firma: es un hecho histórico,
+  no el modelo; un documento de sólo lectura no se anota). Candidatas (b) = las piezas cuyo comando
+  raíz tiene número mayor. Sin el dato, ninguna «agregada».
+- **D5 — `diseno.sin_sobrantes`** (familia proceso, `library/calidad/sobrantes.py`, medido por
+  `services/calidad_sobrantes.py`, sólo en `reunir`: `delivery_check` no lo corre). Candidatas: los
+  cuerpos de guarda de `revisar_guardas` + las agregadas; nunca la tornillería, lo que se mueve, la
+  banda, los tensores reconocidos (D6: los que sobran siguen siendo nota de F1, que se copia como
+  `nota_tensores_que_no_hacen_falta`) ni lo de menos de 10 g. Prueba voraz de la más pesada a la más
+  liviana sobre una copia SUPERFICIAL (`doc_sin`: sin regenerar; sin la candidata, sus `fasten`/
+  `ground` y la tornillería que sólo la unía), de lo barato a lo caro: sujeción → guardas → sondas
+  rectas → ingeniería (si no es guarda) → brazo doblado. Sobrante = FALLA salvo `{pieza, porque}`.
+- `VERSION_REGISTRO` 7 → 8. Testigos re-congelados (`--en-proceso --congelar`): los cuatro suman
+  el ítem (faja OK, ménsulas NO_APLICA, rodillos FALLA) y la versión; ningún otro veredicto se movió.
+- Golden MCP re-congelado: la tool nueva (y su 400) y el docstring de `publication_gate`.
+- Defectos sembrados: `guarda_redundante` (una chapa por fuera de la guarda de cola, atornillada a
+  ella: FALLA, sobra exactamente ella y la guarda la pide la cuña; justificada, OK), un aviso
+  justificado (barreno sin perno en la ménsula: el AMARILLO pasa en la entrega y en la memoria) y un
+  error justificado (el escombro: sigue ROJO).
+
+Decisiones tomadas en la implementación (vetables):
+- **Un apoyo no sobra.** Además de «nadie queda sin camino de carga», la candidata no puede
+  sostener a una vecina que está más lejos que ella del piso en saltos de unión declarada
+  (tornillería contraída). Sin esto salían «sobrantes» la segunda oreja de cada guarda, un ala de
+  cada bandeja y una de las dos ménsulas de cuelgue del drive: el grafo no ve la palanca de una
+  pieza colgada de un solo lado. Conservador a propósito: un falso «necesaria» cuesta poco; un
+  falso «sobra» empuja al agente a quitar un apoyo.
+- **Locación por objetivo** (D7): una candidata sólo re-traza los objetivos de un peligro a
+  ≤ 1080 mm (brazo 850 + mano 230) de su caja; una sonda recta que llega lo hace a ≤ 850 mm de
+  profundidad, así que lo que la para está a esa distancia. Un peligro que ya FALLA en la corrida
+  no puede sumar sondas que llegan, por objetivo (sin esto las guardas de la de rodillos, cuya
+  transmisión ya falla, salían todas «sobrantes»). Con 230 mm salían falsas las guardas inferiores
+  de la faja de plantilla (cierran el paso del antebrazo a 400 mm de la cuña).
+- **Ingeniería sin lints**: sin la pieza, los barrenos de su `join_bolted` quedan sin perno (la
+  copia no regenera); se comparan los ítems de vida útil y estructura, no los lints.
+- **Interferencias y gravedad no se re-corren**: quitar un sólido no crea un choque; la sujeción
+  declarada es lo que la gravedad simula.
+- **El campo de la muñeca por zona**: `CampoAlcance.libre_sin` rehace los voxeles libres sólo
+  alrededor de lo quitado (el test lo compara con el campo entero: idéntico); el barrido del brazo
+  sigue entero (≈ 3,4 s de los ≈ 5,6 s en la faja testigo).
+- **Una vuelta más** (hasta 3): lo que pedían la sujeción o una guarda se re-prueba si algo sobró
+  después (la guarda lateral que sostenía un deflector que sobró); lo que pedía un peligro no
+  (quitar más sólo abre más).
+- **Los defectos sembrados que miran otro ítem corren `reunir(sobrantes=False)`** (SIN_EVALUAR):
+  presupuesto de la suite; la API lo corre siempre.
+
+Medido en la faja de motor central de la F0 (copia en memoria, base en sólo lectura; candidatas
+(b) desde c369, como si la primera corrida hubiera sido con el log hasta c368; laptop con otra
+suite corriendo al lado). 42 candidatas (30 de guarda, 12 agregadas; 167 piezas posteriores a
+c368, 125 de ellas tornillería).
+
+| sentido | sobran | tiempo de la prueba |
+|---|---|---|
+| sin declarar (las dos cuñas, como la base) | «Guarda superior del drive (+X)» y «(−X)» (0,81 kg c/u, agregadas en la corrección), «Tapa del eje hueco del reductor (+Y)» (0,20 kg), «Oreja de guarda de cabeza (−Y)» y «de cola (−Y)» (sin perno propio: la guarda cuelga de la otra oreja) | 116–118 s |
+| `sentido_transporte` +X | lo mismo + los dos «Deflector anti-pellizco de cola» (0,16 kg c/u: resguardaban la cuña de SALIDA de la cola) | 93 s |
+
+- La «Guarda lateral de cabeza (−Y)» (c427), que la F0 halló sin función para las sondas, **no
+  sobra**: sostiene al «Deflector anti-pellizco de cabeza (−Y)», que sí hace falta (con el brazo
+  doblado llega a la cuña de entrada de la cabeza). Para quitarla hay que colgar el deflector de
+  otra pieza (F4). Las laterales de cola, con +X, las pide la cuña de entrada de la cola.
+- Las dos guardas de transferencia, las bandejas, los túneles y sus labios, las ménsulas del drive
+  y las orejas con perno: necesarias (sujeción, apoyo o peligro). La «Tapa del eje hueco» sobra
+  porque el extremo giratorio del eje hueco del reductor no es peligro en `peligros.py` (va de la
+  mano del hallazgo del acople, abajo): justificable.
+- Costo: la puerta entera (`reunir`, sin gravedad ni marcha) pasa de 50 s a 171 s (×3,4; la meta
+  de D7 era ×2). Por etapa: sujeción 42 pruebas en 0,02 s; guardas 16 en 0,03 s; rectas 16 en
+  26–30 s; ingeniería 5–6 en 8 s; brazo doblado 10–11 en 58–78 s (≈ 3,4 s del barrido del brazo
+  más ≈ 1–3 s de sondas por prueba). Lo que queda para bajarlo: probar en un mismo campo las
+  candidatas cuyas zonas (1080 mm) no se tocan, o el barrido del brazo por zona.
+- La nota de F1 sale igual: no hacen falta las dos UCT de cola ni el take-up del desvío (−X).
+- Faja testigo (plantilla, 4 m): 12 candidatas, 35 s de prueba (la puerta en proceso, con gravedad y
+  marcha, ≈ 58 s); rodillos testigo: 13 candidatas, 17 s.
+
+Hallazgos (fase propia, no se tocaron):
+- La plantilla `create_belt_conveyor` (el testigo faja) trae tres guardas que la puerta no pide:
+  las dos guardas inferiores del lado +Y (con las del −Y, el brazo no llega; medido también con
+  `controles_seguridad` entero sin ellas: OK) y la «Guarda del acople» (el acople motor ↔ eje no es
+  peligro en `peligros.py`: no es pieza propia). El testigo las justifica (`JUSTIFICADAS_FAJA` de
+  `scripts/testigos.py`); toda faja de plantilla tendrá que hacer lo mismo hasta que se decida si
+  sobran o si falta el peligro.
+- En la de rodillos sobra la «tapa del extremo» de la guarda de la transmisión (13 g).

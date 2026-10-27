@@ -3,8 +3,8 @@
  "descripcion": "create_belt_conveyor v5 por defecto (con sus cierres: guardas inferiores bajo la ranura banda-larguero, placas de cierre de los largueros y techo de cola hasta la cama, F6) con requisitos y funciones D15: aprueba entera",
  "tortura": false,
  "aprobado": true,
- "version_registro": "7",
- "firma": "b299a6640b2321039709",
+ "version_registro": "8",
+ "firma": "a4e24e2d1d1c5999b400",
  "items": {
   "entrega.semaforo": "OK",
   "entrega.gravedad": "OK",
@@ -35,6 +35,7 @@
   "publicado.sustitutos_fieles": "OK",
   "riesgos.partes_moviles": "OK",
   "riesgos.resguardos_desmontables_con_herramienta": "OK",
-  "consumibles.reemplazables": "OK"
+  "consumibles.reemplazables": "OK",
+  "diseno.sin_sobrantes": "OK"
  }
 }

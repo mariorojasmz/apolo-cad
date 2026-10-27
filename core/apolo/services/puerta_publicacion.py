@@ -14,6 +14,9 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
   balance-de-producto D9);
+- `sobrantes`: qué guarda o pieza agregada sobra (`calidad_sobrantes.sobrantes`, sobre el análisis
+  y las sondas de la fuente «seguridad»: va después de las fuentes) y `justificadas`, el metadato
+  (puerta-sin-sobrediseno D6/D11);
 - `fuentes`: lo que da cada `Fuente` del registro (F2: función mecánica; F3: seguridad y
   reparabilidad, con la tabla de riesgos), cada una UNA vez;
 - `firma`: `firma_modelo` del documento (la misma que calcula la publicación del `.apolo`).
@@ -72,6 +75,8 @@ def firma_modelo(commands: list, manifest: dict) -> str:
     datos = [commands, {k: manifest.get(k, defecto) for k, defecto in CLAVES_FIRMA.items()}]
     if manifest.get("ext"):  # los datos de las extensiones (F1d), sólo si hay: sin ellos, la de siempre
         datos.append({"ext": manifest["ext"]})
+    if manifest.get("justificadas"):  # D11 de puerta-sin-sobrediseno, igual: sólo si hay
+        datos.append({"justificadas": manifest["justificadas"]})
     return hashlib.sha256(json.dumps(datos, sort_keys=True, default=str).encode()).hexdigest()[:20]
 
 
@@ -82,7 +87,8 @@ def firma(doc) -> str:
                 "requirements": doc.requirements, "fea": doc.fea, "stackups": doc.stackups,
                 "escenarios": doc.escenarios, "tensores": getattr(doc, "tensores", None) or [],
                 "funciones": getattr(doc, "funciones", None) or [],
-                "ext": getattr(doc, "ext", None) or {}}
+                "ext": getattr(doc, "ext", None) or {},
+                "justificadas": getattr(doc, "justificadas", None) or []}
     return firma_modelo(doc.commands, manifest)
 
 
@@ -103,6 +109,24 @@ def poner_funciones(doc, valor) -> list[dict]:
         raise ServiceError(400, f"funciones: pieza(s) inexistente(s) {', '.join(faltan)}")
     doc.funciones = limpio
     return doc.funciones
+
+
+def poner_justificadas(doc, valor) -> list[dict]:
+    """Reemplaza el metadato `doc.justificadas` (puerta-sin-sobrediseno D6/D11: avisos y piezas
+    aceptados por escrito; manifest, fuera del log). `ServiceError(400)` con la corrección."""
+    from apolo.library.calidad.justificadas import validar_justificadas
+
+    from .errors import ServiceError
+
+    try:
+        limpio = validar_justificadas(valor)
+    except ValueError as exc:
+        raise ServiceError(400, str(exc)) from exc
+    faltan = sorted({j["pieza"] for j in limpio if "pieza" in j and j["pieza"] not in doc.scene})
+    if faltan:
+        raise ServiceError(400, f"justificadas: pieza(s) inexistente(s) {', '.join(faltan)}")
+    doc.justificadas = limpio
+    return doc.justificadas
 
 
 def interferencia_interna(doc) -> dict:
@@ -164,9 +188,12 @@ def items_de_fuentes(doc, registro=None, contexto: Contexto | None = None,
     return out
 
 
-def reunir(doc, *, expand, gravedad: dict, registro=None, tiempos: dict | None = None) -> dict:
+def reunir(doc, *, expand, gravedad: dict, registro=None, tiempos: dict | None = None,
+           sobrantes: bool = True) -> dict:
     """Los insumos del registro, salvo la marcha. `gravedad` = {"resultado": dict | None,
-    "motivo"}: la simulación que la API corrió con su lock (None = no corrió → SIN_EVALUAR)."""
+    "motivo"}: la simulación que la API corrió con su lock (None = no corrió → SIN_EVALUAR).
+    `sobrantes=False` no prueba qué sobra (SIN_EVALUAR): sólo el presupuesto de los defectos
+    sembrados que miran otro ítem; la API la corre siempre."""
     from apolo.library.delivery import delivery_report
 
     from .delivery_inputs import delivery_inputs
@@ -197,11 +224,21 @@ def reunir(doc, *, expand, gravedad: dict, registro=None, tiempos: dict | None =
         fuentes = items_de_fuentes(doc, registro, contexto, tiempos)
     with _cronometro(tiempos, "fabricabilidad"):
         fab = fabricacion(doc)
+    with _cronometro(tiempos, "sobrantes"):  # D7: sólo en esta puerta, tras las fuentes
+        from .calidad_sobrantes import sobrantes as probar_sobrantes
+
+        try:
+            sobra = (probar_sobrantes(doc, contexto) if sobrantes else
+                     {"error": "no se probó en esta corrida (sobrantes=False)"})
+        except Exception as exc:  # noqa: BLE001 — no se pudo probar: SIN_EVALUAR
+            sobra = {"error": f"{type(exc).__name__}: {exc}"}
+    h["sobrantes_candidatas"] = bool(sobra.get("candidatas")) or "error" in sobra
     return {"firma": firma(doc), "hechos": h, "entrega": entrega, "gravedad": gravedad,
             "acceso": kw.get("acceso_herramienta"), "electrico": kw.get("electrico"),
             "escenarios": kw.get("escenarios"), "interna": interna, "memoria": memoria,
             "fuentes": fuentes, "fabricacion": fab, "flujo": flujo,
-            "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos}
+            "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos,
+            "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or [])}
 
 
 # ------------------------------------------------------------------ la marcha (D13 de la fábrica)

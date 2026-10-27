@@ -311,7 +311,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
         items.append(it_e)
         if it_e["estado"] != "NO_APLICA":
             riesgos.append(_fila_electrica(it_e["estado"]))
-    return {"items": items, "riesgos": riesgos, "peligros": peligros,
+    return {"items": items, "riesgos": riesgos, "peligros": peligros, "resultados": resultados,
             "ms": round((time.perf_counter() - t0) * 1000.0)}
 
 
@@ -324,6 +324,9 @@ def controles_f3(doc, n_direcciones: int = 64, *, contexto=None, electrico: bool
     t0 = time.perf_counter()
     an = analisis(doc, contexto)
     seg = controles_seguridad(doc, an["dc"], n_direcciones, an=an, electrico=electrico)
+    if contexto is not None:  # los peligros medidos (objetivos y resguardos) para la prueba de
+        # sobrantes (`calidad_sobrantes`), que re-traza sólo los que una pieza toca
+        contexto.una_vez("f3.sondas", lambda: {k: seg[k] for k in ("peligros", "resultados")})
     rep = controles_reparabilidad(doc, an["dc"], an=an)
     return {"items": seg["items"] + rep["items"], "riesgos": seg["riesgos"],
             "ms": {"seguridad": seg["ms"], "reparabilidad": rep["ms"],

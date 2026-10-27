@@ -4367,6 +4367,87 @@
   ]
  },
  {
+  "caso": "justificaciones",
+  "tool": "set_justifications",
+  "args": {
+   "justificadas": [
+    {
+     "pieza": "c427",
+     "porque": "la guía del producto pide cerrar el lateral contra el polvo"
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"justificadas\": [{\"pieza\": \"c427\", \"porque\": \"la guía del producto pide cerrar el lateral contra el polvo\"}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/justificadas",
+    "query": [],
+    "cuerpo": {
+     "justificadas": [
+      {
+       "pieza": "c427",
+       "porque": "la guía del producto pide cerrar el lateral contra el polvo"
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "justificación corta → 400",
+  "tool": "set_justifications",
+  "args": {
+   "justificadas": [
+    {
+     "regla": "salud · degradado",
+     "porque": "no aplica"
+    }
+   ]
+  },
+  "error": "Error executing tool set_justifications: Apolo rechazó la operación (400): justificadas[0].porque: explica por qué se acepta en al menos 20 caracteres",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/justificadas",
+    "query": [],
+    "cuerpo": {
+     "justificadas": [
+      {
+       "regla": "salud · degradado",
+       "porque": "no aplica"
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "gravedad",
   "tool": "gravity_test",
   "args": {},

@@ -70,7 +70,7 @@ def test_el_registro_publica_f3_en_sus_tres_generales_y_su_tabla_de_riesgos():
 
 def test_una_fuente_sin_tabla_da_riesgos_vacio_y_f3_que_no_corre_bloquea():
     r = evaluar({"hechos": {}, "fuentes": {"seguridad": {"error": "RuntimeError: OCCT"}}})
-    assert r["riesgos"] == [] and r["version_registro"] == "7"
+    assert r["riesgos"] == [] and r["version_registro"] == "8"
     malo = _por_id(r)["seguridad.fuente"]
     assert malo["estado"] == SIN_EVALUAR and "OCCT" in malo["detalle"]
 

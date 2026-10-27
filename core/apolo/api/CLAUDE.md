@@ -23,7 +23,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `render` | `render.png` y `pick` (misma cámara) |
 | `projects` | proyectos, revisiones, importar/exportar (STEP, STL, `.apolo`) |
 | `deliverables` | catálogo, BOM y costeo, lista de corte, nesting, memoria de cálculo, cotización, manual |
-| `validation` | `/api/checks`, `verify`, puerta de entrega y de publicación, requisitos, stack-up, tensores y funciones declarados |
+| `validation` | `/api/checks`, `verify`, puerta de entrega y de publicación, requisitos, stack-up, tensores, funciones y justificaciones declarados |
 | `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
 | `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica y la serie de la marcha |
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
