@@ -259,6 +259,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   o rol «columna»/«poste» sin sección → regla `no_evaluada` que la puerta deja SIN_EVALUAR y se
   justifica (regla + piezas). El rol «pata» es de `report_estructura`; el detector `columnas` de
   la puerta es `detectar_columnas`. [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (F3f)
+- `izaje_rules.hoist_rules` (capacidad de cada cadena de izaje) corre ANTES del chequeo
+  estructural: sólo los pasadores de una cadena cuyo FS CALCULÓ salen de «sin dimensionar»
+  (`uniones_verificadas`); las cifras y sus fuentes, en `library/engineering/izaje_capacidad.py`.
+  [cadena-de-izaje](../../../docs/plans/cadena-de-izaje.md) (D13–D16)
 - `conveyor_params_from_doc` es de los tres clientes (checks, memoria, tool `engineering_check`
   del agente, que la importa con su nombre viejo). Con un `create_roller_conveyor` (el último
   transportador del log) devuelve sus params con `plantilla` y `conveyor_engineering_check` los

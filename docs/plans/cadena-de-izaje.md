@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 mergeada (create_hoist_chain); el elevador de la tanda nocturna la estrena reemplazando sus 6 tramos rectos a mano (2026-10-27); F2 (regla de capacidad de la cadena, aleta K1/K2) y F3 (co-simulación, cadena floja como efecto físico, la cadena en el visor) sin empezar
+nota: F1 mergeada (create_hoist_chain); el elevador de la tanda nocturna la estrena reemplazando sus 6 tramos rectos a mano (2026-10-27); F2a (regla de capacidad de la cadena, FS 7 de iwis, el pasador dimensionado por ella) implementada en su rama, sin mergear; F2b (aleta K1/K2) y F3 (co-simulación, cadena floja como efecto físico, la cadena en el visor) sin empezar
 descripcion: Una plataforma cuelga de una cadena de rodillos que pasa por sus piñones, con sus dos amarres atornillados de verdad, y la cadena sigue a la plataforma en cada pose sin choques
 ---
 
@@ -106,6 +106,29 @@ plataforma). La sesión principal delegó el contrato y la implementación con c
 - **D12 — Validar TODO antes de mutar**: una carga tolerante suprime el comando entero; si el
   executor hubiera puesto la cadena y fallado en el ancla, quedaba media cadena en la escena (lo
   mostró la primera verificación sobre el elevador).
+- **D13 — FS ≥ 7 sobre la rotura mínima de la ficha, de iwis** (fabricante, leído: abajo en la
+  bitácora). Ninguna norma de máquina con la cifra es de lectura pública: EN 1570-1, ANSI MH29.1
+  y ASME B20.1 son de pago, y la guía de aplicación de la MHIA para elevadores de material
+  (la que acompaña a la B20.1) no da factor para la cadena. El mismo 7 lo pide el Código de
+  California (Title 8 § 3093.53) al medio de suspensión de un elevador de acceso especial: se
+  cita como coincidencia, no como norma aplicable.
+- **D14 — Carga desigual entre cadenas con el Ku de Tsubaki** (tabla 4.3: 2 cadenas 0,6; 4 cadenas
+  0,36); una n que la tabla no trae toma la de la n tabulada inmediata inferior (mayor:
+  conservador). El impacto de arranque y frenado (el K de Tsubaki, que pide la inercia del motor)
+  no se calcula: se declara en las hipótesis.
+- **D15 — Lo que cuelga = el cuerpo móvil de la pieza de amarre** (se sube por las `fija` hasta la
+  primera junta que mueve y se suma su hijo con todo lo que cuelga de él por juntas: lo que la FK
+  mueve junto) + la carga útil `carga_kg` + el peso propio de la cadena ENTERA (conservador). Sin
+  junta que mueva, el grafo de conectividad sin las cadenas de izaje: si lo unido a la pieza toca
+  tierra, AVISO sin cifra. Con dos cuerpos en una cadena (contrapeso) manda el extremo más cargado
+  y la carga útil se suma a los dos (conservador).
+- **D16 — El pasador lo dimensiona la regla, por vínculo explícito**: la cadena es la pieza con
+  `mesh_key` «izaje|», y sus pasadores, las uniones `{id}_pasador_a|b` con el `command_id` de esa
+  pieza y `a` = la cadena (más su `{id}_amarre_a|b` hacia la pieza). Sólo una regla que CALCULÓ el
+  FS saca sus pasadores de «sin dimensionar»; si no corrió o no pudo determinar la carga, siguen
+  ahí. La regla va en `vida.reglas` (ningún ítem nuevo ni cambio del registro: sin bump de
+  `VERSION_REGISTRO`; la batería de entrega no lee reglas de ingeniería: sin bump de
+  `VERSION_BATERIA`).
 
 ## Alternativas descartadas
 
@@ -131,7 +154,8 @@ memoria del elevador.
 tensión por cadena = carga ÷ cadenas con su factor (criterio con FUENTE leída: norma de mesas
 elevadoras / elevadores de carga, jamás inventada) contra la rotura del catálogo; abrazamiento y
 z mínimos como la regla de `create_chain`; `amarre: aleta_k1|aleta_k2` con cotas de fabricante
-declaradas en `no_publicado`.
+declaradas en `no_publicado`. Partida en **F2a** (la regla de capacidad y el pasador dimensionado
+por ella; decisiones D13–D16) y **F2b** (la aleta K1/K2; abrazamiento y z mínimos).
 
 **F3 — La cadena viva** (`cosim`, `physics`, `ui` · L · depende de F1): la cadena como tendón
 en la co-simulación (lo que la plataforma cuelga de ella), la cadena floja como efecto físico
@@ -199,3 +223,38 @@ rígidos: hoy la cadena de izaje queda en su pose de diseño ahí).
     verificación (ids `c9001` inyectados a mano por encima de `_seq` y el `layout_tablero` que
     quedó antes de ellas en el log), no del comando.
   - BOM: «Cadena BS 08B-1 L=4203.7 mm (331 eslabones)» × 2 y las 4 anclas como piezas a medida.
+
+### F2a (2026-10-27): implementada en su rama
+
+- Archivos: `library/engineering/izaje_capacidad.py` (la regla, pura), `services/izaje_rules.py`
+  (lo que cuelga de cada cadena y los pasadores verificados), el gancho en
+  `services/engineering_rules.structure_rules` (corre ANTES del chequeo estructural) y el
+  parámetro `uniones_verificadas` de `report.structure_engineering_check` →
+  `report_uniones._fastener_checks`. Tests: `tests/test_cadena_izaje_capacidad.py` (6).
+- **Fuentes leídas** (D13, D14):
+  - iwis, «Tensile Testing»
+    (https://www.iwis.com/en-en/expertise-technology/testing-analysis/drive-systems-testing/tensile-strength):
+    «as a rule of thumb, it is recommended to calculate with a safety factor of 7 based on the
+    breaking force» → FS 7.
+  - CCR Title 8 § 3093.53 (https://dir.ca.gov/Title8/3093_53.html): «The factor of safety of the
+    suspension means shall be not less than 7 based on the manufacturer's rated breaking
+    strength» (elevador de acceso especial; para una cadena de rodillos como medio de
+    accionamiento con cables, 8). Coincidencia, no norma aplicable a un elevador de material.
+  - U.S. Tsubaki, «The Complete Guide to Chain» (https://www.ustsubaki.com/pdf/the-complete-guide.pdf),
+    pág. 36, tabla 4.3: Ku = 0,6 con 2 cadenas y 0,36 con 4 («When you use two or four chains in a
+    hanging application or shuttle traction setup, the tension of each chain is not equal»). Su
+    selección de cadena colgante compara contra la «carga máxima admisible» de su catálogo, no
+    contra la rotura con un FS: por eso el FS sale de iwis.
+  - Revisadas sin la cifra: la tabla de Tsubaki para cadenas de hojas AL/BL (FS 12 y 9: es para
+    cadena de hojas, no de rodillos), la guía de aplicación de VRC de la MHIA (2004, la que
+    acompaña a la ASME B20.1: no trae factor de la cadena) y los resúmenes públicos de EN 1570-1.
+    PDFs en `C:\t\normas` (`tsubaki-complete-guide-to-chain.pdf`, `tsubaki-ca-selection-1.pdf`,
+    `vrc-guidelines-cisco-eagle.pdf`).
+- **Medido**:
+  - Fixture de `test_cadena_izaje` (una cadena 08B-1, plataforma de 31,9 kg con sus placas,
+    anclas y tuercas): T = 31,9·9,81·1 + 1,66·9,81 = 329 N → FS 54,1, ok. Con 300 kg de carga
+    útil: T = 3 272 N → FS 5,4, error.
+  - Copia del elevador (`elevador-vertical-cajas-2n-cadenas2.apolo`, 314 piezas, carga_kg 50, dos
+    cadenas c793/c794): cuerpo móvil «Placa respaldo plataforma» 70,1 kg, T = (70,1 + 50)·9,81·0,6
+    + 2,88·9,81 = 735 N → FS 24,2, ok en las dos. Los 4 pasadores salen verificados y la regla
+    «uniones apernadas sin dimensionar» desaparece: era la FALLA de `union.dimensionadas`.

@@ -68,7 +68,11 @@ def _remachada(f: dict, label: str, load_kg: float | None, qty: int, qty_par: in
     return {**r, "hipotesis": hip}
 
 
-def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
+def _fastener_checks(scene, graph, masses, fasteners, catalog,
+                     verificadas: frozenset | set = frozenset()) -> list[dict]:
+    """`verificadas`: nombres de las uniones perno SIN métrica que otra regla ya dimensionó (el
+    pasador de una cadena de izaje: lo verifica `services/izaje_rules.py` con la rotura de la
+    cadena, ISO 606). No cuentan «sin dimensionar»; si esa regla no corrió, sí."""
     checks: list[dict] = []
     # varios `fasten` tipo perno sobre el MISMO par de piezas = UNA unión con los
     # pernos combinados (en el grafo colapsan a una arista): se suman las cantidades
@@ -95,7 +99,8 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
         if kind == "perno":
             size, qty = f.get("size"), int(f.get("qty") or 1)
             if not size:
-                sin_size.append(str(f.get("name")))
+                if f.get("name") not in verificadas:
+                    sin_size.append(str(f.get("name")))
                 continue
             if diametro_remache(size) is not None:  # «Ø4.8»: unión remachada (F3f)
                 checks.append(_remachada(f, label, load_kg, qty,

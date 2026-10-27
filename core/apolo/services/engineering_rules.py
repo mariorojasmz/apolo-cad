@@ -64,17 +64,22 @@ def inherit_tensor(doc, conveyor: dict | None) -> None:
 def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
     """Chequeo estructural UNIVERSAL (pernos/soldaduras/L10/pandeo/vuelco): aplica a
     cualquier ensamblaje, no exige carga ni faja detectada; más la flecha de las vigas del
-    bastidor (`vigas_rules`), el pandeo de sus columnas (`columnas_rules`), la transmisión por cadena de cada `create_chain` y los
+    bastidor (`vigas_rules`), el pandeo de sus columnas (`columnas_rules`), la transmisión por cadena de cada `create_chain`, la
+    capacidad de cada cadena de izaje (`izaje_rules`) y los
     resultados FEA guardados (con chequeo de vigencia). Llamar bajo STATE_LOCK."""
     from apolo.library.engineering.report import structure_engineering_check
 
     from .columnas_rules import columna_rules
     from .fea_rules import fea_rules
+    from .izaje_rules import hoist_rules
     from .transmision_rules import chain_rules
     from .vigas_rules import beam_rules
 
     rpm = (conveyor or {}).get("rpm_motor")
     declarados = None if rpm else rodamientos_declarados(doc)
+    # la capacidad de cada cadena de izaje dimensiona los pasadores de sus amarres (F2a de
+    # cadena-de-izaje): corre ANTES para que no cuenten «sin dimensionar»
+    izaje, pasadores = hoist_rules(doc, carga)
     rules = structure_engineering_check(
         doc.scene, doc.fasteners, doc.grounds, doc.joints, doc.mates,
         carga_kg=carga or 0.0,
@@ -82,10 +87,12 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
         belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
         default_material=doc.default_material(),  # la masa de mass-properties (F6)
         rodamientos=declarados,
+        uniones_verificadas=pasadores,
     )
     rules += beam_rules(doc, carga)
     rules += columna_rules(doc, carga)  # F3f de puerta-sin-sobrediseno
     rules += chain_rules(doc)
+    rules += izaje
     rules += fea_rules(doc)
     if conveyor is None:  # el transportador calcula su motorización con sus reglas
         rules += accionamiento_declarado(doc, declarados)
