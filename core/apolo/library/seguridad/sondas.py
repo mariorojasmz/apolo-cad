@@ -7,7 +7,9 @@ hace `services/calidad_sondas.py` (OCCT); aquí sólo:
 - `direcciones(n)`: la esfera de direcciones (unitarias, sentido de AVANCE del rayo);
 - `origen(p, d, caja, z_piso)`: dónde arranca el rayo — fuera de la caja de la máquina (+50 mm)
   o, si viene de abajo, en el PISO (nadie mete el brazo desde bajo el suelo); devuelve también
-  dónde entra al contorno, para medir la profundidad del alcance;
+  dónde entra al contorno, para medir la profundidad del alcance. En una máquina ANCLADA el piso
+  es un sólido infinito (F3f de puerta-sin-sobrediseno): ninguna sonda nace bajo él ni lo cruza
+  (`bajo_piso`, `cruce_piso`); sobre ruedas, el brazo sigue llegando por debajo;
 - `desplazamientos(ancho, d)`: los rayos paralelos de un haz de ese ancho (centro + 6 en
   hexágono, radio ancho/2);
 - `veredicto(...)`: con los cruces ya medidos, ¿llega la mano?
@@ -58,10 +60,15 @@ def _salida(p, d, lo, hi) -> float:
     return max(0.0, s)
 
 
-def origen(p, d, caja, z_piso: float) -> dict:
+def origen(p, d, caja, z_piso: float, piso_solido: bool = False) -> dict:
     """{origen, t_objetivo, t_contorno, extra}: el rayo arranca en `origen`, llega a `p` en
     `t_objetivo`; la profundidad de un cruce en t es `t − t_contorno + extra` (`extra`: lo que el
-    brazo recorre por debajo de la máquina desde su borde hasta el punto del piso)."""
+    brazo recorre por debajo de la máquina desde su borde hasta el punto del piso).
+
+    `piso_solido` (máquina ANCLADA a su piso, F3f): el piso es un sólido infinito; un rayo que
+    para salir de la máquina tendría que cruzarlo no nace → {bajo_piso: True}. Lo que se llega por
+    el hueco ENTRE el piso y el borde de un panel lo miden las rectas que salen por el costado,
+    con sus haces (`cruce_piso` estrecha el haz como una pared)."""
     lo, hi = caja
     lo_m = [lo[i] - MARGEN_ORIGEN_MM for i in range(3)]
     hi_m = [hi[i] + MARGEN_ORIGEN_MM for i in range(3)]
@@ -69,6 +76,8 @@ def origen(p, d, caja, z_piso: float) -> dict:
     s_fuera = _salida(p, d, lo_m, hi_m)
     s_piso = (p[2] - z_piso) / d[2] if d[2] > EPS else math.inf
     if s_piso < s_fuera:
+        if piso_solido:
+            return {"bajo_piso": True}
         o = tuple(p[i] - s_piso * d[i] for i in range(3))
         dx = max(0.0, min(o[0] - lo[0], hi[0] - o[0]))
         dy = max(0.0, min(o[1] - lo[1], hi[1] - o[1]))
@@ -77,6 +86,32 @@ def origen(p, d, caja, z_piso: float) -> dict:
     s_caja = _salida(p, d, lo, hi)
     return {"origen": o, "t_objetivo": s_fuera, "t_contorno": max(0.0, s_fuera - s_caja),
             "extra": 0.0}
+
+
+def cruce_piso(o, d, t_max: float, z_piso: float) -> float | None:
+    """Dónde el piso SÓLIDO (z < `z_piso`) estrecha un rayo lateral de un haz en [0, t_max]: si
+    baja hacia el piso, donde entra (como una pared); si arranca bajo el piso y sube, donde sale
+    (el labio de abajo del hueco piso ↔ panel: lo último que lo estrecha); None si no lo toca."""
+    dz = d[2]
+    if o[2] < z_piso - EPS:
+        if dz > EPS:
+            return min(t_max, (z_piso - o[2]) / dz)
+        return t_max
+    if dz < -EPS:
+        t = (z_piso - o[2]) / dz
+        return t if t <= t_max else None
+    return None
+
+
+def bloqueo_con_piso(t_solido: float | None, o, d, t_max: float, z_piso: float | None):
+    """El bloqueo de un rayo lateral con el piso sólido (`z_piso` None = el piso no es sólido):
+    el más cercano de los dos."""
+    if z_piso is None:
+        return t_solido
+    tp = cruce_piso(o, d, t_max, z_piso)
+    if tp is None:
+        return t_solido
+    return tp if t_solido is None else min(t_solido, tp)
 
 
 def _perpendiculares(d):

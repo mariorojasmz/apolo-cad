@@ -12,7 +12,8 @@ tabla 6 de «alcance alrededor»: hombro, codo, muñeca):
   brazo): un voxel es transitable si su centro está a ≥ `R_BRAZO_MM` de toda superficie. Un paso
   entre centros vecinos (≤ la diagonal del voxel < 2·R) no salta ninguna pared.
 - **Brazo** (hombro → codo): RECTO desde fuera de la caja de la máquina, o desde el piso por
-  debajo de ella con la distancia horizontal al borde de la caja (la vara de `sondas.origen`).
+  debajo de ella con la distancia horizontal al borde de la caja (la vara de `sondas.origen`);
+  en una máquina ANCLADA el piso es pared y no hay semillas bajo ella (`piso_solido`).
 - **Antebrazo** (codo → muñeca): otro tramo RECTO desde cualquier punto que el brazo alcanza.
 - La profundidad del voxel = el largo de ese camino; > 850 mm (el brazo entero) no llega.
 - **Mano** (muñeca → peligro, ≤ 230 mm, tabla 6): la tira `services/calidad_codo.py` y la juzga
@@ -101,10 +102,15 @@ class CampoAlcance:
     llega por el piso, por debajo de la máquina). `puntos`: muestras de TODAS las superficies
     (`muestrear_triangulos`); `caja` = ((lo), (hi)); `z_piso`: la grilla empieza ahí. `libre`: los
     voxeles transitables ya calculados para ESTA grilla (`libre_sin`: la prueba de sobrantes
-    rehace sólo la zona de la pieza que quita); con él, `puntos` no se usa."""
+    rehace sólo la zona de la pieza que quita); con él, `puntos` no se usa.
+
+    `piso_solido` (máquina ANCLADA, F3f de puerta-sin-sobrediseno): el piso es una pared más —un
+    voxel a < r_brazo de él no es transitable— y la capa del piso dentro de la caja no es semilla:
+    el brazo llega por debajo de la máquina sólo si cabe ENTRE el piso y ella, desde el costado."""
 
     def __init__(self, puntos, caja, z_piso: float, paso: float = PASO_GRILLA_MM,
-                 r_brazo: float = R_BRAZO_MM, alcance: float = ALCANCE_BRAZO_MM, libre=None):
+                 r_brazo: float = R_BRAZO_MM, alcance: float = ALCANCE_BRAZO_MM, libre=None,
+                 piso_solido: bool = False):
         import numpy as np
 
         lo, hi = (np.asarray(c, dtype=float) for c in caja)
@@ -118,17 +124,21 @@ class CampoAlcance:
         self.r_brazo = max(r_brazo, paso * math.sqrt(3.0) / 2.0 + 0.01)
         forma = tuple(int(v) for v in np.maximum(1, np.ceil((top - self.lo) / paso)))
         self.forma, self.caja, self.z_piso = forma, (tuple(lo), tuple(hi)), float(z_piso)
+        self.piso_solido = bool(piso_solido)
         if libre is None or tuple(libre.shape) != forma:
             libre = self._transitables(np.asarray(puntos, dtype=float), forma)
-        self.libre = libre
         c = [self.lo[k] + (np.arange(forma[k]) + 0.5) * paso for k in range(3)]
+        if self.piso_solido:  # el piso, una pared: la sonda del brazo no cabe a < r de él
+            libre = libre & (c[2] - self.z_piso >= self.r_brazo)[None, None, :]
+        self.libre = libre
         fuera_xy = ((c[0] < lo[0]) | (c[0] > hi[0]))[:, None] | ((c[1] < lo[1]) | (c[1] > hi[1]))[None, :]
         semillas = np.full(forma, np.inf, dtype=np.float32)
         semillas[fuera_xy] = 0.0
         semillas[:, :, c[2] > hi[2]] = 0.0
-        borde = np.minimum(np.minimum(c[0] - lo[0], hi[0] - c[0])[:, None],
-                           np.minimum(c[1] - lo[1], hi[1] - c[1])[None, :])
-        semillas[:, :, 0] = np.minimum(semillas[:, :, 0], np.maximum(borde, 0.0))
+        if not self.piso_solido:  # sobre ruedas, el brazo llega por el piso bajo la máquina
+            borde = np.minimum(np.minimum(c[0] - lo[0], hi[0] - c[0])[:, None],
+                               np.minimum(c[1] - lo[1], hi[1] - c[1])[None, :])
+            semillas[:, :, 0] = np.minimum(semillas[:, :, 0], np.maximum(borde, 0.0))
         semillas[~libre] = np.inf
         brazo = self._recta(libre, semillas)          # hombro → codo: recto desde fuera
         brazo[brazo > alcance] = np.inf
@@ -136,11 +146,11 @@ class CampoAlcance:
         antebrazo[antebrazo > alcance] = np.inf
         self._prof = antebrazo
 
-    def misma_grilla(self, caja, z_piso: float) -> bool:
-        """¿La grilla de `caja`/`z_piso` es ésta? (sólo entonces sirve `libre_sin`)."""
+    def misma_grilla(self, caja, z_piso: float, piso_solido: bool = False) -> bool:
+        """¿La grilla de `caja`/`z_piso` (y su piso) es ésta? (sólo entonces sirve `libre_sin`)."""
         lo, hi = (tuple(float(v) for v in c) for c in caja)
         return ((lo, hi) == tuple(tuple(float(v) for v in c) for c in self.caja)
-                and float(z_piso) == self.z_piso)
+                and float(z_piso) == self.z_piso and bool(piso_solido) == self.piso_solido)
 
     def libre_sin(self, pts, lo_mm, hi_mm):
         """`libre` con la caja [lo_mm, hi_mm] recalculada sobre `pts` (las muestras que quedan

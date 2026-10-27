@@ -79,7 +79,7 @@ def _arrastra(c: str, quitadas: set, uniones: list[dict], hardware: set, jb: dic
 
 
 def _dc_sin(dc: dict, q: set) -> dict:
-    from .calidad_seguridad import z_piso
+    from .calidad_seguridad import piso_solido, z_piso
 
     piezas = {i: p for i, p in dc["piezas"].items() if i not in q}
     if piezas:
@@ -87,7 +87,9 @@ def _dc_sin(dc: dict, q: set) -> dict:
         hi = tuple(max(p.caja[1][k] for p in piezas.values()) for k in range(3))
     else:
         lo = hi = (0.0, 0.0, 0.0)
-    return {**dc, "piezas": piezas, "caja": (lo, hi), "z_piso": z_piso(piezas, lo[2]),
+    zp = z_piso(piezas, lo[2])
+    return {**dc, "piezas": piezas, "caja": (lo, hi), "z_piso": zp,
+            "piso_solido": piso_solido(piezas, zp),
             "solidos": {i: s for i, s in dc["solidos"].items() if i not in q},
             "uniones": [u for u in dc["uniones"] if u["a"] not in q and u["b"] not in q],
             "juntas": [j for j in dc["juntas"] if j.get("parent") not in q
@@ -215,15 +217,18 @@ class Prueba:
         if self._campo_base is None:
             base = _dc_sin(self.an["dc"], self.quitadas)
             f3 = self.compartido.get("campo")  # el de la corrida de F3: sin quitar nada (F3c)
-            if f3 is not None and f3.misma_grilla(base["caja"], base["z_piso"]):
+            if f3 is not None and f3.misma_grilla(base["caja"], base["z_piso"],
+                                                  base.get("piso_solido", False)):
                 self._campo_base = (f3 if not self.quitadas else self._sin_zona(
                     f3, base, BandaEmpujable(base, self.nubes), self.quitadas))
             if self._campo_base is None:
                 self._campo_base = campo_alcance(base["solidos"], base["caja"], base["z_piso"],
-                                                 BandaEmpujable(base, self.nubes), self.nubes)
+                                                 BandaEmpujable(base, self.nubes), self.nubes,
+                                                 base.get("piso_solido", False))
         cb = self._campo_base
         return (self._sin_zona(cb, dc, empuje, r)
-                or campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"], empuje, self.nubes))
+                or campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"], empuje, self.nubes,
+                                 dc.get("piso_solido", False)))
 
     def _sin_zona(self, cb, dc: dict, empuje, r: set):
         """El campo `cb` con sólo la zona de `r` recalculada sobre los sólidos de `dc`
@@ -235,7 +240,8 @@ class Prueba:
         from .calidad_codo import EMPUJE_MM, nubes_de
 
         cajas = [self.an["dc"]["piezas"][i].caja for i in r if i in self.an["dc"]["piezas"]]
-        if not cajas or not cb.misma_grilla(dc["caja"], dc["z_piso"]):
+        if not cajas or not cb.misma_grilla(dc["caja"], dc["z_piso"],
+                                            dc.get("piso_solido", False)):
             return None
         lo = np.min([c[0] for c in cajas], axis=0) - EMPUJE_MM
         hi = np.max([c[1] for c in cajas], axis=0) + EMPUJE_MM
@@ -251,7 +257,8 @@ class Prueba:
                 x = x[~empuje.empujable(x)]
             pts.append(x)
         pts = np.concatenate(pts) if pts else np.zeros((0, 3))
-        return CampoAlcance(None, dc["caja"], dc["z_piso"], libre=cb.libre_sin(pts, lo, hi))
+        return CampoAlcance(None, dc["caja"], dc["z_piso"], libre=cb.libre_sin(pts, lo, hi),
+                            piso_solido=dc.get("piso_solido", False))
 
     def _cron(self, etapa: str, t0: float) -> None:
         self.ms[etapa] += (time.perf_counter() - t0) * 1000.0
@@ -362,7 +369,8 @@ class Prueba:
             if not libres:
                 continue
             s, _ms = evaluar_peligro(tr, {**p, "objetivos": libres}, dc["caja"], dc["z_piso"],
-                                     N_DIRECCIONES, empuje.salta)
+                                     N_DIRECCIONES, empuje.salta,
+                                     piso_solido=dc.get("piso_solido", False))
             if _llegan(s):
                 return (f"{p['peligro']}: sin ella se abre una holgura funcional y una sonda "
                         "recta llega"), tr, empuje
@@ -379,7 +387,8 @@ class Prueba:
         p["_nuevas"] = {}
         for k in ks:
             s, _ms = evaluar_peligro(tr, {**p, "objetivos": [p["objetivos"][k]]}, dc["caja"],
-                                     dc["z_piso"], n, empuje.salta)
+                                     dc["z_piso"], n, empuje.salta,
+                                     piso_solido=dc.get("piso_solido", False))
             ahora = _llegan(s)
             p["_nuevas"][k] = ahora
             if p["estado"] == "OK":
@@ -393,7 +402,8 @@ class Prueba:
                                      BandaEmpujable(base, self.nubes))
                 tb, base, emp = self._tr_base
                 sb, _ms = evaluar_peligro(tb, {**p, "objetivos": [p["objetivos"][k]]},
-                                          base["caja"], base["z_piso"], n, emp.salta)
+                                          base["caja"], base["z_piso"], n, emp.salta,
+                                          piso_solido=base.get("piso_solido", False))
                 p["llegan_por"][k] = _llegan(sb)
             if ahora > p["llegan_por"][k]:
                 return (f"llegan {ahora} sondas rectas a un objetivo sin ella "

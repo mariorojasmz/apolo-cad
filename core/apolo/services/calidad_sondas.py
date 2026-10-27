@@ -16,7 +16,8 @@ from __future__ import annotations
 import math
 import time
 
-from apolo.library.seguridad.sondas import desplazamientos, direcciones, origen, veredicto
+from apolo.library.seguridad.sondas import (bloqueo_con_piso, desplazamientos, direcciones,
+                                            origen, veredicto)
 
 GAP_CUNA_MM = 20.0   # separación banda–tambor en el punto de la cuña (< 25 mm de ISO 13854)
 PASO_ARCO_GRADOS = 5.0
@@ -262,11 +263,14 @@ def fuera_de_holguras(tr: Trazador, peligro: dict) -> dict:
 
 
 def evaluar_peligro(tr: Trazador, peligro: dict, caja, z_piso: float,
-                    n_direcciones: int = 64, salta=None) -> tuple[list[dict], float]:
+                    n_direcciones: int = 64, salta=None, *,
+                    piso_solido: bool = False) -> tuple[list[dict], float]:
     """Las sondas de un peligro: por objetivo y dirección, el veredicto de `sondas.veredicto`.
     Devuelve ([sonda], ms). Cada sonda que alcanza lleva dirección, entrada al contorno, punto
     tocado, profundidad y abertura; las bloqueadas, la pieza que las paró (`bloquea`). `salta`:
-    los cruces que no bloquean (la banda empujable en la abertura de una guarda)."""
+    los cruces que no bloquean (la banda empujable en la abertura de una guarda). `piso_solido`
+    (máquina anclada, `calidad_seguridad.piso_solido`): ninguna sonda nace bajo el piso y el piso
+    estrecha los haces como una pared (F3f)."""
     t0 = time.perf_counter()
     objetivos = peligro.get("objetivos") or []
     n = n_direcciones
@@ -278,9 +282,13 @@ def evaluar_peligro(tr: Trazador, peligro: dict, caja, z_piso: float,
     # haz; pero tampoco se atraviesa (el rayo central se bloquea en ella)
     forman = propias | set(peligro.get("forman", ()))
     sondas = []
+    z_suelo = z_piso if piso_solido else None
     for p in objetivos:
         for d in dirs:
-            ori = origen(p, d, caja, z_piso)
+            ori = origen(p, d, caja, z_piso, piso_solido)
+            if ori.get("bajo_piso"):
+                sondas.append({"alcanza": False, "bloquea": [], "motivo": "el piso"})
+                continue
             o, t_obj = ori["origen"], ori["t_objetivo"]
             hit = primero_salvo(tr, o, d, t_obj + 0.5, salta)
             if hit is not None and hit[1] not in propias:
@@ -293,7 +301,8 @@ def evaluar_peligro(tr: Trazador, peligro: dict, caja, z_piso: float,
                 for off in desplazamientos(ancho, d):
                     oo = tuple(o[i] + off[i] for i in range(3))
                     h = primero_salvo(tr, oo, d, t_llega, salta)
-                    out.append(h[0] if h is not None and h[1] not in forman else None)
+                    out.append(bloqueo_con_piso(h[0] if h is not None and h[1] not in forman
+                                                else None, oo, d, t_llega, z_suelo))
                 return out
 
             v = veredicto(t_llega, ori["t_contorno"], ori["extra"], haces)

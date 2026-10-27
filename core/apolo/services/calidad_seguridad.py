@@ -4,7 +4,7 @@ extrae datos puros y corre los controles de `library/seguridad/`.
 - `datos_calidad(doc)`: piezas (rol, catálogo, caja, redondez, anclaje), juntas (las de giro sin
   accionar, marcadas `servicio`: `calidad_juntas.py`), uniones declaradas, sólidos, la caja de la
   máquina y el PISO (`z_piso`: el apoyo de lo anclado, no un perno de anclaje que entra en la
-  losa) — lo comparte la reparabilidad.
+  losa; `piso_solido`: anclada, el piso es pared para las sondas) — lo comparte la reparabilidad.
 - `analisis(doc, contexto)`: la DETECCIÓN (qué gira, los peligros, las guardas, las piezas de
   desgaste) sin sondas ni barridos. Con el `contexto` de una corrida de la puerta
   (`puerta_publicacion.Contexto`) se calcula UNA vez y la comparten los detectores
@@ -89,8 +89,9 @@ def datos_calidad(doc) -> dict:
         hi = tuple(max(p.caja[1][i] for p in piezas.values()) for i in range(3))
     else:
         lo = hi = (0.0, 0.0, 0.0)
+    zp = z_piso(piezas, lo[2])
     return {"piezas": piezas, "juntas": juntas, "uniones": uniones, "solidos": solidos,
-            "caja": (lo, hi), "z_piso": z_piso(piezas, lo[2]),
+            "caja": (lo, hi), "z_piso": zp, "piso_solido": piso_solido(piezas, zp),
             "servicio": servicio & set(piezas)}
 
 
@@ -105,6 +106,24 @@ def z_piso(piezas: dict, z_min: float) -> float:
         if zs:
             return min(zs)
     return z_min
+
+
+#: Lo que no es tornillería y queda hasta esto por debajo del piso no lo desmiente (redondeo).
+_PISO_TOL_MM = 0.5
+
+
+def piso_solido(piezas: dict, z: float) -> bool:
+    """¿El piso es un SÓLIDO para las sondas? (F3f de puerta-sin-sobrediseno) Sí si la máquina está
+    ANCLADA (`ground`) y su piso es de verdad el de abajo: nada que no sea tornillería baja de él
+    (una máquina colgada de una pared, con piezas por debajo de su anclaje, no). Entonces ninguna
+    sonda nace ni pasa por debajo de él: el brazo no atraviesa la losa. Sobre ruedas (sin
+    anclaje), el brazo sigue llegando por debajo de la máquina."""
+    from apolo.library.seguridad.modelo import es_tornilleria
+
+    if not any(p.anclada for p in piezas.values()):
+        return False
+    return all(p.caja[0][2] >= z - _PISO_TOL_MM for p in piezas.values()
+               if not es_tornilleria(p))
 
 
 def _tocan(sa, sb) -> bool:
@@ -242,7 +261,7 @@ def _con_brazo_doblado(tr, dc: dict, peligros: list[dict], sondas: dict, resulta
         return {"peligros": 0, "motivo": "ningún peligro quedó resguardado por las rectas"}
     t0 = time.perf_counter()
     campo = campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"], empuje,
-                          (compartido or {}).get("nubes"))
+                          (compartido or {}).get("nubes"), dc.get("piso_solido", False))
     if compartido is not None:
         compartido["campo"] = campo
     ms_campo = (time.perf_counter() - t0) * 1000.0
@@ -327,7 +346,8 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
                 p["motivo"] = c.get("motivo")
         fuera_de_holguras(tr, p)
         sondas, ms = evaluar_peligro(tr, p, dc["caja"], dc["z_piso"], n_direcciones,
-                                     empuje.salta if empuje is not None else None)
+                                     empuje.salta if empuje is not None else None,
+                                     piso_solido=dc.get("piso_solido", False))
         sondas_de[p["id"]] = sondas
         resultados[p["id"]] = resultado_peligro(p, sondas, ms)
     doblado = (_con_brazo_doblado(tr, dc, peligros, sondas_de, resultados, n_direcciones, empuje,

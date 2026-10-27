@@ -30,7 +30,8 @@ from __future__ import annotations
 import time
 
 from apolo.library.seguridad.iso13857 import ALCANCE_DESDE_MUNECA_MM
-from apolo.library.seguridad.sondas import desplazamientos, direcciones, veredicto
+from apolo.library.seguridad.sondas import (bloqueo_con_piso, desplazamientos, direcciones,
+                                            veredicto)
 
 from .calidad_sondas import primero_salvo
 
@@ -121,10 +122,10 @@ class BandaEmpujable:
 
 
 def campo_alcance(solidos: dict, caja, z_piso: float, empuje: BandaEmpujable | None = None,
-                  memo: dict | None = None):
+                  memo: dict | None = None, piso_solido: bool = False):
     """El `CampoAlcance` de la máquina: muestras del teselado de render de cada sólido; las de una
     banda dentro de la abertura de una guarda no cuentan (`empuje`). `memo`: las nubes por pieza
-    ya teseladas (`nubes_de`)."""
+    ya teseladas (`nubes_de`). `piso_solido`: el de lo anclado es pared (F3f)."""
     import numpy as np
 
     from apolo.library.seguridad.alcance import CampoAlcance
@@ -136,7 +137,7 @@ def campo_alcance(solidos: dict, caja, z_piso: float, empuje: BandaEmpujable | N
             pts = pts[~empuje.empujable(pts)]
         nubes.append(pts)
     pts = np.concatenate(nubes) if nubes else np.zeros((0, 3))
-    return CampoAlcance(pts, caja, z_piso)
+    return CampoAlcance(pts, caja, z_piso, piso_solido=piso_solido)
 
 
 def _libre_hasta(tr, p, u, s: float, propias: set, salta) -> bool:
@@ -186,6 +187,7 @@ def sondas_con_codo(tr, campo, peligro: dict, n_direcciones: int = 64,
     cuna = bool(peligro.get("cuna"))
     salta = empuje.salta if empuje is not None else None
     sectores = np.array(direcciones(N_SECTORES))
+    z_suelo = campo.z_piso if getattr(campo, "piso_solido", False) else None
     sondas = []
     for p in objetivos:
         for w, prof, s in _munecas(campo, p, sectores)[:tope]:
@@ -206,7 +208,8 @@ def sondas_con_codo(tr, campo, peligro: dict, n_direcciones: int = 64,
                 for off in desplazamientos(ancho, d):
                     oo = tuple(o[i] + off[i] for i in range(3))
                     h = primero_salvo(tr, oo, d, t_llega, salta)
-                    out.append(h[0] if h is not None and h[1] not in forman else None)
+                    out.append(bloqueo_con_piso(h[0] if h is not None and h[1] not in forman
+                                                else None, oo, d, t_llega, z_suelo))
                 return out
 
             v = veredicto(t_llega, 0.0, prof, haces)
