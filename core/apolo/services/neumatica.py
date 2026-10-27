@@ -110,8 +110,39 @@ def reglas(m, doc=None) -> list[dict]:
             an.append(redes(m))
         return an[0].conectado(des, borne)
 
+    def seta(valvula) -> tuple[bool, str]:  # plan bloqueo-de-vastago D6: ¿la corta la cadena de la seta?
+        from apolo.library.electrico.cadena_seta import cortada_por_seta
+
+        if not an:
+            an.append(redes(m))
+        bornes = [b for c in valvula.cargas if c.tipo == "bobina" for b in c.bornes]
+        return cortada_por_seta(an[0], valvula.designacion, bornes)
+
     return erc(m, disponibles=disponibles(), cableado=cableado, amortiguadores=amortiguadores(),
-               paquetes_min=paquetes_min(doc), refs_escena=refs_escena(doc))
+               paquetes_min=paquetes_min(doc), refs_escena=refs_escena(doc), seta=seta,
+               deslizados=deslizados(doc) if doc is not None else None)
+
+
+def deslizados(doc) -> dict:
+    """{bloqueo: {escenario: {t_desliza_s, sobrerrecorrido_mm}}} de los escenarios VIGENTES con aire
+    en que el vástago deslizó con el bloqueo cerrado (`resultado.aire.bloqueos`, plan
+    bloqueo-de-vastago D5). Un escenario con ajustes de PRUEBA no mide la máquina del proyecto."""
+    from . import escenarios as E
+
+    out: dict = {}
+    if not getattr(doc, "escenarios", None):
+        return out
+    firma, cache = E.firma_documento(doc), {}
+    for nombre, ent in sorted(doc.escenarios.items()):
+        bl = ((ent.get("resultado") or {}).get("aire") or {}).get("bloqueos") or {}
+        malos = {des: f for des, f in bl.items() if f.get("deslizo")}
+        if not malos or (ent.get("escenario") or {}).get("ajustes"):
+            continue
+        if E.estado(doc, nombre, firma, cache)["estado"] in (E.SIN_CORRER, E.VENCIDO):
+            continue
+        for des, f in malos.items():
+            out.setdefault(des, {})[nombre] = f
+    return out
 
 
 #: Eventos de un escenario que no son una falla provocada: el que sólo trae productos es «sano».

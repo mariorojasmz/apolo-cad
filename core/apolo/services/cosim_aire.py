@@ -6,7 +6,8 @@ eléctrico en `cosim_red.py`:
   - `dispositivos(doc, me, cilindros)`: los `DispositivoCosim` del tablero con la ficha neumática
     PLANA en `modelo["aire"]` (puertos fuera; caudal como {C, b, m}) y, en cada cilindro, la
     `carrera_mm` de su junta en 3D (la de `acoples.cilindros`, o la del `{cmd}_vastago` de la
-    pieza ligada, o la del `servicio`);
+    pieza ligada, o la del `servicio`) y, en un bloqueo de vástago, el `cilindro` cuyo
+    `servicio.bloqueo` lo nombra (plan bloqueo-de-vastago D2);
   - `red_aire(me, esc)`: {presion_red_bar, tubos} (el Ø interior y el largo de cada tubo); con
     aire y sin `condiciones.presion_red_bar` es 400 con el ejemplo (D3: la toma es una fuente a la
     presión que se DECLARA, nunca un default);
@@ -65,6 +66,9 @@ def dispositivos(doc, me, cilindros: dict | None = None) -> list:
     from .cosim_snapshot import _color, _plano
 
     out = []
+    #: bloqueo → el cilindro que lo declara en `servicio.bloqueo` (plan bloqueo-de-vastago D2)
+    muerde = {(getattr(d, "servicio", None) or {}).get("bloqueo"): d.designacion for d in me.dispositivos
+              if (getattr(d, "servicio", None) or {}).get("bloqueo")}
     for d in me.dispositivos:
         modelo = _plano(d.modelo or {})
         if getattr(d, "neumatico", None) is not None:
@@ -73,6 +77,8 @@ def dispositivos(doc, me, cilindros: dict | None = None) -> list:
                 carrera = _carrera(doc, d, (cilindros or {}).get(d.designacion, {}).get("junta"))
                 if carrera is not None:
                     aire["carrera_mm"] = carrera
+            elif aire.get("tipo") == "bloqueo_vastago" and d.designacion in muerde:
+                aire["cilindro"] = muerde[d.designacion]
             modelo["aire"] = aire
         out.append(DispositivoCosim(d.designacion, d.ref, modelo, _plano(d.ajustes or {}), int(d.cantidad or 1),
                                     d.pieza or None, _color(d.ref)))

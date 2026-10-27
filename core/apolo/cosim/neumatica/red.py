@@ -28,6 +28,11 @@ en T hacia él suma su volumen a la línea) y `presion_bar(des)` da la presión 
   - en la TOMA (la entrada del FRL o del corte): la presión de red;
   - sin tubo: la atmósfera (y lo dice la hipótesis). Otra línea es `ModeloIncompleto`.
 
+Bloqueos de vástago (plan bloqueo-de-vastago D4): su puerto 1 es una cámara de volumen fijo
+unida por su cadena de tubos a la válvula que lo libera (la misma caminata que una cámara del
+cilindro); en cada intercambio avanza después de los cilindros y `frenos` da, por cilindro, la
+sujeción que va a la junta de su vástago.
+
 Puro: `cosim.modelos` y `cosim.neumatica`.
 """
 
@@ -38,6 +43,7 @@ import math
 
 from ..modelos.base import ModeloIncompleto
 from ..modelos.electrovalvula import Electrovalvula
+from .bloqueo import BloqueoVastago
 from .camara import HIPOTESIS_N, HIPOTESIS_TUBOS, Camino
 from .cilindro import Cilindro
 from .componentes import HIPOTESIS_FRL, Frl, Toma, ValvulaCorte
@@ -125,7 +131,10 @@ class RedAire:
             for lado in ("A", "B"):
                 self.camaras[(des, lado)] = self._camara(des, lado)
             cil.V_tubo_A, cil.V_tubo_B = self.camaras[(des, "A")].volumen, self.camaras[(des, "B")].volumen
-        for cam in self.camaras.values():  # todo lo que la corrida va a pedir, validado al armar
+        self.bloqueos = [(des, m) for des, m in modelos.items() if isinstance(m, BloqueoVastago)]
+        self.liberaciones = {des: self._camara(des, "1") for des, _m in self.bloqueos}
+        self.frenos: dict = {}  # cilindro → sujeción (N) de su bloqueo en el intercambio que viene
+        for cam in list(self.camaras.values()) + list(self.liberaciones.values()):  # todo lo que la corrida va a pedir, validado al armar
             v = cam.valvula
             self._aguas_arriba(f"{v.designacion}:1")
             for via in (("3", "5") if v.vias == 5 else ("3",) if v.vias == 3 else ()):
@@ -141,6 +150,16 @@ class RedAire:
             cil.friccion_junta_N = cil.sellos_N(trabajo)
             cil.pA = p0[0].p if p0[0] is not None else P_ATM_PA
             cil.pB = p0[1].p if p0[1] is not None else P_ATM_PA
+        cils = {des for des, _c in self.cilindros}
+        for des, m in self.bloqueos:
+            if m.cilindro not in cils:
+                raise ModeloIncompleto(f"{des}: muerde el vástago de {m.cilindro}, que no es un cilindro del circuito "
+                                       f"de aire ({', '.join(sorted(cils)) or 'ninguno'})")
+            cam = self.liberaciones[des]
+            m.V_tubo = cam.volumen
+            c0 = self._fuente(cam)
+            m.iniciar(c0.p if c0 is not None else P_ATM_PA)
+            self.frenos[m.cilindro] = self.frenos.get(m.cilindro, 0.0) + m.F
         self._lee = {des: self._donde_lee(des) for des in self._de_presostato.values()}
         self._atrapada: dict = {}
 
@@ -297,6 +316,14 @@ class RedAire:
             x, v = lecturas[des]
             out[des] = cil.intercambio(dt, x, v, self.caminos(self.camaras[(des, "A")]),
                                        self.caminos(self.camaras[(des, "B")]))
+        if self.bloqueos:  # después de los cilindros: muerde con la fuerza de este intercambio
+            frenos: dict = {}
+            for des, m in self.bloqueos:
+                cil = self.modelos[m.cilindro]
+                F = m.intercambio(dt, self.caminos(self.liberaciones[des]), lecturas[m.cilindro][0], cil.F,
+                                  cil.friccion_junta_N)
+                frenos[m.cilindro] = frenos.get(m.cilindro, 0.0) + F
+            self.frenos = frenos
         for m in self.frls:
             m.p_red = self.p_red
             m.toma.cerrar(dt)

@@ -65,19 +65,20 @@ def test_toda_ref_activa_se_emula_con_su_catalogo():
 
 def test_toda_ref_de_aire_con_estado_se_emula():
     """V8.9 F3: cilindros, FRL y válvulas de corte arman su modelo de aire con la ficha del
-    catálogo (más la carrera del cilindro y el ajuste del FRL, que pone quien lo instala)."""
+    catálogo (más la carrera del cilindro y el ajuste del FRL, que pone quien lo instala; el
+    bloqueo de vástago, el cilindro que lo declara: plan bloqueo-de-vastago D2)."""
     from apolo.cosim.neumatica import MODELOS_AIRE, crear_modelo_aire
 
     vistos = set()
     for ref, c in CATALOG.items():
         if c.neumatico is None or c.neumatico.tipo not in MODELOS_AIRE:
             continue
-        aire = {**ficha_plana(c.neumatico), "carrera_mm": 100.0}
+        aire = {**ficha_plana(c.neumatico), "carrera_mm": 100.0, "cilindro": "-MM1"}
         m = crear_modelo_aire("-X1", ref, aire, {"p_regulada_bar": 6.0})
         assert m.tipo == c.neumatico.tipo, ref
         vistos.add(m.tipo)
         assert all(re.fullmatch(r"-X1\.\w+", n) for n in m.senales()), ref
-    assert vistos == {"cilindro", "frl", "valvula_corte"}
+    assert vistos == {"cilindro", "frl", "valvula_corte", "bloqueo_vastago"}
 
 
 @pytest.mark.parametrize("ref,senales", [

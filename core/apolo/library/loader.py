@@ -22,6 +22,8 @@ from .builders_amortiguador import ANCLAS as _ANCLAS_AMORTIGUADOR
 from .builders_amortiguador import BUILDERS as _BUILDERS_AMORTIGUADOR
 from .builders_aparatos import BUILDERS as _BUILDERS_APARATOS
 from .builders_aparatos import ZONADOS as _ZONADOS_APARATOS
+from .builders_bloqueo import ANCLAS as _ANCLAS_BLOQUEO
+from .builders_bloqueo import BUILDERS as _BUILDERS_BLOQUEO
 from .builders import BUILDERS as _BUILDERS_BASE
 from .builders_fijacion import BUILDERS as _BUILDERS_FIJACION
 from .builders_mandos import ANCLAS as _ANCLAS_MANDOS
@@ -75,9 +77,10 @@ def merge_anclas(builders: dict, *registros: dict) -> dict:
 
 BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION,
                           _BUILDERS_MANDOS, _BUILDERS_FIJACION, _BUILDERS_TABLERO,
-                          _BUILDERS_NEUMATICA, _BUILDERS_AMORTIGUADOR, _BUILDERS_APARATOS)
+                          _BUILDERS_NEUMATICA, _BUILDERS_AMORTIGUADOR, _BUILDERS_APARATOS,
+                          _BUILDERS_BLOQUEO)
 ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES, _ANCLAS_MANDOS,
-                      _ANCLAS_NEUMATICA, _ANCLAS_AMORTIGUADOR)
+                      _ANCLAS_NEUMATICA, _ANCLAS_AMORTIGUADOR, _ANCLAS_BLOQUEO)
 #: los builders que dan partes por zona: los mandos y los aparatos de tablero (plan
 #: aparatos-de-tablero-realistas D4)
 ZONADOS = _ZONADOS_MANDOS | _ZONADOS_APARATOS
