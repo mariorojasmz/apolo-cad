@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude (2026-10-27, decisiones delegadas por Mario, vetables por número); F0 hecha (mapa del código, abajo); faltan F1 (cadena por su comando, uniones entre cuerpos que se mueven distinto, evidencia de sobrantes), F2 (el resguardo abre su junta: puerta y visor), F3 (aviso del tirador), F4 (las máquinas por MCP) y F5 (Mario las ve)
+nota: contrato escrito por Claude (2026-10-27, decisiones delegadas por Mario, vetables por número); F0 hecha (mapa del código, abajo); F1 implementada (registro v16, D1/D2/D6), falta revisarla y mergearla; faltan F2 (el resguardo abre su junta: puerta y visor), F3 (aviso del tirador), F4 (las máquinas por MCP) y F5 (Mario las ve)
 descripcion: Lo que se mueve en la realidad se mueve en el modelo: la puerta rechaza la cadena hecha a mano, la unión falsa que tapa un choque y el resguardo sin junta, y en el visor «Puerta abierta» abre la puerta
 ---
 
@@ -209,3 +209,21 @@ Lo que pediría una pieza sin norma es AVISO justificable por escrito.
   «de apoyo» y hubo que agregar 12,6 kg para volver a tapar las cuñas. Neto: 280,5 → 276,7 kg y
   1251,93 → 1240,68 USD, con la puerta aprobada y la entrega en VERDE. La prueba «una a la vez»
   no ve que la capota también tapa.
+- **F1 (2026-10-27, agente en worktree):** registro v16.
+  - D1: `library/calidad/cadenas.py` (la `Entrada` y su criterio) + `services/calidad_cadenas.py`
+    (detector: tipo del comando por `command_id`, con prefijo para los sintéticos, o `mesh_key`
+    «cadena|»/«izaje|»). Las 14 cadenas del testigo `rodillos` (create_chain DENTRO de un
+    compuesto) salen de su comando por el `mesh_key`.
+  - D2: en `services/assertions._en_pose` (sólo la puerta de entrega en pose; el chequeo de
+    diseño y `check_interference(excluir_declaradas)` no cambian). Además de `junta_movil`
+    distinta, el par se libera sólo si la POSE mueve distinto sus cadenas de juntas: en un estudio
+    de dos juntas, la pose que sólo mueve la otra deja el tope tocando como en diseño. Se excluyen
+    el par padre-hijo de una junta y los `fasten` de un super-comando de cadena (por tipo o por el
+    command_id de una pieza «cadena|»/«izaje|»).
+  - D6: `services/calidad_sobrantes_apoyo.py`, etapa «apoyo» en `por_etapa`. Medido en el testigo
+    faja con una placa colgada de la guarda de cola: sobrantes 35 275 / 36 030 ms sin D6 y
+    36 928 / 36 380 ms con D6 (apoyo: 2 pruebas, 1 107 / 1 127 ms; corta en la primera recta que
+    llega, ≈ 0,58 s). El caso caro es `solo_apoyo` (ninguna recta llega y corre el brazo doblado):
+    7,4 s por candidata en la tapa del tensor. Sin apoyos (el testigo tal cual), 0 ms.
+  - Testigos re-congelados sólo por la versión y el ítem nuevo (NO_APLICA en faja y ménsulas, OK
+    en rodillos, que además estaba en v14).

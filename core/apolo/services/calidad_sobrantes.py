@@ -17,7 +17,9 @@ lo caro y la primera que empeora la declara necesaria (`la_pide`):
 1. sujeción: ninguna otra pieza queda sin camino de carga (el grafo declarado de la entrega) ni
    pierde un APOYO: la candidata no sostiene a una vecina más lejos que ella del piso (en saltos
    de unión declarada). Un apoyo redundante —la segunda oreja de una guarda, la otra ménsula del
-   drive— no «sobra»: el grafo no ve la palanca, y quitarlo dejaría la pieza colgando de un lado;
+   drive— no «sobra»: el grafo no ve la palanca, y quitarlo dejaría la pieza colgando de un lado.
+   De un apoyo se corren igual las sondas sin él y sin lo que sostiene: la evidencia dice
+   `tambien_tapa` o `solo_apoyo` (D6 de lo-que-se-mueve, `calidad_sobrantes_apoyo.py`);
 2. guardas: ningún cuerpo de guarda que estaba atornillado queda suelto o sin perno;
 3. peligros, sondas RECTAS: los objetivos de cada peligro a ≤ `DIST_INFLUENCIA_MM` de ella (el
    brazo más la mano) siguen fuera del alcance; el de un peligro que ya fallaba en la corrida no
@@ -61,6 +63,8 @@ N_DIRECCIONES = 64  # las de la corrida (`controles_seguridad`)
 #: Vueltas de la voraz: la segunda re-prueba lo que una quitada posterior pudo liberar.
 MAX_VUELTAS = 3
 _RANGO = {"FALLA": 0, "SIN_EVALUAR": 1, "OK": 2, "NO_APLICA": 3}
+#: Lo que agrega la evidencia de un «apoyo de» (`calidad_sobrantes_apoyo`, D6 de lo-que-se-mueve).
+_DE_APOYO = ("tambien_tapa", "solo_apoyo")
 
 
 # ------------------------------------------------------------------ la copia sin la candidata
@@ -192,7 +196,7 @@ class Prueba:
         self.compartido: dict = sondas.get("compartido") or {}
         self.nubes: dict = self.compartido.get("nubes", {})
         self.ms = {"sujecion": 0.0, "guardas": 0.0, "rectas": 0.0, "ingenieria": 0.0,
-                   "codo": 0.0}
+                   "codo": 0.0, "apoyo": 0.0}  # apoyo: D6 de lo-que-se-mueve
         self.etapa = {k: 0 for k in self.ms}
         self.flot, self.vec, self.saltos = _sujecion(doc, set(), hardware)
         self.guardas = _guardas(an["dc"], set(an["moviles"]))
@@ -277,10 +281,12 @@ class Prueba:
         dc_c = self.saltos.get(c)
         apoya = sorted(x for x in self.vec.get(c, ()) if x not in q and dc_c is not None
                        and self.saltos.get(x) is not None and self.saltos[x] > dc_c)
-        if apoya:
+        if apoya:  # necesaria; las sondas sin ella y sin lo que apoya sólo dicen la verdad (D6)
             self._cron("sujecion", t0)
+            from .calidad_sobrantes_apoyo import tambien_tapa
+
             return {"control": "sujeción", "detalle": "es un apoyo de: "
-                    + ", ".join(nombre(i) for i in apoya[:4])}
+                    + ", ".join(nombre(i) for i in apoya[:4]), **tambien_tapa(self, r, apoya)}
         flot, vec, saltos = _sujecion(doc, q, self.hardware)
         self._cron("sujecion", t0)
         nuevas = sorted(flot - self.flot - q)
@@ -437,7 +443,8 @@ def sobrantes(doc, contexto) -> dict:
                 sobran.append({**c, "la_pide": "ninguna prueba de la puerta"})
                 sobro = True
             else:
-                quedan.append({**c, "la_pide": motivo["control"], "detalle": motivo["detalle"]})
+                quedan.append({**c, "la_pide": motivo["control"], "detalle": motivo["detalle"],
+                               **{k: motivo[k] for k in _DE_APOYO if k in motivo}})
         probadas = {c["id"] for c in pendientes}
         necesarias = [n for n in necesarias if n["id"] not in probadas] + quedan
         # otra vuelta sólo a lo que pedían la sujeción o una guarda: lo que sostenía o unía puede

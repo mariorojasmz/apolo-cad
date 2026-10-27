@@ -4,7 +4,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
 
 `hechos(doc, entrega_kwargs, contexto)` →
 - `elementos`: {tipo general: {clase: n}} — `transmisiones_flexibles` {banda, cadena},
-  `elementos_rodantes` {rodamiento, chumacera}, `accionamientos`, `transmisiones`, `apoyos`,
+  `elementos_rodantes` {rodamiento, chumacera}, `accionamientos`, `transmisiones`,
+  `cadenas_de_rodillos` {de_su_comando, a_mano} (toda ref CADENA-*, `calidad_cadenas`), `apoyos`,
   `vigas`, `columnas`, `uniones` / `uniones_apernadas` / `soldaduras`, `tornilleria`,
   `tornilleria_llave`, `supercomandos`, `piezas` {catalogo, a_medida}, `sustitutos_animados`
   {banda}, `partes_moviles`, `resguardos`, `consumibles`, `operables` (mandos, pilotos y sensores
@@ -102,6 +103,8 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from apolo.library.delivery import MIN_SOLIDOS_SUJECION
 
     from . import marcha_ejemplo
+    from .calidad_cadenas import cadenas_de_rodillos
+    from .calidad_cadenas import elementos as elementos_cadenas
     from .calidad_juntas import clasificar
     from .calidad_pernos import tipo_de_tornilleria
     from .calidad_tensores import lazos_banda
@@ -113,6 +116,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     cadenas = [c["id"] for c in comandos_efectivos(doc.commands, doc.variables_resolved)
                if c["type"] == "create_chain"]
     bandas = [lz["id"] for lz in lazos_banda(doc)]
+    de_rodillos = cadenas_de_rodillos(doc)  # lo-que-se-mueve D1: también las hechas a mano
     por_cmd: dict[str, int] = {}
     for x in solidos.values():
         por_cmd[x.command_id] = por_cmd.get(x.command_id, 0) + 1
@@ -150,6 +154,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
                                   for c in _RODANTES.values()}),
         "accionamientos": _n({"motorreductor": len(motores)}),
         "transmisiones": _n({"cadena": len(cadenas)}),
+        "cadenas_de_rodillos": elementos_cadenas(de_rodillos),
         "apoyos": _n({"anclaje": len(doc.grounds)}),
         "vigas": _n(vigas),
         "columnas": _columnas(doc),
@@ -181,6 +186,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
                                or doc.grounds),
         "elementos": elementos,
         "familias_funcion": familias,
+        "cadenas_de_rodillos": de_rodillos,  # el insumo de su ítem (`_reunir` lo pasa)
     }
 
 

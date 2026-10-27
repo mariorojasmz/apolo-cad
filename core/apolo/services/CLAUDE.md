@@ -94,7 +94,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   (opt-in: la simula la API con su lock). Excluye lo DECLARADO (par con fasten, tornillería a
   medida por `_is_bolt`) con las MISMAS exclusiones en diseño y en las poses de REPOSO
   (`delivery_poses`: extremos + dwells); el porqué, en [library](../library/CLAUDE.md).
-  [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
+  [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md) Salvo en pose: el `fasten` entre piezas
+  que la pose mueve con juntas distintas (`uniones_entre_juntas`, sin los de un super-comando de
+  cadena) no tapa su choque. [lo-que-se-mueve](../../../docs/plans/lo-que-se-mueve.md) (D2)
 - La tornillería que insertó un `join_bolted` con su fijador declarado no es «sin unión
   declarada» (`declarada_por_join_bolted`, por el TIPO del comando, no por `jb_*`).
   [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md) (D5)
@@ -123,7 +125,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   los controles que pueden empeorar, de lo barato a lo caro, reutilizando el `analisis` y las
   sondas de la corrida (`contexto`: `f3.sondas`) y el campo de la muñeca rehecho sólo en la zona
   quitada (`CampoAlcance.libre_sin`, idéntico al entero: lo prueba su test). Un apoyo redundante NO
-  sobra. Un control nuevo que una pieza pueda empeorar entra ahí. Lo eléctrico (`del_carril`: el
+  sobra, pero corre igual las sondas sin él y sin lo que sostiene: `tambien_tapa`/`solo_apoyo` en
+  la evidencia, sin cambiar el estado (`calidad_sobrantes_apoyo.py`, D6 de
+  [lo-que-se-mueve](../../../docs/plans/lo-que-se-mueve.md)). Un control nuevo que una pieza pueda empeorar entra ahí. Lo eléctrico (`del_carril`: el
   `layout_tablero`, los dispositivos) no es «agregado»; un objetivo de enganche que las sondas
   sacaron por caer en una holgura ≤ 4 mm (`calidad_sondas.fuera_de_holguras`) se re-sondea si se
   quita una de sus dos paredes. El campo del codo y el teselado salen de F3 (`compartido` en

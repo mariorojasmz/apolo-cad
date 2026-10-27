@@ -15,7 +15,10 @@ from __future__ import annotations
 from .item import FALLA, OK, SIN_EVALUAR, recortar
 from .justificadas import citar, de_pieza
 
-_DE_CADA = ("id", "nombre", "origen", "masa_kg", "la_pide", "detalle")
+#: `tambien_tapa`/`solo_apoyo`: la verdad de un «apoyo de» (D6 de lo-que-se-mueve; no cambia
+#: el estado, sólo lo que lee quien rediseña).
+_DE_CADA = ("id", "nombre", "origen", "masa_kg", "la_pide", "detalle", "tambien_tapa",
+            "solo_apoyo")
 
 
 def _r(estado: str, detalle: str, evidencia: dict, piezas=()) -> dict:

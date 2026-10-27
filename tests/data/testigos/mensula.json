@@ -3,7 +3,7 @@
  "descripcion": "una ménsula suelta anclada: pieza estática que se aprueba",
  "tortura": false,
  "aprobado": true,
- "version_registro": "15",
+ "version_registro": "16",
  "firma": "d126fa5ab614e0d5c317",
  "items": {
   "entrega.semaforo": "OK",
@@ -27,6 +27,7 @@
   "union.soldaduras": "NO_APLICA",
   "union.dimensionadas": "NO_APLICA",
   "ingenieria.reglas": "OK",
+  "transmision_flexible.de_su_comando": "NO_APLICA",
   "fabricabilidad": "OK",
   "memoria.veredicto": "OK",
   "diseno.soluciones_por_funcion": "NO_APLICA",

@@ -179,6 +179,37 @@ def contract_verify(doc, expect: list[dict], *, expand):
     return cb
 
 
+_NO_TAPA = ("la unión declarada no excluye el choque en esta pose: sus dos piezas las mueven "
+            "juntas distintas (lo-que-se-mueve D2); si se mueven juntas, cuelga una de la junta "
+            "de la otra")
+
+
+def _en_pose(doc, metas: list[dict], extra_pairs, extra_ids, expand):
+    """(resultados de `verify_checks`, {par liberado: unión} por pose) en el orden de `metas`.
+    MISMAS exclusiones que el chequeo de diseño de la puerta (fasten declarado + tornillería):
+    sin esto, un solape DECLARADO reaparecía como «colisión nueva» en pose (E2E del 38:
+    banda↔travesaño, rodillo↔ménsula). Salvo el `fasten` entre piezas que la pose mueve con
+    juntas DISTINTAS (D2 de lo-que-se-mueve, `delivery_inputs.uniones_entre_juntas`): un tope
+    que sólo toca en la pose de diseño se separa y no da choque; una unión «artefacto» deja ver
+    el choque que tapaba. Una llamada a `verify_checks` por cada conjunto distinto de pares
+    liberados (sin uniones así, una sola, como antes)."""
+    from .delivery_inputs import liberadas_en_pose, uniones_entre_juntas
+
+    uniones = uniones_entre_juntas(doc, extra_pairs) if extra_pairs else {}
+    lib = [frozenset(liberadas_en_pose(uniones, m["joint_values"])) for m in metas]
+    resultados: list = [None] * len(metas)
+    for grupo in dict.fromkeys(lib):
+        idx = [i for i, x in enumerate(lib) if x == grupo]
+        checks = [{"tipo": "sin_interferencia", "joint_values": metas[i]["joint_values"],
+                   "nombre": f"{metas[i]['estudio']}@t={metas[i]['t']}"} for i in idx]
+        res = verify_checks(doc, doc.scene, checks, expand=expand,
+                            extra_exclude_pairs=(extra_pairs - grupo) if extra_pairs else extra_pairs,
+                            extra_exclude_ids=extra_ids)
+        for i, r in zip(idx, res):
+            resultados[i] = r
+    return resultados, [{p: uniones[p]["union"] for p in x} for x in lib]
+
+
 def delivery_poses(doc, extra_pairs: set | None = None,
                    extra_ids: set | None = None, *, expand) -> list[dict] | None:
     """Poses de REPOSO de los estudios de movimiento declarados, evaluadas EN POSE
@@ -188,7 +219,9 @@ def delivery_poses(doc, extra_pairs: set | None = None,
     el TRÁNSITO interpolado (la espiga saltando dientes de la cremallera) no es una
     pose de entrega — se valida con scan_motion. Contacto de ASIENTO ≤ EXCESS_TOL_MM3
     (la pose rígida del FK no modela la complianza del apoyo: 2 mm³ de la barra en su
-    muesca no son una colisión) se tolera y se DECLARA (`contactos_tolerados`).
+    muesca no son una colisión) se tolera y se DECLARA (`contactos_tolerados`). El `fasten`
+    entre piezas que la pose mueve con juntas distintas no excluye su choque (`_en_pose`):
+    la colisión lleva `union_declarada` y su `porque`.
     None = no hay estudios (el chequeo «no aplica» — jamás cuenta verde). Un estudio
     malformado (formato viejo sin `values`, valores no numéricos) produce {estudio,
     error}: la pose queda SIN verificar y la puerta lo DECLARA. Llamar bajo STATE_LOCK."""
@@ -231,20 +264,15 @@ def delivery_poses(doc, extra_pairs: set | None = None,
                 continue
             vistos.add(key)
             metas.append({"estudio": nombre, "t": t, "joint_values": vals})
-    checks = [{"tipo": "sin_interferencia", "joint_values": m["joint_values"],
-               "nombre": f"{m['estudio']}@t={m['t']}"} for m in metas]
-    # MISMAS exclusiones que el chequeo de diseño de la puerta (fasten declarado +
-    # tornillería): sin esto, un solape DECLARADO reaparecía como «colisión nueva»
-    # en pose (asimetría cazada en el E2E del 38: banda↔travesaño, rodillo↔ménsula).
-    resultados = (verify_checks(doc, doc.scene, checks, expand=expand,
-                                extra_exclude_pairs=extra_pairs,
-                                extra_exclude_ids=extra_ids) if checks else [])
+    resultados, liberadas = _en_pose(doc, metas, extra_pairs, extra_ids, expand)
     out: list[dict] = []
-    for meta, res in zip(metas, resultados):
+    for meta, res, lib in zip(metas, resultados, liberadas):
         if res.get("error"):
             out.append({**meta, "error": res["error"]})
             continue
-        cols = res.get("colisiones") or []
+        cols = [{**c, "union_declarada": lib[par], "porque": _NO_TAPA}
+                if (par := frozenset((c.get("a"), c.get("b")))) in lib else c
+                for c in res.get("colisiones") or []]
         reales = [c for c in cols if c.get("volumen_mm3", 0) > EXCESS_TOL_MM3]
         entry = {**meta, "colisiones": reales}
         if len(cols) > len(reales):

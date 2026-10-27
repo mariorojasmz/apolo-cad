@@ -288,7 +288,8 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "interna": interna, "memoria": memoria,
             "fuentes": fuentes, "fabricacion": fab, "flujo": flujo,
             "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos,
-            "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or [])}
+            "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or []),
+            "cadenas": h["cadenas_de_rodillos"]}
 
 
 # ------------------------------------------------------------------ la marcha (D13 de la fábrica)

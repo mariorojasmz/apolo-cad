@@ -15,7 +15,8 @@ Ids estables (familia):
   `union.agujeros` (montaje); `union.capacidad`, `union.soldaduras`, `union.dimensionadas` (estructura);
 - `montaje.interferencia_interna` (montaje: choques dentro de un super-comando, D13b);
 - `transmision_flexible.tension` (función: todo lazo — banda, cadena, correa, cable — con un
-  tensado reconocido y carrera suficiente); `transmision.capacidad`, `elementos_rodantes.l10`,
+  tensado reconocido y carrera suficiente); `transmision_flexible.de_su_comando` (función: toda
+  cadena de rodillos sale de `create_chain`/`create_hoist_chain`, `cadenas.py`); `transmision.capacidad`, `elementos_rodantes.l10`,
   `accionamiento.factor_servicio`, `ingenieria.reglas`, `funcion.escenarios` y
   `funcion.flujo_de_producto` (función);
 - `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
@@ -74,20 +75,23 @@ sólido para las sondas (ninguna nace ni pasa por debajo; el hueco piso ↔ pane
 columnas de perfil de catálogo (Euler/Johnson, K de AISC) y deja justificar las que no puede; v15
 `riesgos.electrico` con la regla nueva del ERC «hilo de protección sin conectar» (el PE de un
 cable multipolar llega a un borne de tierra en sus dos extremos, IEC 60204-1 §8.2.1): un elevador
-aprobado en v14 con 13 cables 5G de PE suelto ahora falla.
+aprobado en v14 con 13 cables 5G de PE suelto ahora falla; v16 (lo-que-se-mueve F1)
+`transmision_flexible.de_su_comando` (la cadena por `insert_component` falla) y, en las poses que
+no son la de diseño, el `fasten` entre piezas que mueven juntas distintas deja de tapar su choque.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import cadenas as ca
 from . import nombres as nb
 from . import puerta as p
 from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "15"  # 15: el hilo PE de los cables en el ERC de riesgos.electrico
+VERSION_REGISTRO = "16"  # 16: cadena de su comando y uniones entre cuerpos que se mueven distinto
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -229,6 +233,7 @@ REGISTRO: tuple = (
             hay("supercomandos", "sin super-comandos de varias piezas"), p.interferencia_interna,
             "supercomandos"),
     Fuente("mecanica", "apolo.services.calidad_mecanica:items_funcion_mecanica", _MECANICA),
+    ca.ENTRADA,  # transmision_flexible.de_su_comando: la Entrada vive junto a su criterio
     Entrada("fabricabilidad", "Cada pieza es de catálogo o un sólido con material y proceso",
             "una pieza a medida que no se puede cortar, mecanizar ni comprar",
             "criterio de diseño (DFM)", "proceso", hay("piezas", "el modelo no tiene piezas"),

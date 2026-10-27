@@ -179,6 +179,17 @@ def cadena_subdimensionada(d):  # ASA 40 simple con 3 kW a 60 rpm
                                "potencia_kw": 3.0, "rpm_a": 60})
 
 
+def cadena_a_mano(d):
+    """lo-que-se-mueve D1: el ramal de una cadena 08B por `insert_component` entre dos piñones (el
+    elevador de la tanda nocturna: 3 tramos rectos que no envolvían el piñón ni seguían a su junta,
+    y que ningún ítem veía)."""
+    for x in (0, 400):
+        d.execute("insert_component", {"component": "PINON-ASA40-1-Z15", "rotation": {"x": 90},
+                                       "position": {"x": x, "y": 300, "z": 600}})
+    d.execute("insert_component", {"component": "CADENA-ASA40-1",
+                                   "position": {"x": 200, "y": 300, "z": 640}})
+
+
 def motor_sin_tierra(d):  # el tablero de arranque directo sin el PE del motor
     d.execute_many([c for c in arranque_directo()
                     if c["params"].get("puntos") != ["-X0:2", "-M1:PE"]])
@@ -372,6 +383,8 @@ DEFECTOS = (
             {"fabricabilidad": FALLA}),
     Defecto("cadena_subdimensionada", "mensula", cadena_subdimensionada,
             {"transmision.capacidad": FALLA}),
+    Defecto("cadena_a_mano", "mensula", cadena_a_mano,
+            {"transmision_flexible.de_su_comando": FALLA}),
     Defecto("motor_sin_tierra", "mensula", motor_sin_tierra, {"riesgos.electrico": FALLA}),
     Defecto("hilo_pe_suelto", "mensula", hilo_pe_suelto, {"riesgos.electrico": FALLA}),
     Defecto("mando_sin_rotulo", "mensula", mando_sin_rotulo,
@@ -599,3 +612,63 @@ def test_un_aviso_justificado_deja_de_bloquear_y_un_error_nunca():
     pp.poner_justificadas(doc, [{"regla": "interferencias en diseño", "porque": _PORQUE}])
     sem = _item(_puerta(doc, False), "entrega.semaforo")
     assert sem["estado"] == FALLA and sem["evidencia"]["veredicto"] == "ROJO", sem
+
+
+# ------------------------------------------------------------------ lo-que-se-mueve (F1)
+def test_la_cadena_de_su_comando_pasa_y_la_hecha_a_mano_dice_que_comando_usar():
+    """D1: la cadena de `create_chain` (la de `cadena_subdimensionada`) es OK en su ítem; la de
+    `insert_component` falla nombrando la pieza, su comando y con qué modelarla. Sin cadenas, el
+    testigo de la ménsula no aplica."""
+    it = _item(_puerta(_base("mensula"), False), "transmision_flexible.de_su_comando")
+    assert it["estado"] == "NO_APLICA", it
+    doc = _base("mensula")
+    cadena_subdimensionada(doc)
+    it = _item(_puerta(doc, False), "transmision_flexible.de_su_comando")
+    assert it["estado"] == OK, it["detalle"]
+    assert [c["tipo"] for c in it["evidencia"]["cadenas"]] == ["create_chain"]
+    assert it["evidencia"]["elementos"] == {"de_su_comando": 1}
+    doc = _base("mensula")
+    cadena_a_mano(doc)
+    it = _item(_puerta(doc, False), "transmision_flexible.de_su_comando")
+    (c,) = it["evidencia"]["cadenas"]
+    assert it["estado"] == FALLA and it["piezas"] == [c["id"]] == it["evidencia"]["a_mano"]
+    assert c["tipo"] == "insert_component" and c["ref"] == "CADENA-ASA40-1"
+    assert "create_chain" in it["detalle"] and "create_hoist_chain" in it["detalle"]
+
+
+def _placa_sobre(d, guarda: str) -> str:
+    """Una placa de identificación atornillada SÓLO a `guarda`, por fuera: la guarda pasa a ser
+    «apoyo de» ella (la placa queda un salto más lejos del piso) y la placa no es candidata."""
+    g = _id(d, guarda)
+    bb = d.scene[g].shape.bounding_box()
+    x = (bb.min.X - 2.5) if (bb.min.X + bb.max.X) / 2 < 0 else (bb.max.X + 2.5)
+    p = _caja(d, f"Placa de identificación ({guarda[-12:]})", 2, 80, 50, x,
+              (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
+    d.execute("fasten", {"name": f"f_placa_{len(d.fasteners)}", "a": p, "b": g, "kind": "perno",
+                         "size": "M5", "qty": 2})
+    return g
+
+
+def test_la_guarda_que_es_apoyo_dice_si_tambien_tapa_un_peligro():
+    """D6: la guarda del tambor de cola sostiene una placa: sigue siendo necesaria por la sujeción
+    («es un apoyo de»), pero las sondas sin ella y sin la placa llegan a la cuña de cola y la
+    evidencia lo dice (`tambien_tapa`); la tapa del tensor, que no resguarda nada (sobra en el
+    testigo), con su placa es `solo_apoyo`. Se prueba cada una sola (la voraz entera de la faja
+    tarda ~35 s)."""
+    from apolo.services.calidad_seguridad import analisis, controles_f3
+    from apolo.services.calidad_sobrantes import Prueba, _tornilleria
+
+    doc = _base("faja")
+    cola = _placa_sobre(doc, "Faja de banda · Guarda del tambor de cola")
+    tapa = _placa_sobre(doc, "Faja de banda · Tapa del tensor (1)")
+    ctx = pp.Contexto()
+    controles_f3(doc, contexto=ctx, electrico=False)
+    an = analisis(doc, ctx)
+    hardware, jb = _tornilleria(doc, an["dc"]["piezas"])
+    prueba = Prueba(doc, an, ctx.una_vez("f3.sondas", lambda: None), hardware, jb)
+    m = prueba.probar(cola)
+    assert m["control"] == "sujeción" and m["detalle"].startswith("es un apoyo de"), m
+    assert "Tambor de cola" in m["tambien_tapa"] and "solo_apoyo" not in m, m
+    m = prueba.probar(tapa)
+    assert m["control"] == "sujeción" and m.get("solo_apoyo") is True, m
+    assert prueba.quitadas == set() and prueba.etapa["apoyo"] == 2

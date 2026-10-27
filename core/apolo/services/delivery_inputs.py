@@ -33,6 +33,63 @@ def exclusiones_declaradas(doc) -> tuple[set[frozenset], set[str]]:
             {fid for fid, f in doc.scene.items() if _is_bolt(f, CATALOG)})
 
 
+def _juntas_que_mueven(doc, fid: str) -> tuple[str, ...]:
+    """Las juntas no `fija` que mueven a `fid`, de la suya (`enclavamientos.junta_movil`) hacia
+    arriba por la cadena de padres."""
+    from .enclavamientos import junta_movil
+
+    out: list[str] = []
+    j = junta_movil(doc, fid)
+    while j is not None and j["name"] not in out:
+        out.append(j["name"])
+        j = junta_movil(doc, j["parent"])
+    return tuple(out)
+
+
+def uniones_entre_juntas(doc, pares: set | None = None) -> dict[frozenset, dict]:
+    """{par de un `fasten`: {union, juntas: (de a, de b)}} de las uniones cuyas dos piezas mueve una
+    junta DISTINTA (plan lo-que-se-mueve, D2): en una pose que las mueve distinto, ese `fasten` no
+    excluye su choque. Sólo los pares de `pares` (None: todos). No entran los `fasten` de un
+    super-comando de cadena (`create_chain`: `{id}_a|_b`; `create_hoist_chain`: `{id}_p1`,
+    `{id}_pasador_a`…,
+    también los que corrió un compuesto, por el command_id de una pieza «cadena|»/«izaje|»): la
+    cadena sigue a su pieza por la FK de izaje o es la de la marcha, no una unión rígida. Tampoco
+    el par padre-hijo de una junta: lo sigue excluyendo `joint_pairs` (en pose, su
+    interpenetración se mide contra la de diseño)."""
+    from apolo.library.calidad.cadenas import COMANDOS
+    from apolo.library.checks import joint_pairs
+
+    from .calidad_cadenas import PREFIJOS_MESH
+
+    tipo = {c["id"]: c.get("type") for c in doc.commands}
+    de_cadena = {getattr(f, "command_id", None) for f in doc.scene.values()
+                 if str(getattr(f, "mesh_key", None) or "").startswith(PREFIJOS_MESH)}
+    de_junta = joint_pairs(doc)
+    excluidos, out = set(), {}
+    for nombre, f in sorted(doc.fasteners.items()):
+        par = frozenset((f["a"], f["b"]))
+        if (pares is not None and par not in pares) or par in de_junta:
+            continue
+        cid = f.get("command_id")
+        if cid in de_cadena or tipo.get(cid) in COMANDOS:
+            excluidos.add(par)  # otra unión del mismo par no la destapa
+            continue
+        ja, jb = _juntas_que_mueven(doc, f["a"]), _juntas_que_mueven(doc, f["b"])
+        if ja[:1] != jb[:1] and par not in out:  # distinta junta móvil: alguna no es `fija`
+            out[par] = {"union": nombre, "juntas": (ja, jb)}
+    return {p: v for p, v in out.items() if p not in excluidos}
+
+
+def liberadas_en_pose(uniones: dict[frozenset, dict], valores: dict) -> set[frozenset]:
+    """Los pares de `uniones` (`uniones_entre_juntas`) que la pose `valores` mueve DISTINTO: las
+    juntas con valor ≠ 0 de una y otra cadena no son las mismas. Una unión entre piezas cuyas
+    juntas no se mueven en esa pose sigue tapando su contacto (el de la pose de diseño)."""
+    def activas(juntas):
+        return {j for j in juntas if float(valores.get(j, 0.0) or 0.0) != 0.0}
+
+    return {p for p, u in uniones.items() if activas(u["juntas"][0]) != activas(u["juntas"][1])}
+
+
 def declarada_por_join_bolted(doc) -> set[str]:
     """Las piezas que insertó un `join_bolted` cuyo fijador quedó declarado: su tornillería
     está cubierta por ESA unión, aunque no sea nodo del grafo. Por el TIPO del comando que
