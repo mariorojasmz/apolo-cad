@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 implementada (2026-10-28; registro v19, create_brace con a_tope/boca_de_pescado/inglete, D1b el cordón medido dimensiona), por revisar y mergear; falta medir la regla en la clasificadora de 480 piezas, solapada/cartela y F2 (la plataforma de mantenimiento corregida con create_brace, por MCP)
+nota: F1 mergeada (2026-10-28, 16c2a9c; registro v19, create_brace con a_tope/boca_de_pescado/inglete, D1b el cordón medido dimensiona); falta F2 (la plataforma de mantenimiento corregida con create_brace, por MCP), medir la regla en la clasificadora de 480 piezas, y solapada/cartela
 descripcion: Una unión declarada tiene que tocar de verdad: la puerta mide el contacto y el cordón, y un miembro inclinado sale cortado a ras de las caras que une
 ---
 
