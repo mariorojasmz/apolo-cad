@@ -48,14 +48,22 @@ from .transmision import diametro_primitivo
 __all__ = [
     "ANGULO_MOTRIZ", "BASE_MOTOR_T", "CADENA", "GUARDA_T", "MOTORES", "PATA", "PINON_MOTRIZ",
     "PINON_RODILLO", "PLACA_PATA_T", "Disposicion", "Estacion", "Motriz", "Pies", "disposicion",
-    "holgura_motriz", "motor_local", "pasos_rodillo", "potencia_requerida", "vano_maximo",
+    "holgura_motriz", "motor_local", "pasos_rodillo", "potencia_requerida", "rango_paso_libre",
+    "validar_paso", "vano_maximo",
 ]
 
 LARGUERO = "ANG-75X6"
 TUERCA = "TUERCA-M12"
 RODILLOS = ("TUBOR-2", "TUBOR-2.5", "TUBOR-3")
-#: Eslabones de un lazo rodillo a rodillo (1:1): el paso de rodillos sale de ahí, no es libre.
+#: Eslabones de un lazo rodillo a rodillo (1:1): con cadena el paso de rodillos sale de ahí.
 ESLABONES_RR = (30, 32, 34)
+#: Luz mínima entre tubos vecinos (paso − Ø): la que la disposición ya exigía con cadena. Con
+#: rodillos libres no hay atrapamiento (nada los acciona: «peligro = lo accionado»); es holgura
+#: de taller: la ovalidad y la flecha del tubo bajo carga no los hacen rozar.
+HOLGURA_TUBOS = 20.0
+#: Paso máximo con rodillos libres: en el largo mínimo (`LARGO_MIN`) caben los 4 rodillos que
+#: pide `_rodillos` ((1000 − 2·50)/3); más allá un bulto necesita ≥ 900 mm para apoyar en 3.
+PASO_LIBRE_MAX = 300.0
 
 EJE_D = 12.0               # varilla roscada M12 = Ø interior del 6201
 RODAMIENTO = "6201"
@@ -88,6 +96,29 @@ def pasos_rodillo() -> list[float]:
     (`ESLABONES_RR`). Z15 de 1/2″ → 95.25, 107.95, 120.65."""
     s = CATALOG[PINON_RODILLO].specs
     return [round((n - int(s["z"])) * float(s["paso"]) / 2.0, 2) for n in ESLABONES_RR]
+
+
+def rango_paso_libre(rodillo: str) -> tuple[float, float]:
+    """(mínimo, máximo) del paso con `motriz: libre`: Ø del tubo + `HOLGURA_TUBOS` …
+    `PASO_LIBRE_MAX`."""
+    return float(CATALOG[rodillo].specs["od"]) + HOLGURA_TUBOS, PASO_LIBRE_MAX
+
+
+def validar_paso(paso: float, rodillo: str, motriz: bool) -> float:
+    """El paso que vale (con cadena, el de la lista exacta) o `ValueError` con lo que vale.
+    Con cadena, sólo `pasos_rodillo()`; libre, el rango de `rango_paso_libre`."""
+    if motriz:
+        pasos = pasos_rodillo()
+        for t in pasos:
+            if abs(t - paso) < 0.01:
+                return t
+        raise ValueError(f"paso {paso:g}: con la cadena 1:1 sólo cierran {pasos} mm")
+    lo, hi = rango_paso_libre(rodillo)
+    if not lo - 1e-9 <= paso <= hi + 1e-9:
+        raise ValueError(f"paso {paso:g}: con rodillos libres y tubo {rodillo} va de {lo:g} a "
+                         f"{hi:g} mm (Ø{lo - HOLGURA_TUBOS:g} + {HOLGURA_TUBOS:g} mm entre tubos; "
+                         f"≤ {hi:g} para 4 rodillos en el largo mínimo)")
+    return paso
 
 
 @dataclass(frozen=True)
@@ -202,18 +233,14 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         raise ValueError(f"rodillo '{rodillo}': usa uno de {', '.join(RODILLOS)}")
     if motriz and motor not in MOTORES:
         raise ValueError(f"motor '{motor}': usa uno de {', '.join(MOTORES)}")
-    pasos = pasos_rodillo()
-    casa = [t for t in pasos if abs(t - paso) < 0.01]
-    if not casa:
-        raise ValueError(f"paso {paso:g}: con la cadena 1:1 sólo cierran {pasos} mm")
-    paso = casa[0]
+    paso = validar_paso(paso, rodillo, motriz)
     if largo < LARGO_MIN:
         raise ValueError(f"largo mínimo {LARGO_MIN:g} mm")
     st = CATALOG[rodillo].specs
     d_rod, pared = float(st["od"]), float(st["wall"])
-    if paso - d_rod < 20.0:
+    if paso - d_rod < HOLGURA_TUBOS:  # con cadena: un paso de la lista con un tubo grande
         raise ValueError(f"paso {paso:g} deja {paso - d_rod:.1f} mm entre tubos Ø{d_rod:g}: usa un "
-                         "paso mayor o un tubo menor (mínimo 20 mm)")
+                         f"paso mayor o un tubo menor (mínimo {HOLGURA_TUBOS:g} mm)")
     if not 150.0 <= ancho_util <= 1500.0:
         raise ValueError("ancho_util entre 150 y 1500 mm")
     sr, sc = CATALOG[PINON_RODILLO].specs, CATALOG[CADENA].specs
@@ -285,7 +312,8 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     prov = Disposicion(
         largo=largo, ancho_util=ancho_util, paso=paso, rodillo=rodillo, d_rodillo=d_rod,
         r_int_tubo=d_rod / 2.0 - pared, altura=altura, h_eje=h, carga_kg=carga_kg, xs=xs,
-        eslabones_rr=round(int(sr["z"]) + 2.0 * paso / float(sc["paso"])),
+        # libre: sin lazos (con un paso libre la cuenta de eslabones no sería entera)
+        eslabones_rr=round(int(sr["z"]) + 2.0 * paso / float(sc["paso"])) if motriz else 0,
         y_in_m=y_in_m, y_in_p=y_in_p, y_pinon=y_pin, y_buje=y_buje, eje_y0=eje_y0, eje_y1=eje_y1,
         y_tuerca_m=y_in_m - t - tuerca_t / 2.0, y_tuerca_p=y_in_p + t + tuerca_t / 2.0,
         z_larguero=h + TOPE_SOBRE_EJE - ala / 2.0, pata_largo=pata, estaciones=estaciones,

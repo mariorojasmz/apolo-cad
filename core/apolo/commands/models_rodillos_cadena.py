@@ -1,20 +1,14 @@
 """Schema de `create_roller_conveyor` (plan `plantilla-rodillos-cadena`, D1). Las listas de
-catálogo y de pasos salen de `apolo/library/rodillos_cadena.py`; el executor está en
+catálogo y la regla del paso salen de `apolo/library/rodillos_cadena.py`; el executor está en
 `exec_rodillos_cadena.py` y la receta de comandos, en `receta_rodillos_cadena.py`."""
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .models import Vec3
-
-
-def _pasos() -> list[float]:
-    from apolo.library.rodillos_cadena import pasos_rodillo
-
-    return pasos_rodillo()
 
 
 def _rodillos() -> list[str]:
@@ -56,9 +50,10 @@ class CreateRollerConveyorParams(BaseModel):
       contra la carga del pie); engineering_check publica la carga por pie y el recorrido de
       nivelación (±). `anclaje: true` (default) = cada disco sobre una placa de piso con 2
       anclajes M12 (se nivela, se ancla y se suelda el disco); `false` = disco directo al piso.
-    - `paso` NO es libre: con cadena 1:1 sólo cierran sin sobrante 95.25, 107.95 o 120.65 mm
-      (30, 32 o 34 eslabones). El número de rodillos sale de `largo` (par, ≥ 50 mm del eje
-      extremo al final del larguero) y los rodillos quedan centrados.
+    - `paso`: con `motriz: cadena` NO es libre: con cadena 1:1 sólo cierran sin sobrante 95.25,
+      107.95 o 120.65 mm (30, 32 o 34 eslabones). Con `motriz: libre` va de Ø del tubo + 20 mm
+      (luz entre tubos) a 300 mm (TUBOR-2: 70.8–300). El número de rodillos sale de `largo`
+      (par, ≥ 50 mm del eje extremo al final del larguero) y los rodillos quedan centrados.
     - `ancho_util` = largo del tubo (lo que ve el producto). Con `motriz: cadena` el motor va
       entre las patas, bajo los rodillos: si no cabe, el error dice el ancho mínimo.
     - La cadena motriz va inclinada 20° hacia la alimentación y se TENSA sobre su línea de
@@ -93,8 +88,8 @@ class CreateRollerConveyorParams(BaseModel):
     )
     paso: float = Field(
         95.25, title="Paso de rodillos",
-        description="mm entre ejes: 95.25, 107.95 o 120.65 (cadena 1:1 sin sobrante)",
-        json_schema_extra=lambda schema: schema.update({"enum": _pasos()}),
+        description="mm entre ejes. Con cadena: 95.25, 107.95 o 120.65 (cadena 1:1 sin "
+                    "sobrante). Libre: de Ø del tubo + 20 mm a 300 mm",
     )
     rodillo: str = Field(
         "TUBOR-2", title="Tubo del rodillo",
@@ -125,13 +120,14 @@ class CreateRollerConveyorParams(BaseModel):
     )
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
 
-    @field_validator("paso")
-    @classmethod
-    def _paso_de_lista(cls, v: float) -> float:
-        for t in _pasos():
-            if abs(v - t) < 0.01:
-                return t
-        raise ValueError(f"paso {v:g}: con la cadena 1:1 sólo cierran {_pasos()} mm")
+    @model_validator(mode="after")
+    def _paso_segun_motriz(self):
+        """Con cadena, el paso de la lista (se ajusta al exacto); libre, dentro del rango del
+        tubo. Corre después de validar `rodillo` (si no, ni llega)."""
+        from apolo.library.rodillos_cadena import validar_paso
+
+        self.paso = validar_paso(self.paso, self.rodillo, self.motriz == "cadena")
+        return self
 
     @field_validator("rodillo")
     @classmethod

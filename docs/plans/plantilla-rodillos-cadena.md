@@ -507,6 +507,7 @@ menos el paso de 12.7):
   largo.
 - **El paso de rodillos no es libre**: con Z15, 95.25 (30 eslabones) o 107.95 (32); con Z14,
   76.2 o 101.6 (`L = z + 2t/p` par). D1 lo ofrece como lista y no como número.
+  (2026-10-27: con `motriz: libre` el paso sí es libre, de Ø + 20 mm a 300 mm: `validar_paso`.)
 - **`n_rod` par** (los piñones van en dos familias de `n_rod/2`). Con la fase automática basta
   UNA familia ×`n_rod`: la cadena gira los alternos.
 - **Centros de la motriz**: `= centros_cadena(12.7, 30, 15, 48)` en vez de 159.034.

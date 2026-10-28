@@ -308,8 +308,9 @@ def _validate_model(cmd_type: str, params: dict) -> BaseModel:
     try:  # `ignore` EXPLÍCITO: el replay tolera claves viejas; la entrada estricta va aparte (D6)
         return REGISTRY[cmd_type].model.model_validate(params or {}, extra="ignore")
     except ValidationError as exc:
-        issues = "; ".join(
-            f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in exc.errors()
+        issues = "; ".join(  # un validador de modelo no tiene loc: sólo su mensaje
+            (f"{'.'.join(str(loc) for loc in e['loc'])}: " if e["loc"] else "") + e["msg"]
+            for e in exc.errors()
         )
         raise CommandError(f"Parámetros inválidos para {cmd_type}: {issues}") from exc
 
