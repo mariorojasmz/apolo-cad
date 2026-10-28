@@ -38,6 +38,11 @@ geometría, ninguna tuerca dentro de un tubo cerrado (rosca en placa, perno pasa
 espárrago soldado), cama y guardas laterales en paños ≤ 3 m, la cama del espesor de su cuenta y
 cada perno con su largo en la nota (`belt_conveyor_taller.py` y sus vecinos `*_taller.py`,
 `belt_conveyor_cama.py`).
+
+faja-compacta (criterio 9, el del sello desde su F1): la carrera del tensor de cola calculada y el
+carro al INICIO de ella (`belt_conveyor_carrera.py`); valores nuevos de `motor` (motorreductor
+sinfín de eje hueco calzado en el tambor, `belt_conveyor_nmrv*.py`) y de `tensor`
+(«placa-ranurada», `belt_conveyor_placa.py`).
 """
 
 from __future__ import annotations
@@ -54,6 +59,8 @@ from . import belt_conveyor_retorno as retorno
 from . import belt_conveyor_tambores as tambores
 from . import belt_conveyor_tramos as tramos
 from .belt_conveyor_cotas import FACE_MARGIN, cotas, radio_exterior  # noqa: F401 — re-export
+from .belt_conveyor_cotas import PLACA_CHUMACERA_T
+from .belt_conveyor_nmrv_cuenta import es_sinfin
 from .belt_conveyor_plan import Plan
 
 _radio_exterior = radio_exterior  # nombre histórico
@@ -108,6 +115,7 @@ def belt_conveyor_parts(
     tramo_max: float | None = None,
     criterio: int = 5,
     lado_abierto: str = "ninguno",
+    velocidad: float | None = None,
 ) -> Plan:
     """El plan de la faja: piezas (sufijo, nombre, forma…), uniones declaradas y anclajes.
     `cierres` (v5; False = la v4 tal cual, la de los logs viejos): placas de cierre soldadas en
@@ -116,10 +124,12 @@ def belt_conveyor_parts(
     `criterio` (v6; 5 = la v5 tal cual): 6 suma los rodillos de retorno y el perno pasante con
     buje en las placas de los soportes de la cama; 7 (F1b) suma el pie con tuerca soldada y
     contratuerca y los brazos del motor a tope contra la pata. `lado_abierto` (F1b; «ninguno» =
-    como siempre): con guardas, ese costado lleva sólo la guarda cubre-ranura a ras de la banda."""
+    como siempre): con guardas, ese costado lleva sólo la guarda cubre-ranura a ras de la banda.
+    `velocidad` (faja-compacta, m/s): la de la banda, para la relación de un motorreductor sinfín
+    de eje hueco (D2; los demás motores no la leen)."""
     c = cotas(largo, ancho_banda, altura, tambor_motriz_ref, tambor_cola_ref, tubo_ref,
               tensor_ref, motor_ref, espesor_banda, guardas_on, cierres, tramo_max, criterio,
-              lado_abierto)
+              lado_abierto, velocidad)
     plan = Plan()
     bastidor.largueros(plan, c)
 
@@ -130,28 +140,45 @@ def belt_conveyor_parts(
                                     "motriz", lados_m[s], "tambor_motriz")
               for i, s in ((1, -1.0), (2, 1.0))}
     y_eje = {s: collar[s] + 2.0 for s in (-1.0, 1.0)}
-    if c.motor:
+    sm, chaveta = c.lado_motor, None
+    if c.motor and es_sinfin(c.motor):  # faja-compacta D1: eje hueco calzado en el tambor
+        from . import belt_conveyor_nmrv as nmrv
+
+        y_eje[sm] = nmrv.montar(plan, c, collar[sm])
+        y0k, y1k, bk, rk = nmrv.chaveta(c, collar[sm])
+        chaveta = (*sorted((sm * y0k, sm * y1k)), bk, rk)
+    elif c.motor:
         y_eje[1.0] = tambores.motorreductor(plan, c, collar[1.0])
     tambores.tambor(plan, c, "tambor_motriz", "Tambor motriz", c.tambor_m, c.half, c.zm,
-                    -y_eje[-1.0], y_eje[1.0])
+                    -y_eje[-1.0], y_eje[1.0], chaveta)
     if c.guardas:
         for i, s in ((1, -1.0), (2, 1.0)):
-            if s < 0 or not c.motor:
+            if s != sm or not c.motor:
                 tambores.tapa_brida(plan, c, c.chum_m, c.half, c.zm, s, f"tapa_m{i}", "motriz",
                                     f"chum_m{i}", y_eje[s])
 
-    # tambor de cola: unidades tensoras de carro (tensor de tornillo de catálogo) o UCF
+    # tambor de cola: unidades tensoras de carro (tensor de tornillo de catálogo), placa ranurada
+    # (faja-compacta D3) o UCF
     if c.uct:
         y_cola = max(tambores.tensor_carro(plan, c, i, s, lados[s])
                      for i, s in ((1, -1.0), (2, 1.0)))
     else:
-        y_cola = max(tambores.chumacera(plan, c, c.chum_c, -c.half, c.zc, s, f"chum_c{i}",
-                                        "de cola", lados[s], "tambor_cola")
-                     for i, s in ((1, -1.0), (2, 1.0))) + 2.0
+        if c.placa_c:
+            from .belt_conveyor_placa import PLACA_T, tensor_placa
+
+            y_cola, placa_t = max(tensor_placa(plan, c, i, s, lados[s])
+                                  for i, s in ((1, -1.0), (2, 1.0))), PLACA_T
+        else:
+            y_cola = max(tambores.chumacera(plan, c, c.chum_c, -c.half, c.zc, s, f"chum_c{i}",
+                                            "de cola", lados[s], "tambor_cola")
+                         for i, s in ((1, -1.0), (2, 1.0))) + 2.0
+            placa_t = PLACA_CHUMACERA_T
         if c.guardas:
             for i, s in ((1, -1.0), (2, 1.0)):
                 tambores.tapa_brida(plan, c, c.chum_c, -c.half, c.zc, s, f"tapa_c{i}", "de cola",
-                                    f"chum_c{i}", y_cola)
+                                    f"chum_c{i}", y_cola, placa_t)
+    if c.cuenta_carrera:
+        plan.calculos["carrera_tensor"] = c.cuenta_carrera
     tambores.tambor(plan, c, "tambor_cola", "Tambor de cola", c.tambor_c, -c.half, c.zc,
                     -y_cola, y_cola)
 

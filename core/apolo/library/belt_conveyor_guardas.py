@@ -104,7 +104,7 @@ def _cubre_ranura(c: Cotas, s: float, x0: float, x1: float):
     de 4 mm el labio sube lo que pide eso y su unión con el ala: hasta 2 mm sobre la banda)."""
     yb = c.ancho / 2.0 + HOLGURA_BANDA
     ala = caja(x0, x1, s * (c.y_in - 2.0), s * c.y_out, c.rail_top, c.rail_top + CHAPA)
-    xa = max(x0, x_de_tambor(c, -c.half, c.r_c, -1.0, c.viaje)[1])
+    xa = max(x0, x_de_tambor(c, c.x_tc, c.r_c, -1.0, c.viaje)[1])
     xb = min(x1, x_de_tambor(c, c.half, c.r_m, 1.0, 0.0)[1])
     if xb - xa < 1.0:
         return ala
@@ -228,7 +228,7 @@ def piezas_inferiores(c: Cotas) -> list[tuple[float, float]]:
     tambores, cortadas en cada rodillo de retorno y en tramos de ≤ `TRAMO_MAX`."""
     from .belt_conveyor_retorno import media_huella, x_rodillos
 
-    xa = x_de_tambor(c, -c.half, c.r_c, -1.0, c.viaje)[0] + 1.0
+    xa = x_de_tambor(c, c.x_tc, c.r_c, -1.0, c.viaje)[0] + 1.0
     xb = x_de_tambor(c, c.half, c.r_m, 1.0, 0.0)[0] - 1.0
     if xb - xa < 50.0:
         return []
@@ -249,5 +249,5 @@ def piezas_inferiores(c: Cotas) -> list[tuple[float, float]]:
 
 def de_tambores(plan: Plan, c: Cotas) -> None:
     de_tambor(plan, c, "guarda_m", "Guarda del tambor motriz", c.half, c.r_m, 1.0, 0.0, False)
-    de_tambor(plan, c, "guarda_c", "Guarda del tambor de cola", -c.half, c.r_c, -1.0, c.viaje,
+    de_tambor(plan, c, "guarda_c", "Guarda del tambor de cola", c.x_tc, c.r_c, -1.0, c.viaje,
               True)

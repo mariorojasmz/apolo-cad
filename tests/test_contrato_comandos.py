@@ -90,8 +90,8 @@ CAMPOS: dict[str, str] = {
     ),
     "create_belt_conveyor": (
         "name largo ancho_banda altura espesor_banda tambor_motriz tambor_cola tubo tensor motor "
-        "guardas cierres tramo_max lado_abierto criterio position position.x position.y position.z "
-        "rotation rotation.x rotation.y rotation.z"
+        "velocidad guardas cierres tramo_max lado_abierto criterio position position.x position.y "
+        "position.z rotation rotation.x rotation.y rotation.z"
     ),
     "create_box": (
         "name width depth height position position.x position.y position.z rotation rotation.x "
@@ -285,7 +285,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     # compuesto: corre fasten/ground; cotas y plan en library/belt_conveyor*.py (D10). v5: cierres
     # (campo oculto que pone el sello de entrada; un log v4 trae False → misma geometría). v6:
     # tramo_max + criterio (faja-larga-en-tramos; un log v5 no los trae → una pieza, criterio 5)
-    "create_belt_conveyor": (6, "16fd8d8c5d0d59aa"),
+    # plan faja-compacta F1: v7 (criterio 9, motorreductor sinfín, placa ranurada, `velocidad`)
+    "create_belt_conveyor": (7, "f48031cadb53bcbb"),
     "create_box": (1, "fcc825dfc9669eac"),
     # plan uniones-que-tocan F1: comando nuevo; la geometría vive en library/miembro.py (D10)
     "create_brace": (1, "6f61a7cc0d8a79a8"),

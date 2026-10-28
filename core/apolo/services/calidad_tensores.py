@@ -259,6 +259,7 @@ def tensores_reconocidos(doc, medir: bool = True) -> list[dict]:
                     "motivo": "" if carrera is not None else
                     f"la ficha {comp.ref} no tabula su carrera de tensado",
                     "pernos": [], "_caja": _caja_de(doc, fid), "_anclas": [fid]})
+    out += _placas_ranuradas(doc)
     for k, decl in enumerate(getattr(doc, "tensores", None) or []):
         piezas = [p for p in decl.get("piezas", []) if p in doc.scene]
         caja = _union_cajas([_caja_de(doc, p) for p in piezas])
@@ -274,6 +275,43 @@ def tensores_reconocidos(doc, medir: bool = True) -> list[dict]:
         t["_caja"], t["_piezas"] = caja, piezas
         t["_anclas"], t["_eje"] = [p for p in piezas if p not in pernos], decl.get("eje")
         out.append(t)
+    return out
+
+
+def _placas_ranuradas(doc) -> list[dict]:
+    """El tensor de placa ranurada de `create_belt_conveyor` (plan faja-compacta, D3): la placa
+    que lleva la chumacera de cola corre a lo largo de X la carrera de su ranura, que la plantilla
+    calcula (`belt_conveyor_carrera`) y aquí se relee de sus params (como `_plantilla_motriz`). El
+    perno empujador no se mide (agarre: lo dice su nota)."""
+    from apolo.commands.exec_rodillos_cadena import comandos_efectivos
+    from apolo.commands.expressions import resolve_params
+    from apolo.commands.models_faja import TENSOR_PLACA, CreateBeltConveyorParams
+    from apolo.library.belt_conveyor_cotas import cotas
+
+    out = []
+    for cmd in comandos_efectivos(doc.commands, doc.variables_resolved):
+        if cmd["type"] != "create_belt_conveyor" or (cmd.get("params") or {}).get(
+                "tensor") != TENSOR_PLACA:
+            continue
+        cid = cmd["id"]
+        try:
+            p = CreateBeltConveyorParams.model_validate(
+                resolve_params(cmd["params"], doc.variables_resolved), extra="ignore")
+            carrera = cotas(p.largo, p.ancho_banda, p.altura, p.tambor_motriz, p.tambor_cola,
+                            p.tubo, p.tensor, None if p.motor == "ninguno" else p.motor,
+                            p.espesor_banda, p.guardas, p.cierres, p.tramo_max, p.criterio,
+                            p.lado_abierto, p.velocidad).carrera
+        except Exception:  # noqa: BLE001 — params rotos: el regenerate ya lo dijo
+            continue
+        for i in (1, 2):
+            placa, chum = f"{cid}_placa_c{i}", f"{cid}_chum_c{i}"
+            if placa not in doc.scene:
+                continue
+            piezas = [placa, chum, f"{cid}_oreja_c{i}"]
+            out.append({"tipo": "plantilla", "id": placa, "nombre": doc.scene[placa].name,
+                        "carrera_mm": float(carrera), "motivo": "", "pernos": [],
+                        "_caja": _union_cajas([_caja_de(doc, f) for f in piezas]),
+                        "_anclas": [chum], "_eje": "x", "_piezas": piezas})
     return out
 
 

@@ -88,6 +88,37 @@ class Cotas:
     lado_abierto: str = "ninguno"
     # F1c (criterio 8): el espesor de la cama sale de su cuenta (`belt_conveyor_cama.py`)
     cama_t: float = CAMA_T
+    # faja-compacta (criterio 9): tensor de placa ranurada (D3), centro de la carrera del tambor
+    # de cola (D4: None = −half, el carro centrado de antes) y su cuenta; la velocidad pedida y el
+    # costado del motorreductor de eje hueco (D1, D2: `belt_conveyor_nmrv*.py`)
+    placa_c: bool = False
+    x_tc_: float | None = None
+    cuenta_carrera: dict | None = None
+    velocidad: float | None = None
+    ranura_c: float | None = None  # D4: la carrera que se corta en el larguero (None: `carrera`)
+
+    @property
+    def ranura_cola(self) -> tuple[float, float]:
+        """(centro X, carrera) de la ranura del eje de cola en el larguero y la placa porta-tensor:
+        hasta el criterio 8, la de ficha centrada; con el 9, la que pide el lazo desde −half."""
+        if self.ranura_c is None:
+            return self.x_tc, self.carrera
+        return -self.half - self.ranura_c / 2.0, self.ranura_c
+
+    @property
+    def x_tc(self) -> float:
+        """X del CENTRO de la carrera del tambor de cola (−half hasta el criterio 8)."""
+        return -self.half if self.x_tc_ is None else self.x_tc_
+
+    @property
+    def lado_motor(self) -> float:
+        """El costado del motorreductor: +Y, salvo que ahí estén los operarios (D1). El coaxial
+        va siempre a +Y (como desde la v4)."""
+        from .belt_conveyor_nmrv_cuenta import es_sinfin
+
+        if self.motor and es_sinfin(self.motor) and self.lado_abierto == "+y":
+            return -1.0
+        return 1.0
 
     @property
     def lado_sin_pared(self) -> float | None:
@@ -114,7 +145,7 @@ class Cotas:
 
     @property
     def cama_x0(self) -> float:
-        return -self.half + self.r_c + self.viaje + CAMA_A_TAMBOR
+        return self.x_tc + self.r_c + self.viaje + CAMA_A_TAMBOR
 
     @property
     def cama_x1(self) -> float:
@@ -169,19 +200,30 @@ def tensor_v4(ref: str | None, d_cola: float) -> str | None:
     return ref
 
 
+PLACA_RANURADA = "placa-ranurada"  # tensor de placa ranurada (faja-compacta D3)
+
+
 def cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: str, tubo: str,
           tensor: str | None, motor: str | None, espesor: float, guardas: bool,
           cierres: bool = False, tramo_max: float | None = None, criterio: int = 5,
-          lado_abierto: str = "ninguno") -> Cotas:
+          lado_abierto: str = "ninguno", velocidad: float | None = None) -> Cotas:
     from dataclasses import replace
 
     from .belt_conveyor_tramos import partir
 
     if lado_abierto not in ("ninguno", "+y", "-y"):
         raise ValueError(f"lado_abierto '{lado_abierto}' (válidos: ninguno, +y, -y)")
+    if tensor == PLACA_RANURADA and criterio < 9:
+        raise ValueError("el tensor «placa-ranurada» dimensiona su ranura con la carrera del "
+                         "criterio 9 (faja nueva)")
     c = _cotas(largo, ancho, altura, tambor_m, tambor_c, tubo, tensor, motor, espesor, guardas,
                cierres)
-    c = replace(c, tramo_max=tramo_max, criterio=criterio, lado_abierto=lado_abierto)
+    c = replace(c, tramo_max=tramo_max, criterio=criterio, lado_abierto=lado_abierto,
+                velocidad=velocidad)
+    if criterio >= 9 and (c.uct or c.placa_c):  # faja-compacta D4: la carrera calculada
+        from .belt_conveyor_carrera import aplicar
+
+        c = aplicar(c)
     tramos, empalmes = partir(c)
     c = replace(c, tramos=tramos, empalmes=empalmes)
     if criterio >= 8:  # F1c (D12): cama del espesor de la cuenta, no los 6 mm de siempre
@@ -202,7 +244,8 @@ def _cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: s
     wall = float((tube.params or {}).get("wall", 3.0))
     if ancho < 100.0:
         raise ValueError("Ancho de banda mínimo 100 mm")
-    uct = tensor_v4(tensor, d_c)
+    placa_c = tensor == PLACA_RANURADA
+    uct = None if placa_c else tensor_v4(tensor, d_c)
     carrera = 0.0
     if uct is not None:
         carrera = float(CATALOG[uct].params["carrera"])
@@ -244,4 +287,4 @@ def _cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: s
         tubo=tubo, rail_t=rail_t, rail_h=rail_h, wall=wall, y_in=y_in, rail_y=y_in + rail_t / 2.0,
         y_out=y_in + rail_t, rail_top=rail_top, rail_bot=rail_bot, x0=-half - voladizo_c, x1=x1,
         chum_m=chum_m, chum_c=chum_c, uct=uct, carrera=carrera, x_leg_t=x_leg_t, x_leg_h=half,
-        motor=motor, guardas=guardas, cierres=cierres)
+        motor=motor, guardas=guardas, cierres=cierres, placa_c=placa_c)

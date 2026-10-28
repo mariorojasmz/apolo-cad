@@ -28,6 +28,11 @@ F1c (D10–D14): el criterio 8 (el del sello desde la F1c; 5, 6 y 7 quedan como 
 agujeros de cada unión, saca las tuercas de dentro de los tubos, parte cama y guardas laterales en
 paños ≤ 3 m, calcula el espesor de la cama y escribe el largo de cada perno
 (`tests/test_belt_conveyor_f1c.py`).
+
+v7 (plan faja-compacta, D1–D5): el criterio 9 (el del sello desde su F1; 5–8 quedan como estaban)
+calcula la carrera del tensor de cola y saca el carro al inicio de ella; `motor` acepta los
+motorreductores sinfín de eje hueco (NMRV, con `velocidad` VISIBLE: su relación) y `tensor` la
+«placa-ranurada»: valores que un log viejo no trae (`tests/test_belt_conveyor_compacta.py`).
 """
 
 from __future__ import annotations
@@ -42,13 +47,13 @@ from .spec import run_executor
 from .state import ExecContext
 
 TRAMO_NUEVO = 6000.0   # barra comercial de tubo (D2)
-CRITERIO_NUEVO = 8     # F1c: el 7 + agujeros, sin tuercas en tubos, paños y largos (D10–D14)
+CRITERIO_NUEVO = 9     # faja-compacta: el 8 + la carrera del tensor calculada, carro al inicio
 
 
 def sellar(params: dict, material_de: Callable[[str], str | None]) -> dict:
     """Sello de entrada de una faja NUEVA: con los cierres de la v5, los tramos de 6 m (barra
-    comercial) y el criterio 8 (F1c) (lo que el cliente ya trae se respeta: un test puede
-    pedir la v4 tal cual)."""
+    comercial) y el criterio 9 (faja-compacta) (lo que el cliente ya trae se respeta: un test
+    puede pedir la v4 tal cual)."""
     params.setdefault("cierres", True)
     params.setdefault("tramo_max", TRAMO_NUEVO)
     params.setdefault("criterio", CRITERIO_NUEVO)
@@ -68,6 +73,7 @@ def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConve
             None if p.tensor == "ninguno" else p.tensor,
             None if p.motor == "ninguno" else p.motor,
             p.espesor_banda, p.guardas, p.cierres, p.tramo_max, p.criterio, p.lado_abierto,
+            p.velocidad,
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Faja de banda: {exc}") from exc

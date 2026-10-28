@@ -48,10 +48,11 @@ def larga(request):
 def test_el_sello_pone_tramos_de_6_m_y_el_criterio_6():
     d, _ = _faja()
     p = d.commands[0]["params"]
-    assert p["tramo_max"] == 6000 and p["criterio"] == 8  # F1b: 7 (pie, motor); F1c: 8
+    # F1b: 7 (pie, motor); F1c: 8; faja-compacta: 9 (carrera del tensor)
+    assert p["tramo_max"] == 6000 and p["criterio"] == 9
     props = REGISTRY["create_belt_conveyor"].model.model_json_schema()["properties"]
     assert "tramo_max" in props and "criterio" not in props  # lo visible, lo que el agente cambia
-    assert REGISTRY["create_belt_conveyor"].version == 6
+    assert REGISTRY["create_belt_conveyor"].version == 7  # faja-compacta
 
 
 def test_tramos_iguales(larga):

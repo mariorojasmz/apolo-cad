@@ -91,9 +91,16 @@ def linea_media_de_banda(shape, m) -> tuple[list | None, str]:
 
 
 def _centro(doc, fid):
+    from apolo.library.catalog import CATALOG
+
     f = doc.scene.get(fid)
     if f is None or f.shape is None:
         return None
+    comp = CATALOG.get(getattr(f, "component", None) or "")
+    if comp is not None and comp.familia == "take_up_unit" and f.matrix:
+        # el origen del builder es el agujero del soporte (el eje del tambor); con el carro al
+        # inicio de la carrera (plan faja-compacta D4) ya no es el centro de su caja
+        return [float(f.matrix[k][3]) for k in range(3)]
     bb = f.shape.bounding_box()
     return [(bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2]
 

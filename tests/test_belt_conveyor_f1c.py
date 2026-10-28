@@ -61,7 +61,7 @@ def _es_tubo(feat) -> bool:
 
 def test_el_sello_pone_el_criterio_8():
     d, _ = _faja()
-    assert d.commands[0]["params"]["criterio"] == 8
+    assert d.commands[0]["params"]["criterio"] >= 8  # faja-compacta: el 9 (el 8 + la carrera)
 
 
 # ------------------------------------------------------------------ D12: agujeros

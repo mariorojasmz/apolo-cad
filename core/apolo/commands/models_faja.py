@@ -34,6 +34,17 @@ def _takeup_refs() -> list[str]:
     return unidades_tensoras()
 
 
+def _motor_faja_refs() -> list[str]:
+    """Los motorreductores de la faja: coaxiales (con acople y base) y, desde faja-compacta D1, los
+    sinfín de eje hueco (NMRV) que se calzan en el eje motriz."""
+    from apolo.library.catalog import refs_in_category
+
+    return _motor_refs() + refs_in_category("motorreductores_sinfin")
+
+
+TENSOR_PLACA = "placa-ranurada"  # faja-compacta D3 (`library/belt_conveyor_placa.py`)
+
+
 def _takeup_v3_refs() -> list[str]:
     """Los tensores tipo trotadora que aceptaba la v3: un log viejo los trae y regenera con la
     unidad tensora UCT del mismo eje (no se ofrecen: no tienen carrera de tensado)."""
@@ -47,9 +58,15 @@ class CreateBeltConveyorParams(BaseModel):
     montada como en la industria: bastidor de 2 largueros de tubo (acero) con 4 patas soldadas y
     pies niveladores; tambor motriz de eje vivo en 2 chumaceras de brida UCF por fuera de los
     largueros; tambor de cola en 2 unidades tensoras de carro UCT de catálogo (`tensor`; su
-    carrera de ficha cubre el estiramiento de la banda; 'ninguno' = cola en chumaceras, sin
-    tensado); motorreductor coaxial del lado +Y con acople flexible sobre una base en voladizo
-    soldada a la pata; cama atornillada sobre soportes (la banda se cambia de costado quitando
+    carrera de ficha cubre el estiramiento de la banda y el carro sale al inicio de ella; para una
+    faja liviana, 'placa-ranurada' = chumacera de brida en una placa que corre sobre espárragos
+    soldados al larguero, con perno empujador y contratuerca, y la ranura de la carrera que pide
+    el lazo; 'ninguno' = cola en chumaceras, sin tensado); motorreductor coaxial del lado +Y con
+    acople flexible sobre una base en voladizo soldada a la pata, o uno sinfín de eje hueco (NMRV:
+    su eje hueco tiene que ser el Ø del eje del tambor motriz; pide `velocidad`, que elige la
+    relación, y la cuenta de potencia juzga el tamaño) calzado en el eje motriz con chaveta, el
+    motor acostado a lo largo del larguero hacia la cola y un brazo de reacción a la pata de
+    cabeza, del lado opuesto a `lado_abierto`, sin acople ni base; cama atornillada sobre soportes (la banda se cambia de costado quitando
     pernos); guardas atornilladas (`guardas`: laterales en L, cajas de los tambores, tapas de los
     extremos de eje, cubierta del acople y guardas inferiores bajo la ranura entre el borde de la
     banda y el larguero); las puntas de los largueros, cerradas con placa soldada. Una faja
@@ -63,7 +80,7 @@ class CreateBeltConveyorParams(BaseModel):
     `lado_abierto` ('+y' o '-y', el costado de los operarios que toman o dejan producto): con
     guardas, ese costado no lleva la pared de la guarda lateral sino una guarda cubre-ranura a
     ras de la banda que sigue tapando la ranura banda ↔ larguero (las guardas de los tambores,
-    del retorno y los cierres siguen); el motorreductor va del lado +Y. Declara
+    del retorno y los cierres siguen); el motorreductor coaxial va del lado +Y. Declara
     sus uniones (perno/soldadura/contacto) y sus anclajes (los pies), así que sale con camino de
     carga a tierra. Editar cualquier parámetro regenera la faja entera."""
 
@@ -86,12 +103,19 @@ class CreateBeltConveyorParams(BaseModel):
     )
     tensor: str = Field(
         "UCT205-150", title="Tensor de cola",
-        json_schema_extra=lambda schema: schema.update({"enum": ["ninguno"] + _takeup_refs()}),
+        json_schema_extra=lambda schema: schema.update(
+            {"enum": ["ninguno", TENSOR_PLACA] + _takeup_refs()}),
     )
     motor: str = Field(
         "MOTOR-150-EH", title="Motorreductor",
-        json_schema_extra=lambda schema: schema.update({"enum": ["ninguno"] + _motor_refs()}),
+        json_schema_extra=lambda schema: schema.update({"enum": ["ninguno"] + _motor_faja_refs()}),
     )
+    # faja-compacta D2, VISIBLE: la velocidad de la banda; elige la relación de un motorreductor
+    # sinfín (NMRV), que la pide. Sin ella (log viejo, motor coaxial) nada cambia.
+    velocidad: float | None = Field(
+        None, gt=0, le=5, title="Velocidad de banda",
+        description="m/s; con un motorreductor sinfín de eje hueco (NMRV) elige su relación y la "
+                    "cuenta de potencia juzga el tamaño")
     guardas: bool = Field(True, title="Guardas")
     # v5, FUERA del schema (criterio de Apolo, no del modelador): placas de cierre de los
     # largueros y guardas inferiores bajo la ranura banda ↔ larguero. Lo pone el sello de
@@ -111,7 +135,8 @@ class CreateBeltConveyorParams(BaseModel):
     # v6, FUERA del schema: 6 = rodillos de retorno y pernos pasantes con buje; 7 (F1b) = el 6
     # con el pie de tuerca soldada y contratuerca y los brazos del motor a tope contra la pata;
     # 8 (F1c) = el 7 con los agujeros de cada unión, sin tuercas dentro de los tubos, paños ≤ 3 m,
-    # cama calculada y el largo de cada perno. Un log de antes no lo trae → 5 → la v5 tal cual.
+    # cama calculada y el largo de cada perno; 9 (faja-compacta D4) = el 8 con la carrera del
+    # tensor de cola calculada y el carro al inicio. Un log de antes no lo trae → 5 → la v5 tal cual.
     criterio: SkipJsonSchema[int] = Field(5)
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
@@ -133,14 +158,14 @@ class CreateBeltConveyorParams(BaseModel):
     @field_validator("tensor")
     @classmethod
     def _known_tensor(cls, v: str) -> str:
-        if v != "ninguno" and v not in _takeup_refs() + _takeup_v3_refs():
-            raise ValueError(f"tensor desconocido '{v}' (válidos: ninguno, "
+        if v not in ("ninguno", TENSOR_PLACA) and v not in _takeup_refs() + _takeup_v3_refs():
+            raise ValueError(f"tensor desconocido '{v}' (válidos: ninguno, {TENSOR_PLACA}, "
                              f"{', '.join(_takeup_refs())})")
         return v
 
     @field_validator("motor")
     @classmethod
     def _known_motor_eh(cls, v: str) -> str:
-        if v != "ninguno" and v not in _motor_refs():
+        if v != "ninguno" and v not in _motor_faja_refs():
             raise ValueError(f"motor desconocido '{v}'")
         return v

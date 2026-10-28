@@ -159,9 +159,10 @@ def test_belt_conveyor_bom_usa_piezas_nuevas():
     assert {"TUBO-4X2", "TUBO-2X2", "TAMBOR-102", "TAMBOR-102-RET", "MOTOR-150-EH",
             "UCT205-150", "UCF205", "PIE-M12-50"} <= refs
     # los largueros: el largo entre tambores + el voladizo motriz (Ø/2 + engomado + banda + 40)
-    # + el de cola (medio marco del tensor UCT205-150 + 15)
+    # + el de cola (medio marco del tensor UCT205-150 + 15) + media carrera (75: desde el
+    # criterio 9 de faja-compacta el carro sale al inicio y el marco va corrido hacia la cola)
     rows = {(r["ref"], r["longitud_mm"]): r["cantidad"] for r in bom_from_scene(d.scene)}
-    assert rows[("TUBO-4X2", 4274.3)] == 2
+    assert rows[("TUBO-4X2", 4349.3)] == 2
 
 
 def test_belt_conveyor_bom_separa_banda_y_cama():

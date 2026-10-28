@@ -64,9 +64,10 @@ def largueros(plan: Plan, c: Cotas) -> None:
     for i, s in ((1, -1.0), (2, 1.0)):
         y0, y1 = s * (c.y_in - 1.0), s * (c.y_out + 1.0)
         paso_m = cilindro_y(c.half, c.zm, y0, y1, c.d_m / 2.0 + HOLGURA_EJE)
-        if c.uct:
+        if c.uct or c.placa_c:  # la ranura de la carrera (D4: la que pide el lazo, desde −half)
             alto = c.d_c + 2.0 * HOLGURA_EJE
-            paso_c = ranura_x(-c.half, c.zc, y0, y1, c.carrera + alto, alto)
+            xr, carrera = c.ranura_cola
+            paso_c = ranura_x(xr, c.zc, y0, y1, carrera + alto, alto)
         else:
             paso_c = cilindro_y(-c.half, c.zc, y0, y1, c.d_c / 2.0 + HOLGURA_EJE)
         pernos = pasantes(c, i)
@@ -219,12 +220,18 @@ def _libres(c: Cotas) -> tuple[float, float]:
     def ancho_placa(ref):
         return float(CATALOG[ref].params["size_w"]) + 30.0
 
-    cola = (float(CATALOG[c.uct].params["L"]) / 2.0 if c.uct else ancho_placa(c.chum_c) / 2.0)
-    if c.uct and c.criterio >= 8:  # F1c (D11): la placa porta-tensor sale del marco
-        from .belt_conveyor_tambores_taller import PLACA_TENSOR_MARGEN
+    if c.placa_c:  # faja-compacta D3: hasta la cabeza del perno empujador
+        from .belt_conveyor_placa import x_extremo_tensor
 
-        cola += PLACA_TENSOR_MARGEN
-    return (-c.half + cola + LLAVE_M8, c.half - ancho_placa(c.chum_m) / 2.0 - LLAVE_M8)
+        x_cola = x_extremo_tensor(c)
+    else:
+        cola = (float(CATALOG[c.uct].params["L"]) / 2.0 if c.uct else ancho_placa(c.chum_c) / 2.0)
+        if c.uct and c.criterio >= 8:  # F1c (D11): la placa porta-tensor sale del marco
+            from .belt_conveyor_tambores_taller import PLACA_TENSOR_MARGEN
+
+            cola += PLACA_TENSOR_MARGEN
+        x_cola = (c.x_tc if c.uct else -c.half) + cola  # D4: el marco, en el centro de la carrera
+    return (x_cola + LLAVE_M8, c.half - ancho_placa(c.chum_m) / 2.0 - LLAVE_M8)
 
 
 def pernos_soporte(c: Cotas, x: float) -> list[tuple[float, float]]:

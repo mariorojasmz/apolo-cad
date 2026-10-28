@@ -193,7 +193,7 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `create_extrude_poly` extruye hacia la normal del polígono: la receta lo pasa ANTIHORARIO
   (`receta_rodillos_guardas._antihorario`), si no la chapa sale corrida un espesor.
   [plan](../../../docs/plans/plantilla-rodillos-cadena.md)
-- `create_belt_conveyor` (v6, `exec_faja.py`) también es COMPUESTO: sus piezas llevan el
+- `create_belt_conveyor` (v7, `exec_faja.py`) también es COMPUESTO: sus piezas llevan el
   command_id del comando (la puerta de publicación las cruza, D13b) y corre `fasten`/`ground`
   del plan con ids `{cmd}_u_…`/`{cmd}_g_…`. Cotas y plan en `library/belt_conveyor*.py`: la
   huella D11 no los ve (cambiar su geometría = subir su `version` a mano). Un `tensor`
@@ -212,6 +212,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   de un tubo (rosca en placa, pasante con buje o espárrago soldado), paños ≤ 3 m y el largo en la
   nota; sus posiciones de perno son UNA cuenta para la pieza y el larguero
   (`tests/test_belt_conveyor_f1c.py`). [faja-larga-en-tramos](../../../docs/plans/faja-larga-en-tramos.md)
+  v7: el sello en criterio 9 (carrera del tensor = la cuenta de `calidad/tensor.carrera_requerida`,
+  carro al INICIO: `Cotas.x_tc` es el centro de la carrera, −half hasta el 8) y los valores nuevos
+  `motor` NMRV (con `velocidad`) y `tensor` «placa-ranurada»; el origen de la UCT sigue en su
+  agujero (la puerta lee ahí el tambor). [faja-compacta](../../../docs/plans/faja-compacta.md)
 - `layout_tablero` (`tablero.py`, V8.5 D1) es de ESCENA, lee el carril (`lee_carril`) y es
   COMPUESTO (corre `fasten`/`add_joint`); su spec va en `SPECS_ELECTRICO`, junto al carril que
   lee, no en `registry.py`. Las cajas salen de `library/electrico/armado.py` y la geometría de

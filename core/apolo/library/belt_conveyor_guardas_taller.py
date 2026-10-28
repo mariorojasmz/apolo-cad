@@ -151,7 +151,7 @@ def pasantes_de_guardas(c: Cotas, i: int) -> list[tuple[float, float, float, flo
         return []
     out = []
     zt, d8 = z_tambor(c), paso(PERNO_TAMBOR)
-    for xd, r, sentido, viaje in ((c.half, c.r_m, 1.0, 0.0), (-c.half, c.r_c, -1.0, c.viaje)):
+    for xd, r, sentido, viaje in ((c.half, c.r_m, 1.0, 0.0), (c.x_tc, c.r_c, -1.0, c.viaje)):
         inb = x_de_tambor(c, xd, r, sentido, viaje)[0]
         out += [(x, zt, d8, BUJE_TAMBOR) for x in pernos_tambor(c, xd, inb)]
     if c.cierres:

@@ -33,17 +33,27 @@ TUBO_BASE = "TUBO-2X2"
 
 
 def tambor(plan: Plan, c: Cotas, suf: str, nombre: str, ref: str, x: float, z: float,
-           y_lo: float, y_hi: float) -> None:
+           y_lo: float, y_hi: float, chaveta=None) -> None:
     """Cuerpo del tambor de catálogo + su eje de `y_lo` a `y_hi` (mundo). Marco local: eje Z;
     la rotación (90, 0, 0) lo lleva a −Y, así que el tramo mundial [y_lo, y_hi] es el local
-    [−y_hi, −y_lo]."""
+    [−y_hi, −y_lo]. `chaveta` (faja-compacta D1): (y0, y1 del mundo, ancho b, radio de su cara de
+    arriba): la chaveta montada arriba del eje (+Z del mundo = +Y local), del motorreductor de eje
+    hueco."""
     comp = CATALOG[ref]
     prm = {**(comp.params or {}), "stub": 0.0, "shaft_hole_d": 0.0, "hole_inset": 0.0}
     d = float(comp.specs["eje_mm"])
     cuerpo = drum(**prm)(c.cara)
     eje = Pos(0, 0, -(y_lo + y_hi) / 2.0) * Cylinder(d / 2.0, y_hi - y_lo)
+    key = f"faja|{ref}|{c.cara:g}|{y_lo:.2f}|{y_hi:.2f}"
+    if chaveta is not None:
+        from build123d import Box
+
+        y0, y1, b, r1 = chaveta
+        r0 = d / 2.0 - 0.5                               # fundida al eje
+        eje = eje + Pos(0, (r0 + r1) / 2.0, -(y0 + y1) / 2.0) * Box(b, r1 - r0, abs(y1 - y0))
+        key += f"|ch{y0:.2f}|{y1:.2f}|{b:g}|{r1:.2f}"
     plan.pieza(suf, nombre, cuerpo + eje, comp=ref, cut=c.cara, pos=(x, 0.0, z), rot=(90, 0, 0),
-               key=f"faja|{ref}|{c.cara:g}|{y_lo:.2f}|{y_hi:.2f}")
+               key=key)
 
 
 def _brida(ref: str) -> dict:
@@ -51,9 +61,10 @@ def _brida(ref: str) -> dict:
     return {k: float(p[k]) for k in ("d", "size_w", "size_h", "Bi", "s")}
 
 
-def _y_soporte(c: Cotas, b: dict) -> float:
-    """|y| del origen (centro del barreno) de una UCF montada sobre la placa porta-chumacera."""
-    return c.y_out + PLACA_CHUMACERA_T + b["Bi"] / 2.0 + b["s"]
+def _y_soporte(c: Cotas, b: dict, placa_t: float = PLACA_CHUMACERA_T) -> float:
+    """|y| del origen (centro del barreno) de una UCF montada sobre la placa porta-chumacera (o la
+    placa ranurada del tensor, de `placa_t`)."""
+    return c.y_out + placa_t + b["Bi"] / 2.0 + b["s"]
 
 
 def chumacera(plan: Plan, c: Cotas, ref: str, x: float, z: float, lado: float, suf: str,
@@ -89,11 +100,12 @@ def chumacera(plan: Plan, c: Cotas, ref: str, x: float, z: float, lado: float, s
 
 
 def tapa_brida(plan: Plan, c: Cotas, ref: str, x: float, z: float, lado: float, suf: str,
-               donde: str, chumacera_suf: str, y_eje: float) -> None:
+               donde: str, chumacera_suf: str, y_eje: float,
+               placa_t: float = PLACA_CHUMACERA_T) -> None:
     """Tapa (copa) atornillada a la brida de la chumacera sobre el extremo libre del eje."""
     b = _brida(ref)
     r_in = 1.08 * b["d"] + 6.5       # libra el cubo, el collar y la grasera del soporte
-    ya, yb = _y_soporte(c, b) - b["Bi"] / 2.0, y_eje + 3.0
+    ya, yb = _y_soporte(c, b, placa_t) - b["Bi"] / 2.0, y_eje + 3.0
     copa = (cilindro_y(x, z, lado * ya, lado * (yb + TAPA_T), r_in + TAPA_T)
             - cilindro_y(x, z, lado * (ya - 1.0), lado * yb, r_in))
     nota = "tapa atornillada a la brida de la chumacera"
@@ -115,8 +127,16 @@ def tensor_carro(plan: Plan, c: Cotas, i: int, lado: float, rail: str) -> float:
     taller = c.criterio >= 8
     y_out = c.y_out + (tt.PLACA_TENSOR_T if taller else 0.0)  # F1c (D11): sobre su placa
     suf = f"tensor{i}"
-    plan.pieza(suf, f"Tensor de carro ({i})", build_component(c.uct)[0], comp=c.uct,
-               pos=(-c.half, lado * (y_out + a / 2.0), c.zc), key=f"comp|{c.uct}|std")
+    forma, key = build_component(c.uct)[0], f"comp|{c.uct}|std"
+    if c.x_tc_ is not None:  # faja-compacta D4: el carro al INICIO de su carrera (en −half)
+        from .builders_rodaje import take_up_unit
+
+        avance = -c.half - c.x_tc
+        forma = take_up_unit(**{k: float(p[k]) for k in ("d", "L", "H", "A", "carrera", "tm")},
+                             avance=avance)()
+        key = f"comp|{c.uct}|av{avance:g}"
+    plan.pieza(suf, f"Tensor de carro ({i})", forma, comp=c.uct,
+               pos=(-c.half, lado * (y_out + a / 2.0), c.zc), key=key)
     if taller:
         tt.placa_tensor(plan, c, i, lado, rail)
     else:

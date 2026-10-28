@@ -226,7 +226,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec(
             "create_belt_conveyor", "Faja de banda", "biblioteca", CreateBeltConveyorParams,
             _exec_create_belt_conveyor, composite=True,  # corre fasten/ground (exec_faja)
-            version=6, al_crear=_sellar_faja,  # v4 uniones; v5 cierres; v6 tramos y retorno
+            version=7, al_crear=_sellar_faja,  # v4 uniones; v5 cierres; v6 tramos; v7 compacta
         ),
         CommandSpec(
             "create_take_up", "Tensor de cola (trotadora)", "biblioteca", CreateTakeUpParams,

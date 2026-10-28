@@ -184,7 +184,7 @@ def x_rodillos(c: Cotas) -> list[float]:
     if not con_criterio(c) or c.largo <= PASO_RETORNO + 1e-9:
         return []
     margen = alcance_guarda(c) + 20.0  # las alas de su guarda no llegan a las de los tambores
-    xa = x_de_tambor(c, -c.half, c.r_c, -1.0, c.viaje)[0] + margen
+    xa = x_de_tambor(c, c.x_tc, c.r_c, -1.0, c.viaje)[0] + margen
     xb = x_de_tambor(c, c.half, c.r_m, 1.0, 0.0)[0] - margen
     sop = x_soportes(c)
     patas = estaciones(c)
@@ -291,6 +291,17 @@ def _guarda(plan: Plan, c: Cotas, k: int, x: float, z_eje: float, r: float, d_ej
     forma = caja(x - xw - e, x + xw + e, -yc, yc, z_fondo, z_fondo + e)        # fondo
     for sx in (-1.0, 1.0):  # paredes en el ancho de la banda: fuera de él tapa la guarda inferior
         forma = forma + caja(x + sx * xw, x + sx * (xw + e), -yb - 0.5, yb + 0.5, z_fondo, z_ala)
+        if c.criterio >= 9 and c.cierres:
+            # faja-compacta (D6): fuera del ancho de la banda, la pared sigue hasta la mejilla y
+            # sube hasta el ala de la guarda inferior. Sin ella, entre el fondo y esa ala quedaba
+            # un paso (< 10 mm) al extremo del rodillo, donde la guarda inferior se corta: una
+            # sonda llegaba a la cuña (ya en el criterio 8: una faja sin motor)
+            from .belt_conveyor_guardas import CHAPA, HOLGURA_ALA, z_retorno
+
+            z_tope = min(z_ala, z_retorno(c) - HOLGURA_ALA - CHAPA - 0.5)
+            for s in (-1.0, 1.0):
+                forma = forma + caja(x + sx * xw, x + sx * (xw + e), s * (yb + 0.4),
+                                     s * (yc - e + 0.1), z_fondo, z_tope)
         forma = forma + caja(x + sx * xw, x + sx * (xw + e + ALCANCE), -yb, yb, z_ala - e,
                              z_ala)                                             # ala
     for s in (-1.0, 1.0):                                                       # mejillas

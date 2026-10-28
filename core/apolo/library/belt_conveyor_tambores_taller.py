@@ -94,13 +94,15 @@ def placa_tensor(plan: Plan, c, i: int, lado: float, rail: str) -> str:
     p = CATALOG[c.uct].params
     L, H, m = float(p["L"]), float(p["H"]), PLACA_TENSOR_MARGEN
     y0, y1 = lado * c.y_out, lado * (c.y_out + PLACA_TENSOR_T)
-    placa = caja(-c.half - L / 2.0 - m, -c.half + L / 2.0 + m, y0, y1, c.zc - H / 2.0 - m,
+    xm = c.x_tc  # el centro del marco = el de la carrera (faja-compacta D4; −half hasta el 8)
+    placa = caja(xm - L / 2.0 - m, xm + L / 2.0 + m, y0, y1, c.zc - H / 2.0 - m,
                  c.zc + H / 2.0 + m)
     alto = c.d_c + 2.0 * HOLGURA_EJE
-    placa = placa - ranura_x(-c.half, c.zc, y0 - lado, y1 + lado, c.carrera + alto, alto)
+    xr, carrera = c.ranura_cola
+    placa = placa - ranura_x(xr, c.zc, y0 - lado, y1 + lado, carrera + alto, alto)
     for dx in (-1.0, 1.0):
         for dz in (-1.0, 1.0):
-            placa = placa - taladro_y(-c.half + dx * (L / 2.0 - ESQUINA_MARCO),
+            placa = placa - taladro_y(xm + dx * (L / 2.0 - ESQUINA_MARCO),
                                       c.zc + dz * (H / 2.0 - ESQUINA_MARCO), y0 - lado, y1 + lado,
                                       broca(PERNO_MARCO))
     psuf = f"tensor{i}_placa"
