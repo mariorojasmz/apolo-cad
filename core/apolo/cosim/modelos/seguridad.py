@@ -44,7 +44,9 @@ class Resguardo(_Mando):
 
     def __init__(self, p: Parametros):
         super().__init__(p)
-        p.texto("actuador", "el actuador del interruptor", ("separado",))
+        # «rodillo»: el interruptor de POSICIÓN (FC-2NC-RODILLO, plan lo-que-se-mueve): los mismos
+        # NC de apertura positiva, accionados por la pieza que lo pisa en vez de una lengüeta
+        p.texto("actuador", "el actuador del interruptor", ("separado", "rodillo"))
         self.cerrado = True     # el resguardo (la lengüeta adentro)
         self.contactos = True   # el mecanismo: sus NC cerrados
 
