@@ -43,7 +43,7 @@ NUEVAS = {
 TODAS_NUEVAS = [r for refs in NUEVAS.values() for r in refs]
 # la seta en caja de superficie (plan seta-de-emergencia D4): misma ficha que ESTOP-40
 #: los mandos de seguridad de dos canales (plan mandos-de-seguridad D1–D3), eléctricos
-SEGURIDAD = ["ESTOP-40-2NC", "ESTOP-40-CAJA-2NC", "RESG-2NC", "RS-2C-24VDC"]
+SEGURIDAD = ["ESTOP-40-2NC", "ESTOP-40-CAJA-2NC", "RESG-2NC", "RS-2C-24VDC", "FC-2NC-RODILLO"]
 SETAS = ["ESTOP-40-CAJA"] + SEGURIDAD
 #: los interruptores diferenciales (plan datos-de-corte-y-acometida D9)
 DIFERENCIALES = [f"DIF-{p}-{i}-{s}-{c}" for p, i in (("2P", "25A"), ("4P", "40A"))
@@ -87,7 +87,7 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     # + 2 de plc-en-el-lazo F1d1 (el panel de operador y el cable de red)
     # + 1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR)
     # + 5 prensaestopas M16–M40 (V8.5 F3) + 2 cables sin PE (CABLE-5X1, CABLE-7X1)
-    assert len(CATALOG) == 471  # + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    assert len(CATALOG) == 472  # + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS + DIFERENCIALES + SIN_PE)

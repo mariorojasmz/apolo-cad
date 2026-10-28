@@ -145,7 +145,8 @@ Lo que pediría una pieza sin norma es AVISO justificable por escrito.
   rediseña). Ajuste en la revisión de la F1: el agente quitaba también lo apoyado y eso daba
   `tambien_tapa` casi siempre, por el peligro que tapa la pieza apoyada. La evidencia agrega `tambien_tapa: <peligro>` o `solo_apoyo: true`. No cambia
   el estado del ítem: sólo la evidencia, que es lo que lee quien rediseña.
-- **D7 — Versiones.** `VERSION_REGISTRO` 15 → 16 (D1, D2, D3) y `VERSION_BATERIA` 5 → 6 (D5),
+- **D7 — Versiones.** `VERSION_REGISTRO` 15 → 16 (D1, D2) y 16 → 17 (D3); `VERSION_BATERIA` 5 → 6
+  (las poses de cada resguardo, D3) y 6 → 7 (D5),
   cada una con su línea. D6 no cambia veredictos.
 
 ## Alternativas descartadas
@@ -257,3 +258,9 @@ Lo que pediría una pieza sin norma es AVISO justificable por escrito.
     `sesion.accionar` con `setJointValue`, sin animar (cada cambio de `jointValues` rearma el
     reproductor vivo), y la devuelve al cerrar o reabrir la sesión.
   - Testigos re-congelados sólo por la versión y el ítem nuevo (NO_APLICA en los cuatro).
+- **Revisión de la F2 (2026-10-27):** el agente midió que el elevador usaba la ref RESG-2NC para
+  sus finales de carrera (-B13/-B14 de cadena floja, -B15 de sobrecarrera): con D3 fallaban sin
+  arreglo posible. Se agregó al catálogo el interruptor de POSICIÓN `FC-2NC-RODILLO` (mismos
+  contactos y modelo de la co-simulación, `actuador: rodillo`, sin `specs.actuador`) y D3 aplica
+  sólo al resguardo de actuador `separado`; sin resguardos así, el ítem no aplica. Las poses
+  nuevas cambian la entrega: `VERSION_BATERIA` 5 → 6 (el tirador de D5 pasa a 7).

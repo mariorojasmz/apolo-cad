@@ -11,7 +11,7 @@ una pieza. Un resguardo FIJO (se quita con herramienta, sin interruptor) no entr
 from __future__ import annotations
 
 from .entrada import Entrada, hay
-from .item import FALLA, OK, SIN_EVALUAR
+from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR
 
 #: Por qué un resguardo no tiene junta que lo abra (el `motivo` de `services/resguardos.py`).
 MOTIVOS = {
@@ -39,6 +39,8 @@ def resguardo_abre(ins: dict) -> dict:
     filas = ins.get("resguardos")
     if filas is None:
         return _r(SIN_EVALUAR, "no se resolvieron los resguardos del modelo", {})
+    if not filas:  # sólo interruptores de posición (FC-2NC-RODILLO) o ninguno: no hay hoja
+        return _r(NO_APLICA, "sin resguardos con interruptor de actuador separado", {})
     ev = {"resguardos": [dict(f) for f in filas[:40]]}
     malos = [f for f in filas if not f.get("junta")]
     if malos:

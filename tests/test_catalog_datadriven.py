@@ -111,7 +111,7 @@ def test_all_new_families_present():
     assert len(refs_in_category("tableros")) == 18
     # + 8 pulsadores, selectores y pilotos Ø22 (V8.1 D6) + la seta en caja (seta-de-emergencia D4)
     # + las setas 2NC, el interruptor de resguardo y su lengüeta (mandos-de-seguridad D1, D2)
-    assert len(refs_in_category("mandos")) == 15
+    assert len(refs_in_category("mandos")) == 16  # + FC-2NC-RODILLO (lo-que-se-mueve F2)
     # familias de norma (ISO 15 / ASTM A500 / EN): tubos y perfiles
     assert len(refs_in_category("tubos_estructurales")) == 16  # ASTM A500 HSS cuadrado/rect
     assert len(refs_in_category("tubos_circulares")) == 10     # ASTM A500 round HSS
@@ -149,7 +149,7 @@ def test_all_new_families_present():
     # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
     # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR); +5 prensaestopas M16–M40 (V8.5 F3)
     # +2 cables sin PE para aparatos de clase II (CABLE-5X1, CABLE-7X1)
-    assert len(CATALOG) == 471  # + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    assert len(CATALOG) == 472  # + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
 
 
 def test_door_sliding_hardware():

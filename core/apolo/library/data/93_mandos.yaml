@@ -206,6 +206,41 @@ components:
         - {de: "11", a: "12", tipo: NC, accion: mano, grupo: abierto}
         - {de: "21", a: "22", tipo: NC, accion: mano, grupo: abierto}
       modelo: {tipo: resguardo, actuador: separado}
+  # Interruptor de POSICIÓN (final de carrera, cadena floja, sobrecarrera): mismos contactos que el
+  # de resguardo pero SIN actuador separado (rodillo propio, sin `specs.actuador`): no es un
+  # resguardo con hoja y no pide junta (plan lo-que-se-mueve D3). En la co-simulación se acciona
+  # igual (abierto / cerrado).
+  - ref: FC-2NC-RODILLO
+    name: Interruptor de posición 2NC con rodillo
+    description: >-
+      Interruptor de posición (final de carrera) con palanca de rodillo, 2 contactos NC de apertura
+      positiva (IEC 60947-5-1 Anexo K), para detectar una posición, una sobrecarrera o una cadena
+      floja; caja compacta con 2 agujeros de fijación y prensaestopa M20. Verificar con el
+      proveedor.
+    builder: box
+    params: {width: 30, depth: 30, height: 65}
+    weight: 0.15
+    specs:
+      tipo: "interruptor de posición, palanca de rodillo"
+      contacto: "2NC apertura positiva"
+      norma: "IEC 60947-5-1 Anexo K"
+      prensaestopa: M20
+      linea_referencia: "orden de Telemecanique Sensors XCKS / Siemens SIRIUS 3SE5 con palanca de rodillo"
+      cotas_verificadas: false
+      cost: 30
+    electrico:
+      funcion: B
+      simbolo: interruptor_resguardo
+      montaje: campo
+      bornes:
+        - {id: "11", rol: contacto}
+        - {id: "12", rol: contacto}
+        - {id: "21", rol: contacto}
+        - {id: "22", rol: contacto}
+      caminos:
+        - {de: "11", a: "12", tipo: NC, accion: mano, grupo: abierto}
+        - {de: "21", a: "22", tipo: NC, accion: mano, grupo: abierto}
+      modelo: {tipo: resguardo, actuador: rodillo}
   - ref: RESG-LENGUETA
     name: Lengüeta de interruptor de resguardo
     description: >-

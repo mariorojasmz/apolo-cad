@@ -24,10 +24,11 @@ VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 #: La versión de la batería del núcleo: súbela si cambia un chequeo o su umbral. Sólo se publica
 #: con reglas de extensión (`version_bateria` = «1+nombre.version_entrega»); sin ellas, el
 #: resultado es el de siempre (plan puntos-de-extension-entregables, D3).
-VERSION_BATERIA = 5  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
+VERSION_BATERIA = 6  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
 #                      enclavamiento de los resguardos (plan mandos-de-seguridad, F2b); 4: los
 #                      nombres por función (plan nombres-por-funcion, D8); 5: el ERC exige el hilo
-#                      PE de cada cable en un borne de tierra en sus dos extremos
+#                      PE de cada cable en un borne de tierra en sus dos extremos; 6: las poses
+#                      abierto/cerrado de cada resguardo con su junta (plan lo-que-se-mueve, D3)
 
 # Umbral de sujeción (compartido con la alarma ambiental de la capa API): bajo esto
 # —un croquis de 2-3 piezas— exigir anclajes sería ruido. Conservador a propósito:

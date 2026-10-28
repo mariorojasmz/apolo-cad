@@ -28,6 +28,12 @@ from __future__ import annotations
 TIPO = "resguardo"
 
 
+#: Sólo el resguardo con actuador SEPARADO (lengüeta en la hoja) tiene hoja que abre; un
+#: interruptor de posición (`actuador: rodillo`, FC-2NC-RODILLO) comparte el modelo de la
+#: co-simulación pero no es un resguardo y no pide junta.
+ACTUADOR = "separado"
+
+
 def _cadena(doc, fid: str | None) -> bool:
     """¿`fid` cuelga de alguna junta (también una `fija`)?"""
     return fid is not None and any(j["child"] == fid for j in doc.joints.values())
@@ -64,7 +70,8 @@ def resguardos(doc) -> list[dict]:
     motivo}] de cada dispositivo resguardo del carril, en el orden del carril; [] sin ninguno."""
     from .electrico import modelo
 
-    devs = [d for d in modelo(doc).dispositivos if (d.modelo or {}).get("tipo") == TIPO]
+    devs = [d for d in modelo(doc).dispositivos if (d.modelo or {}).get("tipo") == TIPO
+            and (d.modelo or {}).get("actuador", ACTUADOR) == ACTUADOR]
     if not devs:
         return []
     from .enclavamientos import emparejar, junta_movil, piezas

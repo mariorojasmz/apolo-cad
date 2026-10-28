@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from apolo.doc import Document
-from apolo.library.calidad.item import FALLA, OK
+from apolo.library.calidad.item import FALLA, NO_APLICA, OK
 from apolo.library.calidad.resguardos import resguardo_abre
 from apolo.library.delivery import ROJO, delivery_report
 from apolo.services.assertions import delivery_poses
@@ -146,6 +146,21 @@ def test_sin_lengueta_la_junta_del_interruptor_no_es_la_de_una_hoja():
     it = _item(doc)
     assert it["estado"] == FALLA and "un detector de cadena floja" in it["detalle"]
     assert poses(doc) == [] and juntas_vivo(doc) == {}  # el visor no mueve la plataforma al «abrir»
+
+
+def test_el_interruptor_de_posicion_no_es_un_resguardo():
+    """El arreglo del detector de cadena floja: con la ref de posición (FC-2NC-RODILLO, actuador de
+    rodillo, sin lengüeta) no entra al ítem ni al visor, y el ítem no aplica."""
+    doc = Document("cadena-floja-fc")
+    carro = doc.execute("create_box", {"name": "Plataforma", "width": 200, "depth": 200, "height": 10})
+    c = doc.execute("insert_component", {"component": "FC-2NC-RODILLO", "name": "Cadena floja -B13",
+                                         "position": {"z": 50}})
+    doc.execute("add_device", {"ref": "FC-2NC-RODILLO", "designacion": "-B13", "ubicacion": "+CAMPO",
+                               "pieza": c})
+    doc.execute("add_joint", {"name": "j_plataforma", "type": "prismatica", "parent": carro, "child": c,
+                              "axis": {"z": 1}, "lower": 0, "upper": 1500})
+    assert resguardos(doc) == [] and poses(doc) == [] and juntas_vivo(doc) == {}
+    assert _item(doc)["estado"] == NO_APLICA
 
 
 def test_sin_pieza_ligada_falla_y_sin_dispositivo_no_aplica():
