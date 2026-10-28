@@ -152,6 +152,9 @@ def _largo(p: dict, largo: float, d: float) -> tuple:
         return _largo_esparrago(p, largo, d)
     ref = p.get("ref") or ref_para(d, p.get("cabeza", "hex"))
     nums = {"largo_mm": round(largo, 1), "ref": ref}
+    anclaje = _anclaje_de_catalogo(ref)
+    if anclaje is not None:  # se compra por su ficha: el largo medido (sin la camisa) no es ISO
+        return (OK, f"{ref}: anclaje de catálogo M{d:g}×{anclaje:g}", nums)
     if not en_serie(largo, ref):
         return (FALLA, f"{largo:.1f} mm no es un largo de la serie comercial", nums)
     if not en_catalogo(ref, largo):
@@ -160,6 +163,19 @@ def _largo(p: dict, largo: float, d: float) -> tuple:
         return (FALLA, f"{ref}×{largo:g} no está en el catálogo ({ref} {rango})",
                 {**nums, "catalogo_mm": vende})
     return (OK, f"{ref}×{largo:g}", nums)
+
+
+def _anclaje_de_catalogo(ref: str | None) -> float | None:
+    """El largo de ficha de un anclaje de expansión de catálogo (`ANCLA-EXP-*`), o None. Su largo
+    no es de la serie de pernos: es el del fabricante (espárrago con camisa, sobresale `sobre` de
+    la placa), y la pieza ES la ref, así que no hay largo que elegir."""
+    from ..catalog import CATALOG
+
+    comp = CATALOG.get(ref or "") if ref else None
+    specs = (comp.specs or {}) if comp is not None else {}
+    if specs.get("tipo") != "anclaje de expansión" or specs.get("length") is None:
+        return None
+    return float(specs["length"])
 
 
 def _largo_esparrago(p: dict, largo: float, d: float) -> tuple:

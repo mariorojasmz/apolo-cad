@@ -147,6 +147,14 @@ def test_largo_de_la_serie_y_del_catalogo(largo, texto):
     assert (e == OK) if texto is None else (e == FALLA and texto in txt), txt
 
 
+def test_anclaje_de_expansion_va_por_su_ficha():
+    """El anclaje de la placa de piso (F6 de plantilla-rodillos-cadena) mide 90 bajo la arandela
+    y su ficha dice 115: no es un perno de la serie ISO, se compra por la ref (piloto de
+    rodillos por gravedad v3: la puerta daba FALLA en union.largo_comercial)."""
+    e, txt, _ = evaluar_perno(_insumo(90, ref="ANCLA-EXP-M12", d=12.0))["largo"]
+    assert e == OK and "ANCLA-EXP-M12" in txt, txt
+
+
 def test_largo_de_catalogo_por_ficha():
     assert en_serie(45) and not en_serie(47)
     assert largos_catalogo("PERNO-HEX-M10")[-1] == 150

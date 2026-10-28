@@ -82,7 +82,9 @@ no son la de diseño, el `fasten` entre piezas que mueven juntas distintas deja 
 entra también la capacidad de la cadena de izaje (cadena-de-izaje F2a), que dimensiona el pasador
 de sus amarres en `union.dimensionadas`; v17 (lo-que-se-mueve F2) `seguridad.resguardo_abre` (un
 resguardo con interruptor sin una junta que lo abra falla) y los extremos de esa junta entran como
-poses de la puerta de entrega, aunque no estén en `doc.motion`.
+poses de la puerta de entrega, aunque no estén en `doc.motion`; v18 (plantilla-rodillos-cadena F6)
+`union.largo_comercial` toma el anclaje de expansión de catálogo por el largo de su ficha (no es
+un perno de la serie ISO).
 """
 
 from __future__ import annotations
@@ -97,7 +99,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "17"  # 17: el resguardo con interruptor abre por su junta (y sus poses)
+VERSION_REGISTRO = "18"  # 18: el anclaje de expansión va por su ficha en el largo comercial
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
