@@ -7,6 +7,8 @@ Sale de `models.py` (congelado por el trinquete de tamaño). Las cotas viven en
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 from pydantic.json_schema import SkipJsonSchema
 
@@ -57,7 +59,11 @@ class CreateBeltConveyorParams(BaseModel):
     junto a cada empalme; pide un `tramo_max` menor si el transporte lo exige. Con más de 3 m
     entre tambores lleva rodillos de retorno de catálogo bajo el ramal de retorno (cada ≤ 3 m),
     en soportes atornillados a los largueros; lo que se atornilla a la cara interior de un
-    larguero va con perno pasante y buje soldado (la tuerca queda por fuera, con llave). Declara
+    larguero va con perno pasante y buje soldado (la tuerca queda por fuera, con llave).
+    `lado_abierto` ('+y' o '-y', el costado de los operarios que toman o dejan producto): con
+    guardas, ese costado no lleva la pared de la guarda lateral sino una guarda cubre-ranura a
+    ras de la banda que sigue tapando la ranura banda ↔ larguero (las guardas de los tambores,
+    del retorno y los cierres siguen); el motorreductor va del lado +Y. Declara
     sus uniones (perno/soldadura/contacto) y sus anclajes (los pies), así que sale con camino de
     carga a tierra. Editar cualquier parámetro regenera la faja entera."""
 
@@ -97,8 +103,14 @@ class CreateBeltConveyorParams(BaseModel):
         None, ge=1000, le=12000, title="Largo máximo de tramo",
         description="mm; el bastidor se parte en tramos iguales empernados de hasta este largo "
                     "(vacío: una pieza)")
-    # v6, FUERA del schema: 6 = rodillos de retorno y pernos pasantes con buje; un log de antes
-    # no lo trae → 5 → la v5 tal cual (como `cierres`).
+    # F1b (D7), VISIBLE: el costado sin pared de guarda lateral; «ninguno» = lo de siempre.
+    lado_abierto: Literal["ninguno", "+y", "-y"] = Field(
+        "ninguno", title="Lado abierto",
+        description="costado de los operarios: sin la pared de la guarda lateral, con una guarda "
+                    "cubre-ranura a ras de la banda (sólo con guardas)")
+    # v6, FUERA del schema: 6 = rodillos de retorno y pernos pasantes con buje; 7 (F1b) = el 6
+    # con el pie de tuerca soldada y contratuerca y los brazos del motor a tope contra la pata.
+    # Un log de antes no lo trae → 5 → la v5 tal cual (como `cierres`).
     criterio: SkipJsonSchema[int] = Field(5)
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")

@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 hecha (create_belt_conveyor v6, 2026-10-28; rama sin mergear al escribir esto); falta F2 (la clasificadora de 12 puestos por MCP con su revisor a ciegas). Decisión vetable de F1 en la Bitácora - el tramo se compara con el bastidor, así una faja de largo 6000 sale en 2 tramos
+nota: F1 hecha (create_belt_conveyor v6); F1b hecha (lado_abierto y criterio 7 - pie con contratuerca y base del motor a tope, 2026-10-28; rama sin mergear al escribir esto); falta F2 (la clasificadora de 12 puestos por MCP con lado_abierto y su revisor a ciegas). Decisiones vetables D7-D9 en la Bitácora (F1b)
 descripcion: Una faja de banda de más de 6 m sale en tramos empernados que se fabrican y transportan, con rodillos de retorno, y cada perno de la cama se puede apretar
 ---
 
@@ -74,6 +74,8 @@ también: con 6 m el retorno ya pasa los 3 m libres.
 - **F1** (commands + library, M): D1–D6 con sus tests (tramos iguales, empalme con pata, sin
   interferencias, BOM con barras ≤ `tramo_max`; retorno con espaciamiento ≤ 3 m; unión con acceso;
   un log viejo regenera igual). Gate: suite completa + ruff.
+- **F1b** (library + commands, S): D7–D9 (Bitácora), lo que el piloto y su revisor a ciegas
+  encontraron en la plantilla v6.
 - **F2** (MCP, S): la clasificadora de 12 puestos se corrige con la plantilla nueva y la revisa
   otro revisor a ciegas; la prueba de familia en 36 puestos.
 
@@ -155,3 +157,50 @@ limpio.
 Para F2: con el sello, la faja de 10,2 m sale en 2 tramos con 4 rodillos de retorno y la puerta
 no suma ninguna FALLA nueva; el motor por defecto no arranca 10 m a plena carga (elige otro el
 modelador).
+
+### F1b (2026-10-28): lado abierto, pie roscado de verdad y base del motor a tope
+
+Origen: el piloto `clasificadora-manual` (faja de 10,2 m; operarios de pie a UN costado) puso
+`guardas: true` por las guardas del retorno y eso le puso la guarda lateral en L (150 mm, borde a
+999 mm con la banda a 850) del lado de los operarios; el revisor a ciegas encontró además el pie
+«roscado» en un agujero liso Ø12 de una placa de 8 mm y la base del motor colgada de una ménsula
+de 160 mm sin escuadra, con los brazos 1 mm separados de la pata. Hecho (library + commands;
+`tests/test_belt_conveyor_f1b.py`), vetable por número:
+
+- **D7 `lado_abierto`** (VISIBLE: `ninguno` | `+y` | `-y`, default `ninguno` = lo de antes; sólo
+  con `guardas`). Ese costado lleva, por tramo, una **guarda cubre-ranura** (chapa con quiebre:
+  labio sobre la ranura banda ↔ larguero con la cara superior A RAS de la banda, a 3 mm de su
+  borde —ISO 13857 tabla 4, e ≤ 4 → sr ≥ 2 mm—, y ala atornillada sobre el larguero, 2 mm sobre la
+  banda a 35 mm del borde) y la guarda en L sólo en la **cabeza**, desde `ALCANCE` (330 mm) antes
+  del borde del tambor motriz. Guardas de tambores, retorno y cierres siguen. **Medido con la
+  puerta** (`controles_seguridad`, sondas rectas y con el brazo doblado, faja de 4 m): sin pared en
+  todo el costado, FALLA la cuña de ENTRADA del motriz (4 sondas con el brazo doblado por −Y, 5 por
+  +Y: la mano, sobre el larguero, empuja el borde de la banda hasta la cuña); con la pared de
+  cabeza, OK (5 peligros resguardados, igual que con los dos costados cerrados); sin el labio, FALLA
+  la cuña de cola por la ranura (35 mm: ISO 13857 tabla 4 deja pasar el brazo). Las dos piezas son
+  lo mínimo (test). La cola no lleva pared: arriba la banda SALE de su tambor. 10,2 m abierta por
+  −Y: 2 cubre-ranuras + 1 pared de cabeza, sin interferencias y todo a tierra.
+- **D8 pie** (criterio 7): enganche de una rosca interior ≥ 0,8·d (la altura de la tuerca normal,
+  DIN 934 M12 m = 10; ISO 898-2), y la placa de 8 mm < 9,6 → no se rosca la placa: barreno de paso
+  Ø13,5 (ISO 273 media), **tuerca DIN 934 soldada por debajo** y **contratuerca** de catálogo en el
+  vástago, entre la tuerca y el disco, con llave de boca 18 desde el costado (acceso de herramienta
+  OK en el test). Pila con el pie a mitad de recorrido: nivela ±15 mm (antes ±20 sin traba); la
+  pata se acorta 15 mm, el larguero queda donde estaba. Igual que el F6 de `create_roller_conveyor`.
+- **D9 base del motor** (criterio 7): los brazos van a ±50,8 del eje de la pata, **a tope** contra
+  sus dos costados desde su cara interior y soldados a ella (además de a la ménsula; la base se
+  ensancha si el motor es angosto). **La cuenta** (`library/belt_conveyor_motor.py`, publicada en
+  `Plan.calculos`): pesos de ficha y de las cotas, par de reacción = 2 × el nominal (arranque
+  directo, criterio de diseño); brazos con von Mises ≤ 0,6·f_y (A500 Gr. B); soldadura ménsula ↔
+  pata SOLA ≤ 0,30·F_EXX (AISC 360 J2.4 ASD); alineación del acople: el corrimiento lateral del
+  motor por la torsión del voladizo y el giro de la pata (empotrada en el larguero, sin contar el
+  pie) ≤ 0,38 mm (desalineación paralela de un acople de garras del tamaño, del orden de catálogo:
+  criterio de diseño). Con MOTOR-150-EH (el de defecto): 0,22 mm, τ 21 MPa, σ 16 MPa → **da sin
+  escuadra**; MOTOR-037 y MOTOR-075 también; MOTOR-150 (205 N·m) no (≈ 0,7 mm) y lleva dos
+  **tornapuntas** de tubo a 45° (bajo cada brazo, soldadas al brazo y al costado de la pata): 0,34
+  mm. Lo que manda es la alineación, no la resistencia.
+- **Sello y versión**: D8 y D9 cambian la geometría → **criterio 7** en el sello (el 6 queda como
+  estaba: las fajas ya selladas con 6 regeneran con las mismas piezas, uniones y volumen medidos
+  con el código de antes, test); `lado_abierto` entra con el default que reproduce lo anterior.
+  `version` sigue en 6 (sólo la huella y `CAMPOS`): ningún log guardado cambia de geometría con
+  los mismos params, así que la caché no sirve nada viejo.
+

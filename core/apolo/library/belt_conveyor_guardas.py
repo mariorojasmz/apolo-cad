@@ -10,7 +10,10 @@ herramienta, ISO 14120):
   alcanza la cuña rodeando la bandeja (850 mm de alcance, ISO 13857);
 - v5 (`cierres`): guarda inferior en L bajo la ranura banda ↔ larguero entre las guardas de los
   tambores (`inferiores`); el techo de la guarda de cola cubre el tramo libre de la banda hasta
-  pasar la punta de la cama, y las paredes se escotan en las placas de los soportes de la cama.
+  pasar la punta de la cama, y las paredes se escotan en las placas de los soportes de la cama;
+- F1b (`lado_abierto`): el costado de los operarios lleva, a lo largo de la faja, una guarda
+  cubre-ranura a ras de la banda (sin pared: el paquete se toma por ahí) y la guarda en L sólo en
+  la cabeza, hasta `ALCANCE` antes de la cuña de entrada del tambor motriz.
 """
 
 from __future__ import annotations
@@ -33,23 +36,74 @@ TECHO_SOBRE_CAMA = 20.0   # v5: el techo de la guarda de cola pasa la punta de l
 
 
 def laterales(plan: Plan, c: Cotas) -> None:
-    """Una guarda lateral por larguero y por TRAMO (v6: se corta en cada empalme)."""
-    from .belt_conveyor_tramos import rail, tramos_guarda
+    """Una guarda lateral por larguero y por TRAMO (v6: se corta en cada empalme). En el costado
+    de `lado_abierto` (F1b), la guarda cubre-ranura (`_cubre_ranura`) a lo largo de la faja y la
+    guarda en L sólo en la cabeza (`x_pared_de_cabeza`)."""
+    from .belt_conveyor_tramos import JUNTA_GUARDA, rail, tramos_guarda
 
     yb = c.ancho / 2.0 + HOLGURA_BANDA
     z0 = c.rail_top
     tramos = tramos_guarda(c)
+    xw = x_pared_de_cabeza(c)
     for i, s in ((1, -1.0), (2, 1.0)):
+        abierto = c.lado_sin_pared == s
         for k, (x0, x1) in enumerate(tramos, start=1):
             suf = f"guarda{i}" if len(tramos) == 1 else f"guarda{i}_{k}"
-            nombre = f"Guarda lateral ({i})" if len(tramos) == 1 else \
-                f"Guarda lateral ({i}, tramo {k})"
-            pared = caja(x0, x1, s * yb, s * (yb + CHAPA), z0, z0 + ALTO_PARED)
-            ala = caja(x0, x1, s * yb, s * c.y_out, z0, z0 + CHAPA)
-            plan.pieza(suf, nombre, pared + ala, material="acero")
-            plan.union(f"{suf}_larg", suf, rail(c, i, (x0 + x1) / 2.0), "perno",
-                       "ala de la guarda atornillada sobre el larguero", size="M6",
-                       qty=math.ceil((x1 - x0) / 600.0) + 1)
+            tramo = "" if len(tramos) == 1 else f", tramo {k}"
+            piezas = [(suf, f"Guarda lateral ({i}{tramo})", x0, x1, False)]
+            if abierto:
+                piezas = [(suf, f"Guarda cubre-ranura ({i}{tramo})", x0,
+                           min(x1, xw - JUNTA_GUARDA), True)]
+                if x1 > xw:
+                    piezas.append((f"guarda{i}_cabeza", f"Guarda lateral de cabeza ({i})",
+                                   max(x0, xw + JUNTA_GUARDA), x1, False))
+            for sf, nombre, a, b, cubre in piezas:
+                if b - a < 1.0:
+                    continue
+                if cubre:
+                    forma = _cubre_ranura(c, s, a, b)
+                    nota = ("guarda cubre-ranura atornillada sobre el larguero (tornillos M6 a "
+                            "rosca en la pared superior del tubo)")
+                else:
+                    forma = (caja(a, b, s * yb, s * (yb + CHAPA), z0, z0 + ALTO_PARED)
+                             + caja(a, b, s * yb, s * c.y_out, z0, z0 + CHAPA))
+                    nota = "ala de la guarda atornillada sobre el larguero"
+                plan.pieza(sf, nombre, forma, material="acero")
+                plan.union(f"{sf}_larg", sf, rail(c, i, (a + b) / 2.0), "perno", nota,
+                           size="M6", qty=math.ceil((b - a) / 600.0) + 1)
+
+
+def x_pared_de_cabeza(c: Cotas) -> float:
+    """F1b (D7): desde dónde (X) el costado abierto vuelve a llevar la guarda en L: `ALCANCE`
+    antes de donde la banda entra al tambor motriz (su cuña de ENTRADA, arriba). Sin esa pared,
+    con el brazo doblado sobre el larguero la mano empuja el borde de la banda hasta la cuña (lo
+    midió la puerta en la de 4 m: 4 sondas con el brazo doblado por −Y, 5 por +Y); con ella, como
+    la guarda del tambor, la cuña queda a ≥ `ALCANCE` del hueco y la puerta da los 5 peligros
+    resguardados. Sin el labio del cubre-ranura, en cambio, se llega a la cuña de cola por la
+    ranura (1 sonda por −Y). La cola no lleva pared: arriba la banda SALE del tambor."""
+    return c.half - c.r_m - ALCANCE
+
+
+def _cubre_ranura(c: Cotas, s: float, x0: float, x1: float):
+    """F1b (D7): la guarda del costado de los operarios, sin pared (el paquete se toma por ese
+    lado). La ranura de `BANDA_A_LARGUERO` entre el borde de la banda y el larguero sigue
+    tapada: por ella el brazo bajaba a las cuñas banda ↔ tambor en los extremos de los tambores
+    (ISO 13857 tabla 4: por una ranura de más de 20 mm pasa el brazo, pide ≥ 850 mm al peligro).
+    Chapa con quiebre: el LABIO sobre la ranura con su cara superior A RAS de la cara de la banda
+    (`altura`), a `HOLGURA_BANDA` del borde (e = 3 mm: ISO 13857 tabla 4, e ≤ 4 → sr ≥ 2 mm, sin
+    distancia que cumplir) y el ala atornillada sobre el larguero, que sale 2 mm sobre la banda a
+    35 mm de su borde. El labio va entre las tapas de extremo de las guardas de los tambores (más
+    allá ya cierran ellas) y queda ≥ 1 mm sobre el tope de los tambores (con una banda de menos
+    de 4 mm el labio sube lo que pide eso y su unión con el ala: hasta 2 mm sobre la banda)."""
+    yb = c.ancho / 2.0 + HOLGURA_BANDA
+    ala = caja(x0, x1, s * (c.y_in - 2.0), s * c.y_out, c.rail_top, c.rail_top + CHAPA)
+    xa = max(x0, x_de_tambor(c, -c.half, c.r_c, -1.0, c.viaje)[1])
+    xb = min(x1, x_de_tambor(c, c.half, c.r_m, 1.0, 0.0)[1])
+    if xb - xa < 1.0:
+        return ala
+    z0 = max(c.altura - CHAPA, c.altura - c.t + 1.0)       # 1 mm sobre el tope de los tambores
+    z1 = max(c.altura, c.rail_top + 1.0)                    # a ras de la banda, unido al ala
+    return ala + caja(xa, xb, s * yb, s * c.y_in, z0, z1)
 
 
 def z_retorno(c: Cotas) -> float:

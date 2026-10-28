@@ -28,6 +28,8 @@ class Plan:
     uniones: list[tuple] = field(default_factory=list)
     #: (sufijo, pieza, nota)
     anclajes: list[tuple] = field(default_factory=list)
+    #: cuentas con que la plantilla decidió una geometría (F1b: «base_motor»), para leerlas
+    calculos: dict = field(default_factory=dict)
 
     def pieza(self, suf: str, nombre: str, base, *, comp: str | None = None,
               cut: float | None = None, pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0),

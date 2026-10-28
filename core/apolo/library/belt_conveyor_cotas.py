@@ -1,4 +1,4 @@
-"""Cotas puras de `create_belt_conveyor` (v4–v5): de los params a las medidas de cada pieza, sin OCCT.
+"""Cotas puras de `create_belt_conveyor` (v4–v6): de los params a las medidas de cada pieza, sin OCCT.
 
 Las piezas las arman `belt_conveyor_bastidor.py`, `belt_conveyor_tambores.py` y
 `belt_conveyor_guardas.py` con estas cotas; el orden y la banda, `belt_conveyor.py`.
@@ -81,6 +81,16 @@ class Cotas:
     criterio: int = 5
     tramos: tuple = ()       # (x0, x1) del tubo de cada tramo de larguero, de la cola a la cabeza
     empalmes: tuple = ()     # X del centro de cada empalme (entre las dos placas)
+    # F1b: el costado sin guarda lateral (el de los operarios: «+y» | «-y»; «ninguno» = los dos
+    # con guarda, como siempre). El criterio 7 suma el pie con tuerca soldada y contratuerca y
+    # los brazos del motor a tope contra la pata (`belt_conveyor_pies.py`,
+    # `belt_conveyor_motor.py`).
+    lado_abierto: str = "ninguno"
+
+    @property
+    def lado_sin_pared(self) -> float | None:
+        """El signo de Y del costado abierto (sin la pared de la guarda lateral), o None."""
+        return {"+y": 1.0, "-y": -1.0}.get(self.lado_abierto) if self.guardas else None
 
     @property
     def n_tramos(self) -> int:
@@ -159,14 +169,17 @@ def tensor_v4(ref: str | None, d_cola: float) -> str | None:
 
 def cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: str, tubo: str,
           tensor: str | None, motor: str | None, espesor: float, guardas: bool,
-          cierres: bool = False, tramo_max: float | None = None, criterio: int = 5) -> Cotas:
+          cierres: bool = False, tramo_max: float | None = None, criterio: int = 5,
+          lado_abierto: str = "ninguno") -> Cotas:
     from dataclasses import replace
 
     from .belt_conveyor_tramos import partir
 
+    if lado_abierto not in ("ninguno", "+y", "-y"):
+        raise ValueError(f"lado_abierto '{lado_abierto}' (válidos: ninguno, +y, -y)")
     c = _cotas(largo, ancho, altura, tambor_m, tambor_c, tubo, tensor, motor, espesor, guardas,
                cierres)
-    c = replace(c, tramo_max=tramo_max, criterio=criterio)
+    c = replace(c, tramo_max=tramo_max, criterio=criterio, lado_abierto=lado_abierto)
     tramos, empalmes = partir(c)
     return replace(c, tramos=tramos, empalmes=empalmes)
 

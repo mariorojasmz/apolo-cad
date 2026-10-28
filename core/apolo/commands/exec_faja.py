@@ -18,6 +18,11 @@ cortos para el transporte) parte el bastidor en tramos iguales empernados; el ca
 `criterio` (6) suma los rodillos de retorno y el perno pasante con buje de los soportes de la
 cama. El sello pone `tramo_max = 6000` y `criterio = 6` a toda faja NUEVA; un log de antes no
 los trae → una pieza y criterio 5 → la misma geometría (`tests/test_belt_conveyor_v6.py`).
+
+F1b (D7–D9): `lado_abierto` (VISIBLE, default «ninguno» = lo de antes) saca la pared de la guarda
+lateral del costado de los operarios; el criterio 7 (el del sello desde la F1b; el 6 queda como
+estaba en las fajas ya selladas) suma el pie de tuerca soldada y contratuerca y los brazos del
+motor a tope contra la pata con su cuenta (`tests/test_belt_conveyor_f1b.py`).
 """
 
 from __future__ import annotations
@@ -32,12 +37,12 @@ from .spec import run_executor
 from .state import ExecContext
 
 TRAMO_NUEVO = 6000.0   # barra comercial de tubo (D2)
-CRITERIO_NUEVO = 6
+CRITERIO_NUEVO = 7     # F1b: el 6 + pie con contratuerca y base del motor a tope (D8, D9)
 
 
 def sellar(params: dict, material_de: Callable[[str], str | None]) -> dict:
     """Sello de entrada de una faja NUEVA: con los cierres de la v5, los tramos de 6 m (barra
-    comercial) y el criterio 6 de la v6 (lo que el cliente ya trae se respeta: un test puede
+    comercial) y el criterio 7 (F1b) (lo que el cliente ya trae se respeta: un test puede
     pedir la v4 tal cual)."""
     params.setdefault("cierres", True)
     params.setdefault("tramo_max", TRAMO_NUEVO)
@@ -57,7 +62,7 @@ def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConve
             p.largo, p.ancho_banda, p.altura, p.tambor_motriz, p.tambor_cola, p.tubo,
             None if p.tensor == "ninguno" else p.tensor,
             None if p.motor == "ninguno" else p.motor,
-            p.espesor_banda, p.guardas, p.cierres, p.tramo_max, p.criterio,
+            p.espesor_banda, p.guardas, p.cierres, p.tramo_max, p.criterio, p.lado_abierto,
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Faja de banda: {exc}") from exc

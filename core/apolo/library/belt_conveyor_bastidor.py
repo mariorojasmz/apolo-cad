@@ -103,11 +103,15 @@ def estaciones(c: Cotas) -> list[float]:
 def patas(plan: Plan, c: Cotas) -> None:
     """Patas soldadas bajo los largueros (dos por estación), cada una con su placa y pie
     nivelador, y un travesaño soldado entre las dos patas de cada estación. Las 4 primeras son
-    las de los extremos (la 4 sostiene la base del motor)."""
+    las de los extremos (la 4 sostiene la base del motor). Con el criterio 7 (F1b, D8) la placa
+    lleva la tuerca del pie soldada por debajo y el vástago su contratuerca
+    (`belt_conveyor_pies.py`: por qué no rosca en la placa)."""
     foot = CATALOG[FOOT_REF].params
     disco_t, alt, rosca = float(foot["disco_t"]), float(foot["altura"]), float(foot["rosca"])
-    z_placa = disco_t + NIVELACION_MM
-    z_leg0 = z_placa + PLACA_PATA_T
+    pie7 = _pila7(c)
+    z_leg0 = z_pata0(c)
+    z_placa = z_leg0 - PLACA_PATA_T
+    barreno = pie7.barreno if pie7 else rosca
     leg_len = c.rail_bot - z_leg0
     leg, leg_cut = build_component(LEG_REF, leg_len)
     pie, _ = build_component(FOOT_REF)
@@ -120,8 +124,8 @@ def patas(plan: Plan, c: Cotas) -> None:
                        pos=(x, y, z_leg0 + leg_len / 2.0), key=f"comp|{LEG_REF}|{leg_cut}",
                        material=mat)
             h = PLACA_PATA / 2.0
-            placa = (caja(x - h, x + h, y - h, y + h, z_placa, z_leg0)  # rosca del pie
-                     - Pos(x, y, (z_placa + z_leg0) / 2.0) * Cylinder(rosca / 2.0,
+            placa = (caja(x - h, x + h, y - h, y + h, z_placa, z_leg0)  # paso del vástago
+                     - Pos(x, y, (z_placa + z_leg0) / 2.0) * Cylinder(barreno / 2.0,
                                                                       PLACA_PATA_T + 2.0))
             plan.pieza(f"placa{n}", f"Placa de la pata ({n})", placa, material="acero")
             plan.pieza(f"foot{n}", f"Pie nivelador ({n})", pie, comp=FOOT_REF,
@@ -132,9 +136,12 @@ def patas(plan: Plan, c: Cotas) -> None:
             plan.union(f"placa_pata{n}", f"placa{n}", f"leg{n}", "soldadura",
                        "placa soldada al pie de la pata", throat_mm=3,
                        length_mm=round(4 * LEG_W, 1))
-            plan.union(f"pie{n}", f"foot{n}", f"placa{n}", "contacto",
-                       f"vástago M{rosca:g} roscado en la placa: girarlo nivela "
-                       f"±{NIVELACION_MM:g} mm")
+            if pie7:
+                _tuercas_del_pie(plan, pie7, n, x, y)
+            else:
+                plan.union(f"pie{n}", f"foot{n}", f"placa{n}", "contacto",
+                           f"vástago M{rosca:g} roscado en la placa: girarlo nivela "
+                           f"±{NIVELACION_MM:g} mm")
             plan.anclaje(f"piso{n}", f"foot{n}", "disco del pie nivelador apoyado en el piso")
             n += 1
     largo = 2.0 * c.y_in
@@ -148,6 +155,41 @@ def patas(plan: Plan, c: Cotas) -> None:
             plan.union(f"trav{i}_pata{j}", f"brace{i}", f"leg{k}", "soldadura",
                        "travesaño soldado entre las patas", throat_mm=3,
                        length_mm=round(4 * LEG_W, 1))
+
+
+def _pila7(c: Cotas):
+    """La pila del pie con tuerca soldada y contratuerca (criterio 7), o None antes."""
+    from .belt_conveyor_pies import pila
+
+    return pila(FOOT_REF, PLACA_PATA_T) if c.criterio >= 7 else None
+
+
+def z_pata0(c: Cotas) -> float:
+    """Z del arranque del tubo de las patas (cara superior de la placa de la pata)."""
+    p = _pila7(c)
+    if p is not None:
+        return p.z_pata0
+    return float(CATALOG[FOOT_REF].params["disco_t"]) + NIVELACION_MM + PLACA_PATA_T
+
+
+def _tuercas_del_pie(plan: Plan, p, n: int, x: float, y: float) -> None:
+    """Criterio 7: tuerca de la rosca del pie soldada bajo la placa de la pata y contratuerca
+    del vástago apretada contra ella (las dos de catálogo, DIN 934)."""
+    tuerca, _ = build_component(p.tuerca)
+    key = f"comp|{p.tuerca}|std"
+    plan.pieza(f"tuerca_pie{n}", f"Tuerca soldada del pie ({n})", tuerca, comp=p.tuerca,
+               pos=(x, y, p.z_tuerca), key=key)
+    plan.pieza(f"contra_pie{n}", f"Contratuerca del pie ({n})", tuerca, comp=p.tuerca,
+               pos=(x, y, p.z_contra), key=key)
+    plan.union(f"tuerca_placa{n}", f"tuerca_pie{n}", f"placa{n}", "soldadura",
+               "tuerca de la rosca del pie soldada bajo la placa", throat_mm=2,
+               length_mm=round(2.0 * math.sqrt(3.0) * p.tuerca_ac, 1))
+    plan.union(f"pie{n}", f"foot{n}", f"tuerca_pie{n}", "contacto",
+               f"vástago M{p.rosca:g} roscado en la tuerca soldada bajo la placa: girarlo nivela "
+               f"±{p.recorrido / 2.0:g} mm")
+    plan.union(f"contra_pie{n}", f"contra_pie{n}", f"foot{n}", "contacto",
+               f"contratuerca M{p.rosca:g} del vástago apretada contra la tuerca soldada (llave de "
+               f"boca {p.tuerca_ac:g} desde el costado): traba la altura nivelada")
 
 
 def x_soportes(c: Cotas) -> list[float]:

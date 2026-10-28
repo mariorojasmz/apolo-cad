@@ -137,7 +137,9 @@ def test_belt_conveyor_genera_todas_las_piezas():
     # un rodillo de retorno con sus dos soportes y su guarda; el bastidor (4,3 m), en un tramo
     assert cuenta("Rodillo de retorno") == 1 and cuenta("Soporte del rodillo de retorno") == 2
     assert cuenta("Guarda del rodillo de retorno") == 1 and cuenta("Placa de empalme") == 0
-    assert len(d.scene) == 70
+    # F1b (criterio 7): tuerca soldada y contratuerca en cada pie
+    assert cuenta("Tuerca soldada del pie") == 4 and cuenta("Contratuerca del pie") == 4
+    assert len(d.scene) == 78
 
 
 def test_belt_conveyor_banda_es_lazo_hueco():

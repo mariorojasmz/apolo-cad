@@ -202,7 +202,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md). v6: `tramo_max` VISIBLE
   (el sello pone 6000) parte el bastidor en tramos empernados y el oculto `criterio` 6 suma
   rodillos de retorno y pernos pasantes con buje; sin ellos (log v5), una pieza y la v5 idéntica
-  (`tests/test_belt_conveyor_v6.py`). [faja-larga-en-tramos](../../../docs/plans/faja-larga-en-tramos.md)
+  (`tests/test_belt_conveyor_v6.py`). F1b: `lado_abierto` VISIBLE (cubre-ranura + pared sólo en la
+  cabeza, medido con las sondas) y el sello en criterio 7 (pie con tuerca soldada y contratuerca,
+  base del motor a tope con su cuenta en `Plan.calculos`); tocar la rama 6 cambia fajas ya
+  selladas (`tests/test_belt_conveyor_f1b.py`). [faja-larga-en-tramos](../../../docs/plans/faja-larga-en-tramos.md)
 - `layout_tablero` (`tablero.py`, V8.5 D1) es de ESCENA, lee el carril (`lee_carril`) y es
   COMPUESTO (corre `fasten`/`add_joint`); su spec va en `SPECS_ELECTRICO`, junto al carril que
   lee, no en `registry.py`. Las cajas salen de `library/electrico/armado.py` y la geometría de

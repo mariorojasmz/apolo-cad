@@ -11,6 +11,9 @@
 - Con guardas, los extremos libres de los ejes llevan tapa atornillada a su soporte y el acople
   una cubierta atornillada a la base.
 
+Con el criterio 7 (F1b) la base del motor va con los brazos a tope contra la pata y su cuenta
+(`belt_conveyor_motor.py`).
+
 El eje de cada tambor se modela a la medida de la máquina (lo que pide su montaje), con el cuerpo
 y el engomado del catálogo: la ficha (BOM, masa) sigue siendo la del tambor.
 """
@@ -140,15 +143,21 @@ def motorreductor(plan: Plan, c: Cotas, y_collar: float) -> float:
     plan.union("acople_motor", "acople", "motor", "perno",
                "cubo del acople en el eje del motorreductor: chaveta + prisionero", size="M8",
                qty=1)
-    _base_motor(plan, c, bb, y0=y_c0 - 10.0, y1=y_mo - bb.min.X + 10.0)
+    _base_motor(plan, c, bb, y0=y_c0 - 10.0, y1=y_mo - bb.min.X + 10.0, y_mo=y_mo)
     if c.guardas:
         _guarda_acople(plan, c, forma, bb, y_mo, y_c0 - 7.0, od, d_mot)
     return y_c0 + cubo
 
 
-def _base_motor(plan: Plan, c: Cotas, bb, y0: float, y1: float) -> None:
+def _base_motor(plan: Plan, c: Cotas, bb, y0: float, y1: float, y_mo: float) -> None:
     """Placa bajo las patas del motor sobre dos brazos soldados a una ménsula que se suelda a la
-    cara exterior de la pata del lado motriz (+Y): un voladizo corto y rígido."""
+    cara exterior de la pata del lado motriz (+Y). Con el criterio 7 (F1b, D9), los brazos a tope
+    contra la pata, con su cuenta y, si no da, tornapuntas (`belt_conveyor_motor.py`)."""
+    if c.criterio >= 7:
+        from .belt_conveyor_motor import base_motor
+
+        base_motor(plan, c, bb, y_mo, y0, y1)
+        return
     x = c.half
     z_patas = c.zm + bb.min.Z
     w = bb.max.Y

@@ -26,6 +26,12 @@ con placas de empalme y una estación de patas bajo cada empalme (`belt_conveyor
 el criterio 6, rodillos de retorno cada ≤ 3 m y pernos pasantes con buje en lo que se atornilla
 a la cara interior de los largueros (`belt_conveyor_retorno.py`). El sello de entrada pone los
 dos en toda faja NUEVA; un log de antes no los trae y regenera igual.
+
+F1b (mismo plan, D7–D9): `lado_abierto` deja el costado de los operarios sin la pared de la guarda
+lateral (sólo la guarda cubre-ranura a ras de la banda, `belt_conveyor_guardas.py`); el criterio 7
+(el del sello desde la F1b) suma el pie nivelador con tuerca soldada y contratuerca
+(`belt_conveyor_pies.py`) y los brazos de la base del motor a tope contra la pata, con su cuenta
+y, si no da, tornapuntas (`belt_conveyor_motor.py`).
 """
 
 from __future__ import annotations
@@ -95,15 +101,19 @@ def belt_conveyor_parts(
     cierres: bool = False,
     tramo_max: float | None = None,
     criterio: int = 5,
+    lado_abierto: str = "ninguno",
 ) -> Plan:
     """El plan de la faja: piezas (sufijo, nombre, forma…), uniones declaradas y anclajes.
     `cierres` (v5; False = la v4 tal cual, la de los logs viejos): placas de cierre soldadas en
     las puntas de los largueros y, con guardas, las guardas inferiores bajo la ranura banda ↔
     larguero. `tramo_max` (v6; None = una pieza): el bastidor en tramos iguales empernados.
     `criterio` (v6; 5 = la v5 tal cual): 6 suma los rodillos de retorno y el perno pasante con
-    buje en las placas de los soportes de la cama."""
+    buje en las placas de los soportes de la cama; 7 (F1b) suma el pie con tuerca soldada y
+    contratuerca y los brazos del motor a tope contra la pata. `lado_abierto` (F1b; «ninguno» =
+    como siempre): con guardas, ese costado lleva sólo la guarda cubre-ranura a ras de la banda."""
     c = cotas(largo, ancho_banda, altura, tambor_motriz_ref, tambor_cola_ref, tubo_ref,
-              tensor_ref, motor_ref, espesor_banda, guardas_on, cierres, tramo_max, criterio)
+              tensor_ref, motor_ref, espesor_banda, guardas_on, cierres, tramo_max, criterio,
+              lado_abierto)
     plan = Plan()
     bastidor.largueros(plan, c)
 
