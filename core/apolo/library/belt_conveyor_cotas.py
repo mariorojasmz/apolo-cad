@@ -75,6 +75,16 @@ class Cotas:
     motor: str | None
     guardas: bool
     cierres: bool = False    # v5: guardas inferiores y placas de cierre de los largueros
+    # v6 (faja-larga-en-tramos): el bastidor en tramos iguales (`belt_conveyor_tramos.py`) y el
+    # criterio de taller (6: rodillos de retorno y pernos pasantes con buje; 5: la v5 tal cual)
+    tramo_max: float | None = None
+    criterio: int = 5
+    tramos: tuple = ()       # (x0, x1) del tubo de cada tramo de larguero, de la cola a la cabeza
+    empalmes: tuple = ()     # X del centro de cada empalme (entre las dos placas)
+
+    @property
+    def n_tramos(self) -> int:
+        return max(1, len(self.tramos))
 
     @property
     def viaje(self) -> float:
@@ -149,7 +159,21 @@ def tensor_v4(ref: str | None, d_cola: float) -> str | None:
 
 def cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: str, tubo: str,
           tensor: str | None, motor: str | None, espesor: float, guardas: bool,
-          cierres: bool = False) -> Cotas:
+          cierres: bool = False, tramo_max: float | None = None, criterio: int = 5) -> Cotas:
+    from dataclasses import replace
+
+    from .belt_conveyor_tramos import partir
+
+    c = _cotas(largo, ancho, altura, tambor_m, tambor_c, tubo, tensor, motor, espesor, guardas,
+               cierres)
+    c = replace(c, tramo_max=tramo_max, criterio=criterio)
+    tramos, empalmes = partir(c)
+    return replace(c, tramos=tramos, empalmes=empalmes)
+
+
+def _cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: str, tubo: str,
+           tensor: str | None, motor: str | None, espesor: float, guardas: bool,
+           cierres: bool) -> Cotas:
     r_m, r_c = radio_exterior(tambor_m), radio_exterior(tambor_c)
     d_m = float(CATALOG[tambor_m].specs["eje_mm"])
     d_c = float(CATALOG[tambor_c].specs["eje_mm"])

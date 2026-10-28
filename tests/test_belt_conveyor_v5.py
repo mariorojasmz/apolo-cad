@@ -47,7 +47,7 @@ def test_el_comando_nuevo_nace_con_cierres_y_el_campo_no_se_publica():
     assert d.commands[0]["params"]["cierres"] is True  # el sello de entrada
     schema = REGISTRY["create_belt_conveyor"].model.model_json_schema()
     assert "cierres" not in schema["properties"]  # criterio de Apolo: ni la UI ni el agente
-    assert REGISTRY["create_belt_conveyor"].version == 5
+    assert REGISTRY["create_belt_conveyor"].version >= 5  # v6: tramos y retorno
     # lo que el cliente trae se respeta (la v4 tal cual, a pedido)
     d4, _ = _faja(cierres=False)
     assert d4.commands[0]["params"]["cierres"] is False
@@ -57,9 +57,10 @@ def test_el_comando_nuevo_nace_con_cierres_y_el_campo_no_se_publica():
 def test_un_log_v4_regenera_igual():
     """Un log v4 no trae `cierres`: regenera sin los cierres y con las mismas piezas, del mismo
     volumen y en el mismo sitio que la v4 pedida a mano; el replay no sella."""
-    ref, _ = _faja(cierres=False)
+    ref, _ = _faja(cierres=False, tramo_max=None, criterio=5)
     d, _ = _faja(cierres=False)
-    del d.commands[0]["params"]["cierres"]
+    for k in ("cierres", "tramo_max", "criterio"):  # un log v4 tampoco trae los de la v6
+        del d.commands[0]["params"][k]
     viejo = Document.from_apolo_bytes(d.to_apolo_bytes())
     assert "cierres" not in viejo.commands[0]["params"]
     assert set(viejo.scene) == set(ref.scene) and len(ref.scene) == 58
@@ -123,7 +124,12 @@ def test_v5_la_guarda_inferior_cierra_la_ranura_sin_tocar_la_banda(faja_v5):
     gc = d.scene[f"{cid}_guarda_c"].shape.bounding_box()
     gm = d.scene[f"{cid}_guarda_m"].shape.bounding_box()
     assert xs[0][0] - gc.max.X <= 1.0 + 1e-6 and gm.min.X - xs[-1][1] <= 1.0 + 1e-6
-    assert all(b[0] - a[1] <= 1.0 + 1e-6 for a, b in zip(xs, xs[1:]))
+    # v6: el único hueco más ancho que 1 mm es el de un rodillo de retorno: lo llenan su soporte y
+    # las paredes de su guarda
+    guardas = [d.scene[s].shape.bounding_box() for s in _nombres(d, "Guarda del rodillo")]
+    assert all(b[0] - a[1] <= 1.0 + 1e-6
+               or any(g.min.X < a[1] and b[0] < g.max.X for g in guardas)
+               for a, b in zip(xs, xs[1:]))
 
 
 def test_v5_sigue_la_parametrica():
@@ -131,9 +137,12 @@ def test_v5_sigue_la_parametrica():
     n0 = len(_nombres(d, "Guarda inferior"))
     d.edit(cid, {**d.commands[0]["params"], "largo": 8000, "ancho_banda": 1000})
     assert d.commands[0]["params"]["cierres"] is True  # el edit conserva lo sellado
-    assert len(_nombres(d, "Guarda inferior")) == 6 > n0  # 3 tramos por lado
-    rail = d.scene[f"{cid}_rail1"].shape.bounding_box()
+    n1 = len(_nombres(d, "Guarda inferior"))
+    assert n1 > n0 and n1 % 2 == 0  # ≥ 3 tramos por lado (v6: cortados en los rodillos de retorno)
+    # v6: el bastidor de 8,3 m sale en dos tramos; las placas de cierre, en sus puntas
+    rails = [d.scene[r].shape.bounding_box() for r in _nombres(d, "Larguero (1")]
     tapas = [d.scene[p].shape.bounding_box() for p in _nombres(d, "Placa de cierre")]
-    assert min(t.min.X for t in tapas) == pytest.approx(rail.min.X - 3.0, abs=1e-6)
-    assert max(t.max.X for t in tapas) == pytest.approx(rail.max.X + 3.0, abs=1e-6)
+    assert len(rails) == 2
+    assert min(t.min.X for t in tapas) == pytest.approx(min(r.min.X for r in rails) - 3.0, abs=1e-6)
+    assert max(t.max.X for t in tapas) == pytest.approx(max(r.max.X for r in rails) + 3.0, abs=1e-6)
     assert interference_report(d.scene)["interferencias"] == []

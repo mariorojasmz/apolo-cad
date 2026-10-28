@@ -187,7 +187,7 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `create_extrude_poly` extruye hacia la normal del polígono: la receta lo pasa ANTIHORARIO
   (`receta_rodillos_guardas._antihorario`), si no la chapa sale corrida un espesor.
   [plan](../../../docs/plans/plantilla-rodillos-cadena.md)
-- `create_belt_conveyor` (v5, `exec_faja.py`) también es COMPUESTO: sus piezas llevan el
+- `create_belt_conveyor` (v6, `exec_faja.py`) también es COMPUESTO: sus piezas llevan el
   command_id del comando (la puerta de publicación las cruza, D13b) y corre `fasten`/`ground`
   del plan con ids `{cmd}_u_…`/`{cmd}_g_…`. Cotas y plan en `library/belt_conveyor*.py`: la
   huella D11 no los ve (cambiar su geometría = subir su `version` a mano). Un `tensor`
@@ -195,7 +195,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   inferiores, placas de cierre, techo de cola hasta la cama): el sello lo pone en True al comando
   que nace; un log v4 no lo trae y regenera idéntico (`tests/test_belt_conveyor_v5.py`): tocar
   la rama `cierres=False` cambia los logs v4 guardados.
-  [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)
+  [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md). v6: `tramo_max` VISIBLE
+  (el sello pone 6000) parte el bastidor en tramos empernados y el oculto `criterio` 6 suma
+  rodillos de retorno y pernos pasantes con buje; sin ellos (log v5), una pieza y la v5 idéntica
+  (`tests/test_belt_conveyor_v6.py`). [faja-larga-en-tramos](../../../docs/plans/faja-larga-en-tramos.md)
 - `layout_tablero` (`tablero.py`, V8.5 D1) es de ESCENA, lee el carril (`lee_carril`) y es
   COMPUESTO (corre `fasten`/`add_joint`); su spec va en `SPECS_ELECTRICO`, junto al carril que
   lee, no en `registry.py`. Las cajas salen de `library/electrico/armado.py` y la geometría de

@@ -12,6 +12,12 @@ de cierre de los largueros y las guardas inferiores. `sellar` es el sello de ent
 (`CommandSpec.al_crear`, como `join_bolted.criterio`): todo comando NUEVO nace con
 `cierres=True`; un log v4 no trae el campo → False → regenera con la misma geometría (el replay
 y los edits no sellan; un cliente que manda `cierres=False` explícito lo conserva).
+
+v6 (plan faja-larga-en-tramos, D1–D5): `tramo_max` (VISIBLE: el modelador puede pedir tramos más
+cortos para el transporte) parte el bastidor en tramos iguales empernados; el campo oculto
+`criterio` (6) suma los rodillos de retorno y el perno pasante con buje de los soportes de la
+cama. El sello pone `tramo_max = 6000` y `criterio = 6` a toda faja NUEVA; un log de antes no
+los trae → una pieza y criterio 5 → la misma geometría (`tests/test_belt_conveyor_v6.py`).
 """
 
 from __future__ import annotations
@@ -25,11 +31,17 @@ from .models_faja import CreateBeltConveyorParams
 from .spec import run_executor
 from .state import ExecContext
 
+TRAMO_NUEVO = 6000.0   # barra comercial de tubo (D2)
+CRITERIO_NUEVO = 6
+
 
 def sellar(params: dict, material_de: Callable[[str], str | None]) -> dict:
-    """Sello de entrada de una faja NUEVA: con los cierres de la v5 (lo que el cliente ya trae
-    se respeta: un test puede pedir la v4 tal cual)."""
+    """Sello de entrada de una faja NUEVA: con los cierres de la v5, los tramos de 6 m (barra
+    comercial) y el criterio 6 de la v6 (lo que el cliente ya trae se respeta: un test puede
+    pedir la v4 tal cual)."""
     params.setdefault("cierres", True)
+    params.setdefault("tramo_max", TRAMO_NUEVO)
+    params.setdefault("criterio", CRITERIO_NUEVO)
     return params
 
 
@@ -45,7 +57,7 @@ def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConve
             p.largo, p.ancho_banda, p.altura, p.tambor_motriz, p.tambor_cola, p.tubo,
             None if p.tensor == "ninguno" else p.tensor,
             None if p.motor == "ninguno" else p.motor,
-            p.espesor_banda, p.guardas, p.cierres,
+            p.espesor_banda, p.guardas, p.cierres, p.tramo_max, p.criterio,
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Faja de banda: {exc}") from exc

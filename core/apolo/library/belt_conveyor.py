@@ -20,6 +20,12 @@ v5 (F6 de puerta-de-publicacion, sondas con el brazo doblado): con `cierres` (lo
 comando NUEVO por el sello de entrada; un log v4 no lo trae y regenera igual) los largueros
 llevan placa de cierre soldada en sus puntas y, con guardas, una guarda inferior atornillada
 bajo la ranura banda ↔ larguero entre las guardas de los tambores.
+
+v6 (plan faja-larga-en-tramos): con `tramo_max` el bastidor sale en tramos iguales empernados
+con placas de empalme y una estación de patas bajo cada empalme (`belt_conveyor_tramos.py`); con
+el criterio 6, rodillos de retorno cada ≤ 3 m y pernos pasantes con buje en lo que se atornilla
+a la cara interior de los largueros (`belt_conveyor_retorno.py`). El sello de entrada pone los
+dos en toda faja NUEVA; un log de antes no los trae y regenera igual.
 """
 
 from __future__ import annotations
@@ -32,7 +38,9 @@ from apolo.kernel.shapes import place
 
 from . import belt_conveyor_bastidor as bastidor
 from . import belt_conveyor_guardas as guardas
+from . import belt_conveyor_retorno as retorno
 from . import belt_conveyor_tambores as tambores
+from . import belt_conveyor_tramos as tramos
 from .belt_conveyor_cotas import FACE_MARGIN, cotas, radio_exterior  # noqa: F401 — re-export
 from .belt_conveyor_plan import Plan
 
@@ -85,20 +93,25 @@ def belt_conveyor_parts(
     espesor_banda: float,
     guardas_on: bool,
     cierres: bool = False,
+    tramo_max: float | None = None,
+    criterio: int = 5,
 ) -> Plan:
     """El plan de la faja: piezas (sufijo, nombre, forma…), uniones declaradas y anclajes.
     `cierres` (v5; False = la v4 tal cual, la de los logs viejos): placas de cierre soldadas en
     las puntas de los largueros y, con guardas, las guardas inferiores bajo la ranura banda ↔
-    larguero."""
+    larguero. `tramo_max` (v6; None = una pieza): el bastidor en tramos iguales empernados.
+    `criterio` (v6; 5 = la v5 tal cual): 6 suma los rodillos de retorno y el perno pasante con
+    buje en las placas de los soportes de la cama."""
     c = cotas(largo, ancho_banda, altura, tambor_motriz_ref, tambor_cola_ref, tubo_ref,
-              tensor_ref, motor_ref, espesor_banda, guardas_on, cierres)
+              tensor_ref, motor_ref, espesor_banda, guardas_on, cierres, tramo_max, criterio)
     plan = Plan()
     bastidor.largueros(plan, c)
 
     # tambor motriz: chumaceras UCF a los dos lados; del lado +Y el acople del motorreductor
-    lados = {-1.0: "rail1", 1.0: "rail2"}
+    lados_m = {-1.0: tramos.rail(c, 1, c.half), 1.0: tramos.rail(c, 2, c.half)}
+    lados = {-1.0: tramos.rail(c, 1, -c.half), 1.0: tramos.rail(c, 2, -c.half)}
     collar = {s: tambores.chumacera(plan, c, c.chum_m, c.half, c.zm, s, f"chum_m{i}",
-                                    "motriz", lados[s], "tambor_motriz")
+                                    "motriz", lados_m[s], "tambor_motriz")
               for i, s in ((1, -1.0), (2, 1.0))}
     y_eje = {s: collar[s] + 2.0 for s in (-1.0, 1.0)}
     if c.motor:
@@ -133,8 +146,9 @@ def belt_conveyor_parts(
     plan.union("banda_motriz", "banda", "tambor_motriz", "contacto",
                "la banda abraza el tambor motriz (engomado)")
     plan.union("banda_cola", "banda", "tambor_cola", "contacto", "la banda abraza el tambor de cola")
-    plan.union("banda_cama", "banda", "cama", "contacto",
-               "el ramal de carga desliza sobre la cama")
+    for j in range(1, len(tramos.tramos_cama(c)) + 1):
+        plan.union("banda_cama" if c.n_tramos == 1 else f"banda_cama{j}", "banda",
+                   tramos.cama(c, j), "contacto", "el ramal de carga desliza sobre la cama")
     bastidor.patas(plan, c)
     if c.guardas:
         guardas.laterales(plan, c)
@@ -143,4 +157,7 @@ def belt_conveyor_parts(
         bastidor.placas_de_cierre(plan, c)
         if c.guardas:
             guardas.inferiores(plan, c)
+    if c.n_tramos > 1:
+        tramos.placas_de_empalme(plan, c)
+    retorno.rodillos(plan, c)
     return plan

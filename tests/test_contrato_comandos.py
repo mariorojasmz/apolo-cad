@@ -90,8 +90,8 @@ CAMPOS: dict[str, str] = {
     ),
     "create_belt_conveyor": (
         "name largo ancho_banda altura espesor_banda tambor_motriz tambor_cola tubo tensor motor "
-        "guardas cierres position position.x position.y position.z rotation rotation.x "
-        "rotation.y rotation.z"
+        "guardas cierres tramo_max criterio position position.x position.y position.z rotation "
+        "rotation.x rotation.y rotation.z"
     ),
     "create_box": (
         "name width depth height position position.x position.y position.z rotation rotation.x "
@@ -278,8 +278,9 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "center_in": (1, "228e71c9315f37c8"),
     "chamfer": (1, "2fcdc6b118e984ba"),
     # compuesto: corre fasten/ground; cotas y plan en library/belt_conveyor*.py (D10). v5: cierres
-    # (campo oculto que pone el sello de entrada; un log v4 trae False → misma geometría)
-    "create_belt_conveyor": (5, "a593b7f744a57110"),
+    # (campo oculto que pone el sello de entrada; un log v4 trae False → misma geometría). v6:
+    # tramo_max + criterio (faja-larga-en-tramos; un log v5 no los trae → una pieza, criterio 5)
+    "create_belt_conveyor": (6, "03006c2542d4870e"),
     "create_box": (1, "fcc825dfc9669eac"),
     "create_chain": (2, "c0911a5d981a48bd"),
     "create_conveyor": (1, "57fa344a272c945c"),

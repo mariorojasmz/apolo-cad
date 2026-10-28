@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude con el criterio delegado (2026-10-28, vetable por número); falta F1 (tramos, retorno, placas de cama con acceso) y F2 (la clasificadora de 12 puestos por MCP con su revisor a ciegas)
+nota: F1 hecha (create_belt_conveyor v6, 2026-10-28; rama sin mergear al escribir esto); falta F2 (la clasificadora de 12 puestos por MCP con su revisor a ciegas). Decisión vetable de F1 en la Bitácora - el tramo se compara con el bastidor, así una faja de largo 6000 sale en 2 tramos
 descripcion: Una faja de banda de más de 6 m sale en tramos empernados que se fabrican y transportan, con rodillos de retorno, y cada perno de la cama se puede apretar
 ---
 
@@ -93,3 +93,65 @@ también: con 6 m el retorno ya pasa los 3 m libres.
   (empalmes primero, intermedias para el vano), con test.
 
 ## Bitácora
+
+### F1 (2026-10-28): tramos, retorno y pernos pasantes — `create_belt_conveyor` v6
+
+Hecho (commands + library; `tests/test_belt_conveyor_v6.py`):
+
+- **D1** `library/belt_conveyor_tramos.py`: `N = ceil(largo_bastidor / tramo_max)` tubos IGUALES
+  de `(largo − 2·10·(N−1))/N`; empalme = dos placas de 10 mm (una soldada a cada punta, cordón
+  perimetral a 4 mm) que salen 45 mm del tubo por fuera y por debajo, unidas con 3 × M12x40 DIN
+  933 + tuerca por fuera del tubo. La estación del empalme va bajo el tramo de la COLA, a 50 mm
+  de la placa; `estaciones` pone primero las fijas (extremos + empalmes) y reparte las
+  intermedias por vano entre fijas (`VANO_MAX`): ninguna pata sobre una placa (test). Cama, guardas
+  laterales y largueros por tramo (`rail{i}_{k}`, `cama_{k}`, `guarda{i}_{k}`); con un tramo, los
+  sufijos y la geometría de siempre. La guarda inferior cruza el empalme (se atornilla a un
+  tramo): cortarla dejaba una ranura de 22 mm hacia el lazo. Un `tramo_max` que deja el empalme a
+  < 400 mm de las patas de un extremo es error accionable.
+  Medido: 10 200 mm entre tambores → bastidor 10 474 mm → con 6000, 2 tramos de 5227,15 mm y 5
+  estaciones (−4906, −2514, −122, 2489, 5100); con 3000, 4 tramos. Sin interferencias (sin
+  exclusiones) y todo a tierra por lo declarado.
+- **D2** el sello pone `tramo_max = 6000` y `criterio = 6`. **Decisión (vetable)**: lo que se compara
+  con la barra de 6 m es el BASTIDOR (largo + voladizos de chumaceras y tensor: +274 mm con los
+  defaults), no el largo entre tambores: una faja de `largo` 6000 tiene largueros de 6274 mm, que
+  no salen de una barra, así que sale en 2 tramos; con los defaults, un tramo hasta `largo` ≈
+  5726. La de 4 m sale en un tramo, con los mismos largueros (4274,3), patas y soportes de la v5.
+- **D3** `library/belt_conveyor_retorno.py`: rodillos cuando `largo` > 3000, vanos ≤ 3000
+  contando desde los ejes de los tambores. Fuente del 3 m: Martin Engineering, *Foundations*
+  («Belt conveyor idler spacing»), que remite a las tablas de CEMA (*Belt Conveyors for Bulk
+  Materials*): retorno típico 3 m (10 ft); FUENTE SECUNDARIA, la tabla de CEMA no se verificó.
+  Rodillo = el más chico del catálogo con capacidad ≥ 2 × el peso de banda (PVC) de un vano
+  (RODILLO-50 en todas las variantes medidas). Su cara queda a 0,5 mm de la tangente exterior del
+  ramal (inclinada: el motriz va engomado), así `ruta_faja*` lo cuenta como apoyo por afuera y el
+  lazo sigue abrazando los dos tambores (test con `armar`). Soportes de chapa de 8 mm atornillados
+  a la cara interior del larguero (2 × M8 pasantes con buje), entre dos soportes de cama y lejos
+  de patas y empalmes; la guarda inferior se corta en cada soporte. 4 m → 1 rodillo; 6 m → 2;
+  10,2 m → 4 (el reparto parejo de 3 caía sobre una pata y dejaba un vano > 3 m).
+  **La cuña rodillo ↔ banda SÍ la sondea la puerta** (la trata como la de un tambor que la banda
+  toca): con el rodillo solo, `riesgos.partes_moviles` pasaba a FALLA en la de 4 m (17 de 192
+  sondas llegaban desde abajo). Se resguarda (con `guardas`): cajón de chapa bajo el rodillo,
+  atornillado a sus soportes, con alas a 15 mm del ramal que siguen 330 mm (el `ALCANCE` de las
+  guardas de los tambores); el muñón entra en un alojamiento CIEGO de 5 mm del soporte (por el
+  barreno pasante una sonda tocaba la punta del eje que gira). Medido con la puerta (requisitos de
+  `test_la_puerta_sobre_create_belt_conveyor`, sin funciones declaradas): 4 m v6 = 21 OK / 2
+  FALLA, igual que la v5 (las dos de siempre: funciones sin declarar y sobrantes); 10,2 m v6 = 20
+  OK / 3 FALLA, igual que la v5 (más el par de arranque del motor por defecto, que elige el
+  modelador); la v6 de 10,2 m deja MENOS guardas sobrantes que la v5.
+- **D4** el catálogo no tiene remache-tuerca y un remache ciego no se desarma (el soporte se
+  suelta para cambiar la banda): perno PASANTE M8x70 DIN 933 + tuerca que cruza el larguero por un
+  buje Ø14 soldado (modelado en el larguero: barreno Ø9 ISO 273). La cuenta pide el buje: precarga
+  0,7·A_s·R_y ≈ 16,4 kN contra ≈ 2π·f_y·t²/4 ≈ 11,5 kN del alma de 4,8 mm (líneas de rotura, cota
+  inferior; criterio de diseño). Los soportes extremos se corren lo necesario para que la tuerca
+  no quede bajo el marco del UCT o la placa porta-chumacera (en la de 4 m no se movió ninguno).
+- **D5** dos campos: `tramo_max` VISIBLE (el modelador pide tramos más cortos para el transporte)
+  y `criterio` OCULTO (int, como `join_bolted`: 5 = la v5, 6 = retorno + pasantes; un número más
+  para lo próximo, no otro bool).
+- **D6** `version` 6 (huella y `CAMPOS` al día). Un log v5 (sin los campos) regenera con las
+  mismas 108 piezas, 145 uniones y cotas medidas con el código de antes (test).
+
+Gate: suite completa secuencial en la laptop, exit 0 (6835 pasan, 10 saltados, 0 fallas) + ruff
+limpio.
+
+Para F2: con el sello, la faja de 10,2 m sale en 2 tramos con 4 rodillos de retorno y la puerta
+no suma ninguna FALLA nueva; el motor por defecto no arranca 10 m a plena carga (elige otro el
+modelador).

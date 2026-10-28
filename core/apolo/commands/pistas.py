@@ -69,7 +69,7 @@ PISTAS: dict[str, str] = {
         "Crea un transportador de rodillos movido por cadena, completo: bastidor, patas, rodillos, motor y guardas."
     ),
     "create_belt_conveyor": (
-        "Crea una faja de banda montada: chumaceras y tensores por fuera, motor con acople en su base y guardas con perno."
+        "Crea una faja de banda montada, con guardas con perno; si es larga, en tramos empernados y con rodillos de retorno."
     ),
     "create_pneumatic_cylinder": (
         "Coloca un cilindro neumático con su carrera: brida o pies atornillados a la tapa y empujador roscado al vástago."

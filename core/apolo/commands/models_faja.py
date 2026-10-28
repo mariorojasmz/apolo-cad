@@ -1,8 +1,8 @@
 """Schema de la faja de banda (`create_belt_conveyor`) con sus listas de catálogo.
 
 Sale de `models.py` (congelado por el trinquete de tamaño). Las cotas viven en
-`apolo/library/belt_conveyor*.py`; el executor y el sello de entrada (`cierres`, v5), en
-`exec_faja.py`.
+`apolo/library/belt_conveyor*.py`; el executor y el sello de entrada (`cierres`, v5;
+`tramo_max` y `criterio`, v6), en `exec_faja.py`.
 """
 
 from __future__ import annotations
@@ -50,9 +50,16 @@ class CreateBeltConveyorParams(BaseModel):
     soldada a la pata; cama atornillada sobre soportes (la banda se cambia de costado quitando
     pernos); guardas atornilladas (`guardas`: laterales en L, cajas de los tambores, tapas de los
     extremos de eje, cubierta del acople y guardas inferiores bajo la ranura entre el borde de la
-    banda y el larguero); las puntas de los largueros, cerradas con placa soldada. Declara sus uniones (perno/soldadura/contacto) y
-    sus anclajes (los pies), así que sale con camino de carga a tierra. Editar cualquier
-    parámetro regenera la faja entera."""
+    banda y el larguero); las puntas de los largueros, cerradas con placa soldada. Una faja
+    larga sale en tramos (`tramo_max`, 6000 mm por defecto en toda faja nueva: la barra
+    comercial): largueros, cama y guardas laterales por tramo, unidos por placas de empalme
+    soldadas a las puntas y atornilladas entre sí por fuera del tubo, con una estación de patas
+    junto a cada empalme; pide un `tramo_max` menor si el transporte lo exige. Con más de 3 m
+    entre tambores lleva rodillos de retorno de catálogo bajo el ramal de retorno (cada ≤ 3 m),
+    en soportes atornillados a los largueros; lo que se atornilla a la cara interior de un
+    larguero va con perno pasante y buje soldado (la tuerca queda por fuera, con llave). Declara
+    sus uniones (perno/soldadura/contacto) y sus anclajes (los pies), así que sale con camino de
+    carga a tierra. Editar cualquier parámetro regenera la faja entera."""
 
     name: str = Field("Faja de banda", title="Nombre")
     largo: float = Field(4000, gt=0, le=30000, title="Largo entre tambores", description="mm")
@@ -84,6 +91,15 @@ class CreateBeltConveyorParams(BaseModel):
     # largueros y guardas inferiores bajo la ranura banda ↔ larguero. Lo pone el sello de
     # entrada (`exec_faja.sellar`) a todo comando NUEVO; un log v4 no lo trae → False → igual.
     cierres: SkipJsonSchema[bool] = Field(False)
+    # v6 (plan faja-larga-en-tramos): VISIBLE, lo puede pedir el modelador; sin él (log viejo)
+    # el bastidor sale en una pieza. El sello lo pone en 6000 a toda faja nueva.
+    tramo_max: float | None = Field(
+        None, ge=1000, le=12000, title="Largo máximo de tramo",
+        description="mm; el bastidor se parte en tramos iguales empernados de hasta este largo "
+                    "(vacío: una pieza)")
+    # v6, FUERA del schema: 6 = rodillos de retorno y pernos pasantes con buje; un log de antes
+    # no lo trae → 5 → la v5 tal cual (como `cierres`).
+    criterio: SkipJsonSchema[int] = Field(5)
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
 

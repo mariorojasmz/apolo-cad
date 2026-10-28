@@ -33,16 +33,23 @@ TECHO_SOBRE_CAMA = 20.0   # v5: el techo de la guarda de cola pasa la punta de l
 
 
 def laterales(plan: Plan, c: Cotas) -> None:
+    """Una guarda lateral por larguero y por TRAMO (v6: se corta en cada empalme)."""
+    from .belt_conveyor_tramos import rail, tramos_guarda
+
     yb = c.ancho / 2.0 + HOLGURA_BANDA
     z0 = c.rail_top
-    largo = c.x1 - c.x0
+    tramos = tramos_guarda(c)
     for i, s in ((1, -1.0), (2, 1.0)):
-        pared = caja(c.x0, c.x1, s * yb, s * (yb + CHAPA), z0, z0 + ALTO_PARED)
-        ala = caja(c.x0, c.x1, s * yb, s * c.y_out, z0, z0 + CHAPA)
-        plan.pieza(f"guarda{i}", f"Guarda lateral ({i})", pared + ala, material="acero")
-        plan.union(f"guarda{i}_larg", f"guarda{i}", f"rail{i}", "perno",
-                   "ala de la guarda atornillada sobre el larguero", size="M6",
-                   qty=math.ceil(largo / 600.0) + 1)
+        for k, (x0, x1) in enumerate(tramos, start=1):
+            suf = f"guarda{i}" if len(tramos) == 1 else f"guarda{i}_{k}"
+            nombre = f"Guarda lateral ({i})" if len(tramos) == 1 else \
+                f"Guarda lateral ({i}, tramo {k})"
+            pared = caja(x0, x1, s * yb, s * (yb + CHAPA), z0, z0 + ALTO_PARED)
+            ala = caja(x0, x1, s * yb, s * c.y_out, z0, z0 + CHAPA)
+            plan.pieza(suf, nombre, pared + ala, material="acero")
+            plan.union(f"{suf}_larg", suf, rail(c, i, (x0 + x1) / 2.0), "perno",
+                       "ala de la guarda atornillada sobre el larguero", size="M6",
+                       qty=math.ceil((x1 - x0) / 600.0) + 1)
 
 
 def z_retorno(c: Cotas) -> float:
@@ -100,8 +107,10 @@ def de_tambor(plan: Plan, c: Cotas, suf: str, nombre: str, xd: float, r: float, 
         forma = forma + caja(out, xe, -yb, yb, c.rail_top - 1.0, c.rail_top + CHAPA)
         forma = forma + caja(x_techo, xe, -yb, yb, c.rail_top + CHAPA, c.rail_top + 2.0 * CHAPA)
     plan.pieza(suf, nombre, forma, material="acero")
+    from .belt_conveyor_tramos import rail
+
     for i in (1, 2):
-        plan.union(f"{suf}_larg{i}", suf, f"rail{i}", "perno",
+        plan.union(f"{suf}_larg{i}", suf, rail(c, i, xd), "perno",
                    "pared de la guarda atornillada a la cara interior del larguero", size="M8",
                    qty=2)
 
@@ -114,7 +123,12 @@ def inferiores(plan: Plan, c: Cotas) -> None:
     interior del larguero con pernos pasantes (tuerca por fuera); el ala, horizontal a
     `HOLGURA_ALA` bajo el ramal de retorno y por FUERA del borde de la banda (no la toca ni la
     estrecha). En tramos de ≤ `TRAMO_MAX` (lo que dobla una plegadora de taller), a 1 mm entre sí;
-    la pared se escota donde bajan las placas de los soportes de la cama."""
+    la pared se escota donde bajan las placas de los soportes de la cama. v6: se corta en cada
+    soporte de rodillo de retorno (el soporte y el rodillo llenan ese hueco); cruza los empalmes
+    de una pieza (va atornillada a un solo tramo: se quita antes de separar los tramos)."""
+    from .belt_conveyor_retorno import media_huella, x_rodillos
+    from .belt_conveyor_tramos import rail
+
     xa = x_de_tambor(c, -c.half, c.r_c, -1.0, c.viaje)[0] + 1.0
     xb = x_de_tambor(c, c.half, c.r_m, 1.0, 0.0)[0] - 1.0
     if xb - xa < 50.0:
@@ -122,19 +136,29 @@ def inferiores(plan: Plan, c: Cotas) -> None:
     z0 = z_retorno(c) - HOLGURA_ALA - CHAPA
     z_top = c.rail_bot + SOLAPE_PARED
     y_borde = c.ancho / 2.0 + 1.0
-    n = math.ceil((xb - xa) / TRAMO_MAX)
-    largo = (xb - xa - (n - 1) * 1.0) / n
+    bordes = [xa]
+    for x in x_rodillos(c):
+        h = media_huella(c)
+        bordes += [x - h, x + h]
+    bordes.append(xb)
+    piezas = []
+    for a, b in zip(bordes[::2], bordes[1::2]):
+        if b - a < 50.0:
+            continue
+        n = math.ceil((b - a) / TRAMO_MAX)
+        largo = (b - a - (n - 1) * 1.0) / n
+        piezas += [(a + (k - 1) * (largo + 1.0), largo) for k in range(1, n + 1)]
     for i, s in ((1, -1.0), (2, 1.0)):
-        for k in range(1, n + 1):
-            x0 = xa + (k - 1) * (largo + 1.0)
+        for k, (x0, largo) in enumerate(piezas, start=1):
             x1 = x0 + largo
             pared = _escotar(caja(x0, x1, s * (c.y_in - CHAPA), s * c.y_in, z0, z_top), c, s,
                              x0, x1, z_top)
             ala = caja(x0, x1, s * y_borde, s * (c.y_in - CHAPA + 0.5), z0, z0 + CHAPA)
             suf = f"guarda_inf{i}_{k}"
-            nombre = f"Guarda inferior ({i})" if n == 1 else f"Guarda inferior ({i}, tramo {k})"
+            nombre = (f"Guarda inferior ({i})" if len(piezas) == 1
+                      else f"Guarda inferior ({i}, tramo {k})")
             plan.pieza(suf, nombre, pared + ala, material="acero")
-            plan.union(f"{suf}_larg", suf, f"rail{i}", "perno",
+            plan.union(f"{suf}_larg", suf, rail(c, i, (x0 + x1) / 2.0), "perno",
                        "pared de la guarda al alma interior del larguero: perno pasante + tuerca "
                        "por fuera", size="M6", qty=math.ceil(largo / 600.0) + 1)
 

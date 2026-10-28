@@ -133,7 +133,11 @@ def test_belt_conveyor_genera_todas_las_piezas():
     assert cuenta("Guarda del acople") == 1
     # v5 (cierres): guarda inferior en 2 tramos por lado y las placas de cierre de los largueros
     assert cuenta("Guarda inferior") == 4 and cuenta("Placa de cierre del larguero") == 4
-    assert len(d.scene) == 66
+    # v6 (faja-larga-en-tramos): 4 m entre tambores pasan los 3 m libres del ramal de retorno →
+    # un rodillo de retorno con sus dos soportes y su guarda; el bastidor (4,3 m), en un tramo
+    assert cuenta("Rodillo de retorno") == 1 and cuenta("Soporte del rodillo de retorno") == 2
+    assert cuenta("Guarda del rodillo de retorno") == 1 and cuenta("Placa de empalme") == 0
+    assert len(d.scene) == 70
 
 
 def test_belt_conveyor_banda_es_lazo_hueco():
