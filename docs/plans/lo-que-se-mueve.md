@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude (2026-10-27, decisiones delegadas por Mario, vetables por número); F0 hecha (mapa del código, abajo); F1 mergeada (registro v16, D1/D2/D6); F2 implementada (registro v17, D3/D4), falta revisarla y mergearla; faltan F3 (aviso del tirador), F4 (las máquinas por MCP: el elevador da 5 resguardos sin lengüeta, 3 son finales de carrera con ref de resguardo) y F5 (Mario las ve)
+nota: F0, F1 (registro v16), F2 (v17, batería v6, interruptor de posición FC-2NC-RODILLO) y F4 hechas y mergeadas (2026-10-27): las 4 máquinas aprueban la v17 (elevador con cadenas de izaje y puertas con junta, lengüeta y tirador; mezcladora con el recipiente en su junta); faltan F3 (aviso del tirador, con su fuente) y F5 (Mario lo ve en el visor)
 descripcion: Lo que se mueve en la realidad se mueve en el modelo: la puerta rechaza la cadena hecha a mano, la unión falsa que tapa un choque y el resguardo sin junta, y en el visor «Puerta abierta» abre la puerta
 ---
 
