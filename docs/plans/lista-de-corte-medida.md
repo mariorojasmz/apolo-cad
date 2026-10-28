@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 implementada (2026-10-28, decisiones F1-a…F1-j vetables en la Bitácora); falta revisarla y mergearla. Pendiente fuera de F1 - chapa plegada sin ficha (F1-j) y el ∠ medido en el BOM (F1-i)
+nota: F1 mergeada (2026-10-28; decisiones F1-a…F1-j vetables en la Bitácora). Pendiente fuera de F1 - chapa plegada sin ficha (F1-j) y el ∠ medido en el BOM (F1-i)
 descripcion: La lista de corte mide la pieza que se corta (ángulo de cada extremo, largo exterior) y da la chapa por su espesor y su desarrollo, en vez de creer lo que declaró el comando
 ---
 
