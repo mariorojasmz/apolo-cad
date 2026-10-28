@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude con el criterio delegado (2026-10-28, vetable por número); F1 implementada (create_belt_conveyor v7, criterio 9; decisiones F1-1…F1-13 en la Bitácora) y en revisión, sin mergear; falta F2 (la mesa de sorteo manual de 12 puestos re-corrida con ella, por MCP)
+nota: F1 mergeada (2026-10-28; create_belt_conveyor v7, criterio 9; decisiones F1-1…F1-13 en la Bitácora; el motriz NMRV sobresale 222,6 mm del larguero contra 776,4 del coaxial, la meta de 200 no se cumple con las dos chumaceras); F2 (la mesa de sorteo manual de 12 puestos con NMRV y tensor de placa, por MCP) lanzada
 descripcion: La faja ofrece motorreductor sinfín de eje hueco calzado en el tambor (motor a lo largo del larguero) y tensor de placa ranurada, con la carrera del tensor calculada y el carro al inicio
 ---
 
