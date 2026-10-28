@@ -35,8 +35,10 @@ LIBRE_3M = {"largo": 3000, "ancho_util": 400, "paso": 75, "motriz": "libre"}
 CADENA_3M = {"largo": 3000, "velocidad_m_s": 0.25, "carga_kg": 200}
 #: lo que da F6 (`taller` sin `eje`), congelado con el código de 10cd6be ANTES de F7: piezas,
 #: uniones y anclajes (como `HUELLA_V3` de F6) y la huella geométrica (volumen y caja de cada pieza)
-HUELLA_F6 = {"libre": ((252, 288, "58f80d95432486cd"), "963e10facfaa22e7"),
-             "cadena": ((528, 627, "972e3287d3694b53"), "005339ede5bc434d")}
+HUELLA_F6 = {"libre": ((252, 288, "58f80d95432486cd"),
+              [12351006.8, 183267.71, -10233.6, 155665.5, 194732.29, 10233.6, 165368.7]),
+             "cadena": ((528, 627, "972e3287d3694b53"),
+              [35212280.0, 790878.53, 12554.99, 336419.71, 829628.03, 59097.82, 359668.99])}
 #: lo que forma el rodillo que se saca (el primero: la fuente de cada patrón)
 RODILLO = ("c1_eje", "c1_tubo", "c1_tapa_m", "c1_tapa_p", "c1_rod_m", "c1_rod_p", "c1_sep_m",
            "c1_sep_p")
@@ -92,13 +94,22 @@ def _huella(doc) -> tuple:
     return len(piezas), len(uniones), hashlib.sha256(s.encode()).hexdigest()[:16]
 
 
-def _geom(doc) -> str:
-    filas = []
-    for fid, f in sorted(doc.scene.items()):
+def _geom(doc) -> list[float]:
+    """Suma de volumen y de las 6 cotas de la caja de cada pieza: con tolerancia (un hash de cifras
+    redondeadas cambia entre Windows y Linux en el último decimal de OCCT; CI 2026-10-28)."""
+    v, c = 0.0, [0.0] * 6
+    for f in doc.scene.values():
         b = f.shape.bounding_box()
-        filas.append([fid, round(float(f.shape.volume), 1)]
-                     + [round(v, 2) for v in (b.min.X, b.min.Y, b.min.Z, b.max.X, b.max.Y, b.max.Z)])
-    return hashlib.sha256(json.dumps(filas).encode()).hexdigest()[:16]
+        v += float(f.shape.volume)
+        for i, x in enumerate((b.min.X, b.min.Y, b.min.Z, b.max.X, b.max.Y, b.max.Z)):
+            c[i] += x
+    return [v, *c]
+
+
+def _misma_geom(doc, esperada: list[float]) -> None:
+    v, *c = _geom(doc)
+    assert v == pytest.approx(esperada[0], rel=1e-6)
+    assert c == pytest.approx(esperada[1:], abs=0.5)
 
 
 def _disp(params: dict, eje: str):
@@ -128,7 +139,8 @@ def test_el_comando_nuevo_nace_con_el_eje_hexagonal_y_el_campo_no_se_publica(lib
 def test_un_log_f6_regenera_las_mismas_piezas_y_cotas(caso, params):
     doc = _doc({**params, "eje": "roscado", "pie": "disco"})  # F6: sin `eje` ni `pie`
     assert doc.check_integrity() == []
-    assert (_huella(doc), _geom(doc)) == HUELLA_F6[caso]
+    assert _huella(doc) == HUELLA_F6[caso][0]
+    _misma_geom(doc, HUELLA_F6[caso][1])
 
 
 # ------------------------------------------------------------------ E6: eje y ranura

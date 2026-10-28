@@ -32,8 +32,10 @@ LIBRE_3M = {"largo": 3000, "ancho_util": 400, "paso": 75, "motriz": "libre"}
 CADENA_3M = {"largo": 3000, "velocidad_m_s": 0.25, "carga_kg": 200}
 #: lo que da F7 (`taller` + `eje` hexagonal, sin `pie`), congelado con el código de 7b8f891 ANTES
 #: de F8: piezas, uniones y anclajes y la huella geométrica (volumen y caja de cada pieza)
-HUELLA_F7 = {"libre": ((180, 216, "8ed34ff4fd67ae75"), "cbca8e7c8720adef"),
-             "cadena": ((408, 507, "a4631ed75cc301e3"), "0b97be18ce16c990")}
+HUELLA_F7 = {"libre": ((180, 216, "8ed34ff4fd67ae75"),
+              [12154585.4, 129949.36, -9927.6, 104060.38, 140050.64, 9927.6, 112631.42]),
+             "cadena": ((408, 507, "a4631ed75cc301e3"),
+              [34768888.5, 612014.6, 10370.99, 250411.19, 648491.95, 55893.82, 271773.52])}
 
 
 def _doc(params: dict) -> Document:
@@ -80,13 +82,22 @@ def _huella(doc) -> tuple:
     return len(piezas), len(uniones), hashlib.sha256(s.encode()).hexdigest()[:16]
 
 
-def _geom(doc) -> str:
-    filas = []
-    for fid, f in sorted(doc.scene.items()):
+def _geom(doc) -> list[float]:
+    """Suma de volumen y de las 6 cotas de la caja de cada pieza: con tolerancia (un hash de cifras
+    redondeadas cambia entre Windows y Linux en el último decimal de OCCT; CI 2026-10-28)."""
+    v, c = 0.0, [0.0] * 6
+    for f in doc.scene.values():
         b = f.shape.bounding_box()
-        filas.append([fid, round(float(f.shape.volume), 1)]
-                     + [round(v, 2) for v in (b.min.X, b.min.Y, b.min.Z, b.max.X, b.max.Y, b.max.Z)])
-    return hashlib.sha256(json.dumps(filas).encode()).hexdigest()[:16]
+        v += float(f.shape.volume)
+        for i, x in enumerate((b.min.X, b.min.Y, b.min.Z, b.max.X, b.max.Y, b.max.Z)):
+            c[i] += x
+    return [v, *c]
+
+
+def _misma_geom(doc, esperada: list[float]) -> None:
+    v, *c = _geom(doc)
+    assert v == pytest.approx(esperada[0], rel=1e-6)
+    assert c == pytest.approx(esperada[1:], abs=0.5)
 
 
 def _bom(doc) -> dict:
@@ -111,7 +122,8 @@ def test_el_comando_nuevo_nace_con_el_pie_de_base_y_el_campo_no_se_publica(libre
 def test_un_log_f7_regenera_las_mismas_piezas_y_cotas(caso, params):
     doc = _doc({**params, "pie": "disco"})  # F7: sin `pie`
     assert doc.check_integrity() == []
-    assert (_huella(doc), _geom(doc)) == HUELLA_F7[caso]
+    assert _huella(doc) == HUELLA_F7[caso][0]
+    _misma_geom(doc, HUELLA_F7[caso][1])
 
 
 # ------------------------------------------------------------------ la ficha y la pila (puro)
