@@ -319,7 +319,8 @@ def test_sujecion_declarada_verde_sin_truncar(tres):
 # ------------------------------------------------------------------ log v1 y caché
 def test_un_log_v1_regenera_con_las_mismas_cotas():
     doc = Document("v1")  # los params de un log v1: sin velocidad_m_s
-    doc.execute("create_roller_conveyor", {"largo": 1000})
+    # un log viejo no trae `taller` (F6): el sello sólo lo pone al comando que nace
+    doc.execute("create_roller_conveyor", {"largo": 1000, "taller": False})
     assert doc.check_integrity() == []
     for fid, esperado in V1.items():
         assert _bb(doc.scene[fid].shape) == pytest.approx(esperado, abs=2e-3), fid

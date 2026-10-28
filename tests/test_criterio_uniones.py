@@ -148,6 +148,26 @@ def test_dos_partes_de_la_misma_guarda_comparten_cuerpo():
     assert kinds == ["soldadura", "perno"]
 
 
+def test_el_separador_del_eje_va_en_contacto_aunque_lo_toque_la_tuerca():
+    """Regla 4b (F6 de plantilla-rodillos-cadena): el separador entre la tuerca interior y el
+    6201 es tope axial, no lo aprieta la tuerca; el eje con el larguero sigue con perno."""
+    sep = rol_union("Transportador de rodillos · Separador del eje (-Y)", None, None,
+                    {"Transportador de rodillos"})
+    assert sep == ("estructura", "separador del eje (-y)")
+    roles = {"e": "eje", "s": "estructura", "t": "tuerca", "l": "estructura"}
+    cand = [{"a": "e", "b": "s", "direction": "mismo_nivel"},
+            {"a": "e", "b": "l", "direction": "mismo_nivel"},
+            {"a": "t", "b": "e", "direction": "mismo_nivel"},
+            {"a": "t", "b": "s", "direction": "mismo_nivel"},
+            {"a": "t", "b": "l", "direction": "mismo_nivel"}]
+    cuerpos = {"s": sep[1], "l": "larguero (-y)"}
+    kinds = [u["kind"] for u in criterio(roles, cand, cuerpos=cuerpos)]
+    assert kinds[:2] == ["contacto", "perno"]
+    # el «Separador de guarda» (soldado sobre el ala) no es un separador del eje
+    guarda = {"s": rol_union("Separador de guarda")[1], "l": "larguero (-y)"}
+    assert criterio(roles, cand[:1], cuerpos=guarda)[0]["kind"] == "perno"
+
+
 def test_guarda_no_se_fija_a_lo_que_gira_ni_al_motor_y_se_atornilla_a_su_soporte():
     roles = {"g": "guarda", "m": "equipo", "p": "gira", "t": "estructura", "c": "flexible"}
     cand = [{"a": "g", "b": x, "direction": "mismo_nivel"} for x in ("m", "p", "t", "c")]

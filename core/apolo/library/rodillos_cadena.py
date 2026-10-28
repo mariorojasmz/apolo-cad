@@ -69,6 +69,14 @@ EJE_D = 12.0               # varilla roscada M12 = Ø interior del 6201
 RODAMIENTO = "6201"
 TAPA_ESPESOR = 15.0
 HOLGURA_BASTIDOR = 10.0    # extremo del tubo ↔ cara interior del ala vertical (lado sin cadena)
+# F6 (`taller`): el eje se TRABA contra el ala entre una tuerca interior y la exterior, y un
+# separador (tubo Ø16 × 2 sobre el eje) entre la tuerca interior y el aro INTERIOR del 6201 acota
+# el juego axial del rodillo. Lo que gira (tapa, buje, piñón) no toca nada que no gire.
+HOLGURA_BASTIDOR_TALLER = 16.0  # tuerca interior (10) + separador (5.5) + juego (0.5)
+JUEGO_AXIAL = 0.5          # separador ↔ aro interior del 6201, por lado (≤ 2 mm: criterio de taller)
+SEPARADOR_EJE_D = 16.0     # Ø exterior del separador: < hombro del aro interior del 6201 (Ø≈17)
+HUECO_GIRA_R = 10.0        # agujero de buje y piñón: libra el separador (2 mm) y el aro interior
+ALOJ_HOMBRO_R = 13.0       # hombro de la tapa: sólo el aro EXTERIOR (Da máx del 6201 ≈ 28.4)
 SOBRE_TUERCA = 4.0         # rosca que asoma de la tuerca (> 2 hilos de M12)
 TOPE_SOBRE_EJE = 20.0      # canto superior del larguero sobre el eje (borde del barreno ≥ 1.5·d)
 BARRENO_EJE = 13.0         # paso del eje M12 por el ala vertical
@@ -166,6 +174,7 @@ class Disposicion:
     guardas: dict | None   # cárter móvil + guarda fija (D4)
     bandeja: dict | None   # bandeja inferior de cadenas (D5)
     pies: Pies | None = None  # pie nivelador de cada pata y su pila (D10, `rodillos_cadena_pies`)
+    taller: bool = False   # F6: eje trabado, 6201 de compra, contratuerca y anclajes accesibles
 
 
 def _masa_rodillo(ref: str, ancho_util: float, largo_eje: float, con_pinon: bool) -> float:
@@ -223,12 +232,15 @@ def _estaciones(largo: float, xs: tuple, mot: Motriz | None, vano: float, z_trav
 
 def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altura: float,
                 carga_kg: float, motriz: bool, motor: str | None,
-                velocidad_m_s: float | None = None, anclaje: bool = True) -> Disposicion:
+                velocidad_m_s: float | None = None, anclaje: bool = True,
+                taller: bool = False) -> Disposicion:
     """Todas las cotas del transportador; `ValueError` accionable si no se puede fabricar.
     `velocidad_m_s` (D6) elige el piñón del motor; sin ella, el de siempre (`PINON_MOTRIZ`).
     El pie nivelador de las patas (D10) sale de la carga por pata; `anclaje` pone una placa de
     piso con 2 anclajes bajo cada disco. Las cotas se arman con la pila del pie MAYOR (la más
-    alta: valida del lado seguro) y, ya elegido el pie, se alargan las patas."""
+    alta: valida del lado seguro) y, ya elegido el pie, se alargan las patas. `taller` (F6, el
+    sello de todo comando nuevo) abre el lado sin cadena a `HOLGURA_BASTIDOR_TALLER` para la
+    tuerca interior y el separador del eje, y arma la pila del pie con su contratuerca."""
     if rodillo not in RODILLOS:
         raise ValueError(f"rodillo '{rodillo}': usa uno de {', '.join(RODILLOS)}")
     if motriz and motor not in MOTORES:
@@ -251,7 +263,8 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     t = float(CATALOG[LARGUERO].specs["t"])
     ala = float(CATALOG[LARGUERO].specs["leg"])
     tuerca_t = float(CATALOG[TUERCA].specs["thickness"])
-    y_in_m = -a2 - HOLGURA_BASTIDOR
+    holgura = HOLGURA_BASTIDOR_TALLER if taller else HOLGURA_BASTIDOR
+    y_in_m = -a2 - holgura
     if motriz:
         dh = float(sr["distancia_hileras"])
         y_pin = a2 + BRIDA_BUJE + HOLGURA_HILERA2 + dh + perno / 2.0
@@ -263,11 +276,11 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         y_h2 = y_pin - dh
     else:
         y_pin = y_buje = y_h2 = a2
-        y_in_p = a2 + HOLGURA_BASTIDOR
+        y_in_p = a2 + holgura
     eje_y0 = y_in_m - t - tuerca_t - SOBRE_TUERCA
     eje_y1 = y_in_p + t + tuerca_t + SOBRE_TUERCA
     z_bajo_larguero = h + TOPE_SOBRE_EJE - ala
-    z_pata0 = pila(pies_familias()[-1], anclaje).z_pata0
+    z_pata0 = pila(pies_familias()[-1], anclaje, taller).z_pata0
     pata = z_bajo_larguero - z_pata0
     if pata < 250.0:
         raise ValueError("altura de trabajo demasiado baja para patas con travesaño y pie "
@@ -320,9 +333,10 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         travesano_largo=y_in_p - y_in_m, separadores=seps, sep_z0=sep_z0,
         guarda_z=guarda_base + GUARDA_T, vano_max=vano, velocidad_m_s=velocidad,
         potencia_req_kw=potencia, motriz=mot, r_cadena=r_cad, guardas=guardas, bandeja=band,
+        taller=taller,
     )
     # D10: el pie sale de la carga por pata; la pata crece lo que la pila baja
-    pies = elegir_pies(prov, anclaje)
+    pies = elegir_pies(prov, anclaje, taller)
     pata = z_bajo_larguero - pies.z_pata0
     if mot is None:
         estaciones = _estaciones(largo, xs, None, vano, pies.z_pata0 + pata / 2.0)

@@ -37,6 +37,16 @@ PLACA_PISO_T = 10.0
 ANCLAJE_D = 14.0           # perno de expansión M12 al piso
 ANCLAJE_XY = 50.0          # los 2 anclajes en diagonal, a ±50 mm del centro
 RHO = 7.85e-6              # kg/mm³, acero
+# F6 (`taller`, revisor ciego de la piloto «rodillos por gravedad»): con los anclajes en ±50 la
+# placa de la pata (150 × 150) los TAPA a 26 mm: no entra el taladro para perforar el concreto
+# por la placa ni el dado de la tuerca. La placa de piso se alarga en X y los anclajes van FUERA
+# de la huella de la placa de la pata, a `ACCESO_ANCLAJE` de su borde: el dado de la tuerca AF 19
+# pide 1.5 × 19 / 2 + 5 = 19.3 mm de radio y el porta-brocas SDS-plus del rotomartillo (Ø ≈ 50),
+# 25 + 5 de margen → 30 mm (criterio de taller). El canto de la placa, a `BORDE_ANCLAJE` del
+# taladro (≥ 1.5 · Ø14 = 21, EN 1993-1-8 tabla 3.3).
+ANCLAJE_REF = "ANCLA-EXP-M12"
+ACCESO_ANCLAJE = 30.0
+BORDE_ANCLAJE = 25.0
 
 
 def familias() -> list[str]:
@@ -68,10 +78,34 @@ class Pies:
     carga_kg: float = 0.0  # carga con que se eligió (la de la plantilla)
     por_pie_kg: float = 0.0
     capacidad_kg: float = 0.0
+    taller: bool = False   # F6: contratuerca del vástago y anclajes fuera de la placa de la pata
+    z_contratuerca: float = 0.0  # centro de la contratuerca (sólo con `taller`)
+
+    @property
+    def placa_piso(self) -> tuple[float, float]:
+        """(X, Y) de la placa de piso: con `taller`, larga en X para los anclajes de afuera."""
+        from .rodillos_cadena import PLACA_PATA
+
+        if not self.taller:
+            return PLACA_PISO, PLACA_PISO
+        return 2.0 * (PLACA_PATA / 2.0 + ACCESO_ANCLAJE + BORDE_ANCLAJE), PLACA_PISO
+
+    @property
+    def anclajes(self) -> tuple[tuple[float, float], ...]:
+        """(dx, dy) de cada anclaje desde el eje de la pata: en diagonal (v3) o, con `taller`,
+        sobre X a `ACCESO_ANCLAJE` por fuera del borde de la placa de la pata."""
+        from .rodillos_cadena import PLACA_PATA
+
+        if not self.taller:
+            return ((ANCLAJE_XY, ANCLAJE_XY), (-ANCLAJE_XY, -ANCLAJE_XY))
+        dx = PLACA_PATA / 2.0 + ACCESO_ANCLAJE
+        return ((dx, 0.0), (-dx, 0.0))
 
 
-def pila(ref: str, anclaje: bool) -> Pies:
-    """Las cotas de la pila de una pata con el pie `ref` a la mitad de su recorrido."""
+def pila(ref: str, anclaje: bool, taller: bool = False) -> Pies:
+    """Las cotas de la pila de una pata con el pie `ref` a la mitad de su recorrido. Con
+    `taller` (F6) la contratuerca va en el vástago bajo la tuerca soldada: traba la altura y
+    ocupa rosca, así que el recorrido es vástago − 2 tuercas."""
     from .rodillos_cadena_motriz import PLACA_PATA_T
 
     s = CATALOG[ref].specs
@@ -79,17 +113,19 @@ def pila(ref: str, anclaje: bool) -> Pies:
     tuerca = f"TUERCA-M{rosca:g}"
     st = CATALOG[tuerca].specs
     m = float(st["thickness"])
-    recorrido = vastago - m
+    recorrido = vastago - (2.0 if taller else 1.0) * m
     z_disco = PLACA_PISO_T if anclaje else 0.0
     z_vastago = z_disco + float(s["disco_t"])  # arranque del vástago (cara superior del disco)
-    z_tuerca0 = z_vastago + recorrido / 2.0
+    z_contra = z_vastago + recorrido / 2.0     # cara inferior de la contratuerca (con `taller`)
+    z_tuerca0 = z_contra + (m if taller else 0.0)
     z_placa = z_tuerca0 + m
     return Pies(
         ref=ref, tuerca=tuerca, rosca=rosca, vastago=vastago, disco_d=float(s["disco_d"]),
         disco_t=float(s["disco_t"]), tuerca_t=m, tuerca_ac=float(st["across_flats"]),
         barreno=clearance_hole_mm(f"M{rosca:g}"), recorrido=recorrido, anclaje=anclaje,
         z_disco=z_disco, z_pie=z_vastago + vastago / 2.0, z_tuerca=z_tuerca0 + m / 2.0,
-        z_placa=z_placa, z_pata0=z_placa + PLACA_PATA_T,
+        z_placa=z_placa, z_pata0=z_placa + PLACA_PATA_T, taller=taller,
+        z_contratuerca=z_contra + m / 2.0 if taller else 0.0,
     )
 
 
@@ -139,11 +175,19 @@ def masa_estimada(d, pie: Pies) -> float:
         largo = d.y_buje - d.ancho_util / 2.0
         rodillo += _kg(rc.PINON_RODILLO) + RHO * math.pi * (
             (rb**2 - rib**2) * rc.BRIDA_BUJE + (rc_**2 - rib**2) * (largo - rc.BRIDA_BUJE))
+    if pie.taller:  # F6: 2 × 6201, tuercas interiores y separadores (las tapas ahuecadas, aparte)
+        rs = rc.SEPARADOR_EJE_D / 2.0
+        sep = (d.y_in_p - d.y_in_m) - d.ancho_util - 4.0 * float(CATALOG[rc.TUERCA].specs["thickness"])
+        rodillo += (2.0 * _kg(rc.RODAMIENTO) + 2.0 * _kg(rc.TUERCA)
+                    + RHO * math.pi * (rs**2 - re_**2) * max(sep, 0.0))
     total = len(d.xs) * rodillo + 2.0 * _kg(rc.LARGUERO, d.largo)
     ala = float(CATALOG[rc.LARGUERO].specs["leg"])
     pata = d.z_larguero - ala / 2.0 - pie.z_pata0
+    px, py = pie.placa_piso
     por_pata = (_kg(rc.PATA, pata) + RHO * rc.PLACA_PATA**2 * PLACA_PATA_T + _kg(pie.ref)
-                + _kg(pie.tuerca) + (RHO * PLACA_PISO**2 * PLACA_PISO_T if pie.anclaje else 0.0))
+                + _kg(pie.tuerca) + (RHO * px * py * PLACA_PISO_T if pie.anclaje else 0.0))
+    if pie.taller:  # la contratuerca y, con anclaje, los 2 anclajes de expansión
+        por_pata += _kg(pie.tuerca) + (len(pie.anclajes) * _kg(ANCLAJE_REF) if pie.anclaje else 0.0)
     ne = len(d.estaciones)
     total += 2 * ne * por_pata + ne * _kg(rc.PATA, d.travesano_largo)
     m = d.motriz
@@ -157,13 +201,13 @@ def masa_estimada(d, pie: Pies) -> float:
     return total * MARGEN_MASA
 
 
-def elegir(d, anclaje: bool) -> Pies:
+def elegir(d, anclaje: bool, taller: bool = False) -> Pies:
     """El pie de cada pata: el menor que lleva (masa + `d.carga_kg`) / patas × `IMPACTO`; si
     ninguno, el mayor (el `engineering_check` lo da en error)."""
     n = 2 * len(d.estaciones)
     out = None
     for ref in familias():
-        p = pila(ref, anclaje)
+        p = pila(ref, anclaje, taller)
         masa = masa_estimada(d, p)
         por_pie = (masa + d.carga_kg) / n * IMPACTO
         cap = float(CATALOG[ref].specs["carga_kg"])

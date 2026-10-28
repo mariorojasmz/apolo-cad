@@ -170,7 +170,9 @@ def _pies(d, carga_total: float) -> dict:
                            "tornillería)",
                 "carga": f"{carga:g} kg", "patas": str(p.n),
                 "pie": f"{p.ref} (M{p.rosca:g}, {p.capacidad_kg:g} kg)",
-                "recorrido": f"vástago {p.vastago:g} − tuerca {p.tuerca_t:g} = {p.recorrido:g} mm"},
+                "recorrido": (f"vástago {p.vastago:g} − tuerca {p.tuerca_t:g} − contratuerca "
+                              f"{p.tuerca_t:g} = {p.recorrido:g} mm" if p.taller else
+                              f"vástago {p.vastago:g} − tuerca {p.tuerca_t:g} = {p.recorrido:g} mm")},
             "formula": f"F = (m + Q) / n · {IMPACTO:g}",
             "sustitucion": f"F = ({p.masa_kg:.0f} + {carga:g}) / {p.n} · {IMPACTO:g}",
             "resultado": f"F = {por_pie:.0f} kg por pie → FS {fs:.2f}; nivela {nivela}",
@@ -178,6 +180,7 @@ def _pies(d, carga_total: float) -> dict:
             "norma": "criterio de diseño (reparto igual entre patas, impacto ×1.5)"}
     det = (f"{p.n} × {p.ref}: {por_pie:.0f} kg por pie de {p.capacidad_kg:g} (FS {fs:.2f}); "
            f"nivela {nivela} con el pie a media rosca, "
+           + ("trabado con contratuerca, " if p.taller else "")
            + ("sobre placas de piso ancladas." if p.anclaje else "disco directo al piso."))
     if fs < 1.0:
         mayor = familias()[-1]
@@ -262,7 +265,8 @@ def reglas_rodillos_cadena(params: dict, carga_kg: float, largo_paquete_mm: floa
     try:
         d = disposicion(params["largo"], params["ancho_util"], params["paso"], params["rodillo"],
                         params["altura"], params["carga_kg"], params["motriz"] == "cadena",
-                        params["motor"], params.get("velocidad_m_s"), params.get("anclaje", True))
+                        params["motor"], params.get("velocidad_m_s"), params.get("anclaje", True),
+                        bool(params.get("taller", False)))
     except (ValueError, KeyError) as exc:
         return [_check("transportador de rodillos", "error", f"La plantilla no se arma: {exc}")]
     reglas = []

@@ -19,7 +19,7 @@ import math
 from apolo.library import rodillos_cadena as rc
 from apolo.library.catalog import CATALOG
 from apolo.library.rodillos_cadena_motriz import OREJA_T, PERNO_OREJA, RANURA_OREJA
-from apolo.library.rodillos_cadena_pies import ANCLAJE_D, ANCLAJE_XY, PLACA_PISO, PLACA_PISO_T
+from apolo.library.rodillos_cadena_pies import ANCLAJE_D, ANCLAJE_REF, PLACA_PISO_T
 
 from .receta_rodillos_guardas import bandeja, guarda_cadenas, guarda_transmision, placa_xz
 
@@ -86,6 +86,43 @@ def _bastidor(r: _Receta, d: rc.Disposicion) -> tuple[str, str]:
     return ids[0], ids[1]
 
 
+def _tapas_taller(r: _Receta, d: rc.Disposicion) -> list[str]:
+    """F6: cada tapa lleva el ALOJAMIENTO del 6201 en su cara de afuera (asiento Ø D × B y hombro
+    que apoya sólo el aro exterior) y el 6201 va como pieza de compra del catálogo."""
+    x0, h, a2 = d.xs[0], d.h_eje, d.ancho_util / 2.0
+    ri, t = d.r_int_tubo, rc.TAPA_ESPESOR
+    s6 = CATALOG[rc.RODAMIENTO].specs
+    ro, b, rh = float(s6["D"]) / 2.0, float(s6["B"]), rc.ALOJ_HOMBRO_R
+    perfiles = {"m": [[ro, 0], [ri, 0], [ri, t], [rh, t], [rh, b], [ro, b]],
+                "p": [[rh, 0], [ri, 0], [ri, t], [ro, t], [ro, t - b], [rh, t - b]]}
+    for s, rot, y, yr in (("m", "-Y", -a2, -a2 + b / 2.0), ("p", "+Y", a2 - t, a2 - b / 2.0)):
+        r.pieza("create_revolve", f"tapa_{s}", "Rodillos",
+                f"Tapa con alojamiento de rodamiento {rc.RODAMIENTO} ({rot})",
+                {"profile": perfiles[s], "axis": "y", "position": r.pos(x0, y, h)})
+        r.pieza("insert_component", f"rod_{s}", "Rodillos", f"Rodamiento {rc.RODAMIENTO} ({rot})",
+                {"component": rc.RODAMIENTO, "position": r.pos(x0, yr, h), "rotation": _EN_Y})
+    return ["tapa_m", "tapa_p", "rod_m", "rod_p"]
+
+
+def _traba_eje(r: _Receta, d: rc.Disposicion) -> list[str]:
+    """F6 (E3): tuerca INTERIOR contra la cara interior de cada ala (con la exterior traba el
+    eje: no gira ni corre) y separador sobre el eje hasta `JUEGO_AXIAL` del aro interior del
+    6201. Del lado de la cadena el separador pasa por dentro del buje y del piñón."""
+    x0, h, a2 = d.xs[0], d.h_eje, d.ancho_util / 2.0
+    m = float(CATALOG[rc.TUERCA].specs["thickness"])
+    re, rs = rc.EJE_D / 2.0, rc.SEPARADOR_EJE_D / 2.0
+    lados = (("m", "-Y", d.y_in_m + m / 2.0, d.y_in_m + m, -a2 - rc.JUEGO_AXIAL),
+             ("p", "+Y", d.y_in_p - m / 2.0, a2 + rc.JUEGO_AXIAL, d.y_in_p - m))
+    for s, rot, yt, y0, y1 in lados:
+        r.pieza("insert_component", f"tuerca_i{s}", "Rodillos", f"Tuerca interior del eje ({rot})",
+                {"component": rc.TUERCA, "position": r.pos(x0, yt, h), "rotation": _EN_Y})
+        largo = round(y1 - y0, 4)
+        r.pieza("create_revolve", f"sep_{s}", "Rodillos", f"Separador del eje ({rot})",
+                {"profile": [[re, 0], [rs, 0], [rs, largo], [re, largo]], "axis": "y",
+                 "position": r.pos(x0, y0, h)})
+    return ["tuerca_im", "tuerca_ip", "sep_m", "sep_p"]
+
+
 def _rodillos(r: _Receta, d: rc.Disposicion, motriz: bool) -> None:
     x0, h, a2, n = d.xs[0], d.h_eje, d.ancho_util / 2.0, len(d.xs)
     re, ri = rc.EJE_D / 2.0, d.r_int_tubo
@@ -95,27 +132,36 @@ def _rodillos(r: _Receta, d: rc.Disposicion, motriz: bool) -> None:
     r.pieza("insert_component", "tubo", "Rodillos", "Tubo del rodillo", {
         "component": d.rodillo, "length": d.ancho_util, "position": r.pos(x0, 0.0, h),
         "rotation": _EN_Y})
-    tapa = [[re, 0], [ri, 0], [ri, rc.TAPA_ESPESOR], [re, rc.TAPA_ESPESOR]]
-    for s, rot, y in (("m", "-Y", -a2), ("p", "+Y", a2 - rc.TAPA_ESPESOR)):
-        r.pieza("create_revolve", f"tapa_{s}", "Rodillos",
-                f"Tapa con rodamiento {rc.RODAMIENTO} ({rot})",
-                {"profile": tapa, "axis": "y", "position": r.pos(x0, y, h)})
-    piezas = ["eje", "tubo", "tapa_m", "tapa_p"]
+    if d.taller:
+        piezas = ["eje", "tubo", *_tapas_taller(r, d)]
+    else:
+        tapa = [[re, 0], [ri, 0], [ri, rc.TAPA_ESPESOR], [re, rc.TAPA_ESPESOR]]
+        for s, rot, y in (("m", "-Y", -a2), ("p", "+Y", a2 - rc.TAPA_ESPESOR)):
+            r.pieza("create_revolve", f"tapa_{s}", "Rodillos",
+                    f"Tapa con rodamiento {rc.RODAMIENTO} ({rot})",
+                    {"profile": tapa, "axis": "y", "position": r.pos(x0, y, h)})
+        piezas = ["eje", "tubo", "tapa_m", "tapa_p"]
     if motriz:
         largo, rb = round(d.y_buje - a2, 4), d.d_rodillo / 2.0
-        rc_, ri_ = rc.CUELLO_BUJE_R, rc.EJE_D / 2.0 + 0.5  # gira sobre el eje fijo
+        # gira sobre el eje fijo; con `taller`, el separador del eje pasa por dentro
+        rc_, ri_ = rc.CUELLO_BUJE_R, rc.HUECO_GIRA_R if d.taller else rc.EJE_D / 2.0 + 0.5
         perfil = [[ri_, 0], [rb, 0], [rb, rc.BRIDA_BUJE], [rc_, rc.BRIDA_BUJE], [rc_, largo],
                   [ri_, largo]]
         r.pieza("create_revolve", "buje", "Rodillos", "Buje del piñón (brida soldada al tubo)",
                 {"profile": perfil, "axis": "y", "position": r.pos(x0, a2, h)})
-        r.pieza("insert_component", "pinon", "Rodillos", "Piñón doble-simple Z15", {
+        pinon = r.pieza("insert_component", "pinon", "Rodillos", "Piñón doble-simple Z15", {
             "component": rc.PINON_RODILLO, "position": r.pos(x0, d.y_pinon, h),
             "rotation": _EN_Y})
+        if d.taller:  # el agujero piloto, abierto al Ø del buje (la ficha: «a maquinar»)
+            r.taladro("tal_pinon", pinon, r.pos(x0, d.y_pinon + 10.0, h), "-y",
+                      2.0 * rc.HUECO_GIRA_R)
         piezas += ["buje", "pinon"]
     for s, rot, y in (("m", "-Y", d.y_tuerca_m), ("p", "+Y", d.y_tuerca_p)):
         r.pieza("insert_component", f"tuerca_{s}", "Rodillos", f"Tuerca del eje ({rot})", {
             "component": rc.TUERCA, "position": r.pos(x0, y, h), "rotation": _EN_Y})
     piezas += ["tuerca_m", "tuerca_p"]
+    if d.taller:
+        piezas += _traba_eje(r, d)
     for s in piezas:
         r.patron(s, "Rodillos", n, d.paso)
 
@@ -124,12 +170,28 @@ def _uniones_rodillos(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str,
                       motriz: bool) -> None:
     eje = r.conjunto("eje")
     for s, larg in (("m", larg_m), ("p", larg_p)):
-        r.union(f"eje_larg_{s}", eje, larg, "perno",
-                "eje roscado M12 apretado al ala vertical con su tuerca", size="M12", qty=1)
+        if not d.taller:
+            r.union(f"eje_larg_{s}", eje, larg, "perno",
+                    "eje roscado M12 apretado al ala vertical con su tuerca", size="M12", qty=1)
+        else:  # F6 (E3): trabado entre dos tuercas; el rodillo, entre los dos separadores
+            r.union(f"eje_larg_{s}", eje, larg, "perno",
+                    "eje roscado M12 trabado contra el ala vertical entre la tuerca interior y la "
+                    "exterior: no gira en el agujero ni corre", size="M12", qty=1)
+            r.union(f"tuerca_i{s}", r.conjunto(f"tuerca_i{s}"), eje, "contacto",
+                    "tuerca interior en la rosca del eje, apretada contra el ala")
+            r.union(f"sep_{s}", r.conjunto(f"sep_{s}"), eje, "contacto",
+                    f"separador sobre el eje: de la tuerca interior a {rc.JUEGO_AXIAL:g} mm del aro "
+                    f"interior del {rc.RODAMIENTO} (juego axial del rodillo)")
+            r.union(f"rod_{s}", r.conjunto(f"rod_{s}"), eje, "contacto",
+                    f"aro interior del {rc.RODAMIENTO} sobre el eje fijo")
         r.union(f"tuerca_{s}", r.conjunto(f"tuerca_{s}"), eje, "contacto",
                 "tuerca en la rosca del eje")
-        r.union(f"tapa_{s}", r.conjunto(f"tapa_{s}"), eje, "contacto",
-                f"rodamiento {rc.RODAMIENTO} sobre el eje fijo")
+        if d.taller:
+            r.union(f"tapa_{s}", r.conjunto(f"tapa_{s}"), r.conjunto(f"rod_{s}"), "contacto",
+                    f"{rc.RODAMIENTO} a presión en el alojamiento de la tapa")
+        else:
+            r.union(f"tapa_{s}", r.conjunto(f"tapa_{s}"), eje, "contacto",
+                    f"rodamiento {rc.RODAMIENTO} sobre el eje fijo")
         r.union(f"tubo_tapa_{s}", r.conjunto("tubo"), r.conjunto(f"tapa_{s}"), "contacto",
                 "tapa a presión en el tubo")
     if motriz:
@@ -189,7 +251,8 @@ def _portamotor(r: _Receta, d: rc.Disposicion, k: int, donde: str, patas: dict) 
 def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, pata: str) -> None:
     """Pie nivelador bajo una pata (D10): placa de la pata con la tuerca de la rosca del pie
     soldada por debajo y barreno de paso del vástago; el disco al piso o, con anclaje, a una
-    placa de piso con 2 anclajes en diagonal (se nivela, se ancla y se suelda el disco)."""
+    placa de piso con 2 anclajes (se nivela, se ancla y se suelda el disco). Con `taller` (F6):
+    contratuerca en el vástago y los 2 anclajes de compra por FUERA de la placa de la pata."""
     p = d.pies
     placa = r.pieza("create_box", f"placa_{s}", "Patas", f"Placa de la pata ({donde})", {
         "width": rc.PLACA_PATA, "depth": rc.PLACA_PATA, "height": rc.PLACA_PATA_T,
@@ -207,18 +270,39 @@ def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, 
                   {"component": p.ref, "position": r.pos(x, y, p.z_pie)})
     r.union(f"pie_tuerca_{s}", pie, tuerca, "contacto",
             f"vástago M{p.rosca:g} en la tuerca soldada: girarlo nivela ±{p.recorrido / 2.0:.1f} mm")
+    if p.taller:  # F6 (E2): la contratuerca traba la altura antes de soldar el disco
+        contra = r.pieza("insert_component", f"contra_pie_{s}", "Patas",
+                         f"Contratuerca del pie ({donde})",
+                         {"component": p.tuerca, "position": r.pos(x, y, p.z_contratuerca)})
+        r.union(f"contra_pie_{s}", contra, pie, "contacto",
+                f"contratuerca M{p.rosca:g} del vástago apretada contra la tuerca soldada: traba "
+                "la altura nivelada")
     apoyo, nota = pie, "disco del pie nivelador apoyado en el piso, sin anclar"
     if p.anclaje:
+        px, py = p.placa_piso
         apoyo = r.pieza("create_box", f"placa_piso_{s}", "Patas", f"Placa de piso ({donde})", {
-            "width": PLACA_PISO, "depth": PLACA_PISO, "height": PLACA_PISO_T,
+            "width": px, "depth": py, "height": PLACA_PISO_T,
             "position": r.pos(x, y, PLACA_PISO_T / 2.0)})
-        for j, sg in enumerate((1.0, -1.0)):  # dos anclajes en diagonal
-            r.taladro(f"anc_{s}{j}", apoyo, r.pos(x + sg * ANCLAJE_XY, y + sg * ANCLAJE_XY,
-                                                  PLACA_PISO_T + 2.0), "-z", ANCLAJE_D)
+        for j, (dx, dy) in enumerate(p.anclajes):  # v3: en diagonal; F6: fuera de la placa de pata
+            r.taladro(f"anc_{s}{j}", apoyo, r.pos(x + dx, y + dy, PLACA_PISO_T + 2.0), "-z",
+                      ANCLAJE_D)
         r.union(f"pie_piso_{s}", pie, apoyo, "soldadura",
                 "disco soldado a la placa de piso después de nivelar y anclar", throat_mm=3,
                 length_mm=round(math.pi * p.disco_d, 1))
         nota = "placa de piso con 2 pernos de expansión M12"
+        if p.taller:  # F6 (E1): los anclajes, de compra y por fuera de la placa de la pata
+            for j, (dx, dy) in enumerate(p.anclajes):
+                anc = r.pieza("insert_component", f"ancla_{s}{j}", "Patas",
+                              f"Anclaje de expansión ({donde}, {j + 1})",
+                              {"component": ANCLAJE_REF,
+                               "position": r.pos(x + dx, y + dy, PLACA_PISO_T)})
+                # el perno en la pieza que atraviesa va en contacto (criterio de taller): lo que
+                # ancla la placa al concreto es el `ground`, con los anclajes en su nota
+                r.union(f"ancla_{s}{j}", anc, apoyo, "contacto",
+                        f"anclaje de expansión M12 por el agujero Ø{ANCLAJE_D:g} de la placa, "
+                        "apretado sobre ella (espárrago, camisa, arandela y tuerca incluidos)")
+            nota = ("placa de piso con 2 anclajes de expansión M12, por fuera de la placa de la "
+                    "pata (entran el taladro y el dado)")
     r.pasos.append(("ground", f"piso_{s}", {"name": r.id(f"piso_{s}"), "feature": apoyo,
                                             "nota": nota}))
 

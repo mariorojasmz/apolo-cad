@@ -129,7 +129,7 @@ def test_all_new_families_present():
     assert len(refs_in_category("correderas_colgantes")) == 2
     # tornillería comercial para tensores (DIN 912) + pernos hex DIN 933 de join_bolted (V6.5b)
     # + 4 de cuello cuadrado DIN 603 (F6 de la puerta de publicación)
-    assert len(refs_in_category("pernos")) == 17  # 4 Allen (socket_cap) + 9 hex (M6–M24) + 4 DIN 603
+    assert len(refs_in_category("pernos")) == 18  # 4 Allen (socket_cap) + 9 hex (M6–M24) + 4 DIN 603 + 1 anclaje de expansión
     assert len(refs_in_category("tuercas")) == 9  # M6-M24 DIN 934, pareja del DIN 933 (V6.5c)
     # motorreductores sinfín-corona NMRV (eje hueco, montaje directo sobre el eje)
     assert len(refs_in_category("motorreductores_sinfin")) == 8
@@ -149,7 +149,7 @@ def test_all_new_families_present():
     # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
     # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR); +5 prensaestopas M16–M40 (V8.5 F3)
     # +2 cables sin PE para aparatos de clase II (CABLE-5X1, CABLE-7X1)
-    assert len(CATALOG) == 472  # + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    assert len(CATALOG) == 473  # + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
 
 
 def test_door_sliding_hardware():

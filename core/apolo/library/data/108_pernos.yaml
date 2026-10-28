@@ -43,3 +43,20 @@ families:
       - {ref: "PERNO-HEX-M18", d: 18, across_flats: 27, head_h: 11.5, cost: 0.85, largo_min_mm: 30, largo_max_mm: 200}
       - {ref: "PERNO-HEX-M20", d: 20, across_flats: 30, head_h: 12.5, cost: 1.1, largo_min_mm: 35, largo_max_mm: 200}
       - {ref: "PERNO-HEX-M24", d: 24, across_flats: 36, head_h: 15.0, cost: 1.9, largo_min_mm: 45, largo_max_mm: 240}
+  # ANCLAJE DE EXPANSIÓN (perno de anclaje mecánico de par controlado) para fijar una placa de
+  # piso a concreto: espárrago + camisa de expansión + arandela + tuerca, se compra ARMADO y se
+  # coloca por el agujero de la placa (taladro en el concreto = d; agujero en la placa = df).
+  # Es un EJEMPLO (refs = ejemplo: lo reemplaza el equivalente que se consiga): del orden de Hilti
+  # HST3 M12x115/20 o Fischer FAZ II 12/20, con evaluación técnica europea (EAD 330232) para
+  # concreto. Lo que hay que respetar al cambiarlo: métrica M12, espesor a fijar ≥ placa
+  # (tfix_max), profundidad de anclaje hef y par de instalación de SU ficha. Cotas sin verificar
+  # contra la ficha del fabricante (`cotas_verificadas: false`); el 3D es representativo
+  # (camisa no modelada). Origen del builder = cara de asiento de la arandela, vástago hacia −Z.
+  - name_tpl: "Anclaje de expansión {ref}"
+    description_tpl: "Anclaje de expansión M{d}×{length} (espárrago, camisa, arandela Ø{washer_d} y tuerca AF{across_flats}) para concreto; taladro Ø{d}, agujero en la placa Ø{df}, fija hasta {tfix_max} mm."
+    builder: expansion_anchor
+    param_keys: [d, length, sobre, across_flats, nut_h, washer_d, washer_t]
+    weight_formula: "7.85e-6 * (0.785 * d * d * length + 0.866 * across_flats * across_flats * nut_h + 0.785 * washer_d * washer_d * washer_t)"
+    specs_common: {tipo: "anclaje de expansión", material: "acero zincado", norma: "EAD 330232 (ETA del fabricante)", cotas_verificadas: false}
+    variants:
+      - {ref: "ANCLA-EXP-M12", d: 12, length: 115, sobre: 25, across_flats: 19, nut_h: 10, washer_d: 24, washer_t: 3, df: 14, hef: 70, tfix_max: 20, par_instalacion_nm: 60, linea_referencia: "del orden de Hilti HST3 M12x115/20 o Fischer FAZ II 12/20", cost: 1.6}

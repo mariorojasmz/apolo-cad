@@ -1,6 +1,7 @@
 """Builders de la fijación de taller de `join_bolted` (plan union-en-perfil-hueco, D1/D4):
 remache ciego y tornillo para madera de cabeza hexagonal; y el perno de cuello cuadrado DIN 603
-(F6 de la puerta de publicación). Módulo propio: `builders.py` está congelado por el trinquete
+(F6 de la puerta de publicación) y el anclaje de expansión a concreto (F6 de
+plantilla-rodillos-cadena). Módulo propio: `builders.py` está congelado por el trinquete
 de tamaño.
 
 Convención de la tornillería (la de `hex_bolt`): eje Z, ORIGEN en la cara de asiento de la
@@ -80,5 +81,22 @@ def carriage_bolt(d: float, head_d: float, head_k: float, neck_v: float, neck_f:
     return build
 
 
+def expansion_anchor(d: float, length: float, sobre: float, across_flats: float, nut_h: float,
+                     washer_d: float, washer_t: float):
+    """Anclaje de expansión YA colocado (F6 de plantilla-rodillos-cadena): arandela Ø washer_d ×
+    washer_t sobre la placa, tuerca hexagonal AF × nut_h encima y el espárrago Ø d de `length`
+    que asoma `sobre` mm por encima del asiento y baja el resto (placa + concreto). ORIGEN = cara
+    de asiento de la arandela (la cara superior de la placa), eje Z. La camisa de expansión no se
+    modela (es del Ø del espárrago). Las partes solapan: un sólido."""
+
+    def build(_length=None):
+        arandela = Pos(0, 0, washer_t / 2.0) * Cylinder(washer_d / 2.0, washer_t)
+        tuerca = Pos(0, 0, washer_t + nut_h / 2.0) * _hex_prism(across_flats, nut_h)
+        esparrago = Pos(0, 0, sobre - length / 2.0) * Cylinder(d / 2.0, length)
+        return arandela + tuerca + esparrago
+
+    return build
+
+
 BUILDERS = {"blind_rivet": blind_rivet, "hex_wood_screw": hex_wood_screw,
-            "carriage_bolt": carriage_bolt}
+            "carriage_bolt": carriage_bolt, "expansion_anchor": expansion_anchor}

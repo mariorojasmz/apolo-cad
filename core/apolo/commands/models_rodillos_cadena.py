@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from .models import Vec3
 
@@ -27,7 +28,9 @@ class CreateRollerConveyorParams(BaseModel):
     """Transportador de rodillos MOTORIZADO POR CADENA rodillo a rodillo, completo, fabricable y
     sostenido, en UNA orden (super-comando): bastidor de 2 largueros de ángulo L 75x6 (ala
     vertical por dentro, ala horizontal ABAJO y hacia AFUERA), rodillos de tubo redondo sobre
-    eje fijo M12 con tapas de rodamiento 6201 y tuerca a cada lado (atornillado al ala vertical),
+    eje fijo M12 TRABADO al ala vertical entre una tuerca interior y otra exterior (no gira ni
+    corre), con un rodamiento 6201 de compra en el alojamiento de cada tapa y un separador sobre
+    el eje que deja el juego axial del rodillo en 0.5 mm por lado,
     piñón doble-simple ASA 40 Z15 soldado a un buje en cada rodillo, cadenas ASA 40 1:1
     alternando las dos hileras, motorreductor bajo el último rodillo con su piñón y cadena
     motriz, patas de tubo 2x2 en H (travesaño ENTRE las patas) con pie nivelador de catálogo
@@ -48,8 +51,10 @@ class CreateRollerConveyorParams(BaseModel):
       la mitad de su recorrido. El eje queda a altura − Ø/2.
     - Pies niveladores: la familia sale de la carga por pata ((masa + carga_kg) / patas × 1.5
       contra la carga del pie); engineering_check publica la carga por pie y el recorrido de
-      nivelación (±). `anclaje: true` (default) = cada disco sobre una placa de piso con 2
-      anclajes M12 (se nivela, se ancla y se suelda el disco); `false` = disco directo al piso.
+      nivelación (±). Cada vástago lleva su contratuerca (traba la altura nivelada).
+      `anclaje: true` (default) = cada disco sobre una placa de piso con 2 anclajes de
+      expansión M12 de compra, por FUERA de la placa de la pata (entran el taladro y el dado):
+      se nivela, se traba, se ancla y se suelda el disco; `false` = disco directo al piso.
     - `paso`: con `motriz: cadena` NO es libre: con cadena 1:1 sólo cierran sin sobrante 95.25,
       107.95 o 120.65 mm (30, 32 o 34 eslabones). Con `motriz: libre` va de Ø del tubo + 20 mm
       (luz entre tubos) a 300 mm (TUBOR-2: 70.8–300). El número de rodillos sale de `largo`
@@ -118,6 +123,11 @@ class CreateRollerConveyorParams(BaseModel):
         description="true = placa de piso con 2 anclajes bajo cada pie nivelador; false = el "
                     "disco del pie apoya directo en el piso",
     )
+    # F6, FUERA del schema (criterio de Apolo, no del modelador): eje trabado entre dos tuercas
+    # con separadores, 6201 de compra en el alojamiento de la tapa, contratuerca del pie y
+    # anclajes de compra por fuera de la placa de la pata. Lo pone el sello de entrada
+    # (`exec_rodillos_cadena.sellar`) a todo comando NUEVO; un log v3 no lo trae → False → igual.
+    taller: SkipJsonSchema[bool] = Field(False)
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
 
     @model_validator(mode="after")

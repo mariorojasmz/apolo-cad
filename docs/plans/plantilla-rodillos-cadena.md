@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F5 mergeadas a main el 2026-10-21 (create_roller_conveyor v3, re-verificada por el revisor ciego sin ALTA); quedan las 4 preguntas a Mario
+nota: F0–F5 mergeadas a main el 2026-10-21 (create_roller_conveyor v3, re-verificada por el revisor ciego sin ALTA); F6 (campo oculto taller por el sello, decisiones E1–E5 vetables) implementada en su rama, sin mergear; quedan las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -60,6 +60,8 @@ repite va en una plantilla, para que cada lección quede dentro una sola vez.
 - **F4 (M, `commands` + `library`)**: los defectos que el revisor de taller ciego halló en la
   plantilla (§ Bitácora F3), con el contrato de abajo. `create_roller_conveyor` sube a v2.
 - **F5 (S, `commands` + `library`)**: pies niveladores (§ Bitácora F4b), contrato abajo; v3.
+- **F6 (S, `commands` + `library`)**: los defectos de la PLANTILLA que el revisor ciego halló en
+  la piloto de rodillos por gravedad (decisiones E1–E5 en § Bitácora F6); sin bump.
 
 ### F4 — contrato
 
@@ -165,6 +167,94 @@ a la altura de trabajo.
   después (como `create_conveyor`).
 
 ## Bitácora
+
+### F6 (2026-10-28): eje trabado, 6201 de compra, contratuerca y anclajes accesibles
+
+**Origen**: el revisor de taller ciego revisó la piloto de la familia «rodillos por gravedad»
+(`motriz: libre`, L 1500, W 400, paso 75, `anclaje: true`) y halló cuatro defectos de la PLANTILLA
+(valen también con cadena):
+1. ALTA: los 2 anclajes de cada placa de piso quedaban bajo la placa de la pata (150 × 150, mismo
+   X-Y): 26 mm libres, no entran el taladro ni el dado de la tuerca. Y la BOM no traía los anclajes
+   (la placa tenía los Ø14, sin perno).
+2. MEDIA: el eje (M12 liso en el modelo, una tuerca exterior por lado) no fijaba nada: 10 mm sin
+   tuerca interior ni separador entre la tapa y el ala; el rodillo jugaba ±10 mm y el eje podía
+   girar en el agujero.
+3. MEDIA: el pie nivelador sin contratuerca: la altura no queda trabada antes de soldar el disco.
+4. MEDIA: las tapas con 6201 salían A-MEDIDA y la BOM no traía los 6201.
+
+**Decisiones (vetables por número)**:
+- **E1. Anclajes por fuera de la placa de la pata, de compra.** La placa de piso se alarga en X a
+  260 × 150 × 10 y los 2 anclajes van sobre X a ±105 mm del eje de la pata: **30 mm** del eje del
+  anclaje al borde de la placa de la pata (`ACCESO_ANCLAJE`). La cifra: el dado de la tuerca AF 19
+  pide 1,5 × 19 / 2 + 5 = 19,3 mm de radio y el porta-brocas SDS-plus del rotomartillo (Ø ≈ 50),
+  25 + 5 de margen; manda el porta-brocas. Canto de la placa a 25 mm del taladro (≥ 1,5 · Ø14 = 21,
+  EN 1993-1-8 tabla 3.3). Sobre X y no sobre Y: entre las patas va el motor.
+  - Ref nueva `ANCLA-EXP-M12` en `108_pernos.yaml` (categoría `pernos`: es tornillería para la
+    puerta y la BOM): anclaje de expansión M12 × 115 (espárrago, camisa, arandela Ø24 × 3, tuerca
+    AF 19 × 10), taladro Ø12, agujero en la placa Ø14, hef 70, tfix ≤ 20, par 60 N·m. Ejemplo: «del
+    orden de Hilti HST3 M12x115/20 o Fischer FAZ II 12/20», EAD 330232; `cotas_verificadas: false`
+    (no se contrastaron con la ficha del fabricante). Builder nuevo `expansion_anchor`
+    (`builders_fijacion.py`): origen en la cara de asiento, el espárrago baja 90 mm (placa +
+    concreto).
+  - Cada anclaje va en `contacto` con su placa (el perno en la pieza que atraviesa, como pide el
+    criterio de taller); lo que ancla es el `ground` de la placa, con «2 anclajes de expansión M12»
+    en su nota.
+- **E2. Contratuerca del vástago** (`TUERCA-M{rosca}` del pie elegido: M8, M10 o M12 según la
+  carga), bajo la tuerca soldada. Ocupa rosca: el recorrido pasa a vástago − 2 tuercas y el pie
+  sigue a la mitad (PIE-M8-30: ±11,75 → ±8,5 mm; PIE-M10-40: ±16 → ±12). Lo publica la regla «pies
+  niveladores».
+- **E3. Eje trabado y juego axial acotado.** Tuerca interior `TUERCA-M12` contra la cara interior
+  de cada ala (con la exterior, el eje queda apretado al ala: no gira ni corre) y separador de
+  tubo Ø16 × 2 sobre el eje, de la tuerca interior hasta **0,5 mm** del aro INTERIOR del 6201
+  (juego axial ≤ 0,5 mm por lado; Ø16 < hombro del aro interior). El lado sin cadena pasa de 10 a
+  16 mm entre el tubo y el ala (tuerca 10 + separador 5,5 + juego 0,5): el larguero −Y (y el +Y en
+  libre) se abre 6 mm. Del lado de la cadena el separador pasa por dentro del buje y del piñón:
+  el agujero de los dos se abre a Ø20 (el piloto Ø12,7 del Z15 es «a maquinar»), 2 mm de holgura;
+  la tuerca interior queda a 5,3 mm del piñón.
+- **E4. 6201 de compra.** La tapa (A-MEDIDA, «Tapa con alojamiento de rodamiento 6201») lleva el
+  asiento Ø32 × 10 en su cara de afuera y un hombro Ø26 que apoya sólo el aro exterior; el 6201 va
+  como pieza del catálogo (`70_rodamientos.yaml`): la BOM trae 2 por rodillo.
+- **E5. Compatibilidad: sello de entrada, sin bump.** Campo oculto `taller` (`SkipJsonSchema`,
+  default False = la geometría de la v3) que `exec_rodillos_cadena.sellar` (`al_crear`) pone en
+  True a todo comando NUEVO, como `cierres` de `create_belt_conveyor`. La `version` sigue en 3: el
+  executor no cambió (huella D11 igual) y lo nuevo cambia los params, así que cambia la firma.
+
+**Archivos**: `library/rodillos_cadena.py` (`taller`, holgura del lado sin cadena),
+`rodillos_cadena_pies.py` (pila con contratuerca, placa de piso y anclajes, masa estimada),
+`rodillos_cadena_reglas.py` (pasa `taller`; recorrido con contratuerca),
+`commands/receta_rodillos_cadena.py` (`_tapas_taller`, `_traba_eje`, el piñón taladrado, el pie),
+`models_rodillos_cadena.py` (`taller`), `exec_rodillos_cadena.py` (`sellar`), la ref y su builder.
+Dos ajustes en `services/` para que la plantilla siga pasando sus propias pruebas de estructura:
+- regla 4b de `criterio_uniones`: separador DEL EJE ↔ eje = `contacto` (la tuerca que lo toca no
+  lo aprieta);
+- `propuesta_estructura` no propone `ground` a la tornillería que entra en la losa junto a una pieza
+  ya anclada (el perno de anclaje, como `z_piso` de la puerta).
+
+**Medido** (masa real del modelo regenerado; estimada sin el ×1,10):
+
+| máquina | sólidos v3 → F6 | masa real v3 → F6 | estimada F6 | pie (carga por pie F6) |
+|---|---|---|---|---|
+| 1 m | 134 → 206 | 105,7 → 112,2 kg | 113,8 | PIE-M8-30 (80 de 120) |
+| 3 m de F3 | 330 → 528 | 229,9 → 240,1 kg | 244,6 | PIE-M8-30 (110 de 120) |
+| 4 m, TUBOR-3, 400 kg | 396 → 636 | 390,4 → 403,8 kg | 409,3 | PIE-M10-40 (151 de 200) |
+| 1,5 m libre (la piloto) | 132 → 252 | 90,7 → 97,3 kg | 99,8 | PIE-M8-30 (74 de 120) |
+
+- Ninguna familia de pie cambió. 0 interferencias sin tope y SIN excluir la tornillería (libre
+  1,5 m y cadena 3 m). Puerta VERDE sin avisos: la llave entra en los 88 fijadores de la piloto
+  (72 tuercas de eje, 4 soldadas, 4 contratuercas, 8 anclajes) y en los 56 del 1 m. Un cilindro
+  de Ø50 sobre cada anclaje no toca nada. Gravedad VERDE en la piloto (tortura) y la tortura D3,
+  ya con el sello, VERDE en los 4 tamaños (31, 45, 66 y 83 s en esta máquina; sin anclaje, 45 s).
+- Sin el sello, piezas, uniones y anclajes idénticos a la v3 (huella congelada antes de F6, y la
+  geométrica de volumen y caja también).
+- `check_interference` de «Rodillos» en el 3 m: 662 parejas candidatas (482 en la v3).
+
+**Tests**: 23 en `tests/test_plantilla_rodillos_f6.py` (1 con `-m torture`). Recalibrados los que
+fijaban la v3 sobre una plantilla recién generada: los 56 fijadores de la puerta (F2), un log v1
+con `taller: False` explícito (F4), las parejas de D10 en `test_mcp_sin_friccion_f5` y los conteos
+del catálogo (473 refs, 18 pernos). `CAMPOS` suma `taller`; `VERSIONES` no cambia.
+
+**Fuera** (no se decidió): las 4 preguntas a Mario; el reparto de la carga por pata según el COM;
+contrastar las cotas del anclaje con la ficha del fabricante.
 
 ### F5 (2026-10-21): v3 — pie nivelador de catálogo en cada pata
 

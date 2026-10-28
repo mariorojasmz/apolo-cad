@@ -18,6 +18,8 @@ vecinas, en este orden (gana la primera regla que aplica):
    (tramo 1)» ↔ «(tramo 2)»: son piezas distintas, `roles._cuerpo`).
 4. rodamiento: `contacto` (ajuste, nunca soldadura); chumacera: con el eje, `contacto`; con su
    soporte, `perno`.
+4b. separador (distanciador, casquillo) DEL EJE con su eje: `contacto` (tope axial de lo que
+   gira: la tuerca que lo toca no lo aprieta; F6 de plantilla-rodillos-cadena).
 5. dos piezas que aprieta la MISMA tuerca o perno: `perno` (el eje roscado al larguero).
 6. equipo (motor, motorreductor): `perno`.
 7. lo que gira: con otra pieza que gira, lo que diga la geometría (el buje soldado al tubo gira
@@ -33,7 +35,13 @@ prueba sobre un fixture de la piloto (`tests/data/estructura_piloto74.json`).
 
 from __future__ import annotations
 
+import re
+
 _TORNILLERIA = ("tuerca", "perno")
+#: el cuerpo de un separador SOBRE un eje (regla 4b): «separador del eje (-y)»; el «Separador de
+#: guarda» no (va soldado sobre el ala)
+_SEPARADOR_EJE_RE = re.compile(r"^(separador(es)?|distanciador(es)?|casquillos?)\s+(del?\s+)?ejes?\b",
+                               re.I)
 _ROSCA = ("perno", "eje", "pie")
 
 
@@ -124,7 +132,10 @@ def _decidir(a, b, geo, ctx):
         if rol(par[1]) == "eje" or gira(par[1]):
             return "contacto", "eje en su chumacera", False
         return "perno", "chumacera atornillada a su soporte", False
-    comun = sorted(t for t in vec.get(a, set()) & vec.get(b, set()) if rol(t) in _TORNILLERIA)
+    par = _uno(a, b, rol, ("eje",))
+    if par and _SEPARADOR_EJE_RE.match(cuerpos.get(par[1], "")):
+        return "contacto", "separador sobre el eje: tope axial, la tuerca no lo aprieta", False
+    comun =sorted(t for t in vec.get(a, set()) & vec.get(b, set()) if rol(t) in _TORNILLERIA)
     if comun:
         return "perno", f"apretadas por {comun[0]}", False
     par = _uno(a, b, rol, ("equipo",))

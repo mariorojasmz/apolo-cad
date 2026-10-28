@@ -113,7 +113,8 @@ def unidas_por_lo_declarado(fasteners):
 def propuesta_estructura(doc) -> dict:
     """`{acciones, resumen, omitidas}`: lo que `declare` aplicaría, sin repetir lo declarado.
 
-    Idempotente como el endpoint de siempre: omite anclajes de piezas ya ancladas y todo par que
+    Idempotente como el endpoint de siempre: omite anclajes de piezas ya ancladas (y de la
+    tornillería que entra en la losa junto a una de ellas: el perno de anclaje) y todo par que
     lo declarado ya une, directo o en cadena (también por un `fasten` en lote o un super-comando:
     sobre una plantilla recién generada no propone nada, D7), y nombra `auto_g_N`/`auto_f_N` sin
     chocar con los nombres existentes (ni con los de un conjunto, que se expanden a `{name}[k]`)."""
@@ -136,15 +137,26 @@ def propuesta_estructura(doc) -> dict:
         return f"{prefijo}{i}"
 
     acciones: list[dict] = []
+    roles = {k: r for k, (r, _) in roles_de(doc).items()}
+    declarados = set(anclados)
+    toca = {}
+    for f in det["fasteners"]:
+        toca.setdefault(f["a"], set()).add(f["b"])
+        toca.setdefault(f["b"], set()).add(f["a"])
     for g in det["grounds"]:
         if g["feature"] in anclados:
+            continue
+        # un perno de anclaje entra en la losa: si toca una pieza ya anclada (su placa) o lo
+        # declarado ya lo une a una, no es otro apoyo (F6 de plantilla-rodillos-cadena, como
+        # `z_piso` de la puerta)
+        if roles.get(g["feature"]) in ("perno", "tuerca") and any(
+                a in toca.get(g["feature"], ()) or unidas(g["feature"], a) for a in declarados):
             continue
         anclados.add(g["feature"])
         acciones.append({"type": "ground", "params": {
             "name": unico("auto_g_"), "feature": g["feature"],
             "nota": (g.get("reason") or "")[:_NOTA_MAX]}})
     omitidas: list[dict] = []
-    roles = {k: r for k, (r, _) in roles_de(doc).items()}
     cajas: dict = {}
     for u in uniones_con_criterio(doc, det):
         par = frozenset((u["a"], u["b"]))

@@ -41,7 +41,16 @@ def disposicion_de(p: CreateRollerConveyorParams):
     from apolo.library.rodillos_cadena import disposicion
 
     return disposicion(p.largo, p.ancho_util, p.paso, p.rodillo, p.altura, p.carga_kg,
-                       p.motriz == "cadena", p.motor, p.velocidad_m_s, p.anclaje)
+                       p.motriz == "cadena", p.motor, p.velocidad_m_s, p.anclaje, p.taller)
+
+
+def sellar(params: dict, material_de) -> dict:
+    """Sello de entrada (`CommandSpec.al_crear`, como `cierres` de `create_belt_conveyor`): todo
+    transportador NUEVO nace con `taller=True` (F6: eje trabado, 6201 de compra, contratuerca y
+    anclajes accesibles). Un log v3 no trae el campo → False → la geometría de siempre; el
+    replay y los edits no sellan y un `taller=False` explícito se respeta."""
+    params.setdefault("taller", True)
+    return params
 
 
 def _exec_create_roller_conveyor(ctx: ExecContext, cmd_id: str,
@@ -100,7 +109,9 @@ SPECS_RODILLOS_CADENA = [
         CreateRollerConveyorParams, _exec_create_roller_conveyor, composite=True,
         # v2 (F4): guardas cerradas, bandeja, tensado sobre la línea de centros y travesaños a
         # una altura; rodillos, cadenas y motor de un log v1 quedan donde estaban.
-        # v3 (F5): pie nivelador en cada pata (las patas se acortan) y placa de piso aparte
-        version=3,
+        # v3 (F5): pie nivelador en cada pata (las patas se acortan) y placa de piso aparte.
+        # F6 NO sube la versión: lo nuevo entra por el campo oculto `taller` que pone el sello
+        # (los params cambian → la firma también); un log v3 regenera idéntico.
+        version=3, al_crear=sellar,
     ),
 ]
