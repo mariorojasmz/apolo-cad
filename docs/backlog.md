@@ -272,6 +272,36 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
   los tiradores salen de `boxDimsFromBbox` (hallazgo del inventario de la
   [poda](plans/poda-claude-md-inventario.md)).
 
+## Lo que halló la tanda de pilotos (2026-10-28: clasificadora, rodillos por gravedad, plataforma)
+
+Los revisores a ciegas vieron lo que la puerta no ve; lo de las plantillas ya se arregló esta noche
+([faja-larga-en-tramos](plans/faja-larga-en-tramos.md) F1–F1c, [plantilla-rodillos-cadena](plans/plantilla-rodillos-cadena.md) F6–F8).
+- Puerta: soldadura declarada sobre una arista o un punto (zanca en punta, peldaño colgado de 5 mm):
+  falta un área de contacto mínima por unión soldada. Dos ALTA que la puerta aprobó.
+- Puerta: el acceso de herramienta da OK con 3,5 mm entre tuerca y ala (no mide el radio de la llave).
+- Puerta: una pieza que entra entre dos soldadas sin holgura (peldaño de 600 entre postes a 600) y los
+  agujeros Ø11 para M10 entre dos subconjuntos soldados (falta sobremedida/colisado al unir soldaduras).
+- Puerta: ISO 14122-3, interrupción del pasamanos 75–120 mm (una ranura de 3 mm que atrapa la mano).
+- Puerta: la tuerca dentro de un tubo cerrado (cama, chumacera y tensor de la faja) no la detecta.
+- Puerta, sobrantes: todo lo posterior a la PRIMERA corrida es «agregado»; correrla temprano obligó a
+  203 justificaciones. `set_justifications` por grupo o lista; `modo='agregar'` no borra piezas que ya no existen.
+- Puerta: un tapón de tubo (seguridad barata que ningún control mide) sale «sobrante».
+- Puerta: tarda ~1 h de reloj con 376 piezas y 10–14 min con las guardas de la plantilla (medir dónde).
+- `cut_list` da la caja envolvente y ángulos null en piezas inclinadas; la BOM pone largo = alto del
+  bbox: el taller recibe dos largos y ningún ángulo. `boolean_op` pierde la ref de catálogo.
+- BOM: el nombre del tubo de catálogo no dice la pared; placas A-MEDIDA sin espesor ni norma.
+- Copias de un patrón no heredan material ni color; `pattern_linear` exige ≥ 2 instancias.
+- `ground` no acepta conjuntos ni sigue a las copias de un patrón; `$k` no se expande en conjuntos de `fasten`.
+- `add_device` no repite dispositivos con una variable (36 puestos: 18 setas físicas, 6 en el circuito).
+- `simulate(opciones.gravedad)` sólo número (sin pendiente); rodillos libres sin juntas (la caja no rueda).
+- `engineering_check`: el vuelco no incluye la fuerza horizontal en la baranda; una unión apernada que es
+  el único camino de carga sale «compartida»; el pandeo de postes arriostrados por diagonal sigue «sin evaluar».
+- Catálogo: arandela DIN 125, tapón de tubo, amortiguador de caucho tipo D, toma de tensión de 300–450 mm,
+  contenedor 600 × 400, chapa estriada.
+- `join_bolted`: sin arandela; no usa los agujeros ranurados de fábrica (garrucha); rechaza base de tubo cerrado.
+- Expresiones sin `atan`; una variable no ve las que se definen después en el log.
+- `get_command_schemas()` sin argumento: 248 kB.
+
 ## En la nota de su plan
 
 Estos pendientes viven en la `nota:` del plan (fuente única); aquí sólo el link.
