@@ -206,7 +206,7 @@ def test_position_traslada_y_editar_regenera_todo():
     doc = Document("rodillos-edicion")
     doc.execute("create_roller_conveyor", {"largo": 1000, "motriz": "libre",
                                            "position": {"x": 300, "y": -100, "z": 50}})
-    b = doc.scene["c1_placa_piso_m_e0"].shape.bounding_box()  # F5: la placa de piso, bajo el pie
+    b = doc.scene["c1_pie_m_e0"].shape.bounding_box()  # F8: la base del pie, en el piso
     assert b.min.Z == pytest.approx(50.0)
     assert doc.scene["c1_larg_m"].shape.bounding_box().min.X == pytest.approx(300.0)
     n = len(doc.scene)

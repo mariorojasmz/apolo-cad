@@ -99,7 +99,7 @@ def test_all_new_families_present():
     # V2: chumaceras (UCP204-208 pie + UCF204-208 brida cuad. + UCFL204-208 brida oval), topes, pies
     assert len(refs_in_category("chumaceras")) == 18  # + UCT204/205/206-150 (puerta-de-publicacion)
     assert len(refs_in_category("topes")) == 3
-    assert len(refs_in_category("pies_niveladores")) == 3
+    assert len(refs_in_category("pies_niveladores")) == 6  # + 3 con base de anclaje (F8)
     # realismo: familia de tambores motrices/reenvío con eje
     assert len(refs_in_category("tambores")) == 6  # + Ø102 motriz, cola eje fijo y eje vivo
     assert len(refs_in_category("motorreductores")) == 4  # + MOTOR-150-EH
@@ -149,7 +149,7 @@ def test_all_new_families_present():
     # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
     # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR); +5 prensaestopas M16–M40 (V8.5 F3)
     # +2 cables sin PE para aparatos de clase II (CABLE-5X1, CABLE-7X1)
-    assert len(CATALOG) == 474  # + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    assert len(CATALOG) == 477  # + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
 
 
 def test_door_sliding_hardware():

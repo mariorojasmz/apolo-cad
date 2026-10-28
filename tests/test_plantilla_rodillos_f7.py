@@ -126,7 +126,7 @@ def test_el_comando_nuevo_nace_con_el_eje_hexagonal_y_el_campo_no_se_publica(lib
 
 @pytest.mark.parametrize("caso, params", [("libre", LIBRE), ("cadena", CADENA_3M)])
 def test_un_log_f6_regenera_las_mismas_piezas_y_cotas(caso, params):
-    doc = _doc({**params, "eje": "roscado"})
+    doc = _doc({**params, "eje": "roscado", "pie": "disco"})  # F6: sin `eje` ni `pie`
     assert doc.check_integrity() == []
     assert (_huella(doc), _geom(doc)) == HUELLA_F6[caso]
 

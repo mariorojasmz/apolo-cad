@@ -186,7 +186,9 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `cierres`), sin bump: tocar la rama `taller=False` cambia los logs v3 guardados. F7, por el
   oculto `eje` («hexagonal», sellado con `taller`; un log F6 lee «roscado»): las ranuras se cortan
   con `add_joinery` «rebaje» (en sitio: conserva el id del larguero) y el eje sale de un
-  `boolean_op` con el sufijo `eje` (`receta_rodillos_eje.py`). Una
+  `boolean_op` con el sufijo `eje` (`receta_rodillos_eje.py`). F8, por el oculto `pie` («base»,
+  sellado con `taller`; un log F7 lee «disco»): pie de base de anclaje atornillado al concreto, sin
+  placa de piso ni soldadura (nada zincado se suelda). Una
   regla que busque un tipo en el log recorre `comandos_efectivos` (lo hace la de cadenas).
   `create_extrude_poly` extruye hacia la normal del polígono: la receta lo pasa ANTIHORARIO
   (`receta_rodillos_guardas._antihorario`), si no la chapa sale corrida un espesor.

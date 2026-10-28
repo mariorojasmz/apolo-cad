@@ -1,7 +1,7 @@
 """Builders de la fijación de taller de `join_bolted` (plan union-en-perfil-hueco, D1/D4):
 remache ciego y tornillo para madera de cabeza hexagonal; y el perno de cuello cuadrado DIN 603
-(F6 de la puerta de publicación) y el anclaje de expansión a concreto (F6 de
-plantilla-rodillos-cadena). Módulo propio: `builders.py` está congelado por el trinquete
+(F6 de la puerta de publicación), el anclaje de expansión a concreto (F6 de
+plantilla-rodillos-cadena) y el pie nivelador con base de anclaje (su F8). Módulo propio: `builders.py` está congelado por el trinquete
 de tamaño.
 
 Convención de la tornillería (la de `hex_bolt`): eje Z, ORIGEN en la cara de asiento de la
@@ -98,5 +98,24 @@ def expansion_anchor(d: float, length: float, sobre: float, across_flats: float,
     return build
 
 
+def leveling_foot_base(rosca: float, altura: float, base_l: float, base_b: float, disco_t: float,
+                       agujero_d: float, paso_agujeros: float):
+    """Pie nivelador con base de anclaje (F8 de plantilla-rodillos-cadena): vástago roscado Ø rosca
+    × altura (eje Z) sobre una base rectangular base_l (X) × base_b × disco_t con 2 agujeros Ø
+    agujero_d sobre X a ± paso_agujeros/2, para anclarla al piso. ORIGEN = centro del vástago, como
+    `leveling_foot` (la base va debajo). El vástago entra 1 mm en la base: un sólido."""
+
+    def build(_length=None):
+        stem = Pos(0, 0, -0.5) * Cylinder(rosca / 2.0, altura + 1.0)
+        z = -altura / 2.0 - disco_t / 2.0
+        base = Pos(0, 0, z) * Box(base_l, base_b, disco_t)
+        for x in (-paso_agujeros / 2.0, paso_agujeros / 2.0):
+            base = base - Pos(x, 0, z) * Cylinder(agujero_d / 2.0, disco_t + 2.0)
+        return stem + base
+
+    return build
+
+
 BUILDERS = {"blind_rivet": blind_rivet, "hex_wood_screw": hex_wood_screw,
-            "carriage_bolt": carriage_bolt, "expansion_anchor": expansion_anchor}
+            "carriage_bolt": carriage_bolt, "expansion_anchor": expansion_anchor,
+            "leveling_foot_base": leveling_foot_base}

@@ -39,8 +39,8 @@ def _bb(shape):
 
 @pytest.fixture(scope="module")
 def tres():
-    doc = Document("rodillos-3m-pies")
-    doc.execute("create_roller_conveyor", PARAMS_3M)
+    doc = Document("rodillos-3m-pies")  # el disco sobre placa de piso de D10 (sin el pie de F8)
+    doc.execute("create_roller_conveyor", {**PARAMS_3M, "pie": "disco"})
     doc.set_requirements(dict(FICHA))
     return doc
 
@@ -183,7 +183,7 @@ def test_un_log_v2_sigue_regenerando_y_la_version_sube_a_3(monkeypatch):
     from apolo.doc.document import _cmd_sig
 
     doc = Document("v2")  # los params de un log v2: sin anclaje
-    doc.execute("create_roller_conveyor", {"largo": 1000, "velocidad_m_s": 0.25})
+    doc.execute("create_roller_conveyor", {"largo": 1000, "velocidad_m_s": 0.25, "pie": "disco"})
     assert doc.check_integrity() == []
     assert any(f.startswith("c1_pie_") for f in doc.scene)
     assert any(f.startswith("c1_placa_piso_") for f in doc.scene)  # anclaje: True por defecto

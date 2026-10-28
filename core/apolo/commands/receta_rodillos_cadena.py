@@ -267,10 +267,13 @@ def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, 
     """Pie nivelador bajo una pata (D10): placa de la pata con la tuerca de la rosca del pie
     soldada por debajo y barreno de paso del vástago; el disco al piso o, con anclaje, a una
     placa de piso con 2 anclajes (se nivela, se ancla y se suelda el disco). Con `taller` (F6):
-    contratuerca en el vástago y los 2 anclajes de compra por FUERA de la placa de la pata."""
+    contratuerca en el vástago y los 2 anclajes de compra por FUERA de la placa de la pata. Con
+    `base` (F8): el pie es de base de anclaje y su base va anclada directo al concreto (sin placa
+    de piso ni soldadura al pie zincado; la placa de la pata, más chica, deja entrar el taladro y
+    el dado); se re-nivela girando el vástago con la contratuerca suelta, sin tocar el anclaje."""
     p = d.pies
     placa = r.pieza("create_box", f"placa_{s}", "Patas", f"Placa de la pata ({donde})", {
-        "width": rc.PLACA_PATA, "depth": rc.PLACA_PATA, "height": rc.PLACA_PATA_T,
+        "width": p.placa_pata, "depth": p.placa_pata, "height": rc.PLACA_PATA_T,
         "position": r.pos(x, y, p.z_placa + rc.PLACA_PATA_T / 2.0)})
     r.taladro(f"tal_pie_{s}", placa, r.pos(x, y, p.z_pata0 + 2.0), "-z", p.barreno)
     r.union(f"placa_pata_{s}", placa, pata, "soldadura", "placa soldada al pie de la pata",
@@ -279,7 +282,8 @@ def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, 
                      f"Tuerca soldada del pie ({donde})",
                      {"component": p.tuerca, "position": r.pos(x, y, p.z_tuerca)})
     r.union(f"tuerca_placa_{s}", tuerca, placa, "soldadura",
-            "tuerca de la rosca del pie soldada bajo la placa", throat_mm=2,
+            "tuerca negra (sin zincar) de la rosca del pie soldada bajo la placa de acero negro"
+            if p.base else "tuerca de la rosca del pie soldada bajo la placa", throat_mm=2,
             length_mm=round(2.0 * math.sqrt(3.0) * p.tuerca_ac, 1))
     pie = r.pieza("insert_component", f"pie_{s}", "Patas", f"Pie nivelador ({donde})",
                   {"component": p.ref, "position": r.pos(x, y, p.z_pie)})
@@ -293,7 +297,17 @@ def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, 
                 f"contratuerca M{p.rosca:g} del vástago apretada contra la tuerca soldada: traba "
                 "la altura nivelada")
     apoyo, nota = pie, "disco del pie nivelador apoyado en el piso, sin anclar"
-    if p.anclaje:
+    if p.base:  # F8: la base del pie, anclada directo al concreto por sus 2 agujeros
+        for j, (dx, dy) in enumerate(p.anclajes):
+            anc = r.pieza("insert_component", f"ancla_{s}{j}", "Patas",
+                          f"Anclaje de expansión ({donde}, {j + 1})",
+                          {"component": ANCLAJE_REF, "position": r.pos(x + dx, y + dy, p.disco_t)})
+            r.union(f"ancla_{s}{j}", anc, pie, "contacto",
+                    "anclaje de expansión M12 por el agujero de la base del pie, apretado sobre "
+                    "ella (espárrago, camisa, arandela y tuerca incluidos)")
+        nota = ("base del pie nivelador con 2 anclajes de expansión M12 al concreto, sin soldar: "
+                "se re-nivela con la contratuerca suelta, sin tocar el anclaje")
+    elif p.anclaje:
         px, py = p.placa_piso
         apoyo = r.pieza("create_box", f"placa_piso_{s}", "Patas", f"Placa de piso ({donde})", {
             "width": px, "depth": py, "height": PLACA_PISO_T,

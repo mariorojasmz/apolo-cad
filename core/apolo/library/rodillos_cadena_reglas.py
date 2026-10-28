@@ -189,9 +189,11 @@ def _pies(d, carga_total: float) -> dict:
     det = (f"{p.n} × {p.ref}: {por_pie:.0f} kg por pie de {p.capacidad_kg:g} (FS {fs:.2f}); "
            f"nivela {nivela} con el pie a media rosca, "
            + ("trabado con contratuerca, " if p.taller else "")
-           + ("sobre placas de piso ancladas." if p.anclaje else "disco directo al piso."))
+           + ("base anclada al concreto con 2 anclajes de expansión, sin soldar; se re-nivela "
+              "con la contratuerca suelta, sin tocar el anclaje." if p.base else
+              "sobre placas de piso ancladas." if p.anclaje else "disco directo al piso."))
     if fs < 1.0:
-        mayor = familias()[-1]
+        mayor = familias(p.base)[-1]
         return _check("pies niveladores", "error", det,
                       f"Ningún pie del catálogo alcanza (el {mayor} lleva "
                       f"{float(CATALOG[mayor].specs['carga_kg']):g} kg): baja la carga o parte "
@@ -274,7 +276,8 @@ def reglas_rodillos_cadena(params: dict, carga_kg: float, largo_paquete_mm: floa
         d = disposicion(params["largo"], params["ancho_util"], params["paso"], params["rodillo"],
                         params["altura"], params["carga_kg"], params["motriz"] == "cadena",
                         params["motor"], params.get("velocidad_m_s"), params.get("anclaje", True),
-                        bool(params.get("taller", False)), params.get("eje", "roscado"))
+                        bool(params.get("taller", False)), params.get("eje", "roscado"),
+                        params.get("pie", "disco"))
     except (ValueError, KeyError) as exc:
         return [_check("transportador de rodillos", "error", f"La plantilla no se arma: {exc}")]
     reglas = []

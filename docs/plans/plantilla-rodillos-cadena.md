@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F5 mergeadas a main el 2026-10-21 (create_roller_conveyor v3, re-verificada por el revisor ciego sin ALTA); F6 (campo oculto taller, E1–E5) en integ-noche, sin mergear; F7 (campo oculto eje «hexagonal» por el sello, E6–E9 vetables) implementada en su rama sobre integ-noche, sin mergear; quedan las 4 preguntas a Mario
+nota: F0–F5 mergeadas a main el 2026-10-21 (create_roller_conveyor v3, re-verificada por el revisor ciego sin ALTA); F6 (campo oculto taller, E1–E5) en integ-noche, sin mergear; F7 (campo oculto eje «hexagonal» por el sello, E6–E9 vetables) implementada en su rama sobre integ-noche, sin mergear; F8 (campo oculto pie «base» por el sello: pie de base de anclaje sin placa de piso ni soldadura, E10 vetable) implementada en su rama sobre integ-f7, sin mergear; quedan las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -64,6 +64,8 @@ repite va en una plantilla, para que cada lección quede dentro una sola vez.
   la piloto de rodillos por gravedad (decisiones E1–E5 en § Bitácora F6); sin bump.
 - **F7 (S, `commands` + `library`)**: el eje hexagonal que se calza, para cambiar un rodillo sin
   tocar tuercas, y su designación en la BOM (decisiones E6–E9 en § Bitácora F7); sin bump.
+- **F8 (S, `commands` + `library`)**: el pie anclado sin soldar: pie nivelador con base de anclaje
+  atornillado al concreto, sin placa de piso (decisión E10 en § Bitácora F8); sin bump.
 
 ### F4 — contrato
 
@@ -169,6 +171,79 @@ a la altura de trabajo.
   después (como `create_conveyor`).
 
 ## Bitácora
+
+### F8 (2026-10-28): el pie anclado sin soldar
+
+**Origen**: tres revisores de taller a ciegas seguidos (pilotos de rodillos por gravedad hechos con
+la plantilla) objetaron el anclaje del pie de F5–F7: con `anclaje: true` el disco del PIE-M*
+(acero ZINCADO) va SOLDADO a una placa de piso anclada. Soldar zincado en obra da humos de zinc y
+cordón poroso, y una vez soldado la altura no se re-nivela en servicio sin amolar.
+
+**Decisión (vetable)** — numerada E10 porque la E8 ya es la compatibilidad de F7:
+- **E10. Pie nivelador con base de anclaje, anclado directo al concreto.**
+  - **Ref nueva**, familia `PIE-BA` en `97_pies_niveladores.yaml` junto a los PIE-M*: `PIE-BA-M8-30`,
+    `PIE-BA-M10-40`, `PIE-BA-M12-50`, con la MISMA rosca, vástago (recorrido) y carga (120 / 200 /
+    350 kg) que el PIE-M* de su métrica, sobre una base rectangular **190 × 80** (espesor el del
+    disco: 10 / 12 / 14) con **2 agujeros Ø14 a 140 mm** sobre X. Solución de mercado: pie con base
+    de fijación al piso, «del orden de» Elesa o Ganter; `cotas_verificadas: false` (no se
+    contrastaron con una ficha). Canto de la base a 25 mm del agujero (≥ 1,5 · 14 = 21, EN 1993-1-8
+    tabla 3.3); la base cabe en el tfix 20 del anclaje. Builder `leveling_foot_base`
+    (`builders_fijacion.py`, origen en el centro del vástago como `leveling_foot`). `familias()`
+    sigue dando sólo los PIE-M* (un log viejo elige igual); `familias(True)`, los de base.
+  - **Anclaje**: los 2 `ANCLA-EXP-M12` de F6 por los agujeros de la base, apretados sobre ella
+    (`contacto` anclaje ↔ pie); el `ground` es el pie, con la nota «sin soldar … se re-nivela con
+    la contratuerca suelta, sin tocar el anclaje». Sin placa de piso y sin ninguna soldadura al pie
+    (el criterio de uniones ya da `contacto` perno ↔ pie: regla 1).
+  - **Acceso de taladro y dado, la cifra de F6** (`ACCESO_ANCLAJE` = 30 mm del eje del anclaje al
+    borde de lo que hay encima): con la placa de la pata de 150 los anclajes de una base comercial
+    quedarían debajo. La placa de la pata se achica a **140 − 2 · 30 = 80 mm** (`Pies.placa_pata`):
+    sigue llevando el tubo 2×2 (50,8) con 14,6 mm por lado para el cordón. Un Ø50 sobre cada anclaje
+    no toca nada (test).
+  - **La tuerca del vástago sigue SOLDADA bajo la placa de la pata**, y la contratuerca sigue: la
+    tuerca (DIN 934, «acero grado 8», negra) y la placa (chapa de acero negro) no son zincadas, así
+    que esa soldadura está bien; la nota de la unión lo dice («tuerca negra (sin zincar) …»). Lo
+    zincado (pie y anclajes) no se suelda.
+  - **Nivelar**: se ancla la base, se gira el vástago con la contratuerca suelta (recorrido ±8,5 /
+    ±12 / ±15 mm, el de F6) y se aprieta la contratuerca contra la tuerca soldada; en servicio se
+    re-nivela igual, sin tocar los anclajes (docstrings de la receta, de `rodillos_cadena_pies`, el
+    schema del comando y el detalle de la regla «pies niveladores»).
+- **Compatibilidad: otro campo oculto, sin bump.** `pie: "disco" | "base"` (`SkipJsonSchema`,
+  default «disco» = F5–F7). El sello lo pone en «base» junto con `eje="hexagonal"` a todo comando
+  nuevo con `taller=True`; «base» sin `taller` es error (los anclajes de catálogo son de F6). Con
+  `anclaje: false` el campo no cambia nada (el disco liso al piso). Un log F7 (`taller` + `eje`, sin
+  `pie`) regenera idéntico: huella de piezas, uniones y anclajes y la geométrica congeladas con el
+  código de 7b8f891. `version` sigue en 3 (el executor no cambió: D11 igual) y `CAMPOS` suma `pie`.
+
+**Archivos**: `library/data/97_pies_niveladores.yaml` (la familia), `builders_fijacion.py`
+(`leveling_foot_base`), `rodillos_cadena_pies.py` (`familias(base)`, `Pies.base`, `placa_pata`,
+anclajes de la base, pila sin placa de piso, masa), `rodillos_cadena.py` (`pie`, `PIES`),
+`rodillos_cadena_reglas.py` (el detalle), `commands/receta_rodillos_cadena.py` (`_pie`),
+`models_rodillos_cadena.py` y `exec_rodillos_cadena.py` (el campo y el sello).
+
+**Medido** (masa real del modelo; estimada sin el ×1,10):
+
+| máquina | sólidos F7 → F8 | masa real F7 → F8 | estimada F8 | pie (carga por pie) |
+|---|---|---|---|---|
+| 1 m | 166 → 162 | 111,3 → 98,1 kg | 100,1 | PIE-BA-M8-30 (79 de 120) |
+| 3 m de F3 | 408 → 402 | 237,4 → 217,6 kg | 223,5 | PIE-BA-M8-30 (111 de 120) |
+| 4 m, TUBOR-3, 400 kg | 492 → 484 | 366,8 → 340,7 kg | 347,8 | PIE-BA-M10-40 (147 de 200) |
+| 1,5 m libre (la piloto) | 180 → 176 | 95,9 → 82,7 kg | 85,9 | PIE-BA-M8-30 (73 de 120) |
+
+- Ninguna métrica de pie cambió (la masa baja: sin la placa de piso de 260 × 150 × 10 y con la placa
+  de la pata de 80). 0 interferencias sin tope y SIN excluir la tornillería (libre 1,5 m y 3 m, y
+  cadena 3 m). Puerta VERDE sin avisos en la piloto: la llave entra en sus 16 fijadores (4 tuercas
+  soldadas, 4 contratuercas, 8 anclajes). Gravedad VERDE (tortura) en la piloto libre y en el 3 m
+  con cadena.
+
+**Tests**: `tests/test_plantilla_rodillos_f8.py` (2 con `-m torture`). Fijados al disco (miden
+F5–F7): el `_doc` de `test_plantilla_rodillos_f6`, el log F6 de `test_plantilla_rodillos_f7` y la
+máquina de 3 m y el log v2 de `test_plantilla_rodillos_f5`. Recalibrados: el piso de `position.z`
+en `test_plantilla_rodillos_cadena` (ahora la base del pie) y los conteos del catálogo (477 refs, 6
+pies). El schema del comando sigue bajo los 7 500 bytes de D12.
+
+**Fuera** (no se decidió): contrastar las cotas del PIE-BA con la ficha de un fabricante; la base
+con los agujeros sobre X no choca con nada hoy, pero una estación pegada a otra máquina en X pediría
+girarla 90°; las 4 preguntas a Mario.
 
 ### F7 (2026-10-28): eje hexagonal que se calza; el rodillo sale levantándolo
 

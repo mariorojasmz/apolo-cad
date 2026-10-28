@@ -13,3 +13,24 @@ families:
       - {ref: "PIE-M8-30", rosca: 8, altura: 30, disco_d: 60, disco_t: 10, carga_kg: 120}
       - {ref: "PIE-M10-40", rosca: 10, altura: 40, disco_d: 75, disco_t: 12, carga_kg: 200}
       - {ref: "PIE-M12-50", rosca: 12, altura: 50, disco_d: 90, disco_t: 14, carga_kg: 350}
+  # PIE NIVELADOR CON BASE DE ANCLAJE (F8 de plantilla-rodillos-cadena, E10): la misma rosca,
+  # recorrido y carga que el PIE-M* de su métrica, sobre una base rectangular con 2 agujeros para
+  # anclarla DIRECTO al concreto (sin placa de piso ni soldadura: la base es zincada). Se nivela
+  # girando el vástago con la contratuerca suelta, sin tocar los anclajes. Builder
+  # leveling_foot_base (origen = centro del vástago, como leveling_foot). Es un EJEMPLO (refs =
+  # ejemplo): lo que hay que respetar al cambiarlo es la rosca, el recorrido, la carga, el paso
+  # entre agujeros (los anclajes caen fuera de la placa de la pata) y el agujero para el anclaje
+  # de catálogo (`anclaje`). Cotas sin verificar contra la ficha del fabricante.
+  - family: "PIE-BA"
+    name_tpl: "Pie nivelador con base de anclaje {ref}"
+    description_tpl: "Pie nivelador M{rosca}, ajuste {altura} mm, base {base_l}×{base_b}×{disco_t} con 2 agujeros Ø{agujero_d} a {paso_agujeros} mm para anclar al piso."
+    builder: leveling_foot_base
+    param_keys: [rosca, altura, base_l, base_b, disco_t, agujero_d, paso_agujeros]
+    weight_formula: "7.85e-6 * (0.785 * rosca * rosca * altura + (base_l * base_b - 2 * 0.785 * agujero_d * agujero_d) * disco_t)"
+    specs_common: {tipo: "pie nivelador con base de anclaje", material: "acero zincado", ajustable: true,
+                   anclaje: "ANCLA-EXP-M12", cotas_verificadas: false,
+                   linea_referencia: "del orden de los pies niveladores con base de fijación al piso de Elesa o Ganter"}
+    variants:
+      - {ref: "PIE-BA-M8-30", rosca: 8, altura: 30, base_l: 190, base_b: 80, disco_t: 10, agujero_d: 14, paso_agujeros: 140, carga_kg: 120}
+      - {ref: "PIE-BA-M10-40", rosca: 10, altura: 40, base_l: 190, base_b: 80, disco_t: 12, agujero_d: 14, paso_agujeros: 140, carga_kg: 200}
+      - {ref: "PIE-BA-M12-50", rosca: 12, altura: 50, base_l: 190, base_b: 80, disco_t: 14, agujero_d: 14, paso_agujeros: 140, carga_kg: 350}

@@ -15,6 +15,15 @@ Recorrido: en la punta alta el vástago tiene que engranar la tuerca entera; en 
 toca la tuerca → recorrido = largo del vástago − altura de la tuerca, y se publica como ± la
 mitad.
 
+F8 (`pie: "base"`, sello de todo comando nuevo con `taller`): con `anclaje`, el pie es uno CON BASE
+DE ANCLAJE (`PIE-BA-*`: la misma rosca, recorrido y carga que el `PIE-M*`) y su base va anclada
+DIRECTO al concreto por sus 2 agujeros con los anclajes de expansión de F6: sin placa de piso y sin
+soldar nada al pie (es zincado: soldarlo da humos de zinc y cordón poroso). La placa de la pata se
+achica a `paso_agujeros − 2 · ACCESO_ANCLAJE` (80 mm con el paso de 140) para que el taladro y el
+dado entren sobre cada anclaje con la misma cifra de F6. Se nivela girando el vástago con la
+contratuerca suelta, sin tocar los anclajes; luego se aprieta la contratuerca. La tuerca del
+vástago sigue SOLDADA bajo la placa de la pata: tuerca y placa son de acero negro, sin zincar.
+
 Familia: la menor cuyo `carga_kg` cubre (masa de la máquina + carga) / patas × `IMPACTO`. La
 masa sale de `masa_estimada` (catálogo + chapa de las cotas, × `MARGEN_MASA`). Si ninguna la
 cubre, la mayor: lo marca el `engineering_check` (`rodillos_cadena_reglas`) y el log sigue
@@ -49,9 +58,11 @@ ACCESO_ANCLAJE = 30.0
 BORDE_ANCLAJE = 25.0
 
 
-def familias() -> list[str]:
-    """Los pies del catálogo, de menor a mayor carga."""
-    refs = [r for r, c in CATALOG.items() if c.category == CATEGORIA]
+def familias(base: bool = False) -> list[str]:
+    """Los pies del catálogo, de menor a mayor carga: los de disco liso o, con `base` (F8), los
+    de base de anclaje (`paso_agujeros` en su ficha)."""
+    refs = [r for r, c in CATALOG.items()
+            if c.category == CATEGORIA and ("paso_agujeros" in c.specs) == base]
     return sorted(refs, key=lambda r: float(CATALOG[r].specs["carga_kg"]))
 
 
@@ -80,6 +91,16 @@ class Pies:
     capacidad_kg: float = 0.0
     taller: bool = False   # F6: contratuerca del vástago y anclajes fuera de la placa de la pata
     z_contratuerca: float = 0.0  # centro de la contratuerca (sólo con `taller`)
+    base: bool = False     # F8: pie con base de anclaje anclada directo al piso (sin placa de piso)
+    paso_agujeros: float = 0.0   # entre los 2 agujeros de la base (sólo con `base`)
+
+    @property
+    def placa_pata(self) -> float:
+        """Lado de la placa de la pata: con `base` (F8), lo que deja `ACCESO_ANCLAJE` libre entre
+        su borde y cada anclaje de la base; si no, `PLACA_PATA`."""
+        from .rodillos_cadena import PLACA_PATA
+
+        return self.paso_agujeros - 2.0 * ACCESO_ANCLAJE if self.base else PLACA_PATA
 
     @property
     def placa_piso(self) -> tuple[float, float]:
@@ -96,36 +117,45 @@ class Pies:
         sobre X a `ACCESO_ANCLAJE` por fuera del borde de la placa de la pata."""
         from .rodillos_cadena import PLACA_PATA
 
+        if self.base:  # F8: los agujeros de la base del pie, sobre X
+            return ((self.paso_agujeros / 2.0, 0.0), (-self.paso_agujeros / 2.0, 0.0))
         if not self.taller:
             return ((ANCLAJE_XY, ANCLAJE_XY), (-ANCLAJE_XY, -ANCLAJE_XY))
         dx = PLACA_PATA / 2.0 + ACCESO_ANCLAJE
         return ((dx, 0.0), (-dx, 0.0))
 
 
-def pila(ref: str, anclaje: bool, taller: bool = False) -> Pies:
+def pila(ref: str, anclaje: bool, taller: bool = False, base: bool = False) -> Pies:
     """Las cotas de la pila de una pata con el pie `ref` a la mitad de su recorrido. Con
     `taller` (F6) la contratuerca va en el vástago bajo la tuerca soldada: traba la altura y
-    ocupa rosca, así que el recorrido es vástago − 2 tuercas."""
+    ocupa rosca, así que el recorrido es vástago − 2 tuercas. Con `base` y `anclaje` (F8) el pie
+    es de base de anclaje (`ref` de `familias(True)`) y su base apoya en el piso: no hay placa de
+    piso. `base` sin `anclaje` no cambia nada (el disco liso al piso)."""
     from .rodillos_cadena_motriz import PLACA_PATA_T
 
+    base = base and anclaje
     s = CATALOG[ref].specs
+    if base != ("paso_agujeros" in s):
+        raise ValueError(f"{ref}: el pie {'con' if base else 'sin'} base de anclaje es uno de "
+                         f"{', '.join(familias(base))}")
     rosca, vastago = float(s["rosca"]), float(s["altura"])
     tuerca = f"TUERCA-M{rosca:g}"
     st = CATALOG[tuerca].specs
     m = float(st["thickness"])
     recorrido = vastago - (2.0 if taller else 1.0) * m
-    z_disco = PLACA_PISO_T if anclaje else 0.0
+    z_disco = PLACA_PISO_T if anclaje and not base else 0.0
     z_vastago = z_disco + float(s["disco_t"])  # arranque del vástago (cara superior del disco)
     z_contra = z_vastago + recorrido / 2.0     # cara inferior de la contratuerca (con `taller`)
     z_tuerca0 = z_contra + (m if taller else 0.0)
     z_placa = z_tuerca0 + m
     return Pies(
-        ref=ref, tuerca=tuerca, rosca=rosca, vastago=vastago, disco_d=float(s["disco_d"]),
+        ref=ref, tuerca=tuerca, rosca=rosca, vastago=vastago, disco_d=float(s.get("disco_d", 0.0)),
         disco_t=float(s["disco_t"]), tuerca_t=m, tuerca_ac=float(st["across_flats"]),
         barreno=clearance_hole_mm(f"M{rosca:g}"), recorrido=recorrido, anclaje=anclaje,
         z_disco=z_disco, z_pie=z_vastago + vastago / 2.0, z_tuerca=z_tuerca0 + m / 2.0,
         z_placa=z_placa, z_pata0=z_placa + PLACA_PATA_T, taller=taller,
         z_contratuerca=z_contra + m / 2.0 if taller else 0.0,
+        base=base, paso_agujeros=float(s["paso_agujeros"]) if base else 0.0,
     )
 
 
@@ -192,8 +222,9 @@ def masa_estimada(d, pie: Pies) -> float:
     ala = float(CATALOG[rc.LARGUERO].specs["leg"])
     pata = d.z_larguero - ala / 2.0 - pie.z_pata0
     px, py = pie.placa_piso
-    por_pata = (_kg(rc.PATA, pata) + RHO * rc.PLACA_PATA**2 * PLACA_PATA_T + _kg(pie.ref)
-                + _kg(pie.tuerca) + (RHO * px * py * PLACA_PISO_T if pie.anclaje else 0.0))
+    por_pata = (_kg(rc.PATA, pata) + RHO * pie.placa_pata**2 * PLACA_PATA_T + _kg(pie.ref)
+                + _kg(pie.tuerca)
+                + (RHO * px * py * PLACA_PISO_T if pie.anclaje and not pie.base else 0.0))
     if pie.taller:  # la contratuerca y, con anclaje, los 2 anclajes de expansión
         por_pata += _kg(pie.tuerca) + (len(pie.anclajes) * _kg(ANCLAJE_REF) if pie.anclaje else 0.0)
     ne = len(d.estaciones)
@@ -209,13 +240,14 @@ def masa_estimada(d, pie: Pies) -> float:
     return total * MARGEN_MASA
 
 
-def elegir(d, anclaje: bool, taller: bool = False) -> Pies:
+def elegir(d, anclaje: bool, taller: bool = False, base: bool = False) -> Pies:
     """El pie de cada pata: el menor que lleva (masa + `d.carga_kg`) / patas × `IMPACTO`; si
-    ninguno, el mayor (el `engineering_check` lo da en error)."""
+    ninguno, el mayor (el `engineering_check` lo da en error). Con `base` y `anclaje` (F8), de
+    los de base de anclaje."""
     n = 2 * len(d.estaciones)
     out = None
-    for ref in familias():
-        p = pila(ref, anclaje, taller)
+    for ref in familias(base and anclaje):
+        p = pila(ref, anclaje, taller, base)
         masa = masa_estimada(d, p)
         por_pie = (masa + d.carga_kg) / n * IMPACTO
         cap = float(CATALOG[ref].specs["carga_kg"])

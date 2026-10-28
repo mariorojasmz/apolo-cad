@@ -87,7 +87,7 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     # + 2 de plc-en-el-lazo F1d1 (el panel de operador y el cable de red)
     # + 1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR)
     # + 5 prensaestopas M16–M40 (V8.5 F3) + 2 cables sin PE (CABLE-5X1, CABLE-7X1)
-    assert len(CATALOG) == 474  # + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    assert len(CATALOG) == 477  # + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS + DIFERENCIALES + SIN_PE)

@@ -10,7 +10,8 @@ vecinas, en este orden (gana la primera regla que aplica):
    Un perno ↔ la pieza que atraviesa: `contacto` (la unión de las piezas es `perno`, regla 5).
    Una tuerca «soldada» (la del nivelador) va `soldadura` a la pieza.
 1b. pie nivelador: con su placa de piso, `soldadura` (el disco se suelda tras nivelar); con lo
-   demás, `contacto` (pasa por la placa: la unión es su tuerca).
+   demás, `contacto` (pasa por la placa: la unión es su tuerca). El pie de BASE de anclaje (F8 de
+   plantilla-rodillos-cadena) no lleva placa de piso: sus anclajes caen en la regla 1.
 2. cadena o banda: `contacto` con lo que gira o con la cama; con todo lo demás, ninguna.
 3. guarda (también una tapa): con lo que gira o con el equipo que cubre, ninguna; con su
    soporte o la estructura, `perno`; con otra parte de la MISMA guarda (mismo cuerpo de nombre),

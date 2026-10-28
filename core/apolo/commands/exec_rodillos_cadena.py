@@ -41,19 +41,24 @@ def disposicion_de(p: CreateRollerConveyorParams):
     from apolo.library.rodillos_cadena import disposicion
 
     return disposicion(p.largo, p.ancho_util, p.paso, p.rodillo, p.altura, p.carga_kg,
-                       p.motriz == "cadena", p.motor, p.velocidad_m_s, p.anclaje, p.taller, p.eje)
+                       p.motriz == "cadena", p.motor, p.velocidad_m_s, p.anclaje, p.taller, p.eje,
+                       p.pie)
 
 
 def sellar(params: dict, material_de) -> dict:
     """Sello de entrada (`CommandSpec.al_crear`, como `cierres` de `create_belt_conveyor`): todo
     transportador NUEVO nace con `taller=True` (F6: eje trabado, 6201 de compra, contratuerca y
     anclajes accesibles) y, con él, `eje="hexagonal"` (F7: el eje se calza en ranuras del ala y el
-    rodillo sale levantándolo). Un log v3 no trae los campos → False / «roscado» → la geometría de
-    siempre; uno F6 trae `taller` sin `eje` → el eje M12 trabado. El replay y los edits no sellan y
-    lo explícito se respeta (`taller=False` deja el eje roscado: el hexagonal pide `taller`)."""
+    rodillo sale levantándolo) y `pie="base"` (F8: con `anclaje`, pie de base de anclaje
+    atornillado al concreto, sin placa de piso ni soldadura). Un log v3 no trae los campos → False
+    / «roscado» / «disco» → la geometría de siempre; uno F6 trae `taller` sin `eje` → el eje M12
+    trabado; uno F7 trae `eje` sin `pie` → el disco soldado a la placa de piso. El replay y los
+    edits no sellan y lo explícito se respeta (`taller=False` deja el eje roscado y el disco:
+    hexagonal y base piden `taller`)."""
     params.setdefault("taller", True)
     if params.get("taller") is True:
         params.setdefault("eje", "hexagonal")
+        params.setdefault("pie", "base")
     return params
 
 
@@ -116,7 +121,8 @@ SPECS_RODILLOS_CADENA = [
         # v3 (F5): pie nivelador en cada pata (las patas se acortan) y placa de piso aparte.
         # F6 NO sube la versión: lo nuevo entra por el campo oculto `taller` que pone el sello
         # (los params cambian → la firma también); un log v3 regenera idéntico. F7 tampoco: el
-        # campo oculto `eje` («hexagonal» por el sello); un log F6 regenera idéntico.
+        # campo oculto `eje` («hexagonal» por el sello); un log F6 regenera idéntico. F8 tampoco:
+        # el oculto `pie` («base» por el sello); un log F7 regenera idéntico.
         version=3, al_crear=sellar,
     ),
 ]

@@ -79,6 +79,9 @@ HUECO_GIRA_R = 10.0        # agujero de buje y piñón: libra el separador (2 mm
 # F7 (`eje: "hexagonal"`, también sellado): barra hexagonal calzada en ranuras abiertas hacia
 # arriba del ala vertical, sobre 6202 de agujero hexagonal; cotas en `rodillos_cadena_eje.py`.
 EJES = ("roscado", "hexagonal")
+# F8 (`pie: "base"`, también sellado): con `anclaje`, pie nivelador con base de anclaje anclado
+# directo al concreto, sin placa de piso ni soldadura (`rodillos_cadena_pies.py`).
+PIES = ("disco", "base")
 ALOJ_HOMBRO_R = 13.0       # hombro de la tapa: sólo el aro EXTERIOR (Da máx del 6201 ≈ 28.4)
 SOBRE_TUERCA = 4.0         # rosca que asoma de la tuerca (> 2 hilos de M12)
 TOPE_SOBRE_EJE = 20.0      # canto superior del larguero sobre el eje (borde del barreno ≥ 1.5·d)
@@ -247,7 +250,7 @@ def _estaciones(largo: float, xs: tuple, mot: Motriz | None, vano: float, z_trav
 def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altura: float,
                 carga_kg: float, motriz: bool, motor: str | None,
                 velocidad_m_s: float | None = None, anclaje: bool = True,
-                taller: bool = False, eje: str = "roscado") -> Disposicion:
+                taller: bool = False, eje: str = "roscado", pie: str = "disco") -> Disposicion:
     """Todas las cotas del transportador; `ValueError` accionable si no se puede fabricar.
     `velocidad_m_s` (D6) elige el piñón del motor; sin ella, el de siempre (`PINON_MOTRIZ`).
     El pie nivelador de las patas (D10) sale de la carga por pata; `anclaje` pone una placa de
@@ -256,14 +259,21 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     sello de todo comando nuevo) abre el lado sin cadena a `HOLGURA_BASTIDOR_TALLER` para la
     tuerca interior y el separador del eje, y arma la pila del pie con su contratuerca. `eje`
     «hexagonal» (F7, sellado también; pide `taller`): el eje se calza en ranuras del ala, asoma
-    `rodillos_cadena_eje.SOBRE` por fuera y las ranuras recortan el vano del larguero."""
+    `rodillos_cadena_eje.SOBRE` por fuera y las ranuras recortan el vano del larguero. `pie`
+    «base» (F8, sellado también; pide `taller`): con `anclaje`, el pie de base de anclaje va
+    anclado directo al piso, sin placa de piso ni soldadura."""
     from . import rodillos_cadena_eje as hx
 
     if eje not in EJES:
         raise ValueError(f"eje '{eje}': usa uno de {', '.join(EJES)}")
+    if pie not in PIES:
+        raise ValueError(f"pie '{pie}': usa uno de {', '.join(PIES)}")
     eje_hex = eje == "hexagonal"
     if eje_hex and not taller:
         raise ValueError("el eje hexagonal va con la plantilla de taller (taller: true)")
+    base = pie == "base"
+    if base and not taller:
+        raise ValueError("el pie con base de anclaje va con la plantilla de taller (taller: true)")
     if rodillo not in RODILLOS:
         raise ValueError(f"rodillo '{rodillo}': usa uno de {', '.join(RODILLOS)}")
     if motriz and motor not in MOTORES:
@@ -303,7 +313,7 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     sobre = hx.SOBRE if eje_hex else tuerca_t + SOBRE_TUERCA
     eje_y0, eje_y1 = y_in_m - t - sobre, y_in_p + t + sobre
     z_bajo_larguero = h + TOPE_SOBRE_EJE - ala
-    z_pata0 = pila(pies_familias()[-1], anclaje, taller).z_pata0
+    z_pata0 = pila(pies_familias(base and anclaje)[-1], anclaje, taller, base).z_pata0
     pata = z_bajo_larguero - z_pata0
     if pata < 250.0:
         raise ValueError("altura de trabajo demasiado baja para patas con travesaño y pie "
@@ -362,7 +372,7 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         taller=taller, eje_hex=eje_hex,
     )
     # D10: el pie sale de la carga por pata; la pata crece lo que la pila baja
-    pies = elegir_pies(prov, anclaje, taller)
+    pies = elegir_pies(prov, anclaje, taller, base)
     pata = z_bajo_larguero - pies.z_pata0
     if mot is None:
         estaciones = _estaciones(largo, xs, None, vano, pies.z_pata0 + pata / 2.0)

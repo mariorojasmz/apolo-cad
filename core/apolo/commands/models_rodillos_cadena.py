@@ -35,7 +35,7 @@ class CreateRollerConveyorParams(BaseModel):
     piñón doble-simple ASA 40 Z15 soldado a un buje en cada rodillo, cadenas ASA 40 1:1
     alternando las dos hileras, motorreductor bajo el último rodillo con su piñón y cadena
     motriz, patas de tubo 2x2 en H (travesaño ENTRE las patas) con pie nivelador de catálogo
-    (tuerca soldada bajo la placa de la pata; con `anclaje`, placa de piso con 2 anclajes y
+    (tuerca soldada bajo la placa de la pata; con `anclaje`, base del pie con 2 anclajes y
     `ground`), guarda de cadenas sobre separadores soldados, guarda de la transmisión CERRADA
     (cárter que corre con el motor + guarda fija atornillada al larguero, ISO 14120) y bandeja
     inferior de cadenas en tramos atornillados. Todas las uniones van declaradas (`fasten` en
@@ -45,17 +45,17 @@ class CreateRollerConveyorParams(BaseModel):
     CÓMO MONTAR (IMPORTANTE):
     - Transporte a lo largo de +X: la alimentación en x = position.x y la motriz (motor) en
       x = position.x + largo. El centro de los tubos en y = position.y; la transmisión va hacia
-      +Y. position.z es el piso (las placas de piso, o los discos de los pies sin anclaje,
-      apoyan en z = position.z). Para girarlo o moverlo después, transform_group sobre el grupo
+      +Y. position.z es el piso (las bases o los discos de los pies apoyan en z = position.z). Para girarlo o moverlo después, transform_group sobre el grupo
       `name`; no lleva rotation.
     - `altura` = cara superior de los rodillos (altura de trabajo), con los pies niveladores a
       la mitad de su recorrido. El eje queda a altura − Ø/2.
     - Pies niveladores: la familia sale de la carga por pata ((masa + carga_kg) / patas × 1.5
       contra la carga del pie); engineering_check publica la carga por pie y el recorrido de
       nivelación (±). Cada vástago lleva su contratuerca (traba la altura nivelada).
-      `anclaje: true` (default) = cada disco sobre una placa de piso con 2 anclajes de
-      expansión M12 de compra, por FUERA de la placa de la pata (entran el taladro y el dado):
-      se nivela, se traba, se ancla y se suelda el disco; `false` = disco directo al piso.
+      `anclaje: true` (default) = la BASE del pie atornillada al concreto con 2 anclajes de
+      expansión M12 de compra, por FUERA de la placa de la pata (entran el taladro y el dado),
+      sin soldar: se re-nivela con la contratuerca suelta, sin tocar el anclaje; `false` = disco
+      directo al piso.
     - `paso`: con `motriz: cadena` NO es libre: con cadena 1:1 sólo cierran sin sobrante 95.25,
       107.95 o 120.65 mm (30, 32 o 34 eslabones). Con `motriz: libre` va de Ø del tubo + 20 mm
       (luz entre tubos) a 300 mm (TUBOR-2: 70.8–300). El número de rodillos sale de `largo`
@@ -121,8 +121,8 @@ class CreateRollerConveyorParams(BaseModel):
     )
     anclaje: bool = Field(
         True, title="Anclaje al piso",
-        description="true = placa de piso con 2 anclajes bajo cada pie nivelador; false = el "
-                    "disco del pie apoya directo en el piso",
+        description="true = cada pie nivelador anclado al concreto con 2 anclajes de expansión; "
+                    "false = el disco del pie apoya directo en el piso",
     )
     # F6, FUERA del schema (criterio de Apolo, no del modelador): eje trabado entre dos tuercas
     # con separadores, 6201 de compra en el alojamiento de la tapa, contratuerca del pie y
@@ -134,6 +134,11 @@ class CreateRollerConveyorParams(BaseModel):
     # M12 trabado de F6. El sello la pone en «hexagonal» junto con `taller`; un log F6 no la
     # trae → «roscado» → igual.
     eje: SkipJsonSchema[Literal["roscado", "hexagonal"]] = Field("roscado")
+    # F8, también FUERA del schema: «base» = con `anclaje`, pie nivelador con base de anclaje
+    # atornillada al concreto por sus 2 agujeros (sin placa de piso ni soldadura al pie zincado);
+    # «disco» = el disco del pie soldado a una placa de piso anclada (F5–F7). El sello la pone en
+    # «base» junto con `taller`; un log F6/F7 no la trae → «disco» → igual.
+    pie: SkipJsonSchema[Literal["disco", "base"]] = Field("disco")
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
 
     @model_validator(mode="after")
