@@ -304,7 +304,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     # compuesto: la huella es la del executor; cotas y receta viven en otros módulos (regla D10)
     # v4 (uniones-que-tocan F1): la pared interior de la guarda fija soldada a sus extremos
     "create_roller_conveyor": (4, "450707432cde2d9d"),
-    "create_sheet_metal": (1, "2aeed3174e15adda"),
+    "create_sheet_metal": (2, "df4169fdaf850a3b"),
     "create_structural_profile": (1, "ada70bc0722ffb7f"),
     # +coronado_mm: con 0 (default) la geometría no cambia; v2: «Anillo Seeger DIN 472-Ø» (F6)
     "create_take_up": (2, "a02e2fb07d4773ae"),
@@ -313,7 +313,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "delete_feature": (1, "131eec22d5b444b7"),
     "distribute": (1, "dbd8f19a2efade42"),
     "drill_hole": (1, "f9fe72f8f410fa3f"),
-    "duplicate_feature": (1, "1e53ee34eb4d6e87"),
+    "duplicate_feature": (1, "b360c74b26a2edd8"),
     # material_tornilleria (F6): sólo entra al dict si se declara; no hay geometría → huella
     "fasten": (1, "6d432ee113ee4f64"),
     "fill_surface": (1, "16418efc4d5e7384"),
@@ -331,10 +331,10 @@ VERSIONES: dict[str, tuple[int, str]] = {
     # `specs.agujero` (el cambio vive en tablero_geom.py, que la huella no ve); sólo huella
     # (trabas-de-modelado D7): pasa su cmd_id a `plan` para el mensaje de la reserva, misma geometría
     "layout_tablero": (2, "a7f115456010adaf"),
-    "mirror_feature": (1, "6973b59545d49469"),
-    "pattern_circular": (1, "608d05fdba3297c0"),
-    "pattern_group": (1, "cb174b5f27cebde8"),
-    "pattern_linear": (1, "ecfdc2b719ffbc08"),
+    "mirror_feature": (1, "f894d0d269b2f76d"),
+    "pattern_circular": (1, "f67ea19fab783542"),
+    "pattern_group": (1, "b6e7ca3205790c59"),
+    "pattern_linear": (1, "35c03ac8aac8055d"),
     "push_face": (1, "55dda35c7aab1ee7"),
     "run_script": (2, "0428994fa44d3402"),  # v2: la forma vuelve del worker en BRep (sandbox-caliente D6)
     "set_variable": (1, "20e2308e5779cf31"),

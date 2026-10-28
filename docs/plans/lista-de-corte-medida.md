@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude con el criterio delegado (2026-10-28, vetable por número); falta F1
+nota: F1 implementada (2026-10-28, decisiones F1-a…F1-j vetables en la Bitácora); falta revisarla y mergearla. Pendiente fuera de F1 - chapa plegada sin ficha (F1-j) y el ∠ medido en el BOM (F1-i)
 descripcion: La lista de corte mide la pieza que se corta (ángulo de cada extremo, largo exterior) y da la chapa por su espesor y su desarrollo, en vez de creer lo que declaró el comando
 ---
 
@@ -66,3 +66,73 @@ lo declarado. Lo mismo pasa a cualquier máquina que recorte un perfil con `add_
   F1 decide por la ficha (el perfil se extruye en Z local) antes que por la forma.
 
 ## Bitácora
+
+### F1 (2026-10-28)
+
+Implementada en la rama del worktree (sin mergear). Archivos: `kernel/corte_barra.py` (medida
+pura, D1/D2/D5), `library/cutlist_medida.py` (qué se mide, contraste con lo declarado, textos
+únicos), `library/chapa_ficha.py` (ficha + desarrollo, D3/D4), `library/cutlist.py`,
+`commands/escena.py` (`Feature.chapa`), `commands/exec_biblioteca.py` (`create_sheet_metal` v2),
+`commands/exec_basicos.py` (las copias heredan la ficha), `drawing/sheetset.py` y
+`api/routers/drawings.py` (el desplegado sale de la misma ficha), tests en
+`tests/test_lista_corte_medida.py`.
+
+Decisiones tomadas en la fase (vetables por número):
+
+- **F1-a. Qué se mide como barra**: sólo las familias `perfiles`, `perfiles_abiertos`,
+  `tubos_circulares` y `tubos_estructurales` (`CATEGORIAS_PERFIL`). Rodillos, tambores, guías,
+  bisagras, canaletas y lo demás cortable tienen otra forma (un rodillo con su eje daría
+  «especial») y siguen por la caja como antes.
+- **F1-b. El eje** = la dirección de las aristas rectas que más largo suman, VALIDADA con la
+  sección de la ficha (riesgo del plan): si las extensiones perpendiculares no son la sección de
+  la ref (± máx(1 mm, 2 %)), la pieza no se mide y cae a lo de antes. Un perfil corto o casi
+  cúbico queda así protegido sin adivinar.
+- **F1-c. Qué es una cara de corte**: la que no cruza la mitad del largo y comparte una arista con
+  el contorno EXTERIOR de un costado. Un taladro, una colisa o una ventana cerrada viven en un
+  hueco del costado y no son corte (medido: la colisa en el alma sigue «recto»).
+- **F1-d. «Especial»** = cualquier extremo que no sea un plano o dos planos con arista CONVEXA:
+  cara curva (boca de pescado), piso paralelo al eje, planos paralelos (escalón), arista cóncava.
+  Por eso una riostra `boca_de_pescado` de `create_brace` sale ahora «especial» con el α del
+  comando en `aviso`: una boca de pescado no se corta con sierra.
+- **F1-e. Lo declarado se contrasta, no manda**: si `miter`/`cut_length` coinciden con lo medido
+  (± 0,5° y 1 mm) la fila conserva el orden y los `None` del comando (salida idéntica a la de
+  siempre); si no, la fila da lo medido y un `aviso` con lo declarado. El orden de los extremos
+  medidos es canónico (no depende de hacia dónde apunte la pieza): dos copias espejadas agrupan.
+- **F1-f. La ficha de chapa vive en la pieza** (`Feature.chapa`, datos planos) y no en una
+  lectura del log: la lista de corte sólo recibe la escena y las copias de `pattern_*`,
+  `duplicate_feature` y `mirror_feature` la heredan (los peldaños son un patrón). Caché de
+  geometría: `create_sheet_metal` sube a **v2** (la firma acumulada invalida todo lo que viene
+  después en los proyectos con chapa); las copias sólo cambian su huella (para lo que no es chapa
+  dejan lo mismo en `RegenState`). Sin bump de `GEOM_CACHE_EPOCH`: un blob viejo sin el campo lee
+  `chapa = None` (default de clase) y sólo es falso en proyectos con chapa, que la v2 invalida.
+- **F1-g. Las instancias intactas comparten la medida** (`mesh_key` + `matrix`, copias rígidas:
+  largo y cortes no cambian al moverlas ni al reflejarlas) dentro de una llamada; aparte, la
+  caché por `id(shape)` con referencia + `is`.
+- **F1-h. La sección de la ficha se construye a 1 m**: a 100 mm el largo se colaba entre los dos
+  lados (el UPN-120 salía 55×**100**). Era otra mentira de la lista, corregida en el mismo paso.
+- **F1-i. El BOM no cambia**: compra por ref + `cut_length` (el largo de barra que se pide, ≥ el
+  exterior) y su «∠» sigue siendo el declarado. El detalle del corte vive en la lista de corte, el
+  CSV y los planos, que leen esta medida (D4). Si se quiere el ∠ medido también en el BOM, es otra
+  fase.
+- **F1-j. Sin reconocimiento geométrico de chapa ajena**: una chapa plegada hecha con
+  `run_script` o `boolean_op` (sin ficha) sigue por la caja. Medir su desarrollo sin radio ni K
+  sería una aproximación; queda pendiente.
+
+Medido sobre los `.apolo` reales (sólo lectura, `C:\t\maq`), antes = `main` en `35fbde6`:
+
+| pieza | antes | después |
+|---|---|---|
+| Zanca (+Y)/(−Y), UPN-120 ×2 | 55×100×854,1, recto | 55×120×**847,5**, ∠27,5°/62,5°, `aviso` (L 854,1, ∠0°/0° declarados) |
+| Peldaño superior ×2 (c91 + patrón) | 40×118×600 | **3**×182,1×600, chapa, 2 pliegues |
+| Peldaño de arranque (c217) | 72,1×160×600 | **3**×288,2×600, 2 pliegues |
+| Chapa de pisada de arranque (c438) | 72,1×83,8×600 | **3**×147,9×600, 1 pliegue |
+| Clasificadora: Contenedor de destino inferior ×24 | 255,5×605,6×660 | **1,5**×754,2×854,2, 4 pliegues |
+
+El resto de las filas de la plataforma (29), de la clasificadora (45), del elevador y de la
+mezcladora (versiones del 2026-10-27) salen idénticas; las riostras y pasamanos de `create_brace`
+de la plataforma dan lo que declaran.
+
+Costo (D5, `time.process_time()`, laptop, una suite corriendo en paralelo): plataforma (236
+piezas, 34 perfiles, 4 chapas) 0,16 s la primera lista (antes 0,11 s), 0 la segunda (caché);
+clasificadora (480 piezas, 230 perfiles —204 instancias de 8 definiciones—, 24 chapas) 0,72 s la
+primera (1,83 s sin compartir las instancias; antes 0,11 s) y 0,05 s la segunda.

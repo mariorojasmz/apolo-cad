@@ -43,12 +43,16 @@ def _profile_section(feat) -> str | None:
     return f"{prefijo}{cuerpo}"
 
 
-def _pick_solid(shape, t: float, w: float, l: float):
-    """Sólido de `shape` cuyas dimensiones ordenadas == (t,w,l) (descompone compounds)."""
+def _pick_solid(shape, t: float, w: float, l: float, indice: int | None = None):
+    """Sólido de `shape` de la fila: el `indice` que dio la lista de corte (sus medidas ya no
+    son las de la caja: un perfil inclinado, una chapa desarrollada) o, sin él, el de
+    dimensiones ordenadas == (t,w,l) (descompone compounds)."""
     try:
         cands = list(shape.solids()) or [shape]
     except Exception:
         cands = [shape]
+    if indice is not None and 0 <= indice < len(cands):
+        return cands[indice]
     for s in cands:
         bb = s.bounding_box()
         d = sorted((round(bb.max.X - bb.min.X, 1), round(bb.max.Y - bb.min.Y, 1), round(bb.max.Z - bb.min.Z, 1)))
@@ -134,6 +138,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
 
     from apolo.commands.registry import Feature
     from apolo.library.cutlist import cut_list, cut_list_totals, hardware_schedule
+    from apolo.library.cutlist_medida import detalle_corte
 
     base = dict(meta or {})
     base.setdefault("date", date.today().isoformat())
@@ -188,7 +193,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
             continue
         if avance is not None:
             avance(len(pages), n)
-        solid = _pick_solid(rep.shape, r["espesor_mm"], r["ancho_mm"], r["largo_mm"])
+        solid = _pick_solid(rep.shape, r["espesor_mm"], r["ancho_mm"], r["largo_mm"], r.get("_solido"))
         # la Feature sintética DEBE llevar el material de la FILA: sin él, el peso del
         # cajetín re-resuelve por HEURÍSTICA DE NOMBRE y una pieza de acero con palabra
         # de carpintería en el nombre («…bajo el larguero») salía pesada como MADERA
@@ -238,13 +243,10 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
                                         sheet=sheet, meta=page_meta(len(pages) + 1)))
 
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)
-    def _dims_cell(r):
+    def _dims_cell(r):  # el taller ve el corte de cada extremo (o el desarrollo de la chapa)
         base = f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}"
-        if r.get("corte") == "inglete":  # V5.8: el taller ve el ángulo por extremo
-            angs = "/".join(f"{a:g}°" if a is not None else "0°"
-                            for a in (r.get("angulo_1"), r.get("angulo_2")))
-            return f"{base} ∠{angs}"
-        return base
+        detalle = detalle_corte(r)
+        return f"{base} {detalle}" if detalle else base
 
     cl_rows = [[r["material"], _dims_cell(r), r["cantidad"], r["nombre"]] for r in rows]
     totals = cut_list_totals(rows)

@@ -42,6 +42,11 @@ class Feature:
     # (mates, transform_group, insert_project) las transforma. REEMPLAZAR el dict, jamás
     # mutarlo in-place (los checkpoints comparten la referencia por el shallow copy).
     anchors: dict | None = None
+    # Ficha de CHAPA plegada (plan lista-de-corte-medida, D3): la deja `create_sheet_metal`
+    # (`library/chapa_ficha.ficha_chapa`, datos planos) y la heredan sus copias (patrón, espejo,
+    # duplicado); la lista de corte y el desplegado sacan de ella el desarrollo. REEMPLAZAR,
+    # jamás mutar (los checkpoints comparten la referencia).
+    chapa: dict | None = None
 
     def make_unique(self) -> None:
         """La geometría dejó de ser la canónica (fillet, taladro…)."""

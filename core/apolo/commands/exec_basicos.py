@@ -77,7 +77,7 @@ def _exec_pattern(ctx: ExecContext, cmd_id: str, p: PatternLinearParams) -> None
         matrix = multiply(off, feat.matrix) if feat.matrix is not None else None
         ctx.scene[fid] = Feature(
             fid, f"{feat.name} ({i + 1})", copy, cmd_id,
-            component=feat.component, cut_length=feat.cut_length,
+            component=feat.component, cut_length=feat.cut_length, chapa=feat.chapa,
             mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
             anchors=transform_anchors(off, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
         )
@@ -134,7 +134,7 @@ def _exec_pattern_group(ctx: ExecContext, cmd_id: str, p: PatternGroupParams) ->
                 matrix = multiply(off_m, feat.matrix) if feat.matrix is not None else None
                 scene[fid] = Feature(
                     fid, f"{feat.name} ({i + 1},{k + 1})", copy, cmd_id,
-                    component=feat.component, cut_length=feat.cut_length,
+                    component=feat.component, cut_length=feat.cut_length, chapa=feat.chapa,
                     mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
                     anchors=transform_anchors(off_m, feat.anchors),  # V6.3d Fix 2: copia hereda anclas
                 )
@@ -155,7 +155,7 @@ def _exec_duplicate(ctx: ExecContext, cmd_id: str, p: DuplicateParams) -> None:
     matrix = multiply(off_m, feat.matrix) if feat.matrix is not None else None
     ctx.scene[cmd_id] = Feature(
         cmd_id, f"{feat.name} (copia)", copy, cmd_id,
-        component=feat.component, cut_length=feat.cut_length,
+        component=feat.component, cut_length=feat.cut_length, chapa=feat.chapa,
         mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
         anchors=transform_anchors(off_m, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
     )
@@ -187,7 +187,7 @@ def _exec_pattern_circular(ctx: ExecContext, cmd_id: str, p: PatternCircularPara
         matrix = multiply(off, feat.matrix) if feat.matrix is not None else None
         ctx.scene[fid] = Feature(
             fid, f"{feat.name} ({i + 1})", copy, cmd_id,
-            component=feat.component, cut_length=feat.cut_length,
+            component=feat.component, cut_length=feat.cut_length, chapa=feat.chapa,
             mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
             anchors=transform_anchors(off, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
         )
@@ -206,5 +206,5 @@ def _exec_mirror(ctx: ExecContext, cmd_id: str, p: MirrorParams) -> None:
     copy = mirror(feat.shape, about=plane)
     ctx.scene[cmd_id] = Feature(
         cmd_id, f"{feat.name} (espejo)", copy, cmd_id,
-        component=feat.component, cut_length=feat.cut_length,
+        component=feat.component, cut_length=feat.cut_length, chapa=feat.chapa,
     )

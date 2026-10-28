@@ -243,7 +243,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec("create_frame", "Esqueleto", "biblioteca", CreateFrameParams, _exec_create_frame),
         CommandSpec(
             "create_sheet_metal", "Chapa metálica", "biblioteca", SheetMetalParams,
-            _exec_create_sheet_metal,
+            _exec_create_sheet_metal, version=2,  # v2: deja su ficha de chapa (lista-de-corte-medida)
         ),
         CommandSpec("run_script", "Script IA", "crear", RunScriptParams, _exec_run_script, version=2),
         CommandSpec(

@@ -92,8 +92,12 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
 - Ingletes (`miter.py`, `weldment.py`, `frame.py`): corte por el plano BISECTOR del nodo (V
   exacto = A·span, ancla de tests). Weldment = marcos sup/inf a 45° + postes a tope; frame =
   bisectriz sólo en nodos de grado 2 (colineal → recto; α > 75° o grado ≠ 2 → tope).
-  `Feature.miter` → BOM/lista de corte «∠45°/45°» y `cut_length` = longitud EXTERIOR.
+  `Feature.miter` → BOM «∠45°/45°» y `cut_length` = longitud EXTERIOR.
   [devlog § V5.8](../../../docs/devlog.md)
+- **La lista de corte MIDE** (`cutlist_medida.py`): perfil de catálogo → largo exterior y corte
+  por extremo de `kernel/corte_barra.py` (lo declarado sólo se contrasta: `aviso`); chapa →
+  `Feature.chapa` + `chapa_ficha.desarrollo`, el mismo de `export_flat_pattern`. Sus textos de
+  corte son los del CSV y los planos. [plan](../../../docs/plans/lista-de-corte-medida.md)
 
 ## Materiales (`materials.py`)
 

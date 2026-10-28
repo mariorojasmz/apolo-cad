@@ -18,6 +18,7 @@ from functools import lru_cache
 
 from .bom import _base_name
 from .catalog import CATALOG
+from .cutlist_medida import es_perfil, fila_chapa, fila_perfil, texto_angulos, texto_corte
 from .designacion_comercial import (
     categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
 )
@@ -61,10 +62,11 @@ def _dims_sorted(solid) -> tuple[float, float, float]:
 
 @lru_cache(maxsize=256)
 def _seccion_catalogo(ref: str) -> tuple[float, float]:
-    """(espesor, ancho) de la sección de un perfil cortable del catálogo."""
+    """(espesor, ancho) de la sección de un perfil cortable del catálogo: lo construye LARGO
+    (1 m) para que el largo no se cuele entre los dos lados (un UPN-120 a 100 mm daba 55×100)."""
     from .catalog import build_component
 
-    shape, _ = build_component(ref, 100.0)
+    shape, _ = build_component(ref, 1000.0)
     return _dims_sorted(shape)[:2]
 
 
@@ -84,11 +86,35 @@ def _inclinado(comp, f) -> tuple | None:
     return (*_seccion_catalogo(comp.ref), round(float(cut), 1))
 
 
+def _medidas(f, comp, mat, solidos: list, memo: dict) -> list:
+    """Por sólido: (dims, firma, campos) MEDIDOS (perfil de catálogo o chapa con ficha) o None
+    (la caja de siempre). `cutlist_medida` dice qué se mide y cómo. Las instancias INTACTAS de
+    una misma definición (`mesh_key` + `matrix`: copias rígidas) comparten la medida de la
+    primera en `memo` (largo y cortes no cambian al moverla ni al reflejarla, D5)."""
+    if getattr(f, "chapa", None) and len(solidos) == 1:
+        return [fila_chapa(f, mat)]
+    if es_perfil(comp):
+        from apolo.kernel.corte_barra import medir_barras
+
+        seccion = _seccion_catalogo(comp.ref)
+        clave = f.mesh_key if getattr(f, "mesh_key", None) and f.matrix is not None else None
+        barras = memo.get(clave) if clave else None
+        if barras is None:
+            barras = medir_barras(f.shape, seccion)
+            if clave:
+                memo[clave] = barras
+        return [fila_perfil(f, seccion, m) if m else None for m in barras]
+    return [None] * len(solidos)
+
+
 def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:
     """Piezas a CORTAR (a-medida + catálogo cortable), agrupadas por
-    ``(material, espesor, ancho, largo)``. Cada Feature se descompone en sus sólidos.
+    ``(material, espesor, ancho, largo)`` y su corte. Cada Feature se descompone en sus sólidos.
+    Un perfil de catálogo da su largo EXTERIOR y el corte de cada extremo MEDIDOS; una chapa
+    plegada, su espesor y su desarrollo (`cutlist_medida`).
     `default_material` = el del vertical (guarda de `resolve_material`; None = desconocido)."""
     groups: dict[tuple, dict] = {}
+    memo: dict = {}
     con_su_ref = vastagos_incluidos(scene)  # V8.9 F2: el vástago se compra con su cilindro
     for sid, f in scene.items():
         if not getattr(f, "visible", True) or sid in con_su_ref:
@@ -101,18 +127,26 @@ def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:
         mat = resolve_material(f, CATALOG, default_material)
         miter = getattr(f, "miter", None)
         mtr = tuple(miter) if miter else None  # (α1, α2) — separa recto de ingleteado
-        for solid in _solids(f.shape):
-            t, w, l = _inclinado(comp, f) or _dims_sorted(solid)
-            key = (mat, t, w, l, mtr)
+        solidos = _solids(f.shape)
+        medidas = _medidas(f, comp, mat, solidos, memo)
+        for i, solid in enumerate(solidos):
+            medida = medidas[i] if i < len(medidas) else None
+            if medida is not None:
+                (t, w, l), firma, campos = medida
+            else:
+                t, w, l = _inclinado(comp, f) or _dims_sorted(solid)
+                firma, campos = mtr, {"corte": "inglete" if mtr else "recto",
+                                      "angulo_1": mtr[0] if mtr else None,
+                                      "angulo_2": mtr[1] if mtr else None}
+            key = (mat, t, w, l, firma)
             g = groups.get(key)
             if g is None:
                 g = groups[key] = {
                     "material": mat, "espesor_mm": t, "ancho_mm": w, "largo_mm": l,
-                    "cantidad": 0, "nombre": f.name, "_rep": sid,
-                    "corte": "inglete" if mtr else "recto",
-                    "angulo_1": mtr[0] if mtr else None,
-                    "angulo_2": mtr[1] if mtr else None,
+                    "cantidad": 0, "nombre": f.name, "_rep": sid, **campos,
                 }
+                if len(solidos) > 1:
+                    g["_solido"] = i  # qué sólido de `_rep` dibuja la lámina de la fila
             g["cantidad"] += 1
     rows = list(groups.values())
     for r in rows:
@@ -242,14 +276,10 @@ def cut_list_csv(rows: list[dict], totals: dict | None = None) -> str:
     w = csv.writer(buf, delimiter=";", lineterminator="\n")
     w.writerow(["Material", "Espesor(mm)", "Ancho(mm)", "Largo(mm)", "Cant",
                 "Área ud(m²)", "Área total(m²)", "Pieza", "Corte", "Ángulos"])
-    for r in rows:
-        angs = ""
-        if r.get("corte") == "inglete":  # α None en un extremo = ese lado recto
-            angs = "/".join(f"{a:g}°" if a is not None else "0°"
-                            for a in (r.get("angulo_1"), r.get("angulo_2")))
+    for r in rows:  # corte y ángulos: los mismos textos que los planos (`cutlist_medida`)
         w.writerow([r["material"], r["espesor_mm"], r["ancho_mm"], r["largo_mm"],
                     r["cantidad"], r["area_m2_ud"], r["area_m2_total"], r["nombre"],
-                    r.get("corte", "recto"), angs])
+                    texto_corte(r), texto_angulos(r)])
     if totals:
         w.writerow([])
         w.writerow(["TOTALES por material", "", "", "", "piezas", "", "área m²", "largo m"])

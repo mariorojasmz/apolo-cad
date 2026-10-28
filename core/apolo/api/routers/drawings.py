@@ -80,7 +80,6 @@ def _sheetmetal_flat(feature_id: str):
     SheetModel desplegado (resolviendo expresiones del proyecto)."""
     from apolo.commands import resolve_params
     from apolo.commands.models import SheetMetalParams
-    from apolo.library.sheetmetal import flat_pattern
 
     with STATE_LOCK:
         feat = S.doc.scene.get(feature_id)
@@ -91,20 +90,14 @@ def _sheetmetal_flat(feature_id: str):
             raise HTTPException(status_code=400, detail=f"'{feature_id}' no es una chapa metálica")
         try:
             from apolo.library.catalog import CATALOG
+            from apolo.library.chapa_ficha import desplegado, ficha_chapa, k_de
             from apolo.library.materials import resolve_material
-            from apolo.library.sheetmetal import flaps_from_specs, k_for_material
 
             p = SheetMetalParams.model_validate(resolve_params(cmd["params"], S.doc.variables_resolved))
-            # K-factor: explícito gana; si no, por MATERIAL de la pieza (V5.5)
-            k = p.k_factor if p.k_factor is not None else k_for_material(
-                resolve_material(feat, CATALOG, S.doc.default_material())
-            )
-            return p.name, flat_pattern(
-                p.name, p.ancho, p.fondo, p.espesor, p.lados,
-                p.altura_pestana, p.angulo, p.radio, k,
-                holes=[(h.x, h.y, h.d) for h in p.holes],
-                flaps=flaps_from_specs(p.flaps),
-            )
+            # el mismo desarrollo que la lista de corte (`chapa_ficha`): K explícito o del MATERIAL
+            ficha = ficha_chapa(p)
+            k = k_de(ficha, resolve_material(feat, CATALOG, S.doc.default_material()))
+            return p.name, desplegado(ficha, k, p.name, holes=[(h.x, h.y, h.d) for h in p.holes])
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

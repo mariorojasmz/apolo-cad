@@ -103,7 +103,8 @@ def test_insert_project_cambia_con_cualquier_version(monkeypatch):
     assert _cmd_sig("", box) == antes_box
     assert version_tag(REGISTRY, "insert_project") == (
         "|v:create_belt_conveyor@6,create_chain@2,create_drive_roller@2,"
-        "create_roller_conveyor@4,create_take_up@2,fillet@3,insert_component@2,join_bolted@2,"
+        "create_roller_conveyor@4,create_sheet_metal@2,create_take_up@2,fillet@3,"
+        "insert_component@2,join_bolted@2,"
         "layout_tablero@2,run_script@2")
 
 

@@ -144,6 +144,7 @@ def _exec_create_frame(ctx: ExecContext, cmd_id: str, p: CreateFrameParams) -> N
 
 
 def _exec_create_sheet_metal(ctx: ExecContext, cmd_id: str, p: SheetMetalParams) -> None:
+    from apolo.library.chapa_ficha import ficha_chapa
     from apolo.library.sheetmetal import flaps_from_specs, sheet_metal_solid
 
     try:
@@ -157,4 +158,4 @@ def _exec_create_sheet_metal(ctx: ExecContext, cmd_id: str, p: SheetMetalParams)
     if not hasattr(base, "volume") or base.volume <= 0:
         raise CommandError("La chapa produjo un sólido vacío")
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id, chapa=ficha_chapa(p))

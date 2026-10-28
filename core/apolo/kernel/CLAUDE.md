@@ -61,6 +61,10 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   lazos encerrados (el interior de un tubo) ni las costuras de cilindro que los unen; con un hueco
   ≤ tol, las aristas que corren a ≤ tol de la otra. Caché por par con `is`.
   [uniones-que-tocan](../../../docs/plans/uniones-que-tocan.md)
+- La barra que se corta (`corte_barra.py`): eje = las rectas que más largo suman, validado con
+  la sección de la ficha; corte = caras que no cruzan la mitad y tocan el contorno EXTERIOR de un
+  costado (un agujero no es corte). Lo que no es uno o dos planos convexos es «especial».
+  [lista-de-corte-medida](../../../docs/plans/lista-de-corte-medida.md)
 
 ## Superficies (`surface.py`)
 
