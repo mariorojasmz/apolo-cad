@@ -45,11 +45,12 @@ def laterales(plan: Plan, c: Cotas) -> None:
     z0 = c.rail_top
     tramos = tramos_guarda(c)
     xw = x_pared_de_cabeza(c)
+    taller = c.criterio >= 8
     for i, s in ((1, -1.0), (2, 1.0)):
         abierto = c.lado_sin_pared == s
         for k, (x0, x1) in enumerate(tramos, start=1):
             suf = f"guarda{i}" if len(tramos) == 1 else f"guarda{i}_{k}"
-            tramo = "" if len(tramos) == 1 else f", tramo {k}"
+            tramo = "" if len(tramos) == 1 else f", {'paño' if taller else 'tramo'} {k}"
             piezas = [(suf, f"Guarda lateral ({i}{tramo})", x0, x1, False)]
             if abierto:
                 piezas = [(suf, f"Guarda cubre-ranura ({i}{tramo})", x0,
@@ -68,9 +69,15 @@ def laterales(plan: Plan, c: Cotas) -> None:
                     forma = (caja(a, b, s * yb, s * (yb + CHAPA), z0, z0 + ALTO_PARED)
                              + caja(a, b, s * yb, s * c.y_out, z0, z0 + CHAPA))
                     nota = "ala de la guarda atornillada sobre el larguero"
+                qty = math.ceil((b - a) / 600.0) + 1
+                if taller:  # F1c (D12, D14): espárragos soldados al larguero, nada adentro
+                    from . import belt_conveyor_guardas_taller as gt
+
+                    forma = gt.taladrar_ala(forma, c, s, gt.pernos_ala(a, b, qty))
+                    nota = gt.nota_ala(cubre)
                 plan.pieza(sf, nombre, forma, material="acero")
                 plan.union(f"{sf}_larg", sf, rail(c, i, (a + b) / 2.0), "perno", nota,
-                           size="M6", qty=math.ceil((b - a) / 600.0) + 1)
+                           size="M6", qty=qty)
 
 
 def x_pared_de_cabeza(c: Cotas) -> float:
@@ -160,13 +167,18 @@ def de_tambor(plan: Plan, c: Cotas, suf: str, nombre: str, xd: float, r: float, 
             x_techo = max(x_techo, c.cama_x0 + TECHO_SOBRE_CAMA)
         forma = forma + caja(out, xe, -yb, yb, c.rail_top - 1.0, c.rail_top + CHAPA)
         forma = forma + caja(x_techo, xe, -yb, yb, c.rail_top + CHAPA, c.rail_top + 2.0 * CHAPA)
+    nota = "pared de la guarda atornillada a la cara interior del larguero"
+    if c.criterio >= 8:  # F1c (D12): orejas con su agujero y perno pasante con buje
+        from . import belt_conveyor_guardas_taller as gt
+
+        for s in (-1.0, 1.0):
+            forma = gt.orejas_tambor(forma, c, s, gt.pernos_tambor(c, xd, inb), z_pared)
+        nota = gt.nota_tambor(c)
     plan.pieza(suf, nombre, forma, material="acero")
     from .belt_conveyor_tramos import rail
 
     for i in (1, 2):
-        plan.union(f"{suf}_larg{i}", suf, rail(c, i, xd), "perno",
-                   "pared de la guarda atornillada a la cara interior del larguero", size="M8",
-                   qty=2)
+        plan.union(f"{suf}_larg{i}", suf, rail(c, i, xd), "perno", nota, size="M8", qty=2)
 
 
 def inferiores(plan: Plan, c: Cotas) -> None:
@@ -180,16 +192,46 @@ def inferiores(plan: Plan, c: Cotas) -> None:
     la pared se escota donde bajan las placas de los soportes de la cama. v6: se corta en cada
     soporte de rodillo de retorno (el soporte y el rodillo llenan ese hueco); cruza los empalmes
     de una pieza (va atornillada a un solo tramo: se quita antes de separar los tramos)."""
-    from .belt_conveyor_retorno import media_huella, x_rodillos
     from .belt_conveyor_tramos import rail
 
-    xa = x_de_tambor(c, -c.half, c.r_c, -1.0, c.viaje)[0] + 1.0
-    xb = x_de_tambor(c, c.half, c.r_m, 1.0, 0.0)[0] - 1.0
-    if xb - xa < 50.0:
+    piezas = piezas_inferiores(c)
+    if not piezas:
         return  # las guardas de los tambores ya se tocan: no queda ranura entre ellas
     z0 = z_retorno(c) - HOLGURA_ALA - CHAPA
     z_top = c.rail_bot + SOLAPE_PARED
     y_borde = c.ancho / 2.0 + 1.0
+    taller = c.criterio >= 8
+    for i, s in ((1, -1.0), (2, 1.0)):
+        for k, (x0, largo) in enumerate(piezas, start=1):
+            x1 = x0 + largo
+            pared = _escotar(caja(x0, x1, s * (c.y_in - CHAPA), s * c.y_in, z0, z_top), c, s,
+                             x0, x1, z_top)
+            ala = caja(x0, x1, s * y_borde, s * (c.y_in - CHAPA + 0.5), z0, z0 + CHAPA)
+            nota = ("pared de la guarda al alma interior del larguero: perno pasante + tuerca "
+                    "por fuera")
+            forma = pared + ala
+            if taller:  # F1c (D12): sus agujeros y los del larguero, con buje
+                from . import belt_conveyor_guardas_taller as gt
+
+                forma = gt.taladrar_inferior(forma, c, s, gt.pernos_inferior(c, i, x0, x1))
+                nota = gt.nota_inferior(c)
+            suf = f"guarda_inf{i}_{k}"
+            nombre = (f"Guarda inferior ({i})" if len(piezas) == 1
+                      else f"Guarda inferior ({i}, tramo {k})")
+            plan.pieza(suf, nombre, forma, material="acero")
+            plan.union(f"{suf}_larg", suf, rail(c, i, (x0 + x1) / 2.0), "perno", nota,
+                       size="M6", qty=math.ceil(largo / 600.0) + 1)
+
+
+def piezas_inferiores(c: Cotas) -> list[tuple[float, float]]:
+    """(x0, largo) de cada guarda inferior (iguales a los dos lados): entre las guardas de los
+    tambores, cortadas en cada rodillo de retorno y en tramos de ≤ `TRAMO_MAX`."""
+    from .belt_conveyor_retorno import media_huella, x_rodillos
+
+    xa = x_de_tambor(c, -c.half, c.r_c, -1.0, c.viaje)[0] + 1.0
+    xb = x_de_tambor(c, c.half, c.r_m, 1.0, 0.0)[0] - 1.0
+    if xb - xa < 50.0:
+        return []
     bordes = [xa]
     for x in x_rodillos(c):
         h = media_huella(c)
@@ -202,19 +244,7 @@ def inferiores(plan: Plan, c: Cotas) -> None:
         n = math.ceil((b - a) / TRAMO_MAX)
         largo = (b - a - (n - 1) * 1.0) / n
         piezas += [(a + (k - 1) * (largo + 1.0), largo) for k in range(1, n + 1)]
-    for i, s in ((1, -1.0), (2, 1.0)):
-        for k, (x0, largo) in enumerate(piezas, start=1):
-            x1 = x0 + largo
-            pared = _escotar(caja(x0, x1, s * (c.y_in - CHAPA), s * c.y_in, z0, z_top), c, s,
-                             x0, x1, z_top)
-            ala = caja(x0, x1, s * y_borde, s * (c.y_in - CHAPA + 0.5), z0, z0 + CHAPA)
-            suf = f"guarda_inf{i}_{k}"
-            nombre = (f"Guarda inferior ({i})" if len(piezas) == 1
-                      else f"Guarda inferior ({i}, tramo {k})")
-            plan.pieza(suf, nombre, pared + ala, material="acero")
-            plan.union(f"{suf}_larg", suf, rail(c, i, (x0 + x1) / 2.0), "perno",
-                       "pared de la guarda al alma interior del larguero: perno pasante + tuerca "
-                       "por fuera", size="M6", qty=math.ceil(largo / 600.0) + 1)
+    return piezas
 
 
 def de_tambores(plan: Plan, c: Cotas) -> None:

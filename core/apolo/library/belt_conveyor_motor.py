@@ -181,9 +181,14 @@ def cuenta_de_la_faja(c: Cotas, b: Base, motor_kg: float, tornapuntas: bool) -> 
                   c.zm - z_mens, brazo, tubo(LEG_REF), tp)
 
 
-def base_motor(plan: Plan, c: Cotas, bb, y_mo: float, y0: float, y1: float) -> dict:
+def base_motor(plan: Plan, c: Cotas, bb, y_mo: float, y0: float, y1: float, taladros=(),
+               nota: str | None = None, alivios=()) -> dict:
     """La base del criterio 7 (placa, ménsula, brazos a tope contra la pata y, si la cuenta lo
-    pide, tornapuntas) con sus uniones. Devuelve la cuenta con que quedó."""
+    pide, tornapuntas) con sus uniones. Con el criterio 8 (F1c), la placa con sus agujeros
+    roscados (`taladros`: (x, y, Ø), verticales), los `alivios` de la punta de esos pernos en la
+    pared superior del brazo que cae debajo y `nota` con el largo de los pernos del motor.
+    Devuelve la cuenta con que quedó."""
+    from .belt_conveyor_taller import taladro_z
     from .belt_conveyor_tambores import TUBO_BASE
 
     b = cotas_base(c, bb, y_mo, y0, y1)
@@ -194,8 +199,10 @@ def base_motor(plan: Plan, c: Cotas, bb, y_mo: float, y0: float, y1: float) -> d
         calc = cuenta_de_la_faja(c, b, motor_kg, True)
     mat = str(CATALOG[TUBO_BASE].specs.get("material") or "acero")
     x, w = b.x, b.w
-    plan.pieza("base_motor", "Base del motor", caja(x - w, x + w, y0, y1, b.zb0, b.z_patas),
-               material="acero")
+    placa = caja(x - w, x + w, y0, y1, b.zb0, b.z_patas)
+    for px, py, d in taladros:
+        placa = placa - taladro_z(px, py, b.zb0 - 1.0, b.z_patas + 1.0, d)
+    plan.pieza("base_motor", "Base del motor", placa, material="acero")
     mens, mcut = build_component(TUBO_BASE, 2.0 * w)
     plan.pieza("mensula_motor", "Ménsula del motor", mens, comp=TUBO_BASE, cut=mcut,
                pos=(x, b.y_pata + LEG_W / 2.0, b.zm0 + LEG_W / 2.0), rot=(0, 90, 0),
@@ -207,9 +214,20 @@ def base_motor(plan: Plan, c: Cotas, bb, y_mo: float, y0: float, y1: float) -> d
     brazo, bcut = build_component(TUBO_BASE, largo)
     for k, sx in ((1, -1.0), (2, 1.0)):
         xb = x + sx * LEG_W
-        plan.pieza(f"brazo_motor{k}", f"Brazo de la base del motor ({k})", brazo, comp=TUBO_BASE,
-                   cut=bcut, pos=(xb, c.y_in + largo / 2.0, b.za0 + LEG_W / 2.0), rot=(90, 0, 0),
-                   key=f"comp|{TUBO_BASE}|{bcut}", material=mat)
+        pos, rot = (xb, c.y_in + largo / 2.0, b.za0 + LEG_W / 2.0), (90, 0, 0)
+        suyos = [(px, py, d) for px, py, d in alivios if abs(px - xb) < LEG_W / 2.0]
+        if suyos:  # criterio 8: el alivio de la punta de los pernos del motor (sin tuerca)
+            from apolo.kernel.shapes import place
+
+            forma = place(brazo, pos, rot)
+            for px, py, d in suyos:
+                forma = forma - taladro_z(px, py, b.zb0 - 6.0, b.zb0 + 1.0, d)  # pared de arriba
+            plan.pieza(f"brazo_motor{k}", f"Brazo de la base del motor ({k})", forma,
+                       comp=TUBO_BASE, cut=bcut, material=mat)
+        else:
+            plan.pieza(f"brazo_motor{k}", f"Brazo de la base del motor ({k})", brazo,
+                       comp=TUBO_BASE, cut=bcut, pos=pos, rot=rot,
+                       key=f"comp|{TUBO_BASE}|{bcut}", material=mat)
         plan.union(f"brazo{k}_pata", f"brazo_motor{k}", "leg4", "soldadura",
                    "brazo a tope contra el costado de la pata (filetes arriba y abajo)",
                    throat_mm=3, length_mm=round(2 * LEG_W, 1))
@@ -220,7 +238,7 @@ def base_motor(plan: Plan, c: Cotas, bb, y_mo: float, y0: float, y1: float) -> d
         if calc["tornapuntas"]:
             _pieza_tornapunta(plan, c, b, k, xb, mat)
     plan.union("motor_base", "motor", "base_motor", "perno",
-               "patas del motorreductor a la base (4 pernos)", size="M10", qty=4)
+               nota or "patas del motorreductor a la base (4 pernos)", size="M10", qty=4)
     plan.calculos["base_motor"] = calc
     return calc
 

@@ -7,8 +7,9 @@ fijadores (dicts), nunca un `Document`.
 Qué se compra (la unión trae `size`, `qty` y una `nota` libre; no trae tipo ni largo):
 
 - el FIJADOR, por la nota: «autorroscante» → tornillo autorroscante; «prisionero» → prisionero;
-  «punta roscada» / «eje roscado» → ninguno (el eje ES la rosca); si no, perno DIN 933 (la ficha
-  `PERNO-HEX-M*`) con el largo de la designación de la nota («M10x25 DIN 933») o SIN largo
+  «espárrago» → espárrago; DIN 7991 / ISO 10642 → tornillo avellanado; «punta roscada» / «eje
+  roscado» → ninguno (el eje ES la rosca); si no, perno DIN 933 (la ficha `PERNO-HEX-M*`). Todos
+  con el largo de la designación de la nota («M10x25 DIN 933», «M8x25 DIN 916») o SIN largo
   (`sin_largo`: la cotización no lo inventa y la fila lo pide);
 - la TUERCA DIN 934 si la nota la nombra o dice «pasante».
 
@@ -54,6 +55,8 @@ _DESIGNACION = re.compile(r"(?<![A-Za-z])M\s*(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)",
 _NORMA = re.compile(r"\b(DIN|ISO)\s*(\d+)\b", re.I)
 _NORMAS_HEX = {"DIN 933", "DIN 931", "ISO 4017", "ISO 4014"}
 _NORMAS_ALLEN = {"DIN 912", "ISO 4762"}
+_NORMAS_AVELLANADO = {"DIN 7991", "ISO 10642"}
+_ESPARRAGO = re.compile(r"\besp[áa]rragos?\b", re.I)
 _NADA = re.compile(r"\bincluid[oa]s?\b|\bsin\s+pernos?\b", re.I)
 _INOX_CLASE = re.compile(r"(?<![A-Za-z0-9])A([24])(?:-(\d{2}))?(?![\w-])")
 _AISI = re.compile(r"\bAISI\s*(3\d\d)(L?)\b", re.I)
@@ -138,15 +141,24 @@ def _lo_declarado(f: dict) -> tuple[dict | None, bool]:
     tuerca = bool(_TUERCA.search(nota))
     if _EJE_ROSCADO.search(nota):
         return None, tuerca
-    if _AUTORROSCANTE.search(nota):
-        return {"ref": None, "descripcion": f"Tornillo autorroscante {size}", "largo": None}, tuerca
-    if _PRISIONERO.search(nota):
-        return {"ref": None, "descripcion": f"Prisionero {size}", "largo": None}, tuerca
     largo, norma = None, "DIN 933"
     m = _DESIGNACION.search(nota)
     if m and f"M{m.group(1)}" == size:
         largo = float(m.group(2).replace(",", "."))
     n = _NORMA.search(nota)
+    citada = f"{n.group(1).upper()} {n.group(2)}" if n else ""
+    if _AUTORROSCANTE.search(nota):
+        return {"ref": None, "descripcion": f"Tornillo autorroscante {size}",
+                "largo": largo}, tuerca
+    if _PRISIONERO.search(nota):  # con su designación («M8x25 DIN 916»), con su largo
+        return {"ref": None, "descripcion": f"Prisionero {size} {citada}".strip(),
+                "largo": largo}, tuerca
+    if _ESPARRAGO.search(nota):  # espárrago (soldado: ISO 13918)
+        return {"ref": None, "descripcion": f"Espárrago {size} {citada}".strip(),
+                "largo": largo}, tuerca
+    if citada in _NORMAS_AVELLANADO:
+        return {"ref": None, "descripcion": f"Tornillo avellanado {size} {citada}",
+                "largo": largo}, tuerca
     if n and f"{n.group(1).upper()} {n.group(2)}" in _NORMAS_HEX:
         norma = f"{n.group(1).upper()} {n.group(2)}"
     if n and f"{n.group(1).upper()} {n.group(2)}" in _NORMAS_ALLEN:  # cabeza Allen

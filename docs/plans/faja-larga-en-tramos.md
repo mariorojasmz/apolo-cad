@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 hecha (create_belt_conveyor v6); F1b hecha (lado_abierto y criterio 7 - pie con contratuerca y base del motor a tope, 2026-10-28; rama sin mergear al escribir esto); falta F2 (la clasificadora de 12 puestos por MCP con lado_abierto y su revisor a ciegas). Decisiones vetables D7-D9 en la Bitácora (F1b)
+nota: F1 hecha (create_belt_conveyor v6); F1b hecha (lado_abierto y criterio 7); F1c hecha (criterio 8 - agujeros en cada unión, sin tuercas dentro de los tubos, paños de 3 m, cama de 4 mm por cuenta y BOM con largos, 2026-10-28; rama sin mergear al escribir esto); falta F2 (la clasificadora de 12 puestos por MCP con lado_abierto y su revisor a ciegas). Decisiones vetables D7-D14 en la Bitácora (F1b, F1c)
 descripcion: Una faja de banda de más de 6 m sale en tramos empernados que se fabrican y transportan, con rodillos de retorno, y cada perno de la cama se puede apretar
 ---
 
@@ -76,6 +76,8 @@ también: con 6 m el retorno ya pasa los 3 m libres.
   un log viejo regenera igual). Gate: suite completa + ruff.
 - **F1b** (library + commands, S): D7–D9 (Bitácora), lo que el piloto y su revisor a ciegas
   encontraron en la plantilla v6.
+- **F1c** (library + commands, M): D10–D14 (Bitácora), lo que el revisor a ciegas del piloto
+  encontró en la plantilla del criterio 7 (agujeros, tuercas en tubos cerrados, paños, BOM).
 - **F2** (MCP, S): la clasificadora de 12 puestos se corrige con la plantilla nueva y la revisa
   otro revisor a ciegas; la prueba de familia en 36 puestos.
 
@@ -203,4 +205,58 @@ de 160 mm sin escuadra, con los brazos 1 mm separados de la pata. Hecho (library
   con el código de antes, test); `lado_abierto` entra con el default que reproduce lo anterior.
   `version` sigue en 6 (sólo la huella y `CAMPOS`): ningún log guardado cambia de geometría con
   los mismos params, así que la caché no sirve nada viejo.
+
+### F1c (2026-10-28): cada unión con sus agujeros y ninguna tuerca dentro de un tubo — criterio 8
+
+Origen: el revisor de taller a ciegas del piloto `clasificadora-manual` (10,2 m, criterio 7,
+`lado_abierto: -y`) encontró en la PLANTILLA: la UCF y el UCT con sus tuercas dentro del
+larguero cerrado (ALTA ×2), la cama y las guardas sin agujeros, una cama de 6 mm que pesa 148 kg
+por pieza, chapas de 5,2 m (cama, guarda lateral, cubre-ranura) y la BOM con 145 M6, 12 M10,
+8 M12, 8 M8 y 2 prisioneros «sin_largo». Hecho (library + commands, módulos `*_taller.py` y
+`belt_conveyor_cama.py`; `tests/test_belt_conveyor_f1c.py`), vetable por número:
+
+- **D10 Chumacera**: la placa porta-chumacera de 12 mm lleva los 4 agujeros de la brida
+  ROSCADOS (broca M10 Ø8,5); M10x25 DIN 933: brida 14 mm, enganche 11 mm ≥ 1·d (el de
+  `agarre.retencion`, VDI 2230; cubre el 0,8·d de DIN 934/ISO 898-2) y la punta 1 mm antes del
+  larguero. La cuenta de cada rosca, en `Plan.calculos["roscas"]`. **Decisión**: `union.agarre`
+  y `union.retencion` sólo miden tornillería MODELADA y la de la plantilla es declarada (modelarla
+  pondría la rosca como interferencia en las pruebas sin exclusiones); su criterio (1·d en acero,
+  1,5·d en fundición) es el mismo que usa la cuenta, y los agujeros los mide la MISMA medida de
+  `union.agujeros` (`_Medidor`) en el test.
+- **D11 Tensor**: **placa porta-tensor** de 16 mm soldada al larguero (sale 15 mm del marco, con
+  la ranura de la carrera) y los 4 M12 del marco ROSCADOS en ella: M12x65, enganche 15 ≥ 12. El
+  UCT se corre 16 mm hacia afuera. Descartado el pasante con buje: su tuerca caería en la cara
+  interior, a 10 mm del tambor de cola.
+- **D12 Agujeros y tubos cerrados**: cada unión `perno` de la plantilla tiene sus agujeros en la
+  geometría (0 faltantes en 4 m, 10,2 m y tres variantes; antes faltaban en 21 clases de unión).
+  Nada entra en un tubo con la tuerca adentro: la cama al soporte (TUBO-2X2) con tornillo
+  avellanado M6x65 DIN 7991 PASANTE por un buje vertical Ø10 y tuerca por debajo; las guardas de
+  los tambores con orejas y M8 pasante con buje; las inferiores, M6 pasante con buje; las
+  laterales, cubre-ranura y pared de cabeza (sobre la cara superior del larguero) a espárragos M6
+  soldados ISO 13918 con tuerca por arriba (una rosca en la pared de 4,8 mm no engancha 1·d). Lo
+  que va a fundición (tapa de la brida, tapa del carro) y a chapa de 8–12 mm (guarda del rodillo
+  de retorno, base del motor, guarda del acople) va a rosca con su cuenta; los prisioneros del
+  acople, a su agujero roscado. **Cama por cuenta** (`belt_conveyor_cama.py`): viga continua de
+  cada paño sobre sus soportes, 50 kg/m de diseño (criterio de diseño: paquetería liviana) +
+  banda + chapa, flecha ≤ L/240 por vano y 2·Lv/240 en voladizo, σ ≤ 0,6·f_y y la cabeza del DIN
+  7991 a ras: **4 mm** (2–3 mm no dan: manda el voladizo de 40 mm de la punta del paño, 0,52 >
+  0,33 mm con 3 mm). Paño más pesado: 49 kg (antes 148).
+- **D13 Paños**: cama, guardas laterales y cubre-ranura en paños IGUALES ≤ 3000 mm por tramo
+  (junta de 2 y 1 mm); cada paño de cama con un soporte junto a cada punta (en una junta, dos
+  soportes a 82 mm; el rodillo de retorno no cae entre ellos). 10,2 m: 4 paños de cama de
+  2,46–2,53 m y 4 de guarda de 2,62 m por lado.
+- **D14 BOM**: cada `perno` de la plantilla nombra su designación en la nota y
+  `tornilleria_declarada.py` lee también la del prisionero (DIN 916), el espárrago (ISO 13918) y
+  el avellanado (DIN 7991): 0 filas «sin_largo» (4 m y 10,2 m). Los pernos de las patas del motor
+  llevan arandela y, si ningún largo de la serie cae en la ventana de la placa de 12 mm, la punta
+  entra por un alivio en la pared del brazo (no hay tuerca).
+- **Sello y versión**: criterio 8 en el sello; lo sellado en 5, 6 y 7 regenera con las mismas
+  piezas, uniones, volumen y notas (medidos con el código de antes, test). `version` sigue en 6:
+  la huella del executor no cambia y ningún log guardado cambia de geometría. Cifras: 4 m = 89
+  piezas / 116 uniones (78 / 101 con el 7); 10,2 m abierta por −Y = 189 / 249 (169 / 221); sin
+  interferencias (sin exclusiones) y todo a tierra. Generar la de 4 m: 3,1 s (2,4 s con el 7):
+  los agujeros de cada larguero van en dos booleanas.
+
+Gate: suite completa secuencial en la laptop, exit 0 (6927 pasan, 10 saltados, 0 fallas) + ruff
+limpio.
 

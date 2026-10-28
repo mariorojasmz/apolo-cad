@@ -30,7 +30,7 @@ PLACA_CHUMACERA_T = 12.0  # placa porta-chumacera soldada al larguero (roscas de
 NIVELACION_MM = 20.0     # vástago visible del pie nivelador (regulación de la altura)
 PLACA_PATA = 80.0
 PLACA_PATA_T = 8.0
-CAMA_T = 6.0             # chapa de la cama de deslizamiento
+CAMA_T = 6.0             # chapa de la cama de deslizamiento (criterio ≤ 7; el 8 la calcula)
 CAMA_HOLGURA = 2.0       # de la cama a la cara inferior del ramal de carga
 CAMA_A_TAMBOR = 10.0     # de la punta de la cama a la superficie del tambor (en su carrera)
 SOPORTE_PASO = 800.0     # paso máximo de los soportes de la cama
@@ -86,6 +86,8 @@ class Cotas:
     # los brazos del motor a tope contra la pata (`belt_conveyor_pies.py`,
     # `belt_conveyor_motor.py`).
     lado_abierto: str = "ninguno"
+    # F1c (criterio 8): el espesor de la cama sale de su cuenta (`belt_conveyor_cama.py`)
+    cama_t: float = CAMA_T
 
     @property
     def lado_sin_pared(self) -> float | None:
@@ -181,7 +183,12 @@ def cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: st
                cierres)
     c = replace(c, tramo_max=tramo_max, criterio=criterio, lado_abierto=lado_abierto)
     tramos, empalmes = partir(c)
-    return replace(c, tramos=tramos, empalmes=empalmes)
+    c = replace(c, tramos=tramos, empalmes=empalmes)
+    if criterio >= 8:  # F1c (D12): cama del espesor de la cuenta, no los 6 mm de siempre
+        from .belt_conveyor_cama import cuenta_cama
+
+        c = replace(c, cama_t=cuenta_cama(c)["espesor_mm"])
+    return c
 
 
 def _cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: str, tubo: str,

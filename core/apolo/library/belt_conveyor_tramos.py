@@ -79,7 +79,8 @@ def nombre_larguero(c: Cotas, i: int, k: int) -> str:
 
 
 def cama(c: Cotas, k: int) -> str:
-    return "cama" if c.n_tramos == 1 else f"cama_{k}"
+    """Sufijo de la chapa `k` de la cama (con el criterio 8, un paño; antes, un tramo)."""
+    return "cama" if len(tramos_cama(c)) == 1 else f"cama_{k}"
 
 
 def cortes(x0: float, x1: float, empalmes, junta: float) -> list[tuple[float, float]]:
@@ -90,11 +91,19 @@ def cortes(x0: float, x1: float, empalmes, junta: float) -> list[tuple[float, fl
 
 
 def tramos_cama(c: Cotas) -> list[tuple[float, float]]:
-    return cortes(c.cama_x0, c.cama_x1, c.empalmes, JUNTA_CAMA)
+    """Las chapas de la cama: una por tramo; con el criterio 8 (F1c, D13), en paños ≤ 3 m."""
+    from .belt_conveyor_taller import con_taller, panos
+
+    t = cortes(c.cama_x0, c.cama_x1, c.empalmes, JUNTA_CAMA)
+    return panos(t, JUNTA_CAMA) if con_taller(c) else t
 
 
 def tramos_guarda(c: Cotas) -> list[tuple[float, float]]:
-    return cortes(c.x0, c.x1, c.empalmes, JUNTA_GUARDA)
+    """Las guardas laterales: una por tramo; con el criterio 8 (F1c, D13), en paños ≤ 3 m."""
+    from .belt_conveyor_taller import con_taller, panos
+
+    t = cortes(c.x0, c.x1, c.empalmes, JUNTA_GUARDA)
+    return panos(t, JUNTA_GUARDA) if con_taller(c) else t
 
 
 def placas_de_empalme(plan: Plan, c: Cotas) -> None:
@@ -110,9 +119,12 @@ def placas_de_empalme(plan: Plan, c: Cotas) -> None:
             for x0, x1, extremo, tramo in ((s - EMPALME_T, s, "cola", k), (s, s + EMPALME_T,
                                                                            "cabeza", k + 1)):
                 suf = f"empalme{k}_{i}_{extremo}"
+                forma = caja(x0, x1, lado * c.y_in, lado * (c.y_out + EMPALME_ALA),
+                             c.rail_bot - EMPALME_ALA, c.rail_top)
+                if c.criterio >= 8:  # F1c (D12): los agujeros de sus pernos, por fuera del tubo
+                    forma = _taladrar_empalme(forma, c, lado, x0, x1)
                 plan.pieza(suf, f"Placa de empalme del larguero ({i}, empalme {k}, {extremo})",
-                           caja(x0, x1, lado * c.y_in, lado * (c.y_out + EMPALME_ALA),
-                                c.rail_bot - EMPALME_ALA, c.rail_top), material="acero")
+                           forma, material="acero")
                 plan.union(f"{suf}_sold", suf, f"rail{i}_{tramo}", "soldadura",
                            "placa de empalme soldada a la punta del tubo (cordón perimetral)",
                            throat_mm=4, length_mm=perimetro)
@@ -121,3 +133,24 @@ def placas_de_empalme(plan: Plan, c: Cotas) -> None:
                        f"placas de empalme atornilladas: {EMPALME_PERNO}x{largo:g} DIN 933 + tuerca, "
                        "por fuera del tubo (ala exterior y bajo el larguero), llave desde los dos "
                        "lados", size=EMPALME_PERNO, qty=3)
+
+
+def pernos_empalme(c: Cotas, lado: float) -> list[tuple[float, float]]:
+    """(y, z) de los 3 pernos de un empalme (criterio 8): dos en el ala exterior y uno bajo el
+    larguero, a media ala del tubo y del canto de la placa."""
+    zc = c.rail_bot + c.rail_h / 2.0
+    ya = lado * (c.y_out + EMPALME_ALA / 2.0)
+    return [(ya, zc - c.rail_h / 4.0), (ya, zc + c.rail_h / 4.0),
+            (lado * (c.y_in + c.rail_t / 2.0), c.rail_bot - EMPALME_ALA / 2.0)]
+
+
+def _taladrar_empalme(forma, c: Cotas, lado: float, x0: float, x1: float):
+    from build123d import Cylinder, Pos, Rotation
+
+    from .belt_conveyor_taller import paso
+
+    d0 = paso(EMPALME_PERNO)
+    for y, z in pernos_empalme(c, lado):
+        forma = forma - Pos((x0 + x1) / 2.0, y, z) * Rotation(0, 90, 0) * Cylinder(
+            d0 / 2.0, abs(x1 - x0) + 2.0)
+    return forma

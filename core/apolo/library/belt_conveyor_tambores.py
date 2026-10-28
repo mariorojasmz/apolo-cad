@@ -72,13 +72,17 @@ def chumacera(plan: Plan, c: Cotas, ref: str, x: float, z: float, lado: float, s
                   z + ph / 2.0)
              - cilindro_y(x, z, lado * (c.y_out - 1.0), lado * (y_placa + 1.0),
                           b["d"] / 2.0 + HOLGURA_EJE))
+    nota = "brida de la chumacera a las roscas de la placa"
+    if c.criterio >= 8:  # F1c (D10): las roscas de la brida, en la geometría y con su cuenta
+        from .belt_conveyor_tambores_taller import placa_chumacera
+
+        placa, nota = placa_chumacera(plan, placa, c, ref, x, z, lado, suf, y_placa)
     psuf = f"{suf}_placa"
     plan.pieza(psuf, f"Placa porta-chumacera {donde} ({signo}Y)", placa, material="acero")
     plan.union(f"{psuf}_sold", psuf, rail, "soldadura",
                "placa porta-chumacera soldada al larguero (filetes arriba y abajo)", throat_mm=4,
                length_mm=round(2.0 * pw, 1))
-    plan.union(f"{suf}_placa", suf, psuf, "perno",
-               "brida de la chumacera a las roscas de la placa", size=perno_de_brida(ref), qty=4)
+    plan.union(f"{suf}_placa", suf, psuf, "perno", nota, size=perno_de_brida(ref), qty=4)
     plan.union(f"{suf}_eje", tambor_suf, suf, "contacto",
                "eje en el inserto, fijado con sus prisioneros")
     return y0 + b["Bi"] / 2.0 + 0.36 * b["d"] - 2.0
@@ -92,30 +96,44 @@ def tapa_brida(plan: Plan, c: Cotas, ref: str, x: float, z: float, lado: float, 
     ya, yb = _y_soporte(c, b) - b["Bi"] / 2.0, y_eje + 3.0
     copa = (cilindro_y(x, z, lado * ya, lado * (yb + TAPA_T), r_in + TAPA_T)
             - cilindro_y(x, z, lado * (ya - 1.0), lado * yb, r_in))
+    nota = "tapa atornillada a la brida de la chumacera"
+    if c.criterio >= 8:  # F1c (D12): orejas con su agujero y M6 a rosca en la brida
+        from .belt_conveyor_tambores_taller import orejas_tapa
+
+        copa, nota = orejas_tapa(plan, copa, ref, x, z, lado, ya, r_in, TAPA_T, suf)
     plan.pieza(suf, f"Tapa del eje {donde} ({'−' if lado < 0 else '+'}Y)", copa, material="acero")
-    plan.union(f"{suf}_brida", suf, chumacera_suf, "perno",
-               "tapa atornillada a la brida de la chumacera", size="M6", qty=2)
+    plan.union(f"{suf}_brida", suf, chumacera_suf, "perno", nota, size="M6", qty=2)
 
 
 def tensor_carro(plan: Plan, c: Cotas, i: int, lado: float, rail: str) -> float:
     """Unidad tensora de carro UCT por fuera del larguero (su tornillo empuja hacia −X: tensa
     la banda) y, con guardas, la tapa de su barreno. Devuelve |y| del extremo del eje."""
+    from . import belt_conveyor_tambores_taller as tt
+
     p = CATALOG[c.uct].params
     a, d = float(p["A"]), float(p["d"])
+    taller = c.criterio >= 8
+    y_out = c.y_out + (tt.PLACA_TENSOR_T if taller else 0.0)  # F1c (D11): sobre su placa
     suf = f"tensor{i}"
     plan.pieza(suf, f"Tensor de carro ({i})", build_component(c.uct)[0], comp=c.uct,
-               pos=(-c.half, lado * (c.y_out + a / 2.0), c.zc), key=f"comp|{c.uct}|std")
-    plan.union(f"{suf}_larg", suf, rail, "perno",
-               "marco del tensor atornillado al larguero sobre su ranura", size="M12", qty=4)
+               pos=(-c.half, lado * (y_out + a / 2.0), c.zc), key=f"comp|{c.uct}|std")
+    if taller:
+        tt.placa_tensor(plan, c, i, lado, rail)
+    else:
+        plan.union(f"{suf}_larg", suf, rail, "perno",
+                   "marco del tensor atornillado al larguero sobre su ranura", size="M12", qty=4)
     plan.union(f"{suf}_eje", "tambor_cola", suf, "contacto",
                "eje en el inserto del carro, fijado con sus prisioneros")
     if c.guardas:
-        ya = c.y_out + a
-        tapa = cilindro_y(-c.half, c.zc, lado * ya, lado * (ya + TAPA_T), d / 2.0 + 12.0)
+        ya = y_out + a
+        nota = "tapa atornillada al carro sobre el extremo del eje"
+        if taller:
+            tapa, nota = tt.tapa_carro(plan, c, i, lado, ya, TAPA_T)
+        else:
+            tapa = cilindro_y(-c.half, c.zc, lado * ya, lado * (ya + TAPA_T), d / 2.0 + 12.0)
         plan.pieza(f"tapa_c{i}", f"Tapa del tensor ({i})", tapa, material="acero")
-        plan.union(f"tapa_c{i}_carro", f"tapa_c{i}", suf, "perno",
-                   "tapa atornillada al carro sobre el extremo del eje", size="M6", qty=2)
-    return c.y_out + a - 2.0
+        plan.union(f"tapa_c{i}_carro", f"tapa_c{i}", suf, "perno", nota, size="M6", qty=2)
+    return y_out + a - 2.0
 
 
 def motorreductor(plan: Plan, c: Cotas, y_collar: float) -> float:
@@ -137,26 +155,41 @@ def motorreductor(plan: Plan, c: Cotas, y_collar: float) -> float:
     acople = (cilindro_y(x, z, y_c0, y_c1, od / 2.0)
               - cilindro_y(x, z, y_c0 - 1.0, y_c0 + cubo, c.d_m / 2.0)
               - cilindro_y(x, z, y_c1 - cubo, y_c1 + 1.0, d_mot / 2.0))
+    notas = ("cubo del acople en el eje motriz: chaveta + prisionero",
+             "cubo del acople en el eje del motorreductor: chaveta + prisionero")
+    taladros, alivios, nota_base, pts = (), (), None, ()
+    if c.criterio >= 8:  # F1c (D12, D14): los agujeros roscados y el largo de cada perno
+        from . import belt_conveyor_tambores_taller as tt
+
+        acople = tt.acople_prisioneros(acople, x, z, (y_c0 + cubo / 2.0, y_c1 - cubo / 2.0), od,
+                                       (c.d_m, d_mot))
+        notas = (tt.nota_prisionero("cubo del acople en el eje motriz", od, c.d_m),
+                 tt.nota_prisionero("cubo del acople en el eje del motorreductor", od, d_mot))
+        patas = tt.medidas_motor(forma, bb, d_mot)[0]
+        taladros, alivios, nota_base = tt.taladros_motor(plan, x, y_mo, forma, bb)
+        if c.guardas:
+            pts = tt.pestanas_acople(x, y_c0 - 7.0, y_mo - patas.max.X - 1.0, od / 2.0 + 10.0)
+            taladros = list(taladros) + [(px, py, tt.broca(tt.PERNO_TAPA)) for px, py in pts]
     plan.pieza("acople", "Acople flexible", acople, material="acero")
-    plan.union("acople_eje", "acople", "tambor_motriz", "perno",
-               "cubo del acople en el eje motriz: chaveta + prisionero", size="M8", qty=1)
-    plan.union("acople_motor", "acople", "motor", "perno",
-               "cubo del acople en el eje del motorreductor: chaveta + prisionero", size="M8",
-               qty=1)
-    _base_motor(plan, c, bb, y0=y_c0 - 10.0, y1=y_mo - bb.min.X + 10.0, y_mo=y_mo)
+    plan.union("acople_eje", "acople", "tambor_motriz", "perno", notas[0], size="M8", qty=1)
+    plan.union("acople_motor", "acople", "motor", "perno", notas[1], size="M8", qty=1)
+    _base_motor(plan, c, bb, y0=y_c0 - 10.0, y1=y_mo - bb.min.X + 10.0, y_mo=y_mo,
+                taladros=taladros, nota=nota_base, alivios=alivios)
     if c.guardas:
-        _guarda_acople(plan, c, forma, bb, y_mo, y_c0 - 7.0, od, d_mot)
+        _guarda_acople(plan, c, forma, bb, y_mo, y_c0 - 7.0, od, d_mot, pts)
     return y_c0 + cubo
 
 
-def _base_motor(plan: Plan, c: Cotas, bb, y0: float, y1: float, y_mo: float) -> None:
+def _base_motor(plan: Plan, c: Cotas, bb, y0: float, y1: float, y_mo: float, taladros=(),
+                nota: str | None = None, alivios=()) -> None:
     """Placa bajo las patas del motor sobre dos brazos soldados a una ménsula que se suelda a la
     cara exterior de la pata del lado motriz (+Y). Con el criterio 7 (F1b, D9), los brazos a tope
-    contra la pata, con su cuenta y, si no da, tornapuntas (`belt_conveyor_motor.py`)."""
+    contra la pata, con su cuenta y, si no da, tornapuntas (`belt_conveyor_motor.py`); con el 8
+    (F1c), la placa con sus agujeros roscados (`taladros`: (x, y, Ø)) y la nota con el largo."""
     if c.criterio >= 7:
         from .belt_conveyor_motor import base_motor
 
-        base_motor(plan, c, bb, y_mo, y0, y1)
+        base_motor(plan, c, bb, y_mo, y0, y1, taladros=taladros, nota=nota, alivios=alivios)
         return
     x = c.half
     z_patas = c.zm + bb.min.Z
@@ -191,7 +224,7 @@ def _base_motor(plan: Plan, c: Cotas, bb, y0: float, y1: float, y_mo: float) -> 
 
 
 def _guarda_acople(plan: Plan, c: Cotas, forma, bb, y_mo: float, ya: float, od: float,
-                   d_mot: float) -> None:
+                   d_mot: float, pestanas=()) -> None:
     """Cubierta de chapa sin fondo del extremo de la chumacera a la cara del reductor (cubre el
     acople y el eje de salida), con pasos para los ejes y escotada sobre las patas del motor;
     atornillada a la base. Las cotas del motor se MIDEN en su forma (marco local: eje X)."""
@@ -213,7 +246,13 @@ def _guarda_acople(plan: Plan, c: Cotas, forma, bb, y_mo: float, ya: float, od: 
              + cilindro_y(x, z, yb - e - 1.0, yb + 1.0, d_mot / 2.0 + 5.0))
     escote = caja(x - patas.max.Y - 1.0, x + patas.max.Y + 1.0, y_mo - patas.max.X - 1.0,
                   yb + 1.0, za - 1.0, z + z_pata + 1.0)
-    plan.pieza("guarda_acople", "Guarda del acople", lleno - hueco - pasos - escote,
-               material="acero")
-    plan.union("guarda_acople_base", "guarda_acople", "base_motor", "perno",
-               "guarda atornillada a la base del motor", size="M6", qty=4)
+    guarda = lleno - hueco - pasos - escote
+    nota = "guarda atornillada a la base del motor"
+    if pestanas:  # criterio 8 (F1c): pestañas a ras de la base con su agujero, M6 a rosca en ella
+        from . import belt_conveyor_tambores_taller as tt
+
+        guarda = tt.pestanas(guarda, pestanas, x, za, e, hx)
+        nota = tt.nota_pestanas(plan, e)
+    plan.pieza("guarda_acople", "Guarda del acople", guarda, material="acero")
+    plan.union("guarda_acople_base", "guarda_acople", "base_motor", "perno", nota, size="M6",
+               qty=4)

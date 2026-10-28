@@ -55,6 +55,8 @@ FS_RODILLO = 2.0         # capacidad de ficha ≥ 2 × el peso de banda que carg
 CHAPA_GUARDA = 3.0       # guarda del rodillo de retorno
 JUEGO_GUARDA = 5.0       # del rodillo a las paredes de su guarda
 HOLGURA_GUARDA = 15.0    # de las alas de la guarda al ramal de retorno (ranura ≤ 20: ISO 13857)
+BAJO_TALLER = 35.0       # criterio 8: el soporte baja hasta 35 mm bajo el eje (los M6 de la guarda)
+SEPARACION_SOPORTES = 2 * 30.0 + SOPORTE_RET_W + 2 * 10.0  # el rodillo entre dos soportes de cama
 
 
 def media_huella(c: Cotas) -> float:
@@ -101,11 +103,19 @@ def bujes(forma, c: Cotas, lado: float, pernos):
     if not pernos:
         return forma
     d0 = agujero_perno()
+    # (x, z) = el M8 de siempre; (x, z, Ø del agujero, Ø del buje): los del criterio 8 (F1c)
+    pts = [p if len(p) == 4 else (p[0], p[1], d0, BUJE_D) for p in pernos]
     y0, y1 = lado * c.y_in, lado * c.y_out
-    for x, z in pernos:
-        forma = forma + cilindro_y(x, z, y0, y1, BUJE_D / 2.0)
-    for x, z in pernos:
-        forma = forma - cilindro_y(x, z, y0 - lado, y1 + lado, d0 / 2.0)
+    if c.criterio >= 8:  # F1c: muchos más pernos; en dos booleanas (misma forma, más rápido)
+        from .belt_conveyor_taller import cortar, unir
+
+        forma = unir(forma, [cilindro_y(x, z, y0, y1, b / 2.0) for x, z, _d, b in pts])
+        return cortar(forma, [cilindro_y(x, z, y0 - lado, y1 + lado, d / 2.0)
+                              for x, z, d, _b in pts])
+    for x, z, _d, buje in pts:
+        forma = forma + cilindro_y(x, z, y0, y1, buje / 2.0)
+    for x, z, d, _b in pts:
+        forma = forma - cilindro_y(x, z, y0 - lado, y1 + lado, d / 2.0)
     return forma
 
 
@@ -178,7 +188,8 @@ def x_rodillos(c: Cotas) -> list[float]:
     xb = x_de_tambor(c, c.half, c.r_m, 1.0, 0.0)[0] - margen
     sop = x_soportes(c)
     patas = estaciones(c)
-    cands = [(a + b) / 2.0 for a, b in zip(sop, sop[1:])]
+    # entre dos soportes que dejan sitio (el par de una junta de la cama no: F1c, D13)
+    cands = [(a + b) / 2.0 for a, b in zip(sop, sop[1:]) if b - a >= SEPARACION_SOPORTES]
     cands = [x for x in cands if xa < x < xb
              and all(abs(x - p) >= LEG_W / 2.0 + SOPORTE_RET_W / 2.0 + 10.0 for p in patas)
              and all(abs(x - s) >= EMPALME_T + SOPORTE_RET_W / 2.0 + 10.0 for s in c.empalmes)]
@@ -234,15 +245,24 @@ def rodillos(plan: Plan, c: Cotas) -> None:
         suf = f"ret{k}"
         plan.pieza(suf, f"Rodillo de retorno ({k})", forma, comp=ref, cut=cut, pos=(x, 0.0, z_eje),
                    rot=(90, 0, 0), key=f"comp|{ref}|{cut}")
+        taller = c.criterio >= 8 and c.guardas
         for i, lado, signo in ((1, -1.0, "−"), (2, 1.0, "+")):
             sop = f"{suf}_{'m' if lado < 0 else 'p'}"
             h = SOPORTE_RET_W / 2.0
-            placa = caja(x - h, x + h, lado * (c.y_in - SOPORTE_RET_T), lado * c.y_in, z_eje - 25.0,
+            # F1c (D12): con el criterio 8 baja 10 mm más, para los M6 roscados de su guarda
+            z_bajo = z_eje - (BAJO_TALLER if taller else 25.0)
+            placa = caja(x - h, x + h, lado * (c.y_in - SOPORTE_RET_T), lado * c.y_in, z_bajo,
                          z_perno + 14.0)
             y_cara = c.y_in - SOPORTE_RET_T
             placa = placa - cilindro_y(x, z_eje, lado * (y_cara - 1.0),
                                        lado * (y_cara + ALOJAMIENTO), d_eje / 2.0 + 0.5)
             placa = taladrar(placa, c, lado, pernos_soporte_ret(x, z_perno), SOPORTE_RET_T)
+            if taller:
+                from .belt_conveyor_taller import broca, taladro_y
+
+                for xg, zg in pernos_guarda_ret(x, z_eje):
+                    placa = placa - taladro_y(xg, zg, lado * (y_cara - 1.0), lado * (c.y_in + 1.0),
+                                              broca("M6"))
             plan.pieza(sop, f"Soporte del rodillo de retorno ({k}, {signo}Y)", placa,
                        material="acero")
             plan.union(f"{sop}_larg", sop, rail(c, i, x), "perno",
@@ -276,9 +296,23 @@ def _guarda(plan: Plan, c: Cotas, k: int, x: float, z_eje: float, r: float, d_ej
     for s in (-1.0, 1.0):                                                       # mejillas
         forma = forma + caja(x - xw - e, x + xw + e, s * (yc - e), s * yc, z_fondo,
                              z_eje - d_eje / 2.0 - 2.0)
+    nota = "guarda atornillada al soporte del rodillo (se quita para cambiar el rodillo)"
+    if c.criterio >= 8:  # F1c (D12): sus agujeros y M6 a rosca en el soporte (8 mm)
+        from .belt_conveyor_taller import cuenta_rosca, nota_rosca, paso, taladro_y
+
+        for s in (-1.0, 1.0):
+            for xg, zg in pernos_guarda_ret(x, z_eje):
+                forma = forma - taladro_y(xg, zg, s * (yc - e - 1.0), s * (yc + 1.0), paso("M6"))
+        cuenta = cuenta_rosca(f"guarda_ret{k}", "M6", e, SOPORTE_RET_T, "el soporte del rodillo")
+        plan.calculos.setdefault("roscas", []).append(cuenta)
+        nota = nota_rosca(nota, cuenta)
     suf = f"guarda_ret{k}"
     plan.pieza(suf, f"Guarda del rodillo de retorno ({k})", forma, material="acero")
     for lado in ("m", "p"):
-        plan.union(f"{suf}_{lado}", suf, f"ret{k}_{lado}", "perno",
-                   "guarda atornillada al soporte del rodillo (se quita para cambiar el rodillo)",
-                   size="M6", qty=2)
+        plan.union(f"{suf}_{lado}", suf, f"ret{k}_{lado}", "perno", nota, size="M6", qty=2)
+
+
+def pernos_guarda_ret(x: float, z_eje: float) -> list[tuple[float, float]]:
+    """(x, z) de los dos M6 de la guarda del rodillo en cada soporte (criterio 8): bajo el
+    alojamiento del muñón, en lo que la mejilla y el soporte solapan."""
+    return [(x - SOPORTE_RET_W / 4.0, z_eje - 23.0), (x + SOPORTE_RET_W / 4.0, z_eje - 23.0)]

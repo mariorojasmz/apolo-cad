@@ -207,7 +207,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   (`tests/test_belt_conveyor_v6.py`). F1b: `lado_abierto` VISIBLE (cubre-ranura + pared sólo en la
   cabeza, medido con las sondas) y el sello en criterio 7 (pie con tuerca soldada y contratuerca,
   base del motor a tope con su cuenta en `Plan.calculos`); tocar la rama 6 cambia fajas ya
-  selladas (`tests/test_belt_conveyor_f1b.py`). [faja-larga-en-tramos](../../../docs/plans/faja-larga-en-tramos.md)
+  selladas (`tests/test_belt_conveyor_f1b.py`). F1c: el sello en criterio 8 (lo de taller,
+  `library/belt_conveyor_*taller.py`): cada unión `perno` con sus agujeros, ninguna tuerca dentro
+  de un tubo (rosca en placa, pasante con buje o espárrago soldado), paños ≤ 3 m y el largo en la
+  nota; sus posiciones de perno son UNA cuenta para la pieza y el larguero
+  (`tests/test_belt_conveyor_f1c.py`). [faja-larga-en-tramos](../../../docs/plans/faja-larga-en-tramos.md)
 - `layout_tablero` (`tablero.py`, V8.5 D1) es de ESCENA, lee el carril (`lee_carril`) y es
   COMPUESTO (corre `fasten`/`add_joint`); su spec va en `SPECS_ELECTRICO`, junto al carril que
   lee, no en `registry.py`. Las cajas salen de `library/electrico/armado.py` y la geometría de

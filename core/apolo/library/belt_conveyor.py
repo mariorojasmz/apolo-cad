@@ -32,6 +32,12 @@ lateral (sólo la guarda cubre-ranura a ras de la banda, `belt_conveyor_guardas.
 (el del sello desde la F1b) suma el pie nivelador con tuerca soldada y contratuerca
 (`belt_conveyor_pies.py`) y los brazos de la base del motor a tope contra la pata, con su cuenta
 y, si no da, tornapuntas (`belt_conveyor_motor.py`).
+
+F1c (criterio 8, el del sello desde la F1c): cada unión de la plantilla con sus agujeros en la
+geometría, ninguna tuerca dentro de un tubo cerrado (rosca en placa, perno pasante con buje o
+espárrago soldado), cama y guardas laterales en paños ≤ 3 m, la cama del espesor de su cuenta y
+cada perno con su largo en la nota (`belt_conveyor_taller.py` y sus vecinos `*_taller.py`,
+`belt_conveyor_cama.py`).
 """
 
 from __future__ import annotations
@@ -156,8 +162,9 @@ def belt_conveyor_parts(
     plan.union("banda_motriz", "banda", "tambor_motriz", "contacto",
                "la banda abraza el tambor motriz (engomado)")
     plan.union("banda_cola", "banda", "tambor_cola", "contacto", "la banda abraza el tambor de cola")
-    for j in range(1, len(tramos.tramos_cama(c)) + 1):
-        plan.union("banda_cama" if c.n_tramos == 1 else f"banda_cama{j}", "banda",
+    n_camas = len(tramos.tramos_cama(c))  # una por tramo; con el criterio 8, por paño
+    for j in range(1, n_camas + 1):
+        plan.union("banda_cama" if n_camas == 1 else f"banda_cama{j}", "banda",
                    tramos.cama(c, j), "contacto", "el ramal de carga desliza sobre la cama")
     bastidor.patas(plan, c)
     if c.guardas:

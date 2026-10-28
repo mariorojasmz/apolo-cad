@@ -23,6 +23,11 @@ F1b (D7–D9): `lado_abierto` (VISIBLE, default «ninguno» = lo de antes) saca 
 lateral del costado de los operarios; el criterio 7 (el del sello desde la F1b; el 6 queda como
 estaba en las fajas ya selladas) suma el pie de tuerca soldada y contratuerca y los brazos del
 motor a tope contra la pata con su cuenta (`tests/test_belt_conveyor_f1b.py`).
+
+F1c (D10–D14): el criterio 8 (el del sello desde la F1c; 5, 6 y 7 quedan como estaban) pone los
+agujeros de cada unión, saca las tuercas de dentro de los tubos, parte cama y guardas laterales en
+paños ≤ 3 m, calcula el espesor de la cama y escribe el largo de cada perno
+(`tests/test_belt_conveyor_f1c.py`).
 """
 
 from __future__ import annotations
@@ -37,12 +42,12 @@ from .spec import run_executor
 from .state import ExecContext
 
 TRAMO_NUEVO = 6000.0   # barra comercial de tubo (D2)
-CRITERIO_NUEVO = 7     # F1b: el 6 + pie con contratuerca y base del motor a tope (D8, D9)
+CRITERIO_NUEVO = 8     # F1c: el 7 + agujeros, sin tuercas en tubos, paños y largos (D10–D14)
 
 
 def sellar(params: dict, material_de: Callable[[str], str | None]) -> dict:
     """Sello de entrada de una faja NUEVA: con los cierres de la v5, los tramos de 6 m (barra
-    comercial) y el criterio 7 (F1b) (lo que el cliente ya trae se respeta: un test puede
+    comercial) y el criterio 8 (F1c) (lo que el cliente ya trae se respeta: un test puede
     pedir la v4 tal cual)."""
     params.setdefault("cierres", True)
     params.setdefault("tramo_max", TRAMO_NUEVO)

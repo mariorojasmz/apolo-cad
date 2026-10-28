@@ -48,7 +48,7 @@ def larga(request):
 def test_el_sello_pone_tramos_de_6_m_y_el_criterio_6():
     d, _ = _faja()
     p = d.commands[0]["params"]
-    assert p["tramo_max"] == 6000 and p["criterio"] == 7  # F1b: el 6 + pie y base del motor
+    assert p["tramo_max"] == 6000 and p["criterio"] == 8  # F1b: 7 (pie, motor); F1c: 8
     props = REGISTRY["create_belt_conveyor"].model.model_json_schema()["properties"]
     assert "tramo_max" in props and "criterio" not in props  # lo visible, lo que el agente cambia
     assert REGISTRY["create_belt_conveyor"].version == 6
@@ -63,15 +63,18 @@ def test_tramos_iguales(larga):
         assert f"{cid}_rail{i}_{n + 1}" not in d.scene
         cortes = {round(r.cut_length, 6) for r in rails}
         assert len(cortes) == 1 and next(iter(cortes)) <= tramo  # iguales y de barra comercial
-    assert len(_rol(d, "Cama de deslizamiento")) == n
-    assert len(_rol(d, "Guarda lateral")) == 2 * n
+    # F1c (criterio 8, D13): cama y guardas laterales en paños ≤ 3 m dentro de cada tramo (con
+    # tramos de 6 m, 2 paños por tramo; con 3 m, uno)
+    panos = {6000: 2 * n, 3000: n}[tramo]
+    assert len(_rol(d, "Cama de deslizamiento")) == panos
+    assert len(_rol(d, "Guarda lateral")) == 2 * panos
     assert len(_rol(d, "Placa de empalme")) == 4 * (n - 1)
     # la BOM pide barras ≤ tramo_max (nada de 10 474 mm)
     tubos = [r for r in bom_from_scene(d.scene) if r["ref"] == "TUBO-4X2"]
     assert tubos and all(r["longitud_mm"] <= tramo for r in tubos)
     assert sum(r["cantidad"] for r in tubos) == 2 * n
     camas = [_bb(d, f) for f in _rol(d, "Cama de deslizamiento")]
-    assert all(b.size.X <= tramo for b in camas)
+    assert all(b.size.X <= min(tramo, 3000) for b in camas)
 
 
 def test_cada_empalme_con_su_pata_y_ninguna_sobre_una_placa(larga):
@@ -145,7 +148,7 @@ def test_retorno_cada_3_m_en_la_larga(larga):
 def test_3_m_no_lleva_retorno_y_4_m_sale_en_un_tramo():
     d3, _ = _faja(largo=3000)
     assert not _rol(d3, "Rodillo de retorno")
-    d4, cid = _faja()
+    d4, cid = _faja(criterio=7)  # el bastidor de la F1 (el 8 parte la cama en paños: F1c)
     assert _rol(d4, "Larguero") == [f"{cid}_rail1", f"{cid}_rail2"]
     assert _rol(d4, "Cama de deslizamiento") == [f"{cid}_cama"] and not _rol(d4, "Placa de empalme")
     # el mismo bastidor de la v5 (salvo D3/D4): barra, patas y soportes en las mismas cotas

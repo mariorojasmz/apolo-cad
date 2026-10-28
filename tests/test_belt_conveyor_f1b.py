@@ -50,14 +50,15 @@ def _plan(d):
 @pytest.fixture(scope="module")
 def clasificadora():
     """La faja del piloto clasificadora-manual: 10,2 m entre tambores, banda a 850 mm, en tramos
-    de 6 m y abierta del lado de los operarios (−Y; el motor va del lado +Y)."""
-    return _faja(largo=10200, altura=850, lado_abierto="-y")
+    de 6 m y abierta del lado de los operarios (−Y; el motor va del lado +Y). Con el criterio de
+    la F1b (7): el 8 parte las guardas en paños (`test_belt_conveyor_f1c.py`)."""
+    return _faja(largo=10200, altura=850, lado_abierto="-y", criterio=7)
 
 
 def test_el_sello_pone_el_criterio_7_y_lado_abierto_es_visible():
     d, _ = _faja()
     p = d.commands[0]["params"]
-    assert p["criterio"] == 7 and p["tramo_max"] == 6000
+    assert p["criterio"] == 8 and p["tramo_max"] == 6000  # F1c: el sello pasó al 8
     props = REGISTRY["create_belt_conveyor"].model.model_json_schema()["properties"]
     assert props["lado_abierto"]["enum"] == ["ninguno", "+y", "-y"]
     assert REGISTRY["create_belt_conveyor"].model.model_validate({}).lado_abierto == "ninguno"
@@ -111,8 +112,9 @@ def test_la_puerta_no_alcanza_las_cunas_por_el_lado_abierto():
     d, cid = _faja(lado_abierto="-y")
     it = controles_seguridad(d, electrico=False)["items"][0]
     assert it["estado"] == "OK", it["detalle"]
+    # (con el criterio 8 el cubre-ranura sale en paños: se quitan todos)
     for quita, tambor in (([f"{cid}_guarda1_cabeza"], "Tambor motriz"),
-                          ([f"{cid}_guarda1"], "Tambor de cola")):
+                          (_rol(d, "Guarda cubre-ranura"), "Tambor de cola")):
         sin = Document.from_apolo_bytes(d.to_apolo_bytes())
         for fid in quita:
             del sin.scene[fid]

@@ -109,8 +109,9 @@ class CreateBeltConveyorParams(BaseModel):
         description="costado de los operarios: sin la pared de la guarda lateral, con una guarda "
                     "cubre-ranura a ras de la banda (sólo con guardas)")
     # v6, FUERA del schema: 6 = rodillos de retorno y pernos pasantes con buje; 7 (F1b) = el 6
-    # con el pie de tuerca soldada y contratuerca y los brazos del motor a tope contra la pata.
-    # Un log de antes no lo trae → 5 → la v5 tal cual (como `cierres`).
+    # con el pie de tuerca soldada y contratuerca y los brazos del motor a tope contra la pata;
+    # 8 (F1c) = el 7 con los agujeros de cada unión, sin tuercas dentro de los tubos, paños ≤ 3 m,
+    # cama calculada y el largo de cada perno. Un log de antes no lo trae → 5 → la v5 tal cual.
     criterio: SkipJsonSchema[int] = Field(5)
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")

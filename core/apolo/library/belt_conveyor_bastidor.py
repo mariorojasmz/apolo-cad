@@ -27,7 +27,6 @@ from apolo.kernel.shapes import place
 
 from .belt_conveyor_cotas import (
     BRACE_REF,
-    CAMA_T,
     FOOT_REF,
     HOLGURA_EJE,
     LEG_REF,
@@ -71,6 +70,10 @@ def largueros(plan: Plan, c: Cotas) -> None:
         else:
             paso_c = cilindro_y(-c.half, c.zc, y0, y1, c.d_c / 2.0 + HOLGURA_EJE)
         pernos = pasantes(c, i)
+        if c.criterio >= 8:  # F1c (D12): también los pasantes de las guardas
+            from .belt_conveyor_guardas_taller import pasantes_de_guardas
+
+            pernos = pernos + pasantes_de_guardas(c, i)
         for k, (a, b) in enumerate(tramos, start=1):
             base, cut = build_component(c.tubo, b - a)
             forma = place(base, ((a + b) / 2.0, s * c.rail_y, zc_rail), (0, 90, 0))
@@ -80,7 +83,7 @@ def largueros(plan: Plan, c: Cotas) -> None:
                 forma = forma - paso_c
             elif k == len(tramos):
                 forma = forma - paso_m
-            forma = bujes(forma, c, s, [(x, z) for x, z in pernos if a < x < b])
+            forma = bujes(forma, c, s, [p for p in pernos if a < p[0] < b])
             plan.pieza(rail(c, i, (a + b) / 2.0), nombre_larguero(c, i, k), forma, comp=c.tubo,
                        cut=cut, material=mat)
 
@@ -217,6 +220,10 @@ def _libres(c: Cotas) -> tuple[float, float]:
         return float(CATALOG[ref].params["size_w"]) + 30.0
 
     cola = (float(CATALOG[c.uct].params["L"]) / 2.0 if c.uct else ancho_placa(c.chum_c) / 2.0)
+    if c.uct and c.criterio >= 8:  # F1c (D11): la placa porta-tensor sale del marco
+        from .belt_conveyor_tambores_taller import PLACA_TENSOR_MARGEN
+
+        cola += PLACA_TENSOR_MARGEN
     return (-c.half + cola + LLAVE_M8, c.half - ancho_placa(c.chum_m) / 2.0 - LLAVE_M8)
 
 
@@ -243,7 +250,7 @@ def pernos_soporte(c: Cotas, x: float) -> list[tuple[float, float]]:
 
 def z_soportes(c: Cotas) -> tuple[float, float]:
     """(z0, z1) de los soportes de la cama y de sus placas de extremo (bajo la chapa)."""
-    z1 = c.cama_top - CAMA_T
+    z1 = c.cama_top - c.cama_t
     return z1 - LEG_W, z1
 
 
@@ -275,19 +282,32 @@ def cama(plan: Plan, c: Cotas) -> None:
     w = c.ancho / 2.0 + 10.0
     top = c.cama_top
     tramos = tramos_cama(c)
+    taller = c.criterio >= 8
+    sops = x_soportes(c)
+    if taller:
+        from . import belt_conveyor_cama as ct
+
+        plan.calculos["cama"] = ct.cuenta_cama(c)
     for j, (x0, x1) in enumerate(tramos, start=1):
-        nombre = "Cama de deslizamiento" + ("" if len(tramos) == 1 else f" (tramo {j})")
-        plan.pieza(cama_suf(c, j), nombre, caja(x0, x1, -w, w, top - CAMA_T, top),
-                   material="acero")
+        cual = "paño" if taller else "tramo"
+        nombre = "Cama de deslizamiento" + ("" if len(tramos) == 1 else f" ({cual} {j})")
+        forma = caja(x0, x1, -w, w, top - c.cama_t, top)
+        if taller:  # F1c (D12): el avellanado de cada tornillo, a ras de la cara de la banda
+            forma = ct.avellanar(forma, c, [x for x in sops if x0 < x < x1])
+        plan.pieza(cama_suf(c, j), nombre, forma, material="acero")
     largo = 2.0 * (c.y_in - PLACA_SOPORTE_T)
     tubo, cut = build_component(LEG_REF, largo)
     z0, z1 = z_soportes(c)
     pasante = c.criterio >= 6
-    for k, x in enumerate(x_soportes(c), start=1):
+    for k, x in enumerate(sops, start=1):
         sop = f"sop{k}"
-        plan.pieza(sop, f"Soporte de cama ({k})", tubo, comp=LEG_REF, cut=cut,
-                   pos=(x, 0.0, (z0 + z1) / 2.0), rot=(90, 0, 0), key=f"comp|{LEG_REF}|{cut}",
-                   material=material_de(LEG_REF))
+        if taller:  # el tubo con el buje y el paso de los tornillos de la cama (D12)
+            plan.pieza(sop, f"Soporte de cama ({k})", ct.soporte(tubo, c, x, z0, z1),
+                       comp=LEG_REF, cut=cut, material=material_de(LEG_REF))
+        else:
+            plan.pieza(sop, f"Soporte de cama ({k})", tubo, comp=LEG_REF, cut=cut,
+                       pos=(x, 0.0, (z0 + z1) / 2.0), rot=(90, 0, 0),
+                       key=f"comp|{LEG_REF}|{cut}", material=material_de(LEG_REF))
         for lado, s, i in (("m", -1.0, 1), ("p", 1.0, 2)):
             placa = f"{sop}_{lado}"
             forma = caja(x - 30.0, x + 30.0, s * (c.y_in - PLACA_SOPORTE_T), s * c.y_in, z0, z1)
@@ -304,4 +324,5 @@ def cama(plan: Plan, c: Cotas) -> None:
                        qty=2)
         j = 1 + sum(1 for a, _b in tramos[1:] if x > a)
         plan.union(f"cama_{sop}", cama_suf(c, j), sop, "perno",
-                   "cama atornillada al soporte (tornillos avellanados)", size="M6", qty=2)
+                   ct.nota(c) if taller else "cama atornillada al soporte (tornillos avellanados)",
+                   size="M6", qty=2)

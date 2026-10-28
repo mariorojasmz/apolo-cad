@@ -119,17 +119,19 @@ def test_belt_conveyor_genera_todas_las_piezas():
     assert cuenta("Larguero") == 2
     assert sum(n == "Faja de banda · Tambor motriz" for n in names) == 1
     assert sum(n == "Faja de banda · Tambor de cola" for n in names) == 1
-    assert cuenta("Banda") == 1 and cuenta("Cama de deslizamiento") == 1
+    # F1c (criterio 8): la cama en paños ≤ 3 m (2 de 1,9 m), cada uno con sus soportes de punta
+    assert cuenta("Banda") == 1 and cuenta("Cama de deslizamiento") == 2
     assert cuenta("Pata") == 4 and cuenta("Placa de la pata") == 4 and cuenta("Pie nivelador") == 4
     assert cuenta("Travesaño") == 2
-    assert cuenta("Soporte de cama") == 6 and cuenta("Placa del soporte de cama") == 12
+    assert cuenta("Soporte de cama") == 8 and cuenta("Placa del soporte de cama") == 16
     assert cuenta("Chumacera motriz") == 2 and cuenta("Placa porta-chumacera motriz") == 2
     assert cuenta("Tensor de carro") == 2 and cuenta("Tapa del tensor") == 2
+    assert cuenta("Placa porta-tensor") == 2  # F1c (D11): el marco, a rosca en su placa
     assert cuenta("Tapa del eje motriz") == 1  # el otro extremo va al acople del motor
     assert cuenta("Motorreductor") == 1 and cuenta("Acople flexible") == 1
     assert cuenta("Base del motor") == 1 and cuenta("Ménsula del motor") == 1
     assert cuenta("Brazo de la base del motor") == 2
-    assert cuenta("Guarda lateral") == 2 and cuenta("Guarda del tambor") == 2
+    assert cuenta("Guarda lateral") == 4 and cuenta("Guarda del tambor") == 2  # F1c: paños
     assert cuenta("Guarda del acople") == 1
     # v5 (cierres): guarda inferior en 2 tramos por lado y las placas de cierre de los largueros
     assert cuenta("Guarda inferior") == 4 and cuenta("Placa de cierre del larguero") == 4
@@ -139,7 +141,7 @@ def test_belt_conveyor_genera_todas_las_piezas():
     assert cuenta("Guarda del rodillo de retorno") == 1 and cuenta("Placa de empalme") == 0
     # F1b (criterio 7): tuerca soldada y contratuerca en cada pie
     assert cuenta("Tuerca soldada del pie") == 4 and cuenta("Contratuerca del pie") == 4
-    assert len(d.scene) == 78
+    assert len(d.scene) == 89
 
 
 def test_belt_conveyor_banda_es_lazo_hueco():
@@ -168,10 +170,13 @@ def test_belt_conveyor_bom_separa_banda_y_cama():
     rows = {r["descripcion"].split(" · ")[-1]: r["cantidad"] for r in custom}
     # la banda se COMPRA (F6): categoría de compra; la cama se fabrica
     cats = {r["descripcion"].split(" · ")[-1]: r["categoria"] for r in custom}
-    assert cats["Banda"] == "bandas" and cats["Cama de deslizamiento"] == "a medida"
-    # piezas a medida DISTINTAS del mismo super-comando → filas separadas (no colapsan)
+    camas = [k for k in cats if k.startswith("Cama de deslizamiento")]
+    assert cats["Banda"] == "bandas" and {cats[k] for k in camas} == {"a medida"}
+    # piezas a medida DISTINTAS del mismo super-comando → filas separadas (no colapsan); F1c: la
+    # cama en dos paños, una fila por paño
     assert rows["Banda"] == 1
-    assert rows["Cama de deslizamiento"] == 1
+    assert sorted(camas) == ["Cama de deslizamiento (paño 1)", "Cama de deslizamiento (paño 2)"]
+    assert all(rows[k] == 1 for k in camas)
 
 
 def test_belt_conveyor_banda_es_pvc_en_bom_y_masa():
@@ -330,8 +335,10 @@ def test_v4_declara_sus_uniones_y_anclajes(faja_v4):
     rep = soundness_report(build_graph(d.scene, d.joints, d.mates, d.fasteners, d.grounds))
     assert rep["floating"] == [] and rep["n_grounded"] == len(d.scene)
     tipos = {f["name"].split(f"{cid}_", 1)[1]: f["kind"] for f in d.fasteners.values()}
-    assert tipos["guarda1_larg"] == tipos["guarda_m_larg1"] == "perno"  # resguardos: con perno
-    assert tipos["chum_m1_placa"] == tipos["tensor1_larg"] == "perno"  # se cambian sin cortar
+    guarda1 = next(k for k in tipos if k.startswith("guarda1") and k.endswith("_larg"))
+    assert tipos[guarda1] == tipos["guarda_m_larg1"] == "perno"  # resguardos: con perno
+    # se cambian sin cortar (F1c: el marco del tensor, a rosca en su placa porta-tensor)
+    assert tipos["chum_m1_placa"] == tipos["tensor1_placa"] == "perno"
     assert tipos["larg_pata1"] == tipos["chum_m1_placa_sold"] == "soldadura"
     assert tipos["cama_sop1"] == tipos["sop1_m_larg"] == "perno"  # nada soldado abraza la banda
     assert tipos["banda_motriz"] == tipos["chum_m1_eje"] == "contacto"
