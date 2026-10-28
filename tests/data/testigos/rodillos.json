@@ -3,7 +3,7 @@
  "descripcion": "create_roller_conveyor de 1500 mm con requisitos (sin D15): su veredicto de hoy, con lo que falta",
  "tortura": true,
  "aprobado": false,
- "version_registro": "16",
+ "version_registro": "17",
  "firma": "8fa000851ee6e5c4a747",
  "items": {
   "entrega.semaforo": "OK",
@@ -39,6 +39,7 @@
   "riesgos.partes_moviles": "FALLA",
   "riesgos.resguardos_desmontables_con_herramienta": "FALLA",
   "consumibles.reemplazables": "FALLA",
+  "seguridad.resguardo_abre": "NO_APLICA",
   "diseno.sin_sobrantes": "FALLA"
  }
 }

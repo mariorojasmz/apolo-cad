@@ -5,7 +5,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
 `hechos(doc, entrega_kwargs, contexto)` →
 - `elementos`: {tipo general: {clase: n}} — `transmisiones_flexibles` {banda, cadena},
   `elementos_rodantes` {rodamiento, chumacera}, `accionamientos`, `transmisiones`,
-  `cadenas_de_rodillos` {de_su_comando, a_mano} (toda ref CADENA-*, `calidad_cadenas`), `apoyos`,
+  `cadenas_de_rodillos` {de_su_comando, a_mano} (toda ref CADENA-*, `calidad_cadenas`),
+  `resguardos_con_interruptor` {con_junta, sin_junta} (los `add_device` resguardo, `resguardos`), `apoyos`,
   `vigas`, `columnas`, `uniones` / `uniones_apernadas` / `soldaduras`, `tornilleria`,
   `tornilleria_llave`, `supercomandos`, `piezas` {catalogo, a_medida}, `sustitutos_animados`
   {banda}, `partes_moviles`, `resguardos`, `consumibles`, `operables` (mandos, pilotos y sensores
@@ -96,6 +97,18 @@ def _de_f3(doc, contexto) -> tuple[dict, dict, dict, list[str]]:
             [i for g in guardas for i in g["ids"]])
 
 
+def _resguardos(doc) -> tuple[list[dict] | None, dict]:
+    """(filas de `resguardos.resguardos`, {con_junta, sin_junta}); si la resolución revienta,
+    (None, {sin_detectar}): el ítem aplica y sale SIN_EVALUAR."""
+    from .resguardos import elementos, resguardos
+
+    try:
+        filas = resguardos(doc)
+    except Exception:  # noqa: BLE001 — aplica igual: el ítem dirá que no se resolvió
+        return None, {"sin_detectar": 1}
+    return filas, elementos(filas)
+
+
 def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from apolo.commands.exec_rodillos_cadena import comandos_efectivos
     from apolo.library.calidad.nombres import elementos as elementos_operables
@@ -117,6 +130,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
                if c["type"] == "create_chain"]
     bandas = [lz["id"] for lz in lazos_banda(doc)]
     de_rodillos = cadenas_de_rodillos(doc)  # lo-que-se-mueve D1: también las hechas a mano
+    enclavados, de_enclavados = _resguardos(doc)  # lo-que-se-mueve D3: con interruptor
     por_cmd: dict[str, int] = {}
     for x in solidos.values():
         por_cmd[x.command_id] = por_cmd.get(x.command_id, 0) + 1
@@ -155,6 +169,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "accionamientos": _n({"motorreductor": len(motores)}),
         "transmisiones": _n({"cadena": len(cadenas)}),
         "cadenas_de_rodillos": elementos_cadenas(de_rodillos),
+        "resguardos_con_interruptor": de_enclavados,
         "apoyos": _n({"anclaje": len(doc.grounds)}),
         "vigas": _n(vigas),
         "columnas": _columnas(doc),
@@ -187,6 +202,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "elementos": elementos,
         "familias_funcion": familias,
         "cadenas_de_rodillos": de_rodillos,  # el insumo de su ítem (`_reunir` lo pasa)
+        "resguardos_con_interruptor": enclavados,  # ídem (None: no se pudo resolver)
     }
 
 

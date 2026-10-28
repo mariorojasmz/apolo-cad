@@ -3,6 +3,7 @@ import { useMarcha } from "../viewport/marcha/estado";
 import { INICIAL, useVivo } from "./estado";
 import { esperaDe } from "./accionar";
 import { conAckDeRama, type EventoFalla } from "./fallas";
+import { crearJuntasDeResguardo } from "./juntaResguardo";
 import type { Accion } from "./mandos";
 import {
   decodificarFotograma, leerMensaje, problemaDeCierre, problemaDeMensaje, textoFin,
@@ -65,6 +66,13 @@ export const sesionViva = {
   valor: (nombre: string): number | undefined => s.valores.get(nombre),
 };
 
+/** La junta de cada resguardo que se abrió en el 3D (lo-que-se-mueve D4): vuelve a su valor
+ *  al cerrar la sesión o al reabrirla (el escenario arranca otra vez cerrado). */
+const juntasResguardo = crearJuntasDeResguardo({
+  leer: (junta) => useStore.getState().jointValues[junta] ?? 0,
+  poner: (junta, valor) => useStore.getState().setJointValue(junta, valor),
+});
+
 let suscrito = false;
 function vigilarMarcha(): void {
   if (suscrito) return;
@@ -83,6 +91,7 @@ function soltar(): void {
   s.ultimo = null;
   s.valores.clear();
   s.esperas.clear();
+  juntasResguardo.devolver();
   if (ws && ws.readyState <= WebSocket.OPEN) ws.close(1000);
   useVivo.getState().set({ ...INICIAL });
 }
@@ -180,8 +189,10 @@ export const PULSO_MIN_MS = 150;
 const apretadoEn = new Map<string, number>();
 
 /** Acciona un mando (desde el panel o su pieza 3D) y espera su señal de estado. Un `soltar`
- *  que llega antes de `PULSO_MIN_MS` se demora hasta cumplirlo, como un pulsador real. */
+ *  que llega antes de `PULSO_MIN_MS` se demora hasta cumplirlo, como un pulsador real. Abrir o
+ *  cerrar un resguardo con junta mueve además su hoja en el 3D (`juntaResguardo.ts`). */
 export function accionar(a: Accion, m: MandoVivo): void {
+  if (s.ws && s.ws.readyState === WebSocket.OPEN) juntasResguardo.mover(a, m);
   const clave = `${a.dispositivo}|${a.actuador ?? ""}`;
   if (a.accion === "pulsar") apretadoEn.set(clave, performance.now()); // voseo-interno
   if (a.accion === "soltar") {
@@ -235,6 +246,7 @@ function alMensaje(m: MensajeVivo): void {
       s.ultimo = null;
       s.viva = serieDesdeInicio(m);
       reiniciarHistoria();
+      juntasResguardo.devolver(); // una sesión reabierta arranca con los resguardos como al empezar
       const store = useStore.getState();
       store.clearGravity(); // mueven las mismas mallas
       store.clearPhysics();

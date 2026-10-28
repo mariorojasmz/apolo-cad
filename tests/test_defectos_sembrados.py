@@ -190,6 +190,18 @@ def cadena_a_mano(d):
                                    "position": {"x": 200, "y": 300, "z": 640}})
 
 
+def resguardo_sin_junta(d):
+    """lo-que-se-mueve D3: un interruptor de resguardo -B1 con su lengüeta, ligado a su
+    dispositivo, y la hoja sin junta (las puertas de carga del elevador colgaban de bisagras sin
+    junta: nadie verificó que abrieran sin chocar)."""
+    c = d.execute("insert_component", {"component": "RESG-2NC", "name": "Interruptor de puerta -B1",
+                                       "position": {"x": 600, "y": 0, "z": 100}})
+    d.execute("insert_component", {"component": "RESG-LENGUETA", "name": "Lengüeta -B1",
+                                   "rotation": {"x": 180}, "position": {"x": 600, "y": 0, "z": 160}})
+    d.execute("add_device", {"ref": "RESG-2NC", "designacion": "-B1", "ubicacion": "+CAMPO",
+                             "pieza": c})
+
+
 def motor_sin_tierra(d):  # el tablero de arranque directo sin el PE del motor
     d.execute_many([c for c in arranque_directo()
                     if c["params"].get("puntos") != ["-X0:2", "-M1:PE"]])
@@ -385,6 +397,8 @@ DEFECTOS = (
             {"transmision.capacidad": FALLA}),
     Defecto("cadena_a_mano", "mensula", cadena_a_mano,
             {"transmision_flexible.de_su_comando": FALLA}),
+    Defecto("resguardo_sin_junta", "mensula", resguardo_sin_junta,
+            {"seguridad.resguardo_abre": FALLA}),
     Defecto("motor_sin_tierra", "mensula", motor_sin_tierra, {"riesgos.electrico": FALLA}),
     Defecto("hilo_pe_suelto", "mensula", hilo_pe_suelto, {"riesgos.electrico": FALLA}),
     Defecto("mando_sin_rotulo", "mensula", mando_sin_rotulo,

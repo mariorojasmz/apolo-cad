@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude (2026-10-27, decisiones delegadas por Mario, vetables por número); F0 hecha (mapa del código, abajo); F1 implementada (registro v16, D1/D2/D6), falta revisarla y mergearla; faltan F2 (el resguardo abre su junta: puerta y visor), F3 (aviso del tirador), F4 (las máquinas por MCP) y F5 (Mario las ve)
+nota: contrato escrito por Claude (2026-10-27, decisiones delegadas por Mario, vetables por número); F0 hecha (mapa del código, abajo); F1 mergeada (registro v16, D1/D2/D6); F2 implementada (registro v17, D3/D4), falta revisarla y mergearla; faltan F3 (aviso del tirador), F4 (las máquinas por MCP: el elevador da 5 resguardos sin lengüeta, 3 son finales de carrera con ref de resguardo) y F5 (Mario las ve)
 descripcion: Lo que se mueve en la realidad se mueve en el modelo: la puerta rechaza la cadena hecha a mano, la unión falsa que tapa un choque y el resguardo sin junta, y en el visor «Puerta abierta» abre la puerta
 ---
 
@@ -234,3 +234,26 @@ Lo que pediría una pieza sin norma es AVISO justificable por escrito.
   recorrido. Un par que ya se TOCA en la pose de diseño (≤ 0,05 mm) sigue excluido en las poses
   (`delivery_inputs._se_tocan`); la unión «artefacto» tapa un choque que en diseño no existe, y
   ésa sigue contando. Riesgo que queda: un artefacto entre piezas que ya se tocan en diseño.
+- **F2 (2026-10-27, agente en worktree):** registro v17.
+  - D3: `services/resguardos.py` es la única resolución (interruptor = `pieza` → lengüeta de
+    `enclavamientos.emparejar` → `junta_movil` de la lengüeta o, si no tiene, la del interruptor;
+    la misma junta para los dos = no abre). Ítem en `library/calidad/resguardos.py`; sus poses
+    (`lower`/`upper` ≠ 0) entran en `assertions.delivery_poses` acotadas con `ids` a lo que mueve
+    la junta (exacto: lo demás está como en diseño). CERRADO = 0 si está en el recorrido; ABIERTO
+    = el extremo más lejano (los −180…180 por defecto de `add_joint` dan 180).
+  - **Ajuste a la inferencia, medido en las 3 máquinas con tablero:** sin lengüeta emparejada no
+    hay junta (`sin_lengueta`). En el elevador, -B13/-B14 (cadena floja, RESG-2NC sobre la
+    plataforma) salían OK «abriendo» por `j_plataforma` a 1580 mm, y el visor habría subido la
+    plataforma al tocar «Puerta abierta». Resultado: elevador 5 de 5 FALLA `sin_lengueta` (-B11/-B12
+    son cajas «compra» con un actuador-caja, no las refs de catálogo; -B13/-B14/-B15 son finales de
+    carrera con la ref de un resguardo: el catálogo no tiene interruptor de posición); mezcladora
+    -B1 OK por `j_tapa_carga` (0 → 100), -B4 (recipiente) FALLA `sin_junta`; tanque -B1 OK por
+    `j_tapa_boca` (0 → 105).
+  - Segundos de las poses de la puerta de entrega: mezcladora 0,69 → 1,13 s (+1 pose, que choca
+    en 2 pares: lo lee la F4), tanque 0,01 → 0,48 s (+1 pose, sin choques). En el elevador, una
+    puerta hipotética (junta en c89) cuesta 0,77 s acotada contra 7,0 s global.
+  - D4: `juntas_vivo` (bajo el lock de `_preparar`) + `juntas_en_tabla` (pura, en `_inicio`): el
+    mando trae `junta`, `abierto`, `cerrado`. La UI (`ui/src/vivo/juntaResguardo.ts`) la mueve en
+    `sesion.accionar` con `setJointValue`, sin animar (cada cambio de `jointValues` rearma el
+    reproductor vivo), y la devuelve al cerrar o reabrir la sesión.
+  - Testigos re-congelados sólo por la versión y el ítem nuevo (NO_APLICA en los cuatro).

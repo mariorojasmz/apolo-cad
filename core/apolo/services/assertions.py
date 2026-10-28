@@ -201,7 +201,8 @@ def _en_pose(doc, metas: list[dict], extra_pairs, extra_ids, expand):
     for grupo in dict.fromkeys(lib):
         idx = [i for i, x in enumerate(lib) if x == grupo]
         checks = [{"tipo": "sin_interferencia", "joint_values": metas[i]["joint_values"],
-                   "nombre": f"{metas[i]['estudio']}@t={metas[i]['t']}"} for i in idx]
+                   "nombre": f"{metas[i]['estudio']}@t={metas[i]['t']}",
+                   **({"ids": metas[i]["ids"]} if metas[i].get("ids") else {})} for i in idx]
         res = verify_checks(doc, doc.scene, checks, expand=expand,
                             extra_exclude_pairs=(extra_pairs - grupo) if extra_pairs else extra_pairs,
                             extra_exclude_ids=extra_ids)
@@ -222,17 +223,25 @@ def delivery_poses(doc, extra_pairs: set | None = None,
     muesca no son una colisión) se tolera y se DECLARA (`contactos_tolerados`). El `fasten`
     entre piezas que la pose mueve con juntas distintas no excluye su choque (`_en_pose`):
     la colisión lleva `union_declarada` y su `porque`.
-    None = no hay estudios (el chequeo «no aplica» — jamás cuenta verde). Un estudio
+    Además, los extremos de la junta de cada resguardo con interruptor (`resguardos.poses`, D3 de
+    lo-que-se-mueve), aunque el modelador no los haya declarado en `doc.motion`: estudio
+    «apertura del resguardo …», `t` «abierto»/«cerrado», con la interferencia acotada a lo que esa
+    junta mueve (exacto: lo demás está como en diseño).
+    None = no hay estudios ni resguardos con junta (el chequeo «no aplica» — jamás cuenta
+    verde). Un estudio
     malformado (formato viejo sin `values`, valores no numéricos) produce {estudio,
     error}: la pose queda SIN verificar y la puerta lo DECLARA. Llamar bajo STATE_LOCK."""
     from apolo.library.checks import EXCESS_TOL_MM3
 
-    if not doc.motion:
+    from .resguardos import poses as poses_de_resguardos
+
+    de_resguardos = poses_de_resguardos(doc)
+    if not doc.motion and not de_resguardos:
         return None
     metas: list[dict] = []
     errores: list[dict] = []
     vistos: set = set()
-    for nombre, kfs in sorted(doc.motion.items()):
+    for nombre, kfs in sorted((doc.motion or {}).items()):
         cuadros: list[tuple] = []  # (t, vals) parseados del estudio
         for kf in kfs or []:
             values = kf.get("values") if isinstance(kf, dict) else None
@@ -264,9 +273,15 @@ def delivery_poses(doc, extra_pairs: set | None = None,
                 continue
             vistos.add(key)
             metas.append({"estudio": nombre, "t": t, "joint_values": vals})
+    for m in de_resguardos:  # lo que un estudio ya posó no se repite
+        key = tuple(sorted(m["joint_values"].items()))
+        if key not in vistos:
+            vistos.add(key)
+            metas.append(m)
     resultados, liberadas = _en_pose(doc, metas, extra_pairs, extra_ids, expand)
     out: list[dict] = []
     for meta, res, lib in zip(metas, resultados, liberadas):
+        meta = {k: v for k, v in meta.items() if k != "ids"}  # el acote no viaja en el reporte
         if res.get("error"):
             out.append({**meta, "error": res["error"]})
             continue

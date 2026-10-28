@@ -26,7 +26,8 @@ Ids estables (familia):
   sobra; `sobrantes.py`, insumo de `services/calidad_sobrantes.py`, sólo en esta puerta);
 - `riesgos.electrico` e `interfaz.nombres_por_funcion` (seguridad: cada mando, piloto y sensor
   con su rótulo declarado; la `Entrada` y el criterio, en `nombres.py`);
-  `publicado.sustitutos_fieles` (publicado: lo que el visor o el video dibujan en lugar de un sólido —la banda animada, mañana un cable— es fiel al modelo);
+  `seguridad.resguardo_abre` (seguridad: todo resguardo con interruptor abre por una junta,
+  `resguardos.py`); `publicado.sustitutos_fieles` (publicado: lo que el visor o el video dibujan en lugar de un sólido —la banda animada, mañana un cable— es fiel al modelo);
 - F3 (fuente «seguridad»): `riesgos.partes_moviles`,
   `riesgos.resguardos_desmontables_con_herramienta` (seguridad) y `consumibles.reemplazables`
   (montaje).
@@ -79,7 +80,9 @@ aprobado en v14 con 13 cables 5G de PE suelto ahora falla; v16 (lo-que-se-mueve 
 `transmision_flexible.de_su_comando` (la cadena por `insert_component` falla) y, en las poses que
 no son la de diseño, el `fasten` entre piezas que mueven juntas distintas deja de tapar su choque;
 entra también la capacidad de la cadena de izaje (cadena-de-izaje F2a), que dimensiona el pasador
-de sus amarres en `union.dimensionadas`.
+de sus amarres en `union.dimensionadas`; v17 (lo-que-se-mueve F2) `seguridad.resguardo_abre` (un
+resguardo con interruptor sin una junta que lo abra falla) y los extremos de esa junta entran como
+poses de la puerta de entrega, aunque no estén en `doc.motion`.
 """
 
 from __future__ import annotations
@@ -89,11 +92,12 @@ from dataclasses import dataclass, field
 from . import cadenas as ca
 from . import nombres as nb
 from . import puerta as p
+from . import resguardos as rg
 from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "16"  # 16: cadena de su comando y uniones entre cuerpos que se mueven distinto
+VERSION_REGISTRO = "17"  # 17: el resguardo con interruptor abre por su junta (y sus poses)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -275,6 +279,7 @@ REGISTRO: tuple = (
             hay("sustitutos_animados", "nada se dibuja en lugar de su sólido (sin banda animada)"),
             p.marcha, "sustitutos_animados"),
     Fuente("seguridad", "apolo.services.calidad_seguridad:items_seguridad", MAPA_SEGURIDAD),
+    rg.ENTRADA,  # seguridad.resguardo_abre: la Entrada vive junto a su criterio
     Entrada("diseno.sin_sobrantes", "Ninguna guarda ni pieza agregada sobra: a cada una la pide "
             "un control", "una protección o un refuerzo que no sirve a ningún peligro ni "
             "requisito: cuesta, pesa y estorba el servicio (lo agregó una ronda de corrección y "

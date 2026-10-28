@@ -97,6 +97,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md) Salvo en pose: el `fasten` entre piezas
   que la pose mueve con juntas distintas (`uniones_entre_juntas`, sin los de un super-comando de
   cadena) no tapa su choque. [lo-que-se-mueve](../../../docs/plans/lo-que-se-mueve.md) (D2)
+- La junta que abre un resguardo con interruptor es UNA función, `resguardos.resguardos` (sin
+  lengüeta emparejada no hay junta: un RESG-2NC en un carro no es una hoja): la leen el ítem
+  `seguridad.resguardo_abre`, las poses de la entrega (sus `lower`/`upper` ≠ 0, acotadas con `ids`
+  a lo que la junta mueve) y el mando del vivo (`juntas_en_tabla`). (D3, D4)
 - La tornillería que insertó un `join_bolted` con su fijador declarado no es «sin unión
   declarada» (`declarada_por_join_bolted`, por el TIPO del comando, no por `jb_*`).
   [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md) (D5)

@@ -43,6 +43,11 @@ export interface MandoVivo extends NombreAparato {
   potenciometro?: boolean;
   posiciones?: string[];
   senales: string[];
+  /** La junta de la que cuelga la hoja de un resguardo y sus valores abierto y cerrado (plan
+   *  lo-que-se-mueve D4): al accionarlo, el visor la mueve. Sin junta no viene. */
+  junta?: string;
+  abierto?: number;
+  cerrado?: number;
 }
 
 export interface PilotoVivo extends NombreAparato {
