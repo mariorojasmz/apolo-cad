@@ -56,3 +56,17 @@ families:
       - {ref: "6408", serie: "6400", d: 40, D: 110, B: 27, C_kN: 63.5}
       - {ref: "6409", serie: "6400", d: 45, D: 120, B: 29, C_kN: 76.1}
       - {ref: "6410", serie: "6400", d: 50, D: 130, B: 31, C_kN: 87.1}
+  # F7 de plantilla-rodillos-cadena: rodamiento de agujero HEXAGONAL para el rodillo de
+  # transportador sobre eje hexagonal FIJO (el aro interior no gira: lo traba el hexágono). Es el
+  # contorno del 6202 (D35 × B11) con el aro interior agujereado a hexágono de 11 mm entrecaras
+  # (esquinas Ø12.7: no cabe en el aro del 6201, d12). C_kN el del 6202. Cotas del orden de los
+  # «6202-2RS hex 11» de rodillo de transportador, sin contrastar con la ficha de un fabricante.
+  # Sin `d` redondo: no se ofrece en los tensores (`models_rodillos._bearing_refs`).
+  - name_tpl: "Rodamiento {ref}"
+    description_tpl: "Rígido de bolas {ref}: contorno 6202 (D{D}×B{B}, ISO 15) con agujero hexagonal de {s} mm entrecaras, sellado 2RS, para rodillo de transportador sobre eje hexagonal fijo."
+    builder: bearing_hex
+    param_keys: [s, D, B]
+    weight_formula: "7.85e-6 * (0.785 * D*D - 0.866 * s*s) * B"
+    specs_common: {tipo: "rígido de bolas, agujero hexagonal", material: "acero al cromo", norma: "ISO 15 (contorno)", forma_agujero: hexagonal, cotas_verificadas: false}
+    variants:
+      - {ref: "6202-HEX11", serie: "6200", s: 11, D: 35, B: 11, C_kN: 7.65, linea_referencia: "del orden de los 6202-2RS de agujero hexagonal 11 mm para rodillos de transportador", cost: 2.5}

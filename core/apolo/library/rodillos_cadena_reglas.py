@@ -10,7 +10,8 @@ plantilla, `carga_kg` es la carga TOTAL con que se dimensionaron vano y motor.
 Reglas (formato de `rules._check`, con `calc`):
 - velocidad del producto contra la de la ficha, ±10 % (criterio «0.9 × objetivo»);
 - apoyo del paquete: ≥ 3 rodillos debajo;
-- capacidad del rodillo: 2 × 6201 a L10 = 20 000 h (ISO 281) y eje M12 a σ ≤ 0.5·σy;
+- capacidad del rodillo: 2 × 6201 a L10 = 20 000 h (ISO 281) y eje M12 a σ ≤ 0.5·σy (con el eje
+  hexagonal de F7, 2 × 6202-HEX11 y la barra hexagonal 11);
 - ancho útil contra el ancho del paquete;
 - carga de diseño: la ficha con el transportador LLENO de paquetes contra `carga_kg`;
 - pies niveladores (D10): carga por pie contra la del catálogo y recorrido de nivelación (±);
@@ -82,9 +83,12 @@ def _apoyo(d, largo_paq: float) -> tuple[dict, int]:
 
 def _capacidad(d, m_paq: float, n_apoyos: int) -> dict:
     """Carga por rodillo contra 2 × 6201 (L10 ≥ 20 000 h) y el eje M12 (σ ≤ 0.5·σy), con la
-    carga repartida en partes iguales entre los rodillos bajo el paquete."""
-    from .rodillos_cadena import RODAMIENTO, TAPA_ESPESOR
+    carga repartida en partes iguales entre los rodillos bajo el paquete. Con el eje hexagonal
+    (F7): 2 × 6202-HEX11 y la barra hexagonal (fibra extrema en la arista)."""
+    from .rodillos_cadena import TAPA_ESPESOR, rodamiento_de
+    from .rodillos_cadena_eje import EJE_HEX, w_hex
 
+    rodamiento = rodamiento_de(d)
     p_n = m_paq * 9.81 / max(1, n_apoyos)
     a2, t = d.ancho_util / 2.0, float(CATALOG["ANG-75X6"].specs["t"])
     e_m = (-a2 + TAPA_ESPESOR / 2.0) - (d.y_in_m - t / 2.0)  # rodamiento ↔ mitad del ala
@@ -96,9 +100,12 @@ def _capacidad(d, m_paq: float, n_apoyos: int) -> dict:
     r_m = f * (luz - e_m) / luz + f * e_p / luz
     r_p = 2.0 * f - r_m
     m_max = max(r_m * e_m, r_p * e_p)
-    w = math.pi * D3_M12 ** 3 / 32.0
+    if d.eje_hex:
+        w, eje_txt = w_hex(), f"hexagonal {EJE_HEX:g} (W = {w_hex():.0f} mm³)"
+    else:
+        w, eje_txt = math.pi * D3_M12 ** 3 / 32.0, f"M12 (núcleo Ø{D3_M12:g})"
     sigma, sy = m_max / w, YIELD_MPA["acero"]
-    c_kn = float(CATALOG[RODAMIENTO].specs["C_kN"])
+    c_kn = float(CATALOG[rodamiento].specs["C_kN"])
     rpm = d.velocidad_m_s * 60000.0 / (math.pi * d.d_rodillo) if d.velocidad_m_s else None
     vida = l10_hours(c_kn, f / 1000.0, rpm) if rpm else None
     # carga por rodillo que deja L10 = 20 000 h y σ = 0.5·σy
@@ -108,22 +115,23 @@ def _capacidad(d, m_paq: float, n_apoyos: int) -> dict:
     capacidad = min(p_l10, p_eje)
     fs = capacidad / p_n if p_n > 0 else None
     entradas = {"paquete": f"{m_paq:g} kg sobre {n_apoyos} rodillo(s)",
-                "rodamientos": f"{RODAMIENTOS_POR_RODILLO} × {RODAMIENTO} (C = {c_kn:g} kN)",
-                "eje": f"M12 (núcleo Ø{D3_M12:g}), voladizos {e_m:.1f} / {e_p:.1f} mm, luz {luz:.0f} mm",
+                "rodamientos": f"{RODAMIENTOS_POR_RODILLO} × {rodamiento} (C = {c_kn:g} kN)",
+                "eje": f"{eje_txt}, voladizos {e_m:.1f} / {e_p:.1f} mm, luz {luz:.0f} mm",
                 "rpm del rodillo": f"{rpm:.0f}" if rpm else "sin velocidad (no se evalúa L10)"}
     if vida is None:
         vida_txt = "L10 no evaluada"
     else:
         vida_txt = "L10 > 10⁶ h" if vida > 1e6 else f"L10 = {vida:.0f} h"
     calc = {"titulo": "Capacidad del rodillo", "entradas": entradas,
-            "formula": "P = m·g/n; L10h = (C/(P/2))³·10⁶/(60·n_rpm); σ = M/(π·d³/32)",
+            "formula": "P = m·g/n; L10h = (C/(P/2))³·10⁶/(60·n_rpm); "
+                       + ("σ = M/W" if d.eje_hex else "σ = M/(π·d³/32)"),
             "sustitucion": f"P = {p_n:.0f} N; M = {m_max:.0f} N·mm; σ = {sigma:.0f} MPa",
             "resultado": f"{vida_txt}; σ = {sigma:.0f} MPa; capacidad {capacidad / 9.81:.0f} kg/rodillo",
             "criterio": f"L10 ≥ {L10_TARGET_H:.0f} h · σ ≤ 0.5·σy = {0.5 * sy:g} MPa",
             "fs": round(fs, 2) if fs else None,
             "norma": "ISO 281 (L10) · eje σ ≤ 0.5·σy (criterio de diseño, más estricto que "
                      "ASME B106.1M)"}
-    det = (f"{p_n / 9.81:.1f} kg/rodillo: {vida_txt}, eje M12 a {sigma:.0f} MPa "
+    det = (f"{p_n / 9.81:.1f} kg/rodillo: {vida_txt}, eje {eje_txt.split(' (')[0]} a {sigma:.0f} MPa "
            f"(capacidad {capacidad / 9.81:.0f} kg/rodillo).")
     if (vida is not None and vida < L10_MIN_H) or sigma > sy:
         return _check("capacidad de rodillo", "error", det,
@@ -266,7 +274,7 @@ def reglas_rodillos_cadena(params: dict, carga_kg: float, largo_paquete_mm: floa
         d = disposicion(params["largo"], params["ancho_util"], params["paso"], params["rodillo"],
                         params["altura"], params["carga_kg"], params["motriz"] == "cadena",
                         params["motor"], params.get("velocidad_m_s"), params.get("anclaje", True),
-                        bool(params.get("taller", False)))
+                        bool(params.get("taller", False)), params.get("eje", "roscado"))
     except (ValueError, KeyError) as exc:
         return [_check("transportador de rodillos", "error", f"La plantilla no se arma: {exc}")]
     reglas = []

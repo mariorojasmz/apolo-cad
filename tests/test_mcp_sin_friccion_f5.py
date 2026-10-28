@@ -65,10 +65,12 @@ def mcp_tool():
 
 @pytest.fixture(scope="module")
 def plantilla() -> Document:
-    """La plantilla de 3 m, tal cual sale (la de la verificación F4). Las pruebas que mutan la
-    devuelven como estaba (undo) o trabajan sobre una copia."""
+    """La plantilla de 3 m, tal cual sale (la de la verificación F4), con el eje M12 trabado de F6:
+    D8–D12 miden la unión apernada eje ↔ larguero (el eje hexagonal de F7 se calza: contacto, en
+    `test_plantilla_rodillos_f7`). Las pruebas que mutan la devuelven como estaba (undo) o
+    trabajan sobre una copia."""
     doc = Document("f5-plantilla-3m")
-    doc.execute("create_roller_conveyor", {"largo": 3000})
+    doc.execute("create_roller_conveyor", {"largo": 3000, "eje": "roscado"})
     return doc
 
 

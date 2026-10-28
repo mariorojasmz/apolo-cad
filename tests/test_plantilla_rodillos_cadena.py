@@ -146,9 +146,10 @@ def test_la_puerta_de_entrega_da_verde(chico):
     assert rep["veredicto"] == VERDE, rep
     assert rep["avisos"] == [] and rep["bloqueantes"] == []
     ok = rep["resumen"]["chequeos_ok"]
-    # entra la llave en cada tuerca: las 40 de los ejes (interior y exterior, F6), las 4 soldadas
-    # de los pies (F5), sus 4 contratuercas y los 8 anclajes de expansión (F6)
-    assert "acceso de herramienta (56 fijador(es))" in ok
+    # entra la llave en cada tuerca: las 4 soldadas de los pies (F5), sus 4 contratuercas y los 8
+    # anclajes de expansión (F6); el eje hexagonal de F7 se calza, sin tuercas (con el M12 de F6
+    # eran 40 más)
+    assert "acceso de herramienta (16 fijador(es))" in ok
     assert "lints pre-entrega" in ok  # incluye el asiento en la zona plana del ángulo
 
 

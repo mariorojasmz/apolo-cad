@@ -28,9 +28,10 @@ class CreateRollerConveyorParams(BaseModel):
     """Transportador de rodillos MOTORIZADO POR CADENA rodillo a rodillo, completo, fabricable y
     sostenido, en UNA orden (super-comando): bastidor de 2 largueros de ángulo L 75x6 (ala
     vertical por dentro, ala horizontal ABAJO y hacia AFUERA), rodillos de tubo redondo sobre
-    eje fijo M12 TRABADO al ala vertical entre una tuerca interior y otra exterior (no gira ni
-    corre), con un rodamiento 6201 de compra en el alojamiento de cada tapa y un separador sobre
-    el eje que deja el juego axial del rodillo en 0.5 mm por lado,
+    eje fijo HEXAGONAL 11 (barra EN 10278, extremos con doble plano) CALZADO en una ranura
+    abierta hacia arriba en el ala vertical de cada larguero (no gira ni corre: el rodillo se saca
+    levantándolo, sin tocar una tuerca), con un rodamiento 6202-HEX11 de compra en el alojamiento
+    de cada tapa y un separador sobre el eje que deja el juego axial del rodillo en 0.5 mm por lado,
     piñón doble-simple ASA 40 Z15 soldado a un buje en cada rodillo, cadenas ASA 40 1:1
     alternando las dos hileras, motorreductor bajo el último rodillo con su piñón y cadena
     motriz, patas de tubo 2x2 en H (travesaño ENTRE las patas) con pie nivelador de catálogo
@@ -128,6 +129,11 @@ class CreateRollerConveyorParams(BaseModel):
     # anclajes de compra por fuera de la placa de la pata. Lo pone el sello de entrada
     # (`exec_rodillos_cadena.sellar`) a todo comando NUEVO; un log v3 no lo trae → False → igual.
     taller: SkipJsonSchema[bool] = Field(False)
+    # F7, también FUERA del schema: «hexagonal» = barra hexagonal calzada en ranuras abiertas
+    # hacia arriba del ala (sale levantándola), sobre 6202 de agujero hexagonal; «roscado» = el
+    # M12 trabado de F6. El sello la pone en «hexagonal» junto con `taller`; un log F6 no la
+    # trae → «roscado» → igual.
+    eje: SkipJsonSchema[Literal["roscado", "hexagonal"]] = Field("roscado")
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
 
     @model_validator(mode="after")

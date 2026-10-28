@@ -175,7 +175,15 @@ def masa_estimada(d, pie: Pies) -> float:
         largo = d.y_buje - d.ancho_util / 2.0
         rodillo += _kg(rc.PINON_RODILLO) + RHO * math.pi * (
             (rb**2 - rib**2) * rc.BRIDA_BUJE + (rc_**2 - rib**2) * (largo - rc.BRIDA_BUJE))
-    if pie.taller:  # F6: 2 × 6201, tuercas interiores y separadores (las tapas ahuecadas, aparte)
+    if getattr(d, "eje_hex", False):  # F7: barra hexagonal, 2 × 6202-HEX11 y 2 separadores; sin tuercas
+        from . import rodillos_cadena_eje as hx
+
+        lleno = math.sqrt(3.0) / 2.0 * hx.EJE_HEX**2  # área del hexágono
+        ro_s, ri_s = hx.SEPARADOR_D / 2.0, hx.SEPARADOR_D / 2.0 - hx.SEPARADOR_PARED
+        sep = (d.y_in_p - d.y_in_m) - d.ancho_util - 2.0 * rc.JUEGO_AXIAL
+        rodillo += (RHO * (lleno - math.pi * re_**2) * (d.eje_y1 - d.eje_y0) - 2.0 * _kg(rc.TUERCA)
+                    + 2.0 * _kg(hx.RODAMIENTO_HEX) + RHO * math.pi * (ro_s**2 - ri_s**2) * sep)
+    elif pie.taller:  # F6: 2 × 6201, tuercas interiores y separadores (las tapas ahuecadas, aparte)
         rs = rc.SEPARADOR_EJE_D / 2.0
         sep = (d.y_in_p - d.y_in_m) - d.ancho_util - 4.0 * float(CATALOG[rc.TUERCA].specs["thickness"])
         rodillo += (2.0 * _kg(rc.RODAMIENTO) + 2.0 * _kg(rc.TUERCA)

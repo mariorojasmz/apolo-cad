@@ -39,8 +39,10 @@ HUELLA_V3 = {"libre": (132, 168, "a9572ea8b195b3ea"), "cadena": (330, 429, "c2e8
 
 
 def _doc(params: dict) -> Document:
+    """La plantilla de F6 (un log con `taller` y sin `eje`: el M12 trabado). La de F7, con el eje
+    hexagonal que pone hoy el sello, en `test_plantilla_rodillos_f7`."""
     doc = Document("rodillos-f6")
-    doc.execute("create_roller_conveyor", dict(params))
+    doc.execute("create_roller_conveyor", {"eje": "roscado", **params})
     return doc
 
 

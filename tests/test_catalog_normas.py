@@ -8,7 +8,7 @@ from apolo.library.catalog import CATALOG, build_component, refs_in_category
 
 def test_rodamientos_iso15_completos():
     refs = refs_in_category("rodamientos")
-    assert len(refs) == 41
+    assert len(refs) == 42  # + 6202-HEX11 (agujero hexagonal, plantilla-rodillos-cadena F7)
     # una muestra de cada serie con sus dimensiones de contorno ISO 15
     for ref, (d, D, B) in {
         "6000": (10, 26, 8), "6205": (25, 52, 15),

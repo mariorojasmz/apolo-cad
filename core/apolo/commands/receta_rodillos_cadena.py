@@ -21,6 +21,7 @@ from apolo.library.catalog import CATALOG
 from apolo.library.rodillos_cadena_motriz import OREJA_T, PERNO_OREJA, RANURA_OREJA
 from apolo.library.rodillos_cadena_pies import ANCLAJE_D, ANCLAJE_REF, PLACA_PISO_T
 
+from . import receta_rodillos_eje as rex
 from .receta_rodillos_guardas import bandeja, guarda_cadenas, guarda_transmision, placa_xz
 
 #: (grupo, rol) en el orden del árbol; la raíz es el nombre del transportador.
@@ -80,27 +81,32 @@ def _bastidor(r: _Receta, d: rc.Disposicion) -> tuple[str, str]:
             "component": rc.LARGUERO, "length": d.largo, "position": r.pos(d.largo / 2.0, y,
                                                                              d.z_larguero),
             "orientacion": {"alas": ["+z", sentido]}}))
+        if d.eje_hex:
+            continue  # F7: ranuras abiertas hacia arriba, con los dos largueros ya puestos
         for i, x in enumerate(d.xs):  # barreno de paso del eje en el ala vertical
             r.taladro(f"tal_{s}{i}", ids[-1], r.pos(x, y_taladro, d.h_eje),
                       "-y" if s == "m" else "y", rc.BARRENO_EJE)
+    if d.eje_hex:
+        rex.ranuras(r, d, ids[0], ids[1])
     return ids[0], ids[1]
 
 
 def _tapas_taller(r: _Receta, d: rc.Disposicion) -> list[str]:
     """F6: cada tapa lleva el ALOJAMIENTO del 6201 en su cara de afuera (asiento Ø D × B y hombro
-    que apoya sólo el aro exterior) y el 6201 va como pieza de compra del catálogo."""
+    que apoya sólo el aro exterior) y el 6201 va como pieza de compra del catálogo (F7: el
+    6202-HEX11 del eje hexagonal)."""
     x0, h, a2 = d.xs[0], d.h_eje, d.ancho_util / 2.0
-    ri, t = d.r_int_tubo, rc.TAPA_ESPESOR
-    s6 = CATALOG[rc.RODAMIENTO].specs
+    ri, t, ref = d.r_int_tubo, rc.TAPA_ESPESOR, rc.rodamiento_de(d)
+    s6 = CATALOG[ref].specs
     ro, b, rh = float(s6["D"]) / 2.0, float(s6["B"]), rc.ALOJ_HOMBRO_R
     perfiles = {"m": [[ro, 0], [ri, 0], [ri, t], [rh, t], [rh, b], [ro, b]],
                 "p": [[rh, 0], [ri, 0], [ri, t], [ro, t], [ro, t - b], [rh, t - b]]}
     for s, rot, y, yr in (("m", "-Y", -a2, -a2 + b / 2.0), ("p", "+Y", a2 - t, a2 - b / 2.0)):
         r.pieza("create_revolve", f"tapa_{s}", "Rodillos",
-                f"Tapa con alojamiento de rodamiento {rc.RODAMIENTO} ({rot})",
+                f"Tapa con alojamiento de rodamiento {ref} ({rot})",
                 {"profile": perfiles[s], "axis": "y", "position": r.pos(x0, y, h)})
-        r.pieza("insert_component", f"rod_{s}", "Rodillos", f"Rodamiento {rc.RODAMIENTO} ({rot})",
-                {"component": rc.RODAMIENTO, "position": r.pos(x0, yr, h), "rotation": _EN_Y})
+        r.pieza("insert_component", f"rod_{s}", "Rodillos", f"Rodamiento {ref} ({rot})",
+                {"component": ref, "position": r.pos(x0, yr, h), "rotation": _EN_Y})
     return ["tapa_m", "tapa_p", "rod_m", "rod_p"]
 
 
@@ -126,9 +132,12 @@ def _traba_eje(r: _Receta, d: rc.Disposicion) -> list[str]:
 def _rodillos(r: _Receta, d: rc.Disposicion, motriz: bool) -> None:
     x0, h, a2, n = d.xs[0], d.h_eje, d.ancho_util / 2.0, len(d.xs)
     re, ri = rc.EJE_D / 2.0, d.r_int_tubo
-    r.pieza("create_cylinder", "eje", "Rodillos", "Eje del rodillo", {
-        "radius": re, "height": round(d.eje_y1 - d.eje_y0, 4), "axis": "y",
-        "position": r.pos(x0, (d.eje_y0 + d.eje_y1) / 2.0, h)})
+    if d.eje_hex:  # F7: barra hexagonal con los extremos a doble plano, calzada en las ranuras
+        rex.eje(r, d)
+    else:
+        r.pieza("create_cylinder", "eje", "Rodillos", "Eje del rodillo", {
+            "radius": re, "height": round(d.eje_y1 - d.eje_y0, 4), "axis": "y",
+            "position": r.pos(x0, (d.eje_y0 + d.eje_y1) / 2.0, h)})
     r.pieza("insert_component", "tubo", "Rodillos", "Tubo del rodillo", {
         "component": d.rodillo, "length": d.ancho_util, "position": r.pos(x0, 0.0, h),
         "rotation": _EN_Y})
@@ -145,6 +154,8 @@ def _rodillos(r: _Receta, d: rc.Disposicion, motriz: bool) -> None:
         largo, rb = round(d.y_buje - a2, 4), d.d_rodillo / 2.0
         # gira sobre el eje fijo; con `taller`, el separador del eje pasa por dentro
         rc_, ri_ = rc.CUELLO_BUJE_R, rc.HUECO_GIRA_R if d.taller else rc.EJE_D / 2.0 + 0.5
+        if d.eje_hex:  # libra el aro interior del 6202 (Ø ≈ 21): el buje gira, el aro no
+            ri_ = rex.hx.HUECO_GIRA_R
         perfil = [[ri_, 0], [rb, 0], [rb, rc.BRIDA_BUJE], [rc_, rc.BRIDA_BUJE], [rc_, largo],
                   [ri_, largo]]
         r.pieza("create_revolve", "buje", "Rodillos", "Buje del piñón (brida soldada al tubo)",
@@ -153,15 +164,17 @@ def _rodillos(r: _Receta, d: rc.Disposicion, motriz: bool) -> None:
             "component": rc.PINON_RODILLO, "position": r.pos(x0, d.y_pinon, h),
             "rotation": _EN_Y})
         if d.taller:  # el agujero piloto, abierto al Ø del buje (la ficha: «a maquinar»)
-            r.taladro("tal_pinon", pinon, r.pos(x0, d.y_pinon + 10.0, h), "-y",
-                      2.0 * rc.HUECO_GIRA_R)
+            r.taladro("tal_pinon", pinon, r.pos(x0, d.y_pinon + 10.0, h), "-y", 2.0 * ri_)
         piezas += ["buje", "pinon"]
-    for s, rot, y in (("m", "-Y", d.y_tuerca_m), ("p", "+Y", d.y_tuerca_p)):
-        r.pieza("insert_component", f"tuerca_{s}", "Rodillos", f"Tuerca del eje ({rot})", {
-            "component": rc.TUERCA, "position": r.pos(x0, y, h), "rotation": _EN_Y})
-    piezas += ["tuerca_m", "tuerca_p"]
-    if d.taller:
-        piezas += _traba_eje(r, d)
+    if d.eje_hex:  # F7: sin tuercas; los separadores acotan el juego del rodillo
+        piezas += rex.separadores(r, d)
+    else:
+        for s, rot, y in (("m", "-Y", d.y_tuerca_m), ("p", "+Y", d.y_tuerca_p)):
+            r.pieza("insert_component", f"tuerca_{s}", "Rodillos", f"Tuerca del eje ({rot})", {
+                "component": rc.TUERCA, "position": r.pos(x0, y, h), "rotation": _EN_Y})
+        piezas += ["tuerca_m", "tuerca_p"]
+        if d.taller:
+            piezas += _traba_eje(r, d)
     for s in piezas:
         r.patron(s, "Rodillos", n, d.paso)
 
@@ -169,7 +182,9 @@ def _rodillos(r: _Receta, d: rc.Disposicion, motriz: bool) -> None:
 def _uniones_rodillos(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str,
                       motriz: bool) -> None:
     eje = r.conjunto("eje")
-    for s, larg in (("m", larg_m), ("p", larg_p)):
+    if d.eje_hex:
+        rex.uniones(r, d, larg_m, larg_p)
+    for s, larg in (() if d.eje_hex else (("m", larg_m), ("p", larg_p))):
         if not d.taller:
             r.union(f"eje_larg_{s}", eje, larg, "perno",
                     "eje roscado M12 apretado al ala vertical con su tuerca", size="M12", qty=1)

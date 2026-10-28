@@ -19,13 +19,16 @@ vecinas, en este orden (gana la primera regla que aplica):
 4. rodamiento: `contacto` (ajuste, nunca soldadura); chumacera: con el eje, `contacto`; con su
    soporte, `perno`.
 4b. separador (distanciador, casquillo) DEL EJE con su eje: `contacto` (tope axial de lo que
-   gira: la tuerca que lo toca no lo aprieta; F6 de plantilla-rodillos-cadena).
+   gira: la tuerca que lo toca no lo aprieta; F6 de plantilla-rodillos-cadena); con lo demás (el
+   ala contra la que apoya), también `contacto`: es un tope suelto, no se suelda (F7).
 5. dos piezas que aprieta la MISMA tuerca o perno: `perno` (el eje roscado al larguero).
 6. equipo (motor, motorreductor): `perno`.
 7. lo que gira: con otra pieza que gira, lo que diga la geometría (el buje soldado al tubo gira
    con él); con un eje, `contacto` (a revisar si el eje no está apretado a la estructura: ¿eje
    vivo o fijo?); con lo demás, `contacto` a revisar. Una hija de junta móvil, igual.
-8. eje con lo que no gira, sin tuerca ni perno: `perno` a revisar (un eje se desmonta).
+8. eje con lo que no gira, sin tuerca ni perno: `perno` a revisar (un eje se desmonta); salvo el
+   eje HEXAGONAL con la estructura: `contacto` (se calza en su ranura o agujero hexagonal: no gira
+   ni corre y sale levantándolo; F7 de plantilla-rodillos-cadena).
 9. estructura con estructura: `soldadura` (marco; la pata a tope bajo el larguero también).
 10. el resto: lo que diga la geometría (mismo nivel = soldadura, apilado = contacto).
 
@@ -43,6 +46,8 @@ _TORNILLERIA = ("tuerca", "perno")
 _SEPARADOR_EJE_RE = re.compile(r"^(separador(es)?|distanciador(es)?|casquillos?)\s+(del?\s+)?ejes?\b",
                                re.I)
 _ROSCA = ("perno", "eje", "pie")
+#: el cuerpo de un eje hexagonal (regla 8): «eje del rodillo (barra hexagonal 11 …)»
+_EJE_HEX_RE = re.compile(r"^ejes?\b.*\bhexagonal(es)?\b", re.I)
 
 
 def criterio(roles: dict[str, str], candidatos: list[dict], moviles: dict | None = None,
@@ -135,6 +140,10 @@ def _decidir(a, b, geo, ctx):
     par = _uno(a, b, rol, ("eje",))
     if par and _SEPARADOR_EJE_RE.match(cuerpos.get(par[1], "")):
         return "contacto", "separador sobre el eje: tope axial, la tuerca no lo aprieta", False
+    sep = _uno(a, b, lambda x: "sep" if _SEPARADOR_EJE_RE.match(cuerpos.get(x, "")) else "",
+               ("sep",))
+    if sep and rol(sep[1]) not in _TORNILLERIA:
+        return "contacto", "separador del eje contra el ala: tope axial suelto, no se suelda", False
     comun =sorted(t for t in vec.get(a, set()) & vec.get(b, set()) if rol(t) in _TORNILLERIA)
     if comun:
         return "perno", f"apretadas por {comun[0]}", False
@@ -156,7 +165,10 @@ def _decidir(a, b, geo, ctx):
             return "contacto", "¿eje vivo (chaveta o soldadura) o fijo (rodamiento)?", True
         motivo = moviles.get(g) or "gira"
         return "contacto", f"no se suelda: {g} {motivo} (¿contacto o perno?)", True
-    if _uno(a, b, rol, ("eje",)) and not (rol(a) == rol(b) == "eje"):
+    par = _uno(a, b, rol, ("eje",))
+    if par and rol(par[1]) == "estructura" and _EJE_HEX_RE.match(cuerpos.get(par[0], "")):
+        return "contacto", "eje hexagonal calzado en su ranura: no gira ni corre, sale levantándolo", False
+    if par and not (rol(a) == rol(b) == "eje"):
         return "perno", "un eje se desmonta: ¿con tuerca o chaveta?", True
     if rol(a) == rol(b) == "estructura":
         return "soldadura", "marco soldado", False

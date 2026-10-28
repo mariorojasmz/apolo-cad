@@ -62,9 +62,10 @@ def _ids(doc, rol):
     return sorted(fid for fid, f in doc.scene.items() if f.name.split(" · ")[-1].startswith(rol))
 
 
-def test_plantilla_de_rodillos_coincide_con_sus_propias_uniones():
+@pytest.mark.parametrize("eje", ["roscado", "hexagonal"])
+def test_plantilla_de_rodillos_coincide_con_sus_propias_uniones(eje):
     doc = Document("plantilla")
-    doc.execute("create_roller_conveyor", {"largo": 1000})
+    doc.execute("create_roller_conveyor", {"largo": 1000, "eje": eje})
     uniones = uniones_con_criterio(doc, detect_structure(doc.scene, joints=doc.joints))
     tipo = {frozenset((u["a"], u["b"])): u["kind"] for u in uniones}
     declarado = {frozenset((f["a"], f["b"])): f["kind"] for f in doc.fasteners.values()}
@@ -79,15 +80,20 @@ def test_plantilla_de_rodillos_coincide_con_sus_propias_uniones():
     assert not [par for par, k in tipo.items()
                 if k == "soldadura" and not par & soldadas
                 and _soldadura_desmontable(roles, *sorted(par))]
-    # las reglas de D6, con las piezas de la plantilla
-    eje, larguero, tuerca = _ids(doc, "Eje del rodillo")[0], _ids(doc, "Larguero (-Y)")[0], \
-        _ids(doc, "Tuerca del eje (-Y)")[0]
-    assert tipo[frozenset((eje, larguero))] == "perno"
-    assert tipo[frozenset((eje, tuerca))] == "contacto"
-    assert tipo.get(frozenset((tuerca, larguero)), None) is None
     motor = _ids(doc, "Motorreductor")[0]
     assert all(tipo[frozenset((motor, g))] is None
                for g in _ids(doc, "pared interior") if frozenset((motor, g)) in tipo)
+    eje_, larguero = _ids(doc, "Eje del rodillo")[0], _ids(doc, "Larguero (-Y)")[0]
+    if eje == "hexagonal":  # F7: el eje se calza en su ranura y el separador apoya en el ala
+        sep = _ids(doc, "Separador del eje (-Y)")[0]
+        assert tipo[frozenset((eje_, larguero))] == "contacto"
+        assert tipo[frozenset((sep, larguero))] == tipo[frozenset((sep, eje_))] == "contacto"
+        return
+    # las reglas de D6, con las piezas de la plantilla
+    tuerca = _ids(doc, "Tuerca del eje (-Y)")[0]
+    assert tipo[frozenset((eje_, larguero))] == "perno"
+    assert tipo[frozenset((eje_, tuerca))] == "contacto"
+    assert tipo.get(frozenset((tuerca, larguero)), None) is None
 
 
 @pytest.mark.parametrize("nombre, categoria, rol", [

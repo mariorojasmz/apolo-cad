@@ -84,7 +84,7 @@ def test_eval_formula_safe():
 def test_family_expands_to_variants():
     refs = refs_in_category("rodamientos")
     # ISO 15 completo: series 6000/6200/6300/6400 (Ø int 10-50 mm)
-    assert len(refs) == 41
+    assert len(refs) == 42  # + 6202-HEX11 (plantilla-rodillos-cadena F7)
     assert {"6000", "6200", "6205", "6206", "6300", "6310", "6403", "6410"} <= set(refs)
     c = CATALOG["6205"]
     assert c.specs["d"] == 25 and c.specs["D"] == 52 and c.specs["B"] == 15
@@ -116,7 +116,7 @@ def test_all_new_families_present():
     assert len(refs_in_category("tubos_estructurales")) == 16  # ASTM A500 HSS cuadrado/rect
     assert len(refs_in_category("tubos_circulares")) == 10     # ASTM A500 round HSS
     assert len(refs_in_category("perfiles_abiertos")) == 22    # 8 L + 7 UPN + 7 IPE
-    assert len(refs_in_category("rodamientos")) == 41          # ISO 15 completo (11+11+11+8)
+    assert len(refs_in_category("rodamientos")) == 42          # ISO 15 completo (11+11+11+8) + 6202-HEX11 (F7)
     # carpintería / herraje (bisagras, tiradores, correderas, tirafondos, cerraduras, imanes)
     assert len(refs_in_category("bisagras")) == 14
     assert len(refs_in_category("tiradores")) == 7
@@ -149,7 +149,7 @@ def test_all_new_families_present():
     # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
     # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR); +5 prensaestopas M16–M40 (V8.5 F3)
     # +2 cables sin PE para aparatos de clase II (CABLE-5X1, CABLE-7X1)
-    assert len(CATALOG) == 473  # + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    assert len(CATALOG) == 474  # + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
 
 
 def test_door_sliding_hardware():

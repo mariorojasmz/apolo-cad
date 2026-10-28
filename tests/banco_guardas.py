@@ -87,7 +87,10 @@ def interferencias_sin_tope(formas: dict, excluir: set, focus: set | None = None
             if not _bboxes_overlap(cajas[a], cajas[b]):
                 continue
             comun = formas[a] & formas[b]
-            vol = float(comun.volume) if comun is not None else 0.0
+            if isinstance(comun, list):  # ShapeList: el contacto en una arista (eje calzado, F7)
+                vol = sum(float(getattr(s, "volume", 0.0)) for s in comun)
+            else:
+                vol = float(comun.volume) if comun is not None else 0.0
             if vol > MIN_VOLUME_MM3:
                 out.append((a, b, round(vol, 1)))
     return out

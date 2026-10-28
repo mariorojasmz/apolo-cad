@@ -1,5 +1,6 @@
-"""Builders de RODAJE del catálogo: garruchas de placa (giratoria, con freno total y fija) y la
-unidad tensora de carro UCT (`take_up_unit`, al final del módulo).
+"""Builders de RODAJE del catálogo: garruchas de placa (giratoria, con freno total y fija), la
+unidad tensora de carro UCT (`take_up_unit`) y el rodamiento de agujero HEXAGONAL
+(`bearing_hex`, al final del módulo).
 
 Módulo propio porque `builders.py` está congelado por el trinquete de tamaño
 (`tests/test_tamano_archivos.py`); `loader.py` une este registro con el de `builders.py` y
@@ -29,7 +30,9 @@ de `library/CLAUDE.md`).
 
 from __future__ import annotations
 
-from build123d import Box, Cylinder, Pos, Rotation, SlotCenterToCenter, extrude
+import math
+
+from build123d import Box, Cylinder, Polygon, Pos, Rotation, SlotCenterToCenter, extrude
 
 #: Tipos de garrucha que entiende `caster`.
 TIPOS_GARRUCHA = ("giratoria", "freno_total", "fija")
@@ -215,7 +218,26 @@ def take_up_unit(d: float, L: float, H: float, A: float, carrera: float, tm: flo
     return build
 
 
+def bearing_hex(s: float, D: float, B: float, holgura: float = 0.05):
+    """Rodamiento rígido de bolas de agujero HEXAGONAL (rodillo de transportador sobre eje
+    hexagonal fijo), anillo macizo como `bearing`: eje Z, ancho B, Ø exterior D y el agujero de
+    entrecaras `s` + 2·`holgura` (deslizante). Las caras del agujero, NORMALES A ±X (vértices en
+    ±Y): insertado con el eje a lo largo de Y y `rotation` {x: 90, y: 180}, quedan verticales, como
+    las del eje (`rodillos_cadena_eje.seccion_hex`)."""
+
+    def build(_length=None):
+        a = s / 2.0 + holgura
+        r = 2.0 * a / math.sqrt(3.0)
+        hexa = Polygon((a, -r / 2.0), (a, r / 2.0), (0.0, r), (-a, r / 2.0), (-a, -r / 2.0),
+                       (0.0, -r), align=None)
+        agujero = Pos(0, 0, -B / 2.0 - 1.0) * extrude(hexa, B + 2.0)
+        return Cylinder(D / 2.0, B) - agujero
+
+    return build
+
+
 BUILDERS = {
     "caster": caster,  # garrucha de placa: giratoria / freno total / fija (marco: cara de montaje)
     "take_up_unit": take_up_unit,  # unidad tensora de carro UCT + marco (carrera de ficha)
+    "bearing_hex": bearing_hex,  # rodamiento de agujero hexagonal (eje hexagonal fijo, F7)
 }

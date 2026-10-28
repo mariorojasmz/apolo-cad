@@ -12,9 +12,11 @@ from .models import Rot3, Vec3
 
 
 def _bearing_refs() -> list[str]:
-    from apolo.library.catalog import refs_in_category
+    from apolo.library.catalog import CATALOG, refs_in_category
 
-    return refs_in_category("rodamientos")
+    # el de agujero HEXAGONAL (F7 de plantilla-rodillos-cadena) no monta en un eje redondo
+    return [r for r in refs_in_category("rodamientos")
+            if (CATALOG[r].specs or {}).get("forma_agujero") != "hexagonal"]
 
 
 def _perno_refs() -> list[str]:

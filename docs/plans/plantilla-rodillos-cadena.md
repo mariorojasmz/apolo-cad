@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F5 mergeadas a main el 2026-10-21 (create_roller_conveyor v3, re-verificada por el revisor ciego sin ALTA); F6 (campo oculto taller por el sello, decisiones E1–E5 vetables) implementada en su rama, sin mergear; quedan las 4 preguntas a Mario
+nota: F0–F5 mergeadas a main el 2026-10-21 (create_roller_conveyor v3, re-verificada por el revisor ciego sin ALTA); F6 (campo oculto taller, E1–E5) en integ-noche, sin mergear; F7 (campo oculto eje «hexagonal» por el sello, E6–E9 vetables) implementada en su rama sobre integ-noche, sin mergear; quedan las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -62,6 +62,8 @@ repite va en una plantilla, para que cada lección quede dentro una sola vez.
 - **F5 (S, `commands` + `library`)**: pies niveladores (§ Bitácora F4b), contrato abajo; v3.
 - **F6 (S, `commands` + `library`)**: los defectos de la PLANTILLA que el revisor ciego halló en
   la piloto de rodillos por gravedad (decisiones E1–E5 en § Bitácora F6); sin bump.
+- **F7 (S, `commands` + `library`)**: el eje hexagonal que se calza, para cambiar un rodillo sin
+  tocar tuercas, y su designación en la BOM (decisiones E6–E9 en § Bitácora F7); sin bump.
 
 ### F4 — contrato
 
@@ -167,6 +169,106 @@ a la altura de trabajo.
   después (como `create_conveyor`).
 
 ## Bitácora
+
+### F7 (2026-10-28): eje hexagonal que se calza; el rodillo sale levantándolo
+
+**Origen**: el piloto «rodillos por gravedad» hecho con la plantilla F6 aprueba la puerta, pero el
+revisor de taller a ciegas vio que la E3 de F6 (eje roscado M12 de 472 mm trabado con tuerca
+interior y exterior contra el ala, separador a 0,5 mm del 6201; 432 mm entre almas) hace que
+cambiar UN rodillo lleve 10–15 min: soltar las tuercas exteriores no lo libera; hay que sostener las
+interiores con llave y destornillar el eje ~50 vueltas entre tubos con 24 mm de luz. Y la BOM traía
+el eje como «A-MEDIDA 472» liso, sin métrica ni largo de rosca: no se puede comprar ni mecanizar.
+
+**Decisiones (vetables por número)**:
+- **E6. Eje hexagonal calzado en una ranura abierta hacia arriba.**
+  - **Eje**: barra hexagonal calibrada de **11 mm entrecaras** (EN 10278, h11; la de los rodillos
+    de Ø50 de mercado), caras planas VERTICALES, con los dos extremos fresados a **doble plano de 8**
+    en el largo que atraviesa el ala y asoma 6 mm por fuera (`rodillos_cadena_eje.py`).
+  - **Ranura**: en cada rodillo, en el ala vertical de los dos largueros, taladro **Ø8,5** en el
+    fondo + dos cortes de sierra hasta el canto (8,5 de ancho: 0,25 por lado). Taller con taladro de
+    banco y sierra, sin láser ni punzonadora; en el modelo, `drill_hole` + `add_joinery` «rebaje»,
+    que corta en sitio y conserva el id del larguero. El extremo apoya en sus dos aristas bajas
+    sobre el arco del fondo y se centra solo: el eje queda **2,61 mm** sobre el centro del taladro.
+  - **No gira**: las caras del doble plano quedan entre las paredes de la ranura (girarlo 3° ya
+    choca: test). **No corre**: los hombros del hexágono quedan a 0,25 mm de la cara interior de
+    cada ala. **Juego axial del rodillo**: dos separadores de tubo EN 10255 DN10 (Ø17,2 × 2:
+    agujero 13,2 > esquinas del hexágono 12,7) del ala a 0,5 mm del aro interior → 1 mm en total
+    (≤ 2 mm de F6).
+  - **Rodamiento**: el 6201 (d 12) no admite el hexágono (esquinas Ø12,7). Lo de mercado es el
+    rodamiento de **agujero hexagonal**: ref nueva **`6202-HEX11`** (contorno 6202 D35 × B11 con
+    agujero hexagonal de 11, 2RS, C = 7,65 kN; builder `bearing_hex`; `cotas_verificadas: false`),
+    de compra en la tapa (su alojamiento sale de la ficha: Ø35 × 11). El aro interior queda trabado
+    por el hexágono (no gira sobre el eje). Buje y piñón se abren a Ø22 para librar su aro interior
+    (Ø ≈ 21). No se ofrece en los tensores (`models_rodillos._bearing_refs`: sin `d` redondo).
+  - **Resorte retráctil, comparado y descartado**: el eje de resorte (se empuja un extremo hacia
+    adentro y el rodillo cae) también cambia un rodillo en segundos y no corta el canto del
+    larguero, pero pide **agujeros hexagonales** en el ala (punzonadora o láser: el taller de
+    ángulos no los hace con taladro) y un resorte + tope por rodillo (más piezas de compra y una que
+    se fatiga). La ranura sale con taladro y sierra y no tiene piezas móviles. Lo que cuesta: la
+    ranura recorta el ala vertical hasta 26,9 mm bajo el canto. Por la ranura, W del ángulo libre
+    × **0,43**; la rigidez del tramo, × 0,78 (paso 75) a 0,84 (107,95), con flexibilidades en serie
+    (`factores_ranura`, criterio de diseño). `vano_maximo` las aplica con el eje hexagonal: en las
+    4 máquinas de abajo sigue mandando el tope de 1,8 m; con cargas grandes (4 000 kg) el vano baja.
+  - **Con cadena, la misma ranura** (la cuenta, `tiro_vertical_cadena`): una cadena tira de cada
+    piñón hacia el otro piñón de su lazo. Los lazos 1:1 tienen los dos piñones a la misma altura:
+    tiro HORIZONTAL (coseno vertical 0), que toma la pared de la ranura (≤ 1,2 kN con 0,37 kW a
+    0,32 m/s de cadena, sobre la cara del doble plano de 6 × 8 mm: ≈ 25 MPa). La motriz tira hacia
+    el motor, que va DEBAJO: coseno vertical −0,94 (20° de la vertical), que asienta el eje en el
+    fondo. Ninguna tracción tiene componente hacia arriba: la ranura abierta no deja salir el
+    rodillo y no hace falta tapa ni el eje trabado de F6. Con cadena, cambiar un rodillo es además
+    abrir sus dos lazos (eslabón de unión) y quitar la guarda; el eje ya no pide llave.
+- **E7. BOM del eje.** El eje se fabrica de la barra: pieza A-MEDIDA nombrada «Eje del rodillo
+  (barra hexagonal 11 EN 10278, extremos con doble plano 8)», con el largo de corte en la fila (456
+  en la piloto, 601 con 500 de ancho útil). Sin tuercas de eje en la BOM: 2 × 6202-HEX11 por
+  rodillo y los separadores. La norma va en la descripción: la columna «norma» es de lo que se
+  compra (`designacion_comercial`: un rol «Eje…» se fabrica).
+- **E8. Compatibilidad: otro campo oculto, sin bump.** `eje: "roscado" | "hexagonal"`
+  (`SkipJsonSchema`, default «roscado» = F6). El sello (`exec_rodillos_cadena.sellar`) lo pone en
+  «hexagonal» a todo comando nuevo junto con `taller=True`; un `taller=False` explícito deja el
+  eje roscado y «hexagonal» sin `taller` es error (lo pide la tapa con alojamiento). Un log F6
+  (`taller` sin `eje`) regenera idéntico: huella de piezas, uniones y anclajes y la geométrica
+  (volumen y caja) congeladas con el código de 10cd6be. `version` sigue en 3 (el executor no
+  cambió: D11 igual) y `CAMPOS` suma `eje`.
+- **E9. Criterio de uniones** (`services/criterio_uniones.py`, para que la propuesta de estructura
+  siga coincidiendo con la plantilla): regla 8, un eje HEXAGONAL ↔ estructura es `contacto` (se
+  calza); regla 4b, el separador del eje contra el ala también es `contacto` (tope suelto).
+
+**Archivos**: `library/rodillos_cadena_eje.py` (nuevo: cotas, secciones, asiento, W del hexágono,
+factores de la ranura y el tiro de la cadena), `library/rodillos_cadena.py` (`eje`, `eje_hex`,
+`rodamiento_de`, vano), `rodillos_cadena_pies.py` (masa estimada), `rodillos_cadena_reglas.py`
+(capacidad con el hexágono y el 6202-HEX11), `builders_rodaje.py` (`bearing_hex`),
+`data/70_rodamientos.yaml` (la ref), `commands/receta_rodillos_eje.py` (nuevo: ranuras, eje,
+separadores y uniones), `receta_rodillos_cadena.py` (las ramas), `models_rodillos_cadena.py` y
+`exec_rodillos_cadena.py` (el campo y el sello), `models_rodillos.py` (tensores sin la ref).
+
+**Medido** (masa real del modelo; estimada sin el ×1,10):
+
+| máquina | sólidos F6 → F7 | masa real F6 → F7 | estimada F7 | pie (carga por pie) | eje |
+|---|---|---|---|---|---|
+| 1 m | 206 → 166 | 112,2 → 111,3 kg | 113,4 | PIE-M8-30 (84 de 120) | 601 |
+| 3 m de F3 | 528 → 408 | 240,1 → 237,4 kg | 243,5 | PIE-M8-30 (117 de 120) | 601 |
+| 4 m, TUBOR-3, 400 kg | 636 → 492 | 370,0 → 366,8 kg | 374,2 | PIE-M10-40 (152 de 200) | 601 |
+| 1,5 m libre (la piloto) | 252 → 180 | 97,3 → 95,9 kg | 99,2 | PIE-M8-30 (78 de 120) | 456 |
+
+- Ninguna familia de pie cambió. 0 interferencias sin tope y SIN excluir la tornillería (libre
+  1,5 m y cadena 3 m). Puerta VERDE sin avisos en la piloto: la llave entra en sus 16 fijadores
+  (4 tuercas soldadas, 4 contratuercas y 8 anclajes: las 72 tuercas de eje de F6 ya no están).
+  Gravedad VERDE (tortura) en la piloto libre y en el 3 m con cadena.
+- El rodillo de la piloto (eje, tubo, tapas, rodamientos y separadores) sube 30 mm, hasta sacar el
+  eje por encima del canto del larguero, sin tocar ninguna otra pieza; con cadena (con buje y
+  piñón), sin tocar los largueros.
+
+**Tests**: `tests/test_plantilla_rodillos_f7.py` (2 con `-m torture`). Fijados al eje roscado
+(miden F6): `test_plantilla_rodillos_f6` (su `_doc`) y la plantilla de `test_mcp_sin_friccion_f5`
+(la unión apernada eje ↔ larguero). Recalibrados: los 16 fijadores de la puerta
+(`test_plantilla_rodillos_cadena`), el criterio de uniones con los dos ejes
+(`test_criterio_uniones`), `banco_guardas` (el contacto en una arista da una ShapeList) y los
+conteos del catálogo (474 refs, 42 rodamientos).
+
+**Fuera** (no se decidió): contrastar las cotas del 6202-HEX11 con la ficha de un fabricante; la
+concentración de tensiones en el fondo de la ranura (el arco de r 4,25 la suaviza); la regla
+«flecha de bastidor» de la puerta sigue con la sección entera del catálogo (la plantilla ya
+recorta su vano); las 4 preguntas a Mario.
 
 ### F6 (2026-10-28): eje trabado, 6201 de compra, contratuerca y anclajes accesibles
 
