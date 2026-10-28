@@ -222,15 +222,15 @@ def pe_de_cables(a: Analisis) -> list[dict]:
         quien = (f"{cable.designacion} ({cable.ref}"
                  + (f", {cable.desde or '?'} → {cable.hasta or '?'}" if cable.desde or cable.hasta else "") + ")")
         if not idx:
-            que = "no está conectado: ningún add_wire lo usa"
+            que = "no está conectado en ninguno de sus dos extremos"
         else:
             sin = [f"{e} (no tiene borne de tierra en su ficha)" if clase_ii else e for e, clase_ii in faltan]
             donde = "ninguno de sus dos extremos" if sin == ["un extremo"] * 2 else " ni en ".join(sin)
             que = (f"no llega a un borne de tierra en {donde} "
                    f"(llega a {', '.join(_txt(p) for p in puntos) or 'nada'})")
         clase_ii = [e for e, c in faltan if c]
-        rec = (f"Termina el hilo {hilo.id} con un add_wire(cable=«{cable.designacion}», hilo=«{hilo.id}») de la "
-               "barra o bornera de tierra del tablero al borne PE del aparato (o a la masa de su caja).")
+        rec = (f"Conecta el hilo {hilo.id} (verde-amarillo) de {cable.designacion} a la barra o bornera de tierra "
+               "del tablero y al borne PE del aparato (o a la masa de su caja).")
         if clase_ii:
             rec += (f" {' y '.join(clase_ii)} no {'tienen' if len(clase_ii) > 1 else 'tiene'} borne de tierra: "
                     f"si su caja es aislante (clase II), cambia {cable.designacion} por un cable sin conductor de "

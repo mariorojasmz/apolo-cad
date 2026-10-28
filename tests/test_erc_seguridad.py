@@ -148,9 +148,10 @@ def test_el_pe_del_cable_sin_add_wire_es_error_aunque_el_motor_tenga_tierra():
     assert [r["regla"] for r in malas] == [HILO_PE], malas
     fila = malas[0]
     assert fila["detalle"].startswith("-W1 (CABLE-4G1.5, +TAB1 → -M1): su hilo de protección PE no está "
-                                      "conectado: ningún add_wire lo usa.")
+                                      "conectado en ninguno de sus dos extremos.")
     assert fila["elementos"] == ["-W1", "+TAB1", "-M1"] and "conductores" not in fila
-    assert "add_wire(cable=«-W1», hilo=«PE»)" in fila["recomendacion"]
+    assert "Conecta el hilo PE (verde-amarillo) de -W1" in fila["recomendacion"]
+    assert "add_wire" not in fila["recomendacion"]  # el texto llega a la memoria del cliente
     assert "clase II" not in fila["recomendacion"]  # el motor y el tablero tienen borne de tierra
     assert resumen(reglas)["estado"] == "error"
 
