@@ -234,7 +234,7 @@ ARCHIVOS = (
 #: `mecanica.juntas` se revisa ahora AL DECLARAR con las mismas reglas que la petición aplicaba al
 #: correr. Medido: los 7 escenarios guardados de la mezcladora y los 10 del elevador de la noche
 #: del 2026-10-27 dan la MISMA huella que su resultado guardado (bitácora del plan).
-HUELLA: tuple[int, str] = (9, "f07515babb440891")
+HUELLA: tuple[int, str] = (9, "af4a116553f37a42")
 
 
 def archivos() -> list[Path]:
