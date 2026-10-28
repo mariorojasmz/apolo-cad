@@ -51,6 +51,16 @@ La plataforma aprobó la puerta v17 (20 OK) y siete re-revisiones a ciegas; nadi
   de corte y los ángulos de cada extremo; declara sus soldaduras (o pernos) con el largo de cordón
   medido. Paramétrico (expresiones) y editable. Sirve para riostras, diagonales, pasamanos que llegan
   a un poste y zancas.
+- **D1b. Se valida el CORDÓN, no el contacto** (Mario, 2026-10-28: «¿que solo tenga contacto?, ¿no
+  debería ser por rango de superficie unida?»): una soldadura de filete resiste f_w·a·L (EN 1993-1-8
+  §4.5.3), así que lo que se mide es el LARGO de la línea de contacto (el perímetro del tubo apoyado en
+  la cara). Ese largo medido es el que usa el dimensionado de la soldadura, en vez de la estimación por
+  cajas (`services/dimensionado.py` `_huella_mm`), que daba por resistente una soldadura sin cordón.
+- **D3b. La unión se genera por TIPO, determinista** (Mario: «¿no será más fácil tener código
+  determinista para ciertas uniones de esquina?»): `a_tope` (miembro contra la cara de otro, extremo
+  a ras), `inglete` (reusa `library/miter.py`) y `boca_de_pescado` (tubo redondo contra tubo
+  redondo); cada tipo corta los extremos y declara la soldadura con su largo real. La medición de D1
+  queda como red para lo que se haga a mano. Solapada y con cartela, después.
 - **D4. Criterio de diseño** (`design/guidelines.py`, lo lee todo modelador por MCP): un miembro
   inclinado que une dos piezas se hace con `create_brace`; nunca girando un `insert_component` a mano.
 - **D5. El chequeo es barato**: se mide sólo sobre los pares declarados (no N²) y con la distancia
