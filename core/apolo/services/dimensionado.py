@@ -7,8 +7,10 @@ lleva la dimensión del criterio (`library/engineering/union_por_defecto.py`):
 - perno: si una de las piezas es un EJE, su rosca —la mayor métrica normalizada que cabe en su Ø
   (la menor cota de su caja), una por lado—; si no, la del rol que manda (chumacera > equipo >
   guarda > el resto);
-- soldadura: la garganta del criterio y, de longitud, el perímetro de la huella común de las dos
-  cajas (la pata bajo el larguero: 4 lados); sin huella medible, la longitud del criterio.
+- soldadura: la garganta del criterio y, de longitud, el cordón MEDIDO sobre la línea de contacto
+  de las dos piezas (`kernel/contacto.py`, plan uniones-que-tocan D1b: la pata bajo el larguero da
+  su perímetro; una riostra que no toca, 0 → la longitud del criterio, y la puerta la marca); la
+  huella común de las dos cajas sólo si OCCT no puede medirla.
 
 Es un punto de partida verificable, no un cálculo: engineering_check la contrasta con la carga.
 Puro: lee un `Document` explícito (las cajas de sus piezas), sin locks.
@@ -63,10 +65,28 @@ def dimension(doc, a: str, b: str, kind: str, roles: dict, cache: dict | None = 
         return {"size": size, "qty": qty}
     if kind == "soldadura":
         sol = SOLDADURA
-        ca, cb = _cotas(doc, a, cache), _cotas(doc, b, cache)
-        largo = _huella_mm(ca, cb) if ca and cb else None
+        largo = _cordon_medido(doc, a, b)
+        if largo is None:  # sin forma medible por OCCT: la huella de las cajas, como antes
+            ca, cb = _cotas(doc, a, cache), _cotas(doc, b, cache)
+            largo = _huella_mm(ca, cb) if ca and cb else None
         return {"throat_mm": sol["garganta_mm"], "length_mm": largo or sol["longitud_mm"]}
     return {}
+
+
+def _cordon_medido(doc, a: str, b: str) -> float | None:
+    """El largo SOLDABLE de la línea de contacto de las dos piezas (plan uniones-que-tocan D1b,
+    `kernel/contacto.py`): 0 si no se tocan en una línea (la propuesta cae a la longitud del
+    criterio y `union.contacto_real` la marca); None si OCCT no la puede medir."""
+    from apolo.kernel.contacto import medir_contacto
+    from apolo.library.calidad.contacto import TOL_MM
+
+    fa, fb = doc.scene.get(a), doc.scene.get(b)
+    if getattr(fa, "shape", None) is None or getattr(fb, "shape", None) is None:
+        return None
+    try:
+        return round(float(medir_contacto(fa.shape, fb.shape, TOL_MM)["cordon_mm"]), 1)
+    except Exception:  # noqa: BLE001 — OCCT no pudo: la caja
+        return None
 
 
 def combinar(dims: list[dict]) -> dict:

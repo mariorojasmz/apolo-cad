@@ -12,7 +12,8 @@ pasa con los de estructura, fabricabilidad y uniones.
 Ids estables (familia):
 - `entrega.semaforo` (montaje), `entrega.gravedad` (estructura), `entrega.no_evaluado` (proceso);
 - `union.acceso_herramienta`, `union.agarre`, `union.retencion`, `union.largo_comercial`,
-  `union.agujeros` (montaje); `union.capacidad`, `union.soldaduras`, `union.dimensionadas` (estructura);
+  `union.agujeros` (montaje); `union.capacidad`, `union.soldaduras`, `union.dimensionadas`,
+  `union.contacto_real` (estructura);
 - `montaje.interferencia_interna` (montaje: choques dentro de un super-comando, D13b);
 - `transmision_flexible.tension` (función: todo lazo — banda, cadena, correa, cable — con un
   tensado reconocido y carrera suficiente); `transmision_flexible.de_su_comando` (función: toda
@@ -84,7 +85,11 @@ de sus amarres en `union.dimensionadas`; v17 (lo-que-se-mueve F2) `seguridad.res
 resguardo con interruptor sin una junta que lo abra falla) y los extremos de esa junta entran como
 poses de la puerta de entrega, aunque no estén en `doc.motion`; v18 (plantilla-rodillos-cadena F6)
 `union.largo_comercial` toma el anclaje de expansión de catálogo por el largo de su ficha (no es
-un perno de la serie ISO).
+un perno de la serie ISO); v19 (uniones-que-tocan F1) `union.contacto_real` (lo declarado unido se
+toca: cada soldadura con un cordón medido ≥ max(30 mm, 6·a) de EN 1993-1-8 §4.5.2, cada apoyo con
+área y cada perno cruzando un hueco menor que su largo; `contacto.py`) y el dimensionado de cada
+soldadura con el MENOR entre el largo declarado y el medido (una riostra a 5 mm de su poste con
+«100 mm de cordón» declarados daba τ en verde).
 """
 
 from __future__ import annotations
@@ -92,6 +97,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import cadenas as ca
+from . import contacto as ct
 from . import nombres as nb
 from . import puerta as p
 from . import resguardos as rg
@@ -99,7 +105,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "18"  # 18: el anclaje de expansión va por su ficha en el largo comercial
+VERSION_REGISTRO = "19"  # 19: lo declarado unido se toca (`union.contacto_real`)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -240,6 +246,7 @@ REGISTRO: tuple = (
             "criterio de diseño (D13b del plan: la puerta de entrega no los mira)", "montaje",
             hay("supercomandos", "sin super-comandos de varias piezas"), p.interferencia_interna,
             "supercomandos"),
+    ct.ENTRADA,  # union.contacto_real: la Entrada vive junto a su criterio (uniones-que-tocan)
     Fuente("mecanica", "apolo.services.calidad_mecanica:items_funcion_mecanica", _MECANICA),
     ca.ENTRADA,  # transmision_flexible.de_su_comando: la Entrada vive junto a su criterio
     Entrada("fabricabilidad", "Cada pieza es de catálogo o un sólido con material y proceso",

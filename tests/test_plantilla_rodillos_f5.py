@@ -188,7 +188,7 @@ def test_un_log_v2_sigue_regenerando_y_la_version_sube_a_3(monkeypatch):
     assert any(f.startswith("c1_pie_") for f in doc.scene)
     assert any(f.startswith("c1_placa_piso_") for f in doc.scene)  # anclaje: True por defecto
     cmd = {"id": "c1", "type": "create_roller_conveyor", "params": {"largo": 1000}}
-    assert REGISTRY["create_roller_conveyor"].version == 3
+    assert REGISTRY["create_roller_conveyor"].version >= 3  # v4: uniones-que-tocan F1
     v3 = _cmd_sig("", cmd)
     monkeypatch.setattr(REGISTRY["create_roller_conveyor"], "version", 2)
     assert _cmd_sig("", cmd) != v3

@@ -35,7 +35,7 @@ LIBRE = {"largo": 1500, "ancho_util": 400, "paso": 75, "motriz": "libre"}
 CADENA_3M = {"largo": 3000, "velocidad_m_s": 0.25, "carga_kg": 200}
 LIBRE_3M = {"largo": 3000, "ancho_util": 400, "paso": 75, "motriz": "libre"}
 #: E5: lo que da la v3 (sin `taller`), congelado ANTES de F6 (piezas, uniones y anclajes)
-HUELLA_V3 = {"libre": (132, 168, "a9572ea8b195b3ea"), "cadena": (330, 429, "c2e8e9ebe8409018")}
+HUELLA_V3 = {"libre": (132, 168, "a9572ea8b195b3ea"), "cadena": (330, 430, "658a7ec8797884cd")}  # cadena: +1 unión (v4 de uniones-que-tocan)
 
 
 def _doc(params: dict) -> Document:
@@ -103,7 +103,7 @@ def test_el_comando_nuevo_nace_con_taller_y_el_campo_no_se_publica(libre):
     assert libre.commands[0]["params"]["taller"] is True  # el sello de entrada
     spec = REGISTRY["create_roller_conveyor"]
     assert "taller" not in spec.model.model_json_schema()["properties"]  # criterio de Apolo
-    assert spec.version == 3  # entra por los params (cambia la firma): no hace falta subirla
+    assert spec.version == 4  # entra por los params; v4 = la guarda de uniones-que-tocan
     viejo = _doc({**LIBRE, "taller": False})  # lo que el cliente trae se respeta
     assert viejo.commands[0]["params"]["taller"] is False
 

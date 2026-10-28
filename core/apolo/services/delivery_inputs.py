@@ -225,6 +225,10 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
 
     with _cronometro(tiempos, "nombres"):
         nombres = insumo_puerta(doc)  # nombres-por-funcion D8: sólo con carril
+    from .calidad_contacto import uniones_medidas
+
+    with _cronometro(tiempos, "uniones_que_tocan"):
+        uniones = uniones_medidas(doc)  # uniones-que-tocan D2: sólo con uniones declaradas
     with _cronometro(tiempos, "integridad"):
         integridad = doc.check_integrity()
     with _cronometro(tiempos, "poses"):
@@ -243,6 +247,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         **({"enclavamientos": enclavamientos} if enclavamientos is not None else {}),
         **({"nombres": nombres} if nombres is not None else {}),
         **({"acceso_herramienta": acceso} if acceso is not None else {}),
+        **({"uniones": uniones} if uniones is not None else {}),
         n_solidos=len(doc.scene),
         interferencias=rep_inter["interferencias"],
         interferencias_truncado=bool(rep_inter.get("truncado")),

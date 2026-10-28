@@ -120,8 +120,13 @@ def guarda_transmision(r, d: rc.Disposicion, larg_p: str, base: str) -> None:
     r.union("guarda_tr", fe, larg_p, "perno",
             "guarda fija atornillada al alma del larguero: 2 M6 a sus roscas, sale con herramienta",
             size="M6", qty=len(po["pernos"]))
-    r.union("guarda_tr_paredes", f"{fi}+{fx[0]}+{fx[1]}", fe, "soldadura",
-            "paredes de la guarda fija soldadas a su pared exterior", throat_mm=2, length_mm=150)
+    # los dos extremos tocan las dos paredes; la interior NO toca la exterior (77 mm de luz):
+    # se suelda a los extremos (uniones-que-tocan F1: la v3 declaraba una soldadura fantasma)
+    r.union("guarda_tr_paredes", f"{fx[0]}+{fx[1]}", fe, "soldadura",
+            "extremos de la guarda fija soldados a su pared exterior", throat_mm=2, length_mm=150)
+    r.union("guarda_tr_int", f"{fx[0]}+{fx[1]}", fi, "soldadura",
+            "pared interior de la guarda fija soldada a sus dos extremos", throat_mm=2,
+            length_mm=150)
     r.union("guarda_tr_tapa", ft, fx[1], "soldadura",
             "tapa del extremo soldada sobre el extremo +X de la guarda fija", throat_mm=2,
             length_mm=round(t["puntos"][1][0] - t["puntos"][0][0], 1))

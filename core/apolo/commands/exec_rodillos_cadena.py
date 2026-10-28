@@ -123,6 +123,9 @@ SPECS_RODILLOS_CADENA = [
         # (los params cambian → la firma también); un log v3 regenera idéntico. F7 tampoco: el
         # campo oculto `eje` («hexagonal» por el sello); un log F6 regenera idéntico. F8 tampoco:
         # el oculto `pie` («base» por el sello); un log F7 regenera idéntico.
-        version=3, al_crear=sellar,
+        # v4 (uniones-que-tocan F1): la pared interior de la guarda fija se suelda a sus dos
+        # extremos, no a la exterior (77 mm de luz: soldadura fantasma). Misma geometría, pero
+        # el checkpoint guarda los fasteners: todo log la corrige y la caché vieja vence.
+        version=4, al_crear=sellar,
     ),
 ]

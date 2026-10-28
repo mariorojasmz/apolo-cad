@@ -122,6 +122,11 @@ CAMPOS: dict[str, str] = {
         "name nodes edges perfil cordones esquinas position position.x position.y position.z "
         "rotation rotation.x rotation.y rotation.z"
     ),
+    "create_brace": (
+        "name perfil a a.pieza a.punto a.punto.x a.punto.y a.punto.z a.union a.hacia a.hacia.x "
+        "a.hacia.y a.hacia.z b b.pieza b.punto b.punto.x b.punto.y b.punto.z b.union b.hacia "
+        "b.hacia.x b.hacia.y b.hacia.z giro garganta_mm"
+    ),
     "create_group": "name members parent role",
     "create_hoist_chain": (
         "name cadena pinones pieza_a pieza_b extremo_a extremo_a.x extremo_a.y extremo_a.z "
@@ -282,6 +287,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     # tramo_max + criterio (faja-larga-en-tramos; un log v5 no los trae → una pieza, criterio 5)
     "create_belt_conveyor": (6, "16fd8d8c5d0d59aa"),
     "create_box": (1, "fcc825dfc9669eac"),
+    # plan uniones-que-tocan F1: comando nuevo; la geometría vive en library/miembro.py (D10)
+    "create_brace": (1, "6f61a7cc0d8a79a8"),
     "create_chain": (2, "c0911a5d981a48bd"),
     "create_conveyor": (1, "57fa344a272c945c"),
     "create_cylinder": (1, "df2b2a1a5fb50cf9"),
@@ -295,7 +302,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "create_revolve": (1, "1688dc48118c2a15"),
     "create_robot_arm": (1, "c4ceee70195b1ad0"),
     # compuesto: la huella es la del executor; cotas y receta viven en otros módulos (regla D10)
-    "create_roller_conveyor": (3, "450707432cde2d9d"),
+    # v4 (uniones-que-tocan F1): la pared interior de la guarda fija soldada a sus extremos
+    "create_roller_conveyor": (4, "450707432cde2d9d"),
     "create_sheet_metal": (1, "2aeed3174e15adda"),
     "create_structural_profile": (1, "ada70bc0722ffb7f"),
     # +coronado_mm: con 0 (default) la geometría no cambia; v2: «Anillo Seeger DIN 472-Ø» (F6)

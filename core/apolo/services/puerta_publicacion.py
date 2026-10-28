@@ -13,6 +13,8 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
   con su rótulo DECLARADO, `nombres_aparatos.insumo_puerta`: una sola lectura para la regla de la
   entrega, el detector `operables` y el ítem `interfaz.nombres_por_funcion`);
 - `interna`: los choques DENTRO de cada super-comando, sin `same_command_pairs` (D13b);
+- `uniones`: cada `fasten` medido (distancia y cordón, `calidad_contacto.uniones_medidas`): lo
+  mide la entrega y lo juzga `union.contacto_real` (plan uniones-que-tocan D1);
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
   balance-de-producto D9);
@@ -282,7 +284,9 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
         except Exception as exc:  # noqa: BLE001 — no se pudo probar: SIN_EVALUAR
             sobra = {"error": f"{type(exc).__name__}: {exc}"}
     h["sobrantes_candidatas"] = bool(sobra.get("candidatas")) or "error" in sobra
+    h["uniones_declaradas"] = bool(doc.fasteners)  # uniones-que-tocan D1
     return {"firma": firma(doc), "hechos": h, "entrega": entrega, "gravedad": gravedad,
+            "uniones": kw.get("uniones"),
             "acceso": kw.get("acceso_herramienta"), "electrico": kw.get("electrico"),
             "escenarios": kw.get("escenarios"), "nombres": kw.get("nombres"),
             "interna": interna, "memoria": memoria,

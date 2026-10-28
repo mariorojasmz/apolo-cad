@@ -69,6 +69,7 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
     resultados FEA guardados (con chequeo de vigencia). Llamar bajo STATE_LOCK."""
     from apolo.library.engineering.report import structure_engineering_check
 
+    from .calidad_contacto import cordones_medidos
     from .columnas_rules import columna_rules
     from .fea_rules import fea_rules
     from .izaje_rules import hoist_rules
@@ -88,6 +89,7 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
         default_material=doc.default_material(),  # la masa de mass-properties (F6)
         rodamientos=declarados,
         uniones_verificadas=pasadores,
+        cordones=cordones_medidos(doc),  # uniones-que-tocan D1b: el cordón que de verdad hay
     )
     rules += beam_rules(doc, carga)
     rules += columna_rules(doc, carga)  # F3f de puerta-sin-sobrediseno

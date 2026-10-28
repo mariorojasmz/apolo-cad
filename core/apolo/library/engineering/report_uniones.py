@@ -69,10 +69,14 @@ def _remachada(f: dict, label: str, load_kg: float | None, qty: int, qty_par: in
 
 
 def _fastener_checks(scene, graph, masses, fasteners, catalog,
-                     verificadas: frozenset | set = frozenset()) -> list[dict]:
+                     verificadas: frozenset | set = frozenset(),
+                     cordones: dict | None = None) -> list[dict]:
     """`verificadas`: nombres de las uniones perno SIN métrica que otra regla ya dimensionó (el
     pasador de una cadena de izaje: lo verifica `services/izaje_rules.py` con la rotura de la
-    cadena, ISO 606). No cuentan «sin dimensionar»; si esa regla no corrió, sí."""
+    cadena, ISO 606). No cuentan «sin dimensionar»; si esa regla no corrió, sí. `cordones`:
+    {soldadura: largo SOLDABLE medido sobre su línea de contacto} (plan uniones-que-tocan D1b,
+    `services/calidad_contacto.cordones_medidos`): el cordón se dimensiona con el menor entre el
+    declarado y el medido, y uno medido en 0 es un error (no hay soldadura). None = lo de siempre."""
     checks: list[dict] = []
     # varios `fasten` tipo perno sobre el MISMO par de piezas = UNA unión con los
     # pernos combinados (en el grafo colapsan a una arista): se suman las cantidades
@@ -158,6 +162,19 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog,
 
         else:  # soldadura
             throat, length = f.get("throat_mm"), f.get("length_mm")
+            medido = (cordones or {}).get(f.get("name"))
+            if throat and medido is not None and medido <= 0:  # D1b de uniones-que-tocan
+                checks.append(_check(
+                    f"soldadura · {f.get('name')}", "error",
+                    f"{label}: las piezas no se tocan en una línea soldable (cordón medido 0 mm; "
+                    f"declarado {length or 0:g} mm): no hay soldadura que dimensionar.",
+                    "Haz que se toquen (create_brace corta el extremo a ras de la cara) o "
+                    "declara la unión que de verdad hay.",
+                ))
+                continue
+            origen_l = ""  # lo declarado se escribe como siempre
+            if throat and medido is not None and (not length or medido < length):
+                length, origen_l = medido, " (medido sobre la línea de contacto)"
             if not throat or not length:
                 sin_cordon.append(str(f.get("name")))
                 continue
@@ -176,7 +193,8 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog,
             calc = {
                 "titulo": f"Soldadura {f.get('name')}",
                 "entradas": {"masa colgante": f"{load_kg:.1f} kg", "carga": f"{load_n:.0f} N",
-                             "garganta a": f"{throat:g} mm", "longitud": f"{length:g} mm",
+                             "garganta a": f"{throat:g} mm",
+                             "longitud": f"{length:g} mm{origen_l}",
                              "material base": f"{mat} (σy {y_base:.0f} MPa)"},
                 "formula": "τ = F / (a·L)",
                 "sustitucion": f"τ = {load_n:.0f} / ({throat:g}·{length:g})",

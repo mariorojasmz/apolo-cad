@@ -56,6 +56,11 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   píxel no coincide con lo que se ve.
 - Para ELEGIR un selector declarativo: `get_topology` (`topology.py`, caras/aristas con
   geometría descriptiva). `measure_distance` (`measure.py`) es el gap OCCT.
+- La línea de contacto de dos sólidos (`contacto.py`, el cordón de una soldadura) es su SECCIÓN
+  OCCT, sólo con las caras de la caja común (un larguero de 136 caras la volvía lenta), sin los
+  lazos encerrados (el interior de un tubo) ni las costuras de cilindro que los unen; con un hueco
+  ≤ tol, las aristas que corren a ≤ tol de la otra. Caché por par con `is`.
+  [uniones-que-tocan](../../../docs/plans/uniones-que-tocan.md)
 
 ## Superficies (`surface.py`)
 

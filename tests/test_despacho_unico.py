@@ -29,8 +29,9 @@ def _params(fn) -> list[tuple[str, object]]:
 
 
 def test_cada_executor_recibe_exactamente_ctx_cmd_id_p():
-    assert len(REGISTRY) == 63  # + add_program (V8.3 F5), + layout_tablero (V8.5 F1b), + add_tubo (V8.9 F1b),
-    # + create_pneumatic_cylinder (V8.9 F2), + create_hoist_chain (cadena-de-izaje F1)
+    assert len(REGISTRY) == 64  # + add_program (V8.3 F5), + layout_tablero (V8.5 F1b), + add_tubo (V8.9 F1b),
+    # + create_pneumatic_cylinder (V8.9 F2), + create_hoist_chain (cadena-de-izaje F1),
+    # + create_brace (uniones-que-tocan F1)
     malos = [f"{tipo}: {_params(s.executor)}" for tipo, s in REGISTRY.items()
              if _params(s.executor) != ESPERADO]
     assert not malos, "executors con otra firma:\n" + "\n".join(malos)

@@ -329,6 +329,12 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   puerta si no. Marco SÓLO de las anclas `ranura`/`punta` + `fijacion_1/2` y las cotas del builder,
   nunca del bbox. [mandos-de-seguridad](../../../docs/plans/mandos-de-seguridad.md) (F2b)
   [plan](../../../docs/plans/puntos-de-extension-entregables.md)
+- **Lo declarado unido se toca** (`calidad/contacto.py`: `union.contacto_real` y su regla ROJA de
+  la entrega; medido en `services/calidad_contacto.py`): soldadura con cordón eficaz ≥ max(30, 6·a)
+  (EN 1993-1-8 §4.5.2) sobre la línea de contacto de `kernel/contacto.py`, apoyo sin punto, perno
+  que cruza su hueco. El MISMO largo medido dimensiona el cordón (`report_uniones`, el menor con lo
+  declarado) y lo propone `declare_structure`. Lo de una cadena no se mide (su comando la asienta).
+  [uniones-que-tocan](../../../docs/plans/uniones-que-tocan.md)
 - Lo que no puede correr va en `no_aplica`: jamás cuenta verde. Un asiento ≤ `EXCESS_TOL_MM3`
   (`checks.py`) se tolera y se DECLARA (`contactos_tolerados`). Tornillería flotante = AVISO, no
   ROJO (no es nodo estructural).

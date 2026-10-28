@@ -78,6 +78,7 @@ from .exec_union import _exec_join_bolted, sellar as _sellar_join_bolted
 from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
 from .cilindro import SPECS_CILINDRO  # super-comando compuesto (V8.9 D5)
 from .exec_rodillos_cadena import SPECS_RODILLOS_CADENA  # super-comando compuesto
+from .miembro import SPECS_MIEMBRO  # create_brace (plan uniones-que-tocan D3)
 from .exec_faja import CreateBeltConveyorParams, _exec_create_belt_conveyor, sellar as _sellar_faja
 from .errors import CommandError
 from .spec import CommandSpec, run_executor
@@ -299,7 +300,7 @@ REGISTRY: dict[str, CommandSpec] = {
             "set_variable", "Variable", "variables", SetVariableParams, _exec_set_variable, kind="vars"
         ),
         *SPECS_RODILLOS_CADENA, *SPECS_CILINDRO,  # V8.9 D5: el cilindro neumático en 3D
-        *SPECS_ELECTRICO,
+        *SPECS_ELECTRICO, *SPECS_MIEMBRO,
     ]
 }
 

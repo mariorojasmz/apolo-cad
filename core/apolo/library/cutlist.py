@@ -14,6 +14,7 @@ from __future__ import annotations
 import csv
 import io
 from collections import defaultdict
+from functools import lru_cache
 
 from .bom import _base_name
 from .catalog import CATALOG
@@ -58,6 +59,31 @@ def _dims_sorted(solid) -> tuple[float, float, float]:
     )))
 
 
+@lru_cache(maxsize=256)
+def _seccion_catalogo(ref: str) -> tuple[float, float]:
+    """(espesor, ancho) de la sección de un perfil cortable del catálogo."""
+    from .catalog import build_component
+
+    shape, _ = build_component(ref, 100.0)
+    return _dims_sorted(shape)[:2]
+
+
+def _inclinado(comp, f) -> tuple | None:
+    """(espesor, ancho, largo) de un perfil de catálogo INCLINADO (una riostra de create_brace,
+    un miembro de create_frame): la caja no es su largo; lo es `cut_length` (el exterior) y la
+    sección, la de su ficha. None si va alineado a los ejes (la caja de siempre)."""
+    cut = getattr(f, "cut_length", None)
+    if comp is None or not comp.cuttable or not cut:
+        return None
+    try:
+        largo_caja = _dims_sorted(f.shape)[2]
+    except Exception:  # noqa: BLE001 — sin forma medible: la caja de siempre
+        return None
+    if abs(largo_caja - float(cut)) <= 1.0:
+        return None
+    return (*_seccion_catalogo(comp.ref), round(float(cut), 1))
+
+
 def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:
     """Piezas a CORTAR (a-medida + catálogo cortable), agrupadas por
     ``(material, espesor, ancho, largo)``. Cada Feature se descompone en sus sólidos.
@@ -76,7 +102,7 @@ def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:
         miter = getattr(f, "miter", None)
         mtr = tuple(miter) if miter else None  # (α1, α2) — separa recto de ingleteado
         for solid in _solids(f.shape):
-            t, w, l = _dims_sorted(solid)
+            t, w, l = _inclinado(comp, f) or _dims_sorted(solid)
             key = (mat, t, w, l, mtr)
             g = groups.get(key)
             if g is None:

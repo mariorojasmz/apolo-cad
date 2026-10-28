@@ -70,7 +70,7 @@ def test_apagadas_el_nucleo_queda_identico(extensiones_aisladas, monkeypatch):
     monkeypatch.setenv("APOLO_EXTENSIONES", "0")
     monkeypatch.setenv(EXTRA, "ext_prueba:EXTENSION")  # aunque la pidan
     assert extensiones_aisladas.cargar() == [] and extensiones_aisladas.descubrir() == []
-    assert len(REGISTRY) == 63 and len(CATALOG) == 477  # + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), +1 comando de cadena-de-izaje F1; +7 de bloqueo-de-vastago, +6 de amortiguador-externo, +20 de V8.9 F7b, +2 de plc-en-el-lazo F1d1, +1 de V8.9 F8, +5 de V8.5 F3, +2 cables sin PE
+    assert len(REGISTRY) == 64 and len(CATALOG) == 477  # + create_brace (uniones-que-tocan F1), + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), +1 comando de cadena-de-izaje F1; +7 de bloqueo-de-vastago, +6 de amortiguador-externo, +20 de V8.9 F7b, +2 de plc-en-el-lazo F1d1, +1 de V8.9 F8, +5 de V8.5 F3, +2 cables sin PE
     assert len(asyncio.run(mcp_server.mcp.list_tools())) == 93
     assert extensiones_aisladas.routers() == [] and extensiones_aisladas.webui() is None
 
@@ -119,7 +119,7 @@ def test_cada_punto_entra_al_registro_del_nucleo(con_prueba):
     from apolo.library.electrico.ficha import TIPOS_MODELO
     from ext_prueba.modelos import Lampara
 
-    assert "prueba.hola" in REGISTRY and len(REGISTRY) == 64 and "prueba.hola" in PISTAS
+    assert "prueba.hola" in REGISTRY and len(REGISTRY) == 65 and "prueba.hola" in PISTAS
     assert PESTANAS["prueba"] == {"orden": 90, "rotulo": "Prueba"}
     assert CATALOG["prueba.caja"].category == "prueba_catalogo" and len(CATALOG) == 478  # 477 del núcleo + 1
     assert CATEGORIES[-1] == "prueba_catalogo"
@@ -131,7 +131,7 @@ def test_cada_punto_entra_al_registro_del_nucleo(con_prueba):
     rutas = [r.path for router in con_prueba.routers() for r in router.routes]
     assert rutas[0] == "/api/prueba/hola" and "/api/prueba/caja" in rutas  # F1d: la fachada
     assert con_prueba.cargar() == con_prueba.estado()  # idempotente: no carga dos veces
-    assert len(REGISTRY) == 64
+    assert len(REGISTRY) == 65
 
 
 def test_al_salir_el_nucleo_queda_como_estaba(monkeypatch):
@@ -305,7 +305,7 @@ def test_lo_que_no_cumple_no_se_carga_y_dice_por_que(extensiones_aisladas, monke
     (e,) = extensiones_aisladas.cargar()  # nunca lanza
     assert e["cargada"] is False and motivo in e["motivo"], e
     # todo o nada: ni su catálogo ni su modelo (que se suman ANTES que los comandos) quedaron
-    assert len(REGISTRY) == 63 and "prueba.caja" not in CATALOG and "prueba.lampara" not in MODELOS
+    assert len(REGISTRY) == 64 and "prueba.caja" not in CATALOG and "prueba.lampara" not in MODELOS
     assert extensiones_aisladas.routers() == []
 
 

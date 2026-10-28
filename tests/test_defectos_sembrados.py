@@ -160,6 +160,12 @@ def cordon_minimo(d):  # 212 kg en un cordón de a = 1 mm y 10 mm de largo
                          "throat_mm": 1, "length_mm": 10})
 
 
+def riostra_que_no_toca(d):  # uniones-que-tocan: la riostra soldada a 5 mm de su placa
+    r = _caja(d, "Riostra", 40, 40, 200, 100, 60, 117)  # la placa base acaba en z = 12
+    d.execute("fasten", {"name": "fr", "a": r, "b": _id(d, "Placa base"), "kind": "soldadura",
+                         "throat_mm": 3, "length_mm": 160})
+
+
 def perno_sin_metrica(d):  # una unión apernada declarada sin métrica: no se puede verificar
     t = _caja(d, "Tapa", 100, 100, 5, 0, 0, 24.5)
     d.execute("fasten", {"name": "ft", "a": t, "b": _id(d, "Ménsula"), "kind": "perno"})
@@ -389,6 +395,8 @@ DEFECTOS = (
     Defecto("bloque_en_un_m6", "mensula_atornillada", bloque_en_un_m6,
             {"union.capacidad": FALLA}),
     Defecto("cordon_minimo", "mensula_atornillada", cordon_minimo, {"union.soldaduras": FALLA}),
+    Defecto("riostra_que_no_toca", "mensula_atornillada", riostra_que_no_toca,
+            {"union.contacto_real": FALLA}),
     Defecto("perno_sin_metrica", "mensula_atornillada", perno_sin_metrica,
             {"union.dimensionadas": FALLA}),
     Defecto("superficie_sin_espesor", "mensula", superficie_sin_espesor,

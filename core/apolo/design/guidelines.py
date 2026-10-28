@@ -46,9 +46,15 @@ DESIGN_RULES: list[dict[str, str]] = [
         "detalle": "Guardas, tapas, accesos, paneles, puertas y todo lo que se sirve o se "
         "transporta → herraje DESMONTABLE (pernos, tornillos, correderas). Estructura y uniones "
         "definitivas → soldadura/encolado/ensamble fijo. El herraje debe aparecer en el BOM y en "
-        "la cédula de fabricación.",
+        "la cédula de fabricación. Lo que se declara unido se TOCA: una soldadura necesita un "
+        "cordón real (largo eficaz ≥ 30 mm o 6·a, EN 1993-1-8 §4.5.2) y un apoyo, un área. Un "
+        "miembro inclinado entre dos piezas (riostra, diagonal, pasamanos que llega a un poste, "
+        "zanca) se hace con create_brace —corta cada extremo a ras de lo que lo recibe (a_tope, "
+        "boca_de_pescado, inglete) y declara la soldadura con el cordón medido—, nunca girando un "
+        "insert_component a mano: sus extremos quedan a escuadra y tocan por una arista, o no "
+        "tocan, y la soldadura declarada es fantasma.",
         "verificar": "get_bom / cut_list muestran el herraje; el plano de conjunto lleva la "
-        "cédula de herraje.",
+        "cédula de herraje; delivery_check (uniones que tocan) mide cada unión declarada.",
     },
     {
         "clave": "montaje",

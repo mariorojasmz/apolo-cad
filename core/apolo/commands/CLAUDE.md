@@ -227,6 +227,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `{cmd}_vastago` viene con la ref: BOM y lista de corte lo saltan (`library/incluidas.py`, por
   los sufijos `_cuerpo`/`_vastago`: renombrarlos lo cobra y lo manda a fabricar).
   [V8.9](../../../docs/plans/V8.9-neumatica.md)
+- `create_brace` (`miembro.py`, geometría en `library/miembro.py`): miembro de perfil ENTRE dos
+  piezas con cada extremo GENERADO por su unión (`a_tope` = plano de la cara, `boca_de_pescado` =
+  resta del sólido que recibe, `inglete` = bisector de `miter.py`) y sus `fasten` `{id}_a|_b`
+  soldadura con el cordón MEDIDO; un extremo que no asienta es error. Un miembro inclinado nunca es
+  un `insert_component` girado. [uniones-que-tocan](../../../docs/plans/uniones-que-tocan.md)
 - Bastidores con ingletes (`create_weldment`/`create_frame`): [library](../library/CLAUDE.md).
   `insert_project`: [doc](../doc/CLAUDE.md).
 
