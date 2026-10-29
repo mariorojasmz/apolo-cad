@@ -35,6 +35,12 @@ DENSITY_KG_MM3 = {
     # concreto (hormigón) de peso normal: 24 kN/m³ sin armar (EN 1991-1-1 anexo A, tabla A.1);
     # zapatas, bases y lastres. Sin esta clave se pesaba como ACERO (3,3× de lastre de más).
     "concreto": 2.4e-6,
+    # plásticos de máquina (ruedas dentadas, guías de desgaste, bujes, bandas modulares): densidad
+    # nominal de ficha del orden de los fabricantes (POM ~1410, PE-UHMW ~930, PP ~905, PA6 ~1140)
+    "acetal": 1.41e-6,
+    "polietileno": 9.3e-7,
+    "polipropileno": 9.05e-7,
+    "poliamida": 1.14e-6,
 }
 DEFAULT_DENSITY = 7.85e-6  # acero
 
@@ -94,6 +100,10 @@ COST_PER_KG_USD = {
     "caucho": 3.5,
     "carton": 0.5,
     "concreto": 0.06,   # ~150 USD/m³ premezclado en Lima, referencial
+    "acetal": 4.0,        # referenciales LatAm, barra/plancha
+    "polietileno": 3.5,
+    "polipropileno": 2.5,
+    "poliamida": 4.5,
 }
 DEFAULT_COST_PER_KG = 1.5  # acero
 
@@ -146,10 +156,21 @@ def _norm(material: str | None) -> str:
         return "acero inoxidable"
     if "hormig" in m:  # «hormigón» / «hormigon»: el mismo concreto
         return "concreto"
+    if re.search(r"\b(pom|delrin)\b", m):
+        return "acetal"
+    if re.search(r"\b(uhmw|hdpe|pead)\b", m):
+        return "polietileno"
+    if re.search(r"\b(nylon|pa6|pa66)\b", m):
+        return "poliamida"
     for key in DENSITY_KG_MM3:
         if key in m:
             return key
     return ""
+
+
+def known_material(material: str | None) -> bool:
+    """¿La tabla conoce este material? (si no, `density` y el costeo caen al acero)."""
+    return bool(_norm(material))
 
 
 def density(material: str | None) -> float:

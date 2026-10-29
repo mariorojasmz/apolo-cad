@@ -117,7 +117,10 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         'laton', 'madera', 'vidrio'."""
         ids = _one_or_many(feature, features)
         payload = _api("POST", "/api/features/material", json={"ids": ids, "material": material}).json()
-        return json.dumps(_scene_brief(payload), ensure_ascii=False)
+        out = _scene_brief(payload)
+        if "aviso_material" in payload:  # se pesa como acero: que el agente lo sepa
+            out["aviso_material"] = payload["aviso_material"]
+        return json.dumps(out, ensure_ascii=False)
 
     @mcp.tool()
     def set_color(

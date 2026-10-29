@@ -188,6 +188,7 @@ _POR_MATERIAL: tuple[tuple[re.Pattern, str], ...] = tuple(
         (r"vidrio|cristal|glass", "vidrio"),
         (r"caucho|goma|engomado|lagging|^cable$", "caucho"),   # ^cable$: su cubierta
         (r"poliamida|nylon", "plastico_gris"),  # prensaestopas RAL 7001 (V8.5 F3)
+        (r"acetal|\bpom\b|delrin|polietileno|uhmw|polipropileno", "plastico_blanco"),
         (r"pvc|poliuretano|polimero", "pvc_banda"),
         (r"carton", "carton"),
         (r"concreto|hormig", "concreto"),

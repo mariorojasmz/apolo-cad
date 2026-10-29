@@ -231,12 +231,27 @@ class MaterialIn(BaseModel):
     material: str | None = None  # null = volver al material automático (heurística)
 
 
+def _aviso_material(material: str | None, out: dict) -> dict:
+    """Un material que la tabla no conoce se pesa como ACERO: se dice, nunca en silencio (la
+    zapata de «concreto» pesaba 3,3×; el «acetal» de una rueda dentada, 5,6×). Sin aviso, el dict
+    de siempre."""
+    from apolo.library.materials import DEFAULT_DENSITY, known_material
+
+    if material and not known_material(material):
+        out["aviso_material"] = (
+            f"«{material}» no está en la tabla de materiales: se pesa y se cotiza como acero "
+            f"({DEFAULT_DENSITY * 1e9:.0f} kg/m³). Usa uno reconocido (acero, acero inoxidable, "
+            "aluminio, laton, madera, vidrio, pvc, caucho, concreto, acetal, polietileno, "
+            "polipropileno, poliamida…) o pide que se agregue con su densidad y su fuente.")
+    return out
+
+
 @router.post("/api/features/{feature_id}/material")
 def set_feature_material(feature_id: str, body: MaterialIn) -> dict:
     def run():
         S.doc.set_material(feature_id, body.material)
         return S.doc.scene[feature_id].command_id
-    return _state_or_error(run)
+    return _aviso_material(body.material, _state_or_error(run))
 
 
 class BulkMaterialIn(BaseModel):
@@ -259,7 +274,7 @@ def set_material_bulk(body: BulkMaterialIn) -> dict:
             S.doc.set_material(fid, body.material)
         return sorted({S.doc.scene[fid].command_id for fid in body.ids})
 
-    return _state_or_error(run)
+    return _aviso_material(body.material, _state_or_error(run))
 
 
 class VerticalIn(BaseModel):
