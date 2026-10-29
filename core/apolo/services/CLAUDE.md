@@ -113,7 +113,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   que cruza el eje de cada perno (rayos OCCT, por SÓLIDO, eje y cabeza de la geometría) y los
   lazos con sus tensores RECONOCIDOS (take-up, catálogo con `carrera_mm`, plantilla, metadato
   `tensores`), nunca por nombre de pieza. Lo no medible sale SIN_EVALUAR, jamás OK. Todo lazo de
-  `create_chain` lleva su medida de centros (D3b es de la cadena, no de la plantilla: F6). Los
+  `create_chain` lleva su medida de centros (D3b es de la cadena, no de la plantilla: F6). Un perno de
+  cabeza abombada (DIN 603: cúpula esférica + cuello cuadrado) se lee por su cara plana de apoyo
+  (`_cabeza_de_coche`). Los
   bordes de los agujeros (`calidad_bordes.py`) se miden sobre los insumos de agarre con la MISMA
   `_Escena` (sus `Rayos` se cargan una vez).
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F2)

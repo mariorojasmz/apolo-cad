@@ -146,6 +146,61 @@ def _coaxiales(cils, punto, eje) -> list[dict]:
     return out
 
 
+def _cabeza_de_coche(solid, vastago: dict, fjs) -> dict | None:
+    """Perno de cabeza ABOMBADA (de coche, DIN 603): un solo cilindro (el vástago), una cara
+    ESFÉRICA coaxial (la cúpula) y su cara plana de apoyo ⊥ al eje, más ancha que el vástago (el
+    cuello cuadrado entra en la pieza: el asiento es la cara de la cúpula). Sin cúpula, None."""
+    import math
+
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GeomAbs import GeomAbs_Plane, GeomAbs_Sphere
+    from OCP.GProp import GProp_GProps
+
+    e, p0, r = vastago["eje"], vastago["p"], vastago["r"]
+    cupula, planos = None, []
+    for f in solid.faces():
+        try:
+            ad = BRepAdaptor_Surface(f.wrapped)
+            tipo = ad.GetType()
+            if tipo == GeomAbs_Sphere:
+                c = ad.Sphere().Location()
+                centro = (c.X(), c.Y(), c.Z())
+                d = _sub(centro, p0)
+                t = _dot(d, e)
+                radial = math.sqrt(max(0.0, _dot(d, d) - t * t))
+                if radial < 0.5:  # coaxial
+                    cupula = t
+            elif tipo == GeomAbs_Plane:
+                n = ad.Plane().Axis().Direction()
+                if abs(abs(n.X() * e[0] + n.Y() * e[1] + n.Z() * e[2]) - 1.0) < 1e-3:
+                    props = GProp_GProps()
+                    BRepGProp.SurfaceProperties_s(f.wrapped, props)
+                    c = props.CentreOfMass()
+                    planos.append((props.Mass(), _dot(_sub((c.X(), c.Y(), c.Z()), p0), e)))
+        except Exception:  # noqa: BLE001
+            continue
+    if cupula is None or not planos:
+        return None
+    area, t_apoyo = max(planos)
+    r_cab = math.sqrt(area / math.pi)
+    if r_cab < r + 1.0:
+        return None
+    tv = [_dot(_sub(v, p0), e) for v in vastago["vs"]]
+    lejos = max(tv, key=lambda t: abs(t - t_apoyo))
+    dir_ = e if lejos > t_apoyo else (-e[0], -e[1], -e[2])
+    asiento = _add(p0, e, t_apoyo)
+    largo = max(_dot(_sub((v.X, v.Y, v.Z), asiento), dir_) for v in solid.vertices())
+    tuercas = []
+    for f in fjs:
+        if f.tipo == "tuerca" and abs(abs(_dot(f.eje, dir_)) - 1.0) < 1e-3:
+            t = _dot(_sub(f.base, asiento), dir_)
+            tuercas.append((min(t, t + f.altura * _dot(f.eje, dir_)),
+                            max(t, t + f.altura * _dot(f.eje, dir_))))
+    return {"asiento": asiento, "dir": dir_, "cabeza": "coche", "d": 2.0 * r, "s": 2.0 * r_cab,
+            "largo": largo, "tuercas": tuercas}
+
+
 def geometria_perno(solid) -> dict | None:
     """{asiento, dir (hacia la punta), cabeza, d, s (Ø o entrecaras de cabeza), largo,
     tuercas: [(t0, t1)]} o None si no se reconoce una cabeza."""
@@ -176,7 +231,7 @@ def geometria_perno(solid) -> dict | None:
         coax = _coaxiales(cils, gordo["p"], gordo["eje"])
         finos = [c for c in coax if c["r"] < gordo["r"] - 0.3]
         if not finos:
-            return None
+            return _cabeza_de_coche(solid, gordo, fjs)
         fino = min(finos, key=lambda c: c["r"])
         e = gordo["eje"]
         tg = [_dot(_sub(v, gordo["p"]), e) for v in gordo["vs"]]
