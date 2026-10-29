@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 implementada 2026-10-29 en su rama (sin mergear; decisiones F1-a…F1-i vetables en la Bitácora). Pendiente fuera de F1 - chapa sin ficha (run_script) en la BOM y la lista, arandela bajo la cabeza cuando haya agujero colisado
+nota: F1 MERGEADA 2026-10-29 (4f94c49; decisiones F1-a…F1-i vetables en la Bitácora). Pendiente fuera de F1 - chapa sin ficha (run_script) en la BOM y la lista, arandela bajo la cabeza cuando haya agujero colisado
 descripcion: La BOM sirve para comprar y para cortar: cada chapa con su espesor, cada perfil con el corte medido, cada perno con su arandela y su tuerca una sola vez
 ---
 
