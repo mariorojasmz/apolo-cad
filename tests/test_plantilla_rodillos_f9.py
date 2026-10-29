@@ -28,7 +28,7 @@ from apolo.library.catalog import CATALOG
 from apolo.library.rodillos_cadena import disposicion
 from banco_guardas import interferencias_sin_tope
 
-#: el piloto de la familia (L, W, H de la tienda) y el máximo; mercado Perú (Lima, 220 V)
+#: el piloto de la familia (L, W, H de la familia) y el máximo; mercado Perú (Lima, 220 V)
 PILOTO = {"largo": 2000, "ancho_util": 400, "altura": 500, "carga_kg": 500,
           "velocidad_m_s": 0.25, "union": "empernado", "red_v": 220}
 MAXIMO = {"largo": 4000, "ancho_util": 800, "altura": 750, "carga_kg": 450,
