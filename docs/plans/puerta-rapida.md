@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato en borrador, F1 sin lanzar
+nota: F1 mergeada (D1–D3, veredictos idénticos; mesa 1651→304 s, lavadora 1615→421 s); F2 (Trazador compartido) por decidir con un perfil nuevo
 descripcion: La puerta de publicación de una máquina grande tarda minutos y no media hora, con los mismos veredictos
 ---
 
@@ -175,3 +175,32 @@ sobran y que el modelador tuvo que justificar una por una. Ver «Lo que este pla
   todas las candidatas probadas (11, 14 y 25). En la lavadora la carga del `.apolo` tarda 219 s y la
   fuente «seguridad» 125 s: no son de este plan. La PC tenía otras cargas y las dos máquinas se
   midieron a la vez: las cifras de F1 se toman antes/después en la misma sesión.
+
+### F1 (2026-10-29)
+
+- **Qué entró.** D1: `BandaEmpujable.sin(q)` (`calidad_codo.py`) enmascara las filas de `q` en
+  los árboles de la corrida (F3 deja su banda en `compartido["empuje"]`; `Prueba.empuje` la usa en
+  `probar`, `_holguras`, la base de `_rectas`, el campo base y el «apoyo de»; con una banda en `q`,
+  rehecha). La consulta enmascarada empieza con k = 1 y sólo los puntos cuyo vecino está quitado
+  buscan más (k ×4): exacta para CUALQUIER punto (también los de un rayo que toca la banda), así
+  que no hizo falta el atajo «lejos de la banda» del contrato. D2: `CampoAlcance.sin_zona` —
+  recalcula en S1/S2 sólo si lo quitado LIBERA voxeles; si alguno se CIERRA (una banda que deja de
+  empujarse al quitar su guarda) cae al campo entero, como antes: la monotonía del contrato no vale
+  en ese caso. D3: `engineering/memo_corrida.py` (ContextVar que abre `mass.memo_de_geometria`):
+  volumen por forma (`_vol_safe`, `vigas_rules._masa_kg`; `is`), `viga_continua` por sus entradas
+  (clave `pickle`: distingue 1 de 1,0) y la carrera de la plantilla en `calidad_tensores`; lo
+  alcanzable desde el piso, una vez por grafo en `_fastener_checks` (`loads.alcanzables`, sin memo).
+- **Medido** (`scripts/medir_sobrantes.py --sin-perfil --json`, escritorio, las CUATRO corridas a
+  la vez y con otras sesiones en la PC: pared ≈ CPU, el trabajo es de un hilo):
+
+  | | mesa de sorteo (fat6) antes → después | lavadora (corrección 1) antes → después |
+  |---|---|---|
+  | `sobrantes` (pared) | 1650,8 → **303,5 s** | 1615,4 → **420,9 s** |
+  | rectas · ingeniería · codo · apoyo | 348 · 425 · 506 · 368 → 12 · 143 · 112 · 35 s | 332 · 106 · 236 · 937 → 17 · 75 · 143 · 186 s |
+  | veredicto (`sobrantes` sin `ms`) | idéntico | idéntico |
+
+  Objetivo del gate (mesa ≤ 450 s, lavadora ≤ 600 s): cumplido. Lo que queda: la ingeniería de la
+  mesa (143 s: 280 pruebas) y el brazo doblado (`sondas_con_codo` + `Trazador`) en las dos; el
+  `Trazador` compartido (F2) se decide con un perfil nuevo.
+- **Gate**: tests de igualdad por palanca (`tests/test_puerta_rapida.py`); `scripts/testigos.py
+  --en-proceso` sin re-congelar: los cuatro públicos IGUAL (los privados no estaban en esta PC).
