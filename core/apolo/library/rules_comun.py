@@ -19,6 +19,8 @@ _HP_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*hp", re.I)
 _KW_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*kw", re.I)
 _SECTION_RE = re.compile(r"(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+)")  # 80x40x3
 _DIAM_RE = re.compile(r"[øØ⌀]\s*(\d+(?:[.,]\d+)?)", re.I)
+#: «cuadrado 60» en el nombre de un eje: la sección del vano (ruedas de agujero cuadrado)
+_CUADRADO_RE = re.compile(r"\bcuadrado\s*(\d+(?:[.,]\d+)?)", re.I)
 # ROL al inicio del nombre (convención rol-primero): distingue una PATA/LARGUERO de
 # verdad de una pieza que solo MENCIONA una pata/larguero ("Ménsula … → larguero + pata").
 # "zapata"/"perfil" no empiezan por el rol, así que quedan fuera.

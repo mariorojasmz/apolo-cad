@@ -13,7 +13,7 @@ from .catalog import CATALOG
 from .diametro_tambor import diametro_tambor
 from .materials import density, piece_role, resolve_material
 from .rules_comun import (
-    EFFICIENCY, _BANDA_RE, _EJE_RE, _LARG_RE, _LEG_RE, _bbox_safe, _f, _name, _parse_diam,
+    EFFICIENCY, _BANDA_RE, _CUADRADO_RE, _EJE_RE, _LARG_RE, _LEG_RE, _bbox_safe, _f, _name, _parse_diam,
     _parse_power_kw, _parse_wall, _vol_safe,
 )
 
@@ -142,6 +142,10 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
             cand = [d for f in ejes if (d := _eje_diam(f))]
             ed = max(cand) if cand else _f(v.get("diam_eje"))
         base["eje_d"] = ed
+        # eje CUADRADO en el vano (ruedas de banda modular): «… cuadrado 60 …» en el nombre del
+        # motriz. El «Ø» del nombre es el de los muñones; a flexión trabaja el cuadrado.
+        if motriz is not None and (mc := _CUADRADO_RE.search(_name(motriz))):
+            base["eje_cuadrado"] = _f(mc.group(1))
     if not base.get("banda_kg"):  # por ROL: el lazo, no cada pieza de «Faja de banda · …»
         bandas = [f for f in scene.values() if _BANDA_RE.match(piece_role(_name(f)))]
         kg = sum(_vol_safe(f) * density(resolve_material(f)) for f in bandas)
