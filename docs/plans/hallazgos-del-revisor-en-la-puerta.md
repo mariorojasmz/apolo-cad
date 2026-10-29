@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito (2026-10-29, laptop) sobre 9 pilotos de familia; espera la aprobación de Mario (D1–D9 vetables) y que el escritorio, dueño del núcleo, tome las fases
+nota: contrato escrito (2026-10-29, laptop) sobre 9 pilotos de familia y APROBADO por Mario el mismo día («pushealo … para que la persona de escritorio lo revise e implemente»); el escritorio, dueño del núcleo, lo revisa, mergea el archivo y toma F0–F7
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
