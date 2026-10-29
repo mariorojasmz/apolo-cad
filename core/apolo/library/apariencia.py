@@ -135,6 +135,7 @@ ACABADOS: dict[str, Acabado] = {
     "vidrio": Acabado("Vidrio", "#dceaf2", 0.0, 0.06, opacidad=OPACIDAD_VIDRIO),
     "carton": Acabado("Cartón", "#b48a5a", 0.0, 0.92, pintable=True,
                       relieve=Relieve("tejido", 2.0, 0.15)),
+    "concreto": Acabado("Concreto", "#a7a49c", 0.0, 0.95),
     # plásticos de los mandos (plan seta-de-emergencia): el rojo y el amarillo de seguridad
     # (ISO 13850 §4.3.6, IEC 60204-1 §10.7.3; tonos de RAL 3000 y 1003 aproximados en sRGB) son
     # de COLOR, pintables; la zona `fijo` del YAML los protege del color de la pieza (D3). Las
@@ -189,6 +190,7 @@ _POR_MATERIAL: tuple[tuple[re.Pattern, str], ...] = tuple(
         (r"poliamida|nylon", "plastico_gris"),  # prensaestopas RAL 7001 (V8.5 F3)
         (r"pvc|poliuretano|polimero", "pvc_banda"),
         (r"carton", "carton"),
+        (r"concreto|hormig", "concreto"),
         (r"madera|copaiba", "madera"),
         (r"inox", "inox_cepillado"),
         (r"galvaniz", "galvanizado"),

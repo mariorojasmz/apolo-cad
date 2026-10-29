@@ -273,6 +273,16 @@
       "pintable": true,
       "textura": null
     },
+    "concreto": {
+      "nombre": "Concreto",
+      "color": "#a7a49c",
+      "metalness": 0.0,
+      "roughness": 0.95,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": false,
+      "textura": null
+    },
     "plastico_rojo_seguridad": {
       "nombre": "Plástico rojo de seguridad",
       "color": "#b3191e",

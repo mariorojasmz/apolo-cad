@@ -32,6 +32,9 @@ DENSITY_KG_MM3 = {
     # ~2300 kg/m³ medio (el CABLE-4G2.5 del catálogo, 0,18 kg/m con Ø 10,5 mm, da ~2100; un
     # unipolar H07V-K 2,5 mm², ~2700). Un cable no se fabrica: el costeo no lo cobra (V8.1 F4).
     "cable": 2.3e-6,
+    # concreto (hormigón) de peso normal: 24 kN/m³ sin armar (EN 1991-1-1 anexo A, tabla A.1);
+    # zapatas, bases y lastres. Sin esta clave se pesaba como ACERO (3,3× de lastre de más).
+    "concreto": 2.4e-6,
 }
 DEFAULT_DENSITY = 7.85e-6  # acero
 
@@ -90,6 +93,7 @@ COST_PER_KG_USD = {
     "pvc": 2.5,
     "caucho": 3.5,
     "carton": 0.5,
+    "concreto": 0.06,   # ~150 USD/m³ premezclado en Lima, referencial
 }
 DEFAULT_COST_PER_KG = 1.5  # acero
 
@@ -140,6 +144,8 @@ def _norm(material: str | None) -> str:
     m = (material or "").lower()
     if "inox" in m:
         return "acero inoxidable"
+    if "hormig" in m:  # «hormigón» / «hormigon»: el mismo concreto
+        return "concreto"
     for key in DENSITY_KG_MM3:
         if key in m:
             return key
