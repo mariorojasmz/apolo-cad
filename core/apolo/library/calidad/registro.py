@@ -92,7 +92,10 @@ soldadura con el MENOR entre el largo declarado y el medido (una riostra a 5 mm 
 «100 mm de cordón» declarados daba τ en verde); v20 (faja-compacta F1b, D12)
 `consumibles.reemplazables`: una banda sin fin que ATRAVIESAN piezas además de sus tambores (cama,
 soportes, un travesaño) no se cambia sin desarmarlas y falla salvo con su empalme de campo (pieza
-de catálogo `empalmes_banda` unida a la banda) o el empalme mecánico en su nombre.
+de catálogo `empalmes_banda` unida a la banda) o el empalme mecánico en su nombre; v21
+(plantilla-rodillos-cadena F9-e) `transmision.capacidad`: una cadena con FS ≥ 1,2 cuya regla AVISA
+por una recomendación de desgaste (piñón < 17 dientes, centros < 30 pasos) se corrige o se
+JUSTIFICA por escrito; antes era FALLA sin salida (no es un modo de falla de capacidad).
 """
 
 from __future__ import annotations
@@ -108,7 +111,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "20"  # 20: la banda sin fin atravesada pide su empalme de campo
+VERSION_REGISTRO = "21"  # 21: el aviso de desgaste de una cadena que da su FS se justifica
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 

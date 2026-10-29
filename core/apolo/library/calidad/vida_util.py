@@ -119,6 +119,15 @@ def _juzgar(iid: str, regla: dict, fs_servicio: float = FS_SERVICIO,
         return (OK if sf >= pide - 1e-6 else FALLA), {"factor_servicio": round(sf, 2),
                                                       "pide": pide}
     if iid == "vida.cadena":
+        if regla.get("estado") == "aviso" and fs is not None and fs >= FS_CADENA - 1e-6:
+            # la capacidad da: lo que avisa es una RECOMENDACIÓN de desgaste (z < 17, centros
+            # cortos), no un modo de falla → se corrige o se justifica por escrito (D11 de
+            # puerta-sin-sobrediseno; plantilla-rodillos-cadena F9-e), nunca FALLA sin salida
+            js = del_aviso(nombre, regla.get("piezas"), justificadas)
+            if js:
+                return OK, {"fs": fs, "justificada": citar(js)}
+            return FALLA, {"fs": fs, "como_justificar": [{"regla": nombre,
+                                                          "piezas": list(regla.get("piezas") or [])}]}
         if regla.get("estado") != "ok":
             return FALLA, {"fs": fs}
         return (OK if fs is None or fs >= FS_CADENA - 1e-6 else FALLA), {"fs": fs}

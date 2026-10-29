@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F8 mergeadas a main (F8 = 9ea2364, create_roller_conveyor v4 con uniones-que-tocan). F9 (E11–E19) implementada en su rama, sin mergear (v5; transmision.capacidad sigue en FALLA por los avisos de la regla, F9-e, decisión de Mario); quedan las 4 preguntas a Mario
+nota: F0–F8 mergeadas a main (F8 = 9ea2364, create_roller_conveyor v4 con uniones-que-tocan). F9 (E11–E19) implementada en su rama, sin mergear (v5; F9-e resuelto: el aviso de desgaste de la cadena se justifica, registro v21); quedan las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -272,6 +272,13 @@ todos de la PLANTILLA (el modelador no los puede corregir desde fuera). Decision
   eslabones da el mismo paso 95,25) + relaciones intermedias (i = 18 de una serie Bonfiglioli VF)
   o el 30–50 p con H ≥ ~700; o que `vida.cadena` juzgue sólo el FS (cambio de la puerta, que el
   contrato no admite). Un test `xfail(strict)` lo deja ejecutable.
+  **Resuelto en la revisión del orquestador (2026-10-29, vetable):** ni Z17 ni 30 pasos son un modo
+  de falla de capacidad sino recomendaciones de desgaste (lazos 1:1 cortos a baja velocidad son la
+  práctica de los transportadores de rodillos), y la doctrina de la puerta es que un AVISO se
+  corrige o se JUSTIFICA (D11 de puerta-sin-sobrediseno). `vida.cadena`: con FS ≥ 1,2, el aviso de
+  la regla es OK si está justificado y FALLA con `como_justificar` si no; un ERROR o un FS bajo
+  siguen siendo FALLA sin salida. Registro **v21**; testigos re-congelados (sólo la versión). El
+  `xfail` pasa a `test_transmision_capacidad_se_justifica`.
 - **F9-f (E11) — empernado**: cada pata lleva soldadas su placa de cabeza (120 × 72 × 8), su placa
   de pie y la tuerca del pie (se transporta entera) y se atornilla al ala horizontal del larguero
   con 2 M10×25 DIN 933 por fuera del tubo; cada travesaño lleva una oreja soldada en cada extremo

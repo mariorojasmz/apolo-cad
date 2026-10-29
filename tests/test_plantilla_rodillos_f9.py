@@ -232,10 +232,18 @@ def test_la_puerta_no_falla_en_lo_que_es_de_la_plantilla(cual, request):
 
 
 @pytest.mark.torture
-@pytest.mark.xfail(strict=True, reason=(
-    "Bitácora F9 (F9-e): la regla «transmisión por cadena» da AVISO (→ FALLA en el ítem) por el "
-    "Z15 del piñón doble-simple del rodillo (< 17: el único de catálogo) y por los 12 pasos de "
-    "centros de la cadena motriz (< 30 salvo 1:1); con H 500 y 0,25 m/s no hay geometría ni "
-    "relación NMRV que lo evite. Decisión de Mario."))
-def test_transmision_capacidad_sin_falla(piloto):
-    assert _puerta(piloto)["transmision.capacidad"]["estado"] == "OK"
+def test_transmision_capacidad_se_justifica(piloto):
+    """F9-e: la regla «transmisión por cadena» AVISA por el Z15 del piñón doble-simple del rodillo
+    (< 17: el único de catálogo) y por los 12 pasos de centros de la motriz, con FS ≥ 1,2. Es una
+    recomendación de desgaste: sin justificar, FALLA y dice cómo; justificada, OK (registro v21)."""
+    item = _puerta(piloto)["transmision.capacidad"]
+    assert item["estado"] == "FALLA"
+    como = [c for v in item["evidencia"]["valores"] for c in v.get("como_justificar", [])]
+    assert como
+    piloto.justificadas = [{"regla": c["regla"], "porque": "lazos 1:1 cortos a 0,25 m/s: "
+                            "práctica de transportador de rodillos; FS de capacidad ≥ 1,2"}
+                           for c in como]
+    try:
+        assert _puerta(piloto)["transmision.capacidad"]["estado"] == "OK"
+    finally:
+        piloto.justificadas = []
