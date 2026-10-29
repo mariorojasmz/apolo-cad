@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 mergeada (2026-10-28; create_belt_conveyor v7, criterio 9; decisiones F1-1…F1-13 en la Bitácora; el motriz NMRV sobresale 222,6 mm del larguero contra 776,4 del coaxial, la meta de 200 no se cumple con las dos chumaceras); F2 (la mesa de sorteo manual de 12 puestos con NMRV y tensor de placa, por MCP) lanzada
+nota: F1 mergeada (2026-10-28; create_belt_conveyor v7, criterio 9; el motriz NMRV sobresale 222,6 mm contra 776,4 del coaxial); F2 primera corrida APROBADA con 12 puestos pero la familia 24/36 no regenera y la re-revisión marcó dos MEDIA de la plantilla; F1b (D7–D12, criterio 10) lanzada; después se repite F2
 descripcion: La faja ofrece motorreductor sinfín de eje hueco calzado en el tambor (motor a lo largo del larguero) y tensor de placa ranurada, con la carrera del tensor calculada y el carro al inicio
 ---
 
@@ -70,7 +70,41 @@ por lado con el carro CENTRADO, contra 103,5 mm que pide el 1 % de estiramiento 
   carrera calculada; UCT con el carro al inicio; un log v8 regenera igual; la puerta de cada
   variante sin FALLA nueva).
 - **F2 — la mesa de sorteo (MCP, S)**: la «Mesa de sorteo manual 12 puestos» con NMRV y tensor de
-  placa, revisada a ciegas y por la puerta.
+  placa, revisada a ciegas y por la puerta. Hecha la primera corrida (2026-10-28): APROBADA con 12
+  puestos, pero la familia (24/36) no regenera y la re-revisión marcó dos MEDIA de la plantilla →
+  F1b.
+- **F1b — lo que la familia y la re-revisión destaparon (núcleo, M)**, decisiones D7–D12 de abajo,
+  con tests en una faja de 30 m (la de 36 puestos) y la de 10 m en dos tramos; después se repite F2.
+
+## Ajuste F1b (2026-10-28, contrato; vetable por número)
+
+Lo que salió de la F2: a 24 y 36 puestos la faja no regenera, y la re-revisión a ciegas marcó dos
+MEDIA que vienen de la plantilla, no de la máquina.
+
+- **D7. La plantilla no rechaza un motor por una carga que no conoce.** La cuenta del NMRV de F1
+  usa 50 kg/m (la carga de diseño de la cama): en la mesa son ~14 kg/m reales (3,6×), pide 1,1 kW
+  contra 0,25 kW de `engineering_check` y deja sin motor a 36 puestos. La plantilla elige la
+  relación por la velocidad y sólo rechaza lo GEOMÉTRICO (el calce); la potencia la juzga la regla
+  de la puerta con los requisitos reales (`rules_faja_motor`, que ya lo hace). Si no hay requisitos
+  de carga, aviso con la carga supuesta, no error.
+- **D8. La ranura del tensor de placa se dimensiona con la carrera que pida el lazo**, sin el tope
+  de 165 mm, hasta lo que deje la geometría de la cola (el tope geométrico, medido y escrito); más
+  allá, error que lo dice. Así entra un lazo de 59 m (306 mm) sin una toma de tensión que el
+  catálogo no tiene.
+- **D9. La vida L10 lee las rpm de la relación que eligió la plantilla** (hoy sale «sin evaluar»
+  hasta que el modelador declara `rpm_salida` a mano), y el lazo se calcula con el mismo radio que
+  la simulación (hoy 56,8 contra 60,8 mm: 7 % en la velocidad).
+- **D10. η del sinfín por relación**, de la ficha del fabricante si el repo o `C:\t\normas` la
+  tienen con fuente; si no, se queda en 0,75 declarado como criterio de diseño (no se inventa).
+- **D11. Cada tramo del bastidor se sostiene solo** (re-revisión, MEDIA): hoy la punta de empalme
+  de un tramo cuelga 2,5 m de 3 M12 a cortante; al desarmar vuelca sobre el montador. Una estación
+  de patas a cada lado del empalme (o una por tramo que lo deje estable solo), con la cuenta de
+  vuelco del tramo suelto.
+- **D12. La banda se cambia sin desarmar la cama** (re-revisión, MEDIA; `consumibles.reemplazables`
+  no lo vio): si algo atraviesa el lazo (soportes de cama, cama, retorno), la plantilla declara un
+  **empalme de campo** (grapa mecánica de catálogo, en la BOM) y la regla de la puerta reconoce un
+  lazo con empalme de campo como reemplazable; un lazo sin fin atravesado, sin empalme, es FALLA.
+  Solo con `criterio: 10` (el sello lo pone a toda faja nueva; un log ≤ 9 regenera igual).
 
 ## Lo que este plan NO hace
 
