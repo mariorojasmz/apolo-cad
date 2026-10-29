@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F5 mergeadas a main el 2026-10-21 (create_roller_conveyor v3, re-verificada por el revisor ciego sin ALTA); F6 (campo oculto taller, E1–E5) en integ-noche, sin mergear; F7 (campo oculto eje «hexagonal» por el sello, E6–E9 vetables) implementada en su rama sobre integ-noche, sin mergear; F8 (campo oculto pie «base» por el sello: pie de base de anclaje sin placa de piso ni soldadura, E10 vetable) implementada en su rama sobre integ-f7, sin mergear; quedan las 4 preguntas a Mario
+nota: F0–F8 mergeadas a main (F8 = 9ea2364, create_roller_conveyor v4 con uniones-que-tocan). F9 (lo que el piloto de la familia rodillos-cadena destapó, E11–E19) contrato escrito 2026-10-28, en implementación; quedan las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -66,6 +66,10 @@ repite va en una plantilla, para que cada lección quede dentro una sola vez.
   tocar tuercas, y su designación en la BOM (decisiones E6–E9 en § Bitácora F7); sin bump.
 - **F8 (S, `commands` + `library`)**: el pie anclado sin soldar: pie nivelador con base de anclaje
   atornillado al concreto, sin placa de piso (decisión E10 en § Bitácora F8); sin bump.
+- **F9 (M, `commands` + `library` + catálogo)**: lo que el piloto de la familia `rodillos-cadena`
+  (tanda 2026-10-28) destapó en la plantilla: bastidor empernado, motor elegido por cuenta, ancho
+  mínimo, cadena por el par del motor, tensado, cárter y guarda desmontables (E11–E19, contrato
+  abajo); sube `version`.
 
 ### F4 — contrato
 
@@ -160,6 +164,57 @@ a la altura de trabajo.
   cabe pared. Con la mano sobre los rodillos, entre dos tubos (44 mm) se llega a la cadena por
   el extremo. ¿Se acepta (los rodillos son la superficie de trabajo) o se pasan las cadenas por
   fuera del larguero, como un CDLR comercial?
+
+### F9 — contrato (piloto de la familia, 2026-10-28)
+
+**Origen**: piloto `rodillos-cadena-2000` (L 2000, W 400, H 500, base «empernado») por MCP con la
+plantilla v4; la puerta v19 dio 30 OK / 4 FALLA y el revisor de taller a ciegas 1 ALTA + 4 MEDIA,
+todos de la PLANTILLA (el modelador no los puede corregir desde fuera). Decisiones (vetables):
+
+- **E11. Bastidor empernado** (eje estructural `union` de la familia): campo `union: "soldado" |
+  "empernado"` (default «soldado» = lo de hoy, un log viejo regenera igual). «empernado»: cada pata
+  en H se une al larguero con pernos de catálogo (`join_bolted` o su receta: agujeros en las dos
+  piezas, arandela, tuerca accesible, largo de catálogo DECLARADO) por una placa o el ala del ángulo;
+  los travesaños entre patas también empernados; lo que se suelda queda DENTRO de un subconjunto que
+  se transporta entero (la H de la pata). El bastidor se desarma en largueros + H + travesaños.
+- **E12. Motor por cuenta**: `motor: "auto"` (nuevo default para comandos nuevos por el sello; el
+  valor explícito de hoy sigue valiendo). La plantilla elige del catálogo el motorreductor más chico
+  que da la potencia de su cuenta (la de `rodillos_cadena_reglas`, con la carga de los requisitos,
+  nunca una supuesta) y la velocidad pedida (± 10 % con el piñón que elija), a la TENSIÓN de la red
+  de los requisitos/mercado (Lima 220 V trifásica: un motor sólo de 400 V no se elige). Si ninguno
+  sirve, el error nombra lo que falta (potencia, rpm, tensión). Así la familia regenera de L 2000 a
+  4000 sin editar el motor.
+- **E13. Ancho mínimo**: la familia pide W 400; con el motor debajo la plantilla exigía 463. La
+  plantilla resuelve el motor para que TODO W de la familia (≥ 400) arme sin agrandar los rodillos:
+  motor dentro del ancho si cabe; si no, orientación o tipo que ocupe menos ancho (p. ej. sinfín de
+  ejes ortogonales, motor a lo largo) o motor por fuera con su ménsula y guarda. Decide la
+  implementación por cuenta y por lo que se compra; el ancho útil del modelo = W, siempre.
+- **E14. Cadena por el par del motor**: la transmisión (motriz y lazos) se elige con el par NOMINAL
+  del motor elegido (un bulto trabado le pide todo su par) con el FS de la regla
+  `transmision.capacidad` (≥ 1,2) — ASA40-1 → ASA40-2 → ASA50 — y piñón motriz ≥ 17 dientes
+  (recomendación ASME/ANSI B29.1 de desgaste; cítala de la fuente que uses). La regla de la puerta
+  NO se cambia: es correcta.
+- **E15. Tensado del motor**: base del motor con tornillo empujador y contratuerca (o tensor con
+  piñón loco, por cuenta y costo); los pernos de la base pasan por buje o placa, nunca aplastan un
+  tubo hueco; el perno superior de cada oreja con la llave entrando (hoy queda a 1 mm del cárter: el
+  acceso de herramienta lo tiene que ver en VERDE).
+- **E16. Cárter de la cadena motriz empernado**: se quita para cambiar el piñón y la cadena
+  (`reparabilidad.desgaste_desmontable` OK) sin dejar de resguardar (ISO 13857).
+- **E17. Guarda de cadenas cerrada en sus extremos**: tapa extrema empernada en la alimentación y en
+  la motriz (las sondas que entran por el buje del primer rodillo: `riesgos.partes_moviles` OK).
+- **E18. Tornillería con su largo**: toda unión perno de la plantilla declara el largo de catálogo
+  (ninguna «largo sin declarar» en la BOM) o se modela.
+- **E19. Investigar, no suponer**: el ítem `riesgos.partes_moviles` dio 27 sondas sobre «Salida
+  giratoria del motorreductor ↔ Piñón motriz» en y = −211,7 (lado del ventilador); la salida real
+  estaría en +Y. Medir si la puerta ubica mal la salida del motorreductor (signo o ancla) y, si es
+  un bug de la puerta, corregirlo en su detector con su defecto sembrado; si la sonda es real,
+  resguardarlo en la plantilla.
+- **Compatibilidad**: los campos nuevos con default que reproduce v4; `version` sube (el executor
+  cambia). Un log v4 regenera idéntico (huella congelada).
+- **Gate**: tests que generan L 2000/W 400/H 500 y L 4000/W 800/H 750 con `union: "empernado"` y
+  `motor: "auto"` (mercado Perú) y exigen `delivery_check` VERDE y la puerta de publicación sin
+  FALLA de los ítems arriba (los que no dependan del tablero, que es del modelador); suite completa
+  y ruff.
 
 ## Lo que este plan NO hace
 
