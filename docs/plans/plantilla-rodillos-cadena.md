@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F8 mergeadas a main (F8 = 9ea2364, create_roller_conveyor v4 con uniones-que-tocan). F9 (E11–E19) implementada en su rama, sin mergear (v5; F9-e resuelto: el aviso de desgaste de la cadena se justifica, registro v21); quedan las 4 preguntas a Mario
+nota: F0–F8 mergeadas a main (F8 = 9ea2364, create_roller_conveyor v4 con uniones-que-tocan). F9 (E11–E19) MERGEADA 2026-10-29 (3b574b2…3da529b; v5; F9-e resuelto: el aviso de desgaste de la cadena se justifica, registro v21); quedan las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 

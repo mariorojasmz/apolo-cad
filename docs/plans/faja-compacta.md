@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 mergeada (2026-10-28; create_belt_conveyor v7, criterio 9; el motriz NMRV sobresale 222,6 mm contra 776,4 del coaxial); F2 primera corrida APROBADA con 12 puestos pero la familia 24/36 no regenera y la re-revisión marcó dos MEDIA de la plantilla; F1b (D7–D12) implementada, sin mergear (create_belt_conveyor v8, criterio 10, registro de la puerta v20; la mesa de 36 puestos regenera: carrera 310 mm, 5 tramos estables solos, empalme de campo); después se repite F2
+nota: F1 mergeada (2026-10-28; create_belt_conveyor v7, criterio 9; el motriz NMRV sobresale 222,6 mm contra 776,4 del coaxial); F2 primera corrida APROBADA con 12 puestos pero la familia 24/36 no regenera y la re-revisión marcó dos MEDIA de la plantilla; F1b (D7–D12) MERGEADA 2026-10-29 (96a5cdd; create_belt_conveyor v8, criterio 10, registro de la puerta v20; la mesa de 36 puestos regenera: carrera 310 mm, 5 tramos estables solos, empalme de campo); después se repite F2
 descripcion: La faja ofrece motorreductor sinfín de eje hueco calzado en el tambor (motor a lo largo del larguero) y tensor de placa ranurada, con la carrera del tensor calculada y el carro al inicio
 ---
 
