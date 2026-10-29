@@ -41,8 +41,9 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   y cédula (una fuente: el mismo módulo), con su norma y sin medida de corte salvo largo nominal o
   lazo; con norma, UNA fila por designación + largo + material y sus `ubicaciones` (nunca por
   pieza de origen). Lo que una unión `perno` DECLARA y nadie modeló lo suma
-  `tornilleria_declarada.py` (sin duplicar lo modelado; la que insertó el comando de OTRA unión
-  no le cuenta). La compra la DECLARA el modelador con «compra» en un paréntesis
+  `tornilleria_declarada.py` (sin duplicar lo modelado, también la tuerca enhebrada tras una
+  arandela; la que insertó el comando de OTRA unión no le cuenta). La arandela de catálogo es
+  categoría `arandelas`: no cubre un perno declarado y `_is_bolt` la cuenta como herraje. La compra la DECLARA el modelador con «compra» en un paréntesis
   (`compra_declarada`), nunca se adivina por el rol. Una ref con OTRO material asignado
   (`set_material`, o `fasten.material_tornilleria`/la nota en lo declarado) se compra como la
   EQUIVALENTE en ese material (`material_compra.py`: BOM, costeo y cédula, una fuente).
@@ -97,7 +98,10 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
 - **La lista de corte MIDE** (`cutlist_medida.py`): perfil de catálogo → largo exterior y corte
   por extremo de `kernel/corte_barra.py` (lo declarado sólo se contrasta: `aviso`); chapa →
   `Feature.chapa` + `chapa_ficha.desarrollo`, el mismo de `export_flat_pattern`. Sus textos de
-  corte son los del CSV y los planos. [plan](../../../docs/plans/lista-de-corte-medida.md)
+  corte son los del CSV y los planos. [plan](../../../docs/plans/lista-de-corte-medida.md) La
+  BOM lee la MISMA medida (`bom_compra.py`): chapa con ficha → espesor, desarrollo y norma; perfil
+  → largo y ∠ medidos (la copia de patrón agrupa con su original); misma ref con otro volumen
+  (taladros) → otra fila con su `marca`. [bom-de-compra-fiel](../../../docs/plans/bom-de-compra-fiel.md)
 
 ## Materiales (`materials.py`)
 

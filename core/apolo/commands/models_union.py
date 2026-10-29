@@ -12,9 +12,15 @@ de entrada (`exec_union.sellar`) a cada comando NUEVO:
   Un log viejo no lo trae → 1 → regenera con la MISMA tornillería y la misma firma.
 - `madera`: las piezas (a/b) que eran de madera al crear la unión (`set_material` o el vertical
   carpintería: metadatos del manifest que el regenerate no ve).
+
+`arandela` y `tuerca` (plan bom-de-compra-fiel D5) SÍ van en el schema (el modelador las elige):
+su default reproduce un log viejo (sin arandela, DIN 934) y el sello pone `arandela=True` al
+comando que nace sin ella.
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic.json_schema import SkipJsonSchema
@@ -29,8 +35,9 @@ class JoinBoltedParams(BaseModel):
     CRITERIO DE TALLER INTEGRADO (no se elige: lo decide Apolo con la geometría): base = la
     pieza más gruesa en el eje de la unión; la otra es la que se AGREGA. El largo sale de los
     espesores que el eje atraviesa de verdad (el alma de 3 mm de una C, no su caja de 50 mm).
-    - base con acceso por detrás → perno DIN 933 + tuerca DIN 934: cabeza del lado de la pieza
-      que se agrega, tuerca del lado de atrás de la base, largo comercial con 2–3 hilos fuera;
+    - base con acceso por detrás → perno DIN 933 + arandela DIN 125-A + tuerca DIN 934 (o
+      autoblocante DIN 985 con tuerca="din985"): cabeza del lado de la pieza que se agrega,
+      arandela y tuerca del lado de atrás de la base, largo comercial con 2–3 hilos fuera;
     - base SIN acceso por detrás (tubo cerrado u obstáculo) → remache ciego DIN 7337 (hasta M8);
     - base de MADERA (set_material o vertical carpintería al crear la unión) → tornillo para
       madera DIN 571 sin tuerca, ≥ 2/3 de su largo dentro de la madera sin asomar por detrás.
@@ -67,6 +74,18 @@ class JoinBoltedParams(BaseModel):
         description="pitch centro-a-centro; si falta se reparte en la huella respetando el borde",
     )
     norma: str = Field("DIN 933", max_length=20, title="Norma del perno")
+    # D5 de bom-de-compra-fiel: el default False reproduce un log viejo; el sello de entrada pone
+    # True en todo comando NUEVO que no lo trae (como `criterio`).
+    arandela: bool = Field(
+        False, title="Arandela bajo la tuerca",
+        description="arandela plana DIN 125-A bajo la tuerca del perno pasante (el largo la "
+                    "cuenta); un comando nuevo nace con true: pasa false para quitarla",
+    )
+    tuerca: Literal["din934", "din985"] = Field(
+        "din934", title="Tuerca",
+        description="din934 = hexagonal; din985 = autoblocante con anillo de nylon (lo que vibra "
+                    "o recibe golpes: no se afloja)",
+    )
     # Fuera del schema: los pone el sello de entrada (docstring del módulo).
     criterio: SkipJsonSchema[int] = Field(1, ge=1, le=6)
     madera: SkipJsonSchema[list[str]] = Field(default_factory=list, max_length=2)

@@ -49,8 +49,10 @@ def test_join_bolted_pasa_los_tres_controles():
     ins = insumos_pernos(doc)
     assert len(ins) == 2 and all(p["esperadas"] == [a, b] for p in ins)
     p = ins[0]
-    assert p["largo"] == pytest.approx(30) and p["d"] == 10 and p["cabeza"] == "hex"
-    assert [t["rol"] for t in p["tramos"]] == ["pieza", "pieza", "tuerca"]
+    # 18 de placas + 2 de la arandela DIN 125-A (bom-de-compra-fiel D5) + tuerca 8 + 2 hilos
+    assert p["largo"] == pytest.approx(35) and p["d"] == 10 and p["cabeza"] == "hex"
+    assert [t["rol"] for t in p["tramos"]] == ["pieza", "pieza", "pieza", "tuerca"]
+    assert p["tramos"][2]["fid"] == f"{cid}_arandela1"
     items = _items(doc)
     assert {i.estado for i in items.values()} == {OK}, items
     assert items["agarre.retencion"].evidencia["evaluados"] == 2
@@ -187,7 +189,7 @@ def test_join_bolted_nuevo_sin_largo_de_catalogo_da_error_accionable():
     with pytest.raises(Exception) as exc:
         doc.execute("join_bolted", {"a": a, "b": b, "size": "M12", "count": 1})
     txt = str(exc.value)
-    assert "213.5" in txt and "M12×200" in txt
+    assert "216" in txt and "M12×200" in txt  # 200 + 2,5 de la arandela (D5) + 10 + 2 hilos
     with pytest.raises(ValueError):
         fj.largo_perno("M12", 200, estricto=True)
     assert fj.largo_perno("M12", 200) == 200  # criterio 2: el respaldo de siempre

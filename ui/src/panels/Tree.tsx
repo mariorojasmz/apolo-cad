@@ -33,7 +33,7 @@ const CAT2SUB: Record<string, string> = {
   rodillos: "Rodillos y tambores", tambores: "Rodillos y tambores",
   rodamientos: "Rodamientos", chumaceras: "Rodamientos",
   tornilleria: "Tornillería", tornilleria_madera: "Tornillería", pernos: "Tornillería",
-  tuercas: "Tornillería",
+  tuercas: "Tornillería", arandelas: "Tornillería",
   guardas: "Guardas",
   sensores: "Sensores y control", tableros: "Sensores y control", mandos: "Sensores y control",
   alimentacion_electrica: "Sensores y control", proteccion_electrica: "Sensores y control",

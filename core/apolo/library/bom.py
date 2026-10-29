@@ -13,6 +13,11 @@ dice dónde va cada una (F6: el mismo artículo salía en dos líneas).
 Una ref de catálogo con OTRO material asignado (`set_material`) se compra en ese material: fila
 propia con el material asignado, `material_ficha` y la designación «… en <material> (la ref de
 catálogo es de <ficha>: pedir la equivalente)» (`material_compra`).
+
+Plan bom-de-compra-fiel (`bom_compra.py`): la chapa con ficha sale con espesor, desarrollo y
+norma (D1); un perfil de catálogo, con su largo y su corte MEDIDOS, y la copia de un patrón
+agrupa con su original (D2); lo cortado de la misma ref con otros taladros no comparte fila y
+las filas que se describen igual llevan su `marca` (D3).
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ import re
 from apolo.kernel.shapes import is_surface
 
 from .banda_lazo import es_banda, largo_de_lazo
+from .bom_compra import campos_chapa, marcar, medida_perfil, variante, volumen
 from .catalog import CATALOG
 from .designacion_comercial import (
     categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
@@ -78,6 +84,8 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
     `incluye`. El vástago de un cilindro neumático viene siempre con su ref (V8.9 F2,
     `incluidas.vastagos_incluidos`): no hace falta pasarlo."""
     rows: dict[tuple, dict] = {}
+    memo: dict = {}  # medidas compartidas por las instancias intactas (`cutlist_medida`)
+    variantes: dict[tuple, list] = {}  # D3: volúmenes vistos por clave de ref + corte
     incluidas = {**vastagos_incluidos(scene), **(incluidas or {})}
     traen: dict[str, list[str]] = {}
     for sid, quien in incluidas.items():
@@ -100,16 +108,23 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     cut = largo  # a medida: el largo va en la fila (la ficha fija ya lo nombra)
             miter = getattr(feat, "miter", None)
             mtr = tuple(miter) if miter else None  # ingleteado ≠ recto del mismo largo
+            angs = ""
+            if mtr:  # α None en un extremo = ese lado recto (0°)
+                angs = " ∠" + "/".join(f"{a:g}°" if a is not None else "0°" for a in mtr)
+            medido = medida_perfil(feat, comp, memo)  # D2: el corte MEDIDO manda
+            if medido is not None:
+                cut = largo = medido["largo"]
+                mtr, angs = medido["clave"], medido["angulos"]
+                aviso = medido["aviso"] or aviso
             key = (component, round(largo, 1) if largo else None, mtr, grp) if by_group else (
                 component, round(largo, 1) if largo else None, mtr)
             mat_compra, ficha_otra = material_de_compra(feat, comp)  # set_material gana (F6)
             if ficha_otra:
                 key = key + ("material", mat_compra.lower())
+            if comp.cuttable:  # D3: lo cortado de la misma ref con otros taladros, otra fila
+                key = key + ("variante", variante(variantes.setdefault(key, []), volumen(feat)))
             if key not in rows:
                 unit_weight = peso_de_ficha(comp, cut)  # un cilindro: + por_mm × carrera (V8.9)
-                angs = ""
-                if mtr:  # α None en un extremo = ese lado recto (0°)
-                    angs = " ∠" + "/".join(f"{a:g}°" if a is not None else "0°" for a in mtr)
                 rows[key] = {
                     "ref": comp.ref,
                     "descripcion": comp.name + _medida(comp, cut)
@@ -185,6 +200,12 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     **({"grupo": grp} if by_group else {}),
                     **({"_donde": {}} if desig else {}),
                 }
+                chapa = None if comercial else campos_chapa(feat, mat)
+                if chapa is not None:  # D1: espesor, desarrollo y norma de su ficha
+                    fila = rows[key]
+                    fila["descripcion"] += chapa.pop("texto")
+                    fila["longitud_mm"] = chapa["desarrollo_mm"][1]
+                    fila.update(chapa)
             rows[key]["cantidad"] += 1
             if desig:
                 rows[key]["_donde"][donde] = rows[key]["_donde"].get(donde, 0) + 1
@@ -197,6 +218,7 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
         if row["peso_unitario_kg"] is not None:
             row["peso_total_kg"] = round(row["peso_unitario_kg"] * row["cantidad"], 3)
         out.append(row)
+    marcar(out, scene)  # D3: filas que se describen igual y son piezas distintas
     out.sort(key=lambda r: (r["categoria"], r["ref"], r["longitud_mm"] or 0))
     return out
 

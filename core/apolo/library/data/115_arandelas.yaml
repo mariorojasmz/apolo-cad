@@ -1,0 +1,43 @@
+category: arandelas
+# Arandelas planas DIN 125-A (ISO 7089, serie normal, sin chaflán). Las pone join_bolted bajo la
+# tuerca de un perno pasante (plan bom-de-compra-fiel D5: EN 1090-2 §8.2.3 la pide sobre agujero
+# sobremedida y bajo vibración; bajo la tuerca reparte el apriete sobre la pared delgada). Son un
+# EJEMPLO: cualquier DIN 125-A / ISO 7089 de la métrica y el material sirve (lo que hay que
+# respetar: d1 de paso, d2 de apoyo y espesor h de la norma, dureza ≥ 140 HV para pernos 8.8).
+# d1/d2/h son espejo de ARANDELAS_DIN125 en library/fijacion.py (el largo del perno las cuenta).
+# Categoría propia («arandelas»): no es un fijador (no cubre un perno declarado) ni una tuerca.
+# cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+families:
+  - name_tpl: "Arandela plana {ref} DIN 125-A"
+    description_tpl: "Arandela plana DIN 125-A / ISO 7089 Ø{d1}×Ø{d2}×{h}, acero zincado 140 HV (para pernos hasta 8.8)."
+    builder: flat_washer
+    param_keys: [d1, d2, h]
+    weight_formula: "7.85e-6 * 0.785 * (d2 * d2 - d1 * d1) * h"
+    specs_common: {tipo: "arandela plana", material: "acero zincado (140 HV)", norma: "DIN 125-A / ISO 7089", linea_referencia: "del orden de las DIN 125-A zincadas de cualquier distribuidor de tornillería"}
+    variants:
+      - {ref: "ARANDELA-M6", d1: 6.4, d2: 12, h: 1.6, cost: 0.01}
+      - {ref: "ARANDELA-M8", d1: 8.4, d2: 16, h: 1.6, cost: 0.015}
+      - {ref: "ARANDELA-M10", d1: 10.5, d2: 20, h: 2.0, cost: 0.02}
+      - {ref: "ARANDELA-M12", d1: 13, d2: 24, h: 2.5, cost: 0.03}
+      - {ref: "ARANDELA-M14", d1: 15, d2: 28, h: 2.5, cost: 0.04}
+      - {ref: "ARANDELA-M16", d1: 17, d2: 30, h: 3.0, cost: 0.05}
+      - {ref: "ARANDELA-M18", d1: 19, d2: 34, h: 3.0, cost: 0.07}
+      - {ref: "ARANDELA-M20", d1: 21, d2: 37, h: 3.0, cost: 0.08}
+      - {ref: "ARANDELA-M24", d1: 25, d2: 44, h: 4.0, cost: 0.14}
+  # Las mismas en inoxidable A2 (AISI 304): para tornillería inoxidable o ambiente húmedo.
+  - name_tpl: "Arandela plana {ref} DIN 125-A inox A2"
+    description_tpl: "Arandela plana DIN 125-A / ISO 7089 Ø{d1}×Ø{d2}×{h}, acero inoxidable A2 (AISI 304)."
+    builder: flat_washer
+    param_keys: [d1, d2, h]
+    weight_formula: "8.0e-6 * 0.785 * (d2 * d2 - d1 * d1) * h"
+    specs_common: {tipo: "arandela plana", material: "acero inoxidable A2", norma: "DIN 125-A / ISO 7089", linea_referencia: "del orden de las DIN 125-A A2 de cualquier distribuidor de tornillería inoxidable"}
+    variants:
+      - {ref: "ARANDELA-M6-A2", d1: 6.4, d2: 12, h: 1.6, cost: 0.04}
+      - {ref: "ARANDELA-M8-A2", d1: 8.4, d2: 16, h: 1.6, cost: 0.06}
+      - {ref: "ARANDELA-M10-A2", d1: 10.5, d2: 20, h: 2.0, cost: 0.08}
+      - {ref: "ARANDELA-M12-A2", d1: 13, d2: 24, h: 2.5, cost: 0.12}
+      - {ref: "ARANDELA-M14-A2", d1: 15, d2: 28, h: 2.5, cost: 0.16}
+      - {ref: "ARANDELA-M16-A2", d1: 17, d2: 30, h: 3.0, cost: 0.2}
+      - {ref: "ARANDELA-M18-A2", d1: 19, d2: 34, h: 3.0, cost: 0.28}
+      - {ref: "ARANDELA-M20-A2", d1: 21, d2: 37, h: 3.0, cost: 0.32}
+      - {ref: "ARANDELA-M24-A2", d1: 25, d2: 44, h: 4.0, cost: 0.56}

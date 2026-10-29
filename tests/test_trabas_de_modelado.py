@@ -82,8 +82,9 @@ def _placa_atornillada() -> tuple[Document, str]:
     return d, jb
 
 
-def _tornilleria(jb: str) -> set[str]:
-    return {f"{jb}_perno1", f"{jb}_perno2", f"{jb}_tuerca1", f"{jb}_tuerca2"}
+def _tornilleria(jb: str) -> set[str]:  # con las arandelas DIN 125-A (bom-de-compra-fiel D5)
+    return {f"{jb}_perno1", f"{jb}_perno2", f"{jb}_tuerca1", f"{jb}_tuerca2",
+            f"{jb}_arandela1", f"{jb}_arandela2"}
 
 
 def test_get_connections_encuentra_la_union_por_su_comando_y_su_tornilleria():

@@ -103,7 +103,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   a lo que la junta mueve) y el mando del vivo (`juntas_en_tabla`). (D3, D4)
 - La tornillería que insertó un `join_bolted` con su fijador declarado no es «sin unión
   declarada» (`declarada_por_join_bolted`, por el TIPO del comando, no por `jb_*`).
-  [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md) (D5)
+  [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md) (D5) Ni «aislada» en
+  `check_assembly`: el endpoint suma `aristas_tornilleria_join_bolted` al grafo
+  ([bom-de-compra-fiel](../../../docs/plans/bom-de-compra-fiel.md) D6).
 
 ## Puerta de publicación (`calidad_pernos.py`, `calidad_tensores.py`, `calidad_mecanica.py`)
 

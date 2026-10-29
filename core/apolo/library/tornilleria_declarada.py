@@ -16,7 +16,9 @@ Qué se compra (la unión trae `size`, `qty` y una `nota` libre; no trae tipo ni
 Sin duplicar: una pieza de tornillería ya MODELADA cuenta para una unión si su caja cruza las de
 las DOS piezas (fijador) o toca una de ellas con
 el centro en la zona de la unión (las cajas de A y B ampliadas 3·d, intersecadas) o enhebrada en
-un fijador que las cruza (tuerca). Dentro de un mismo PAR de piezas cada pieza cuenta una vez (dos
+un fijador que las cruza (tuerca). La tuerca cuyo centro cae en la caja de un fijador que cruza
+las dos piezas es de la unión aunque NO toque ninguna (una arandela entre medio) y sea de otra
+norma que la declarada (plan bom-de-compra-fiel D4: el carro compraba 16 tuercas para 8 pernos). Dentro de un mismo PAR de piezas cada pieza cuenta una vez (dos
 uniones «guarda ↔ larguero» de 1 perno piden dos); entre pares distintos se comparte: un perno
 pasante que cierra techo, labio superior, labio inferior y piso sirve a las uniones de los dos
 labios (proyecto 7), y la tuerca de una guarda no es de la unión vecina. Sólo falta lo que la unión
@@ -269,8 +271,12 @@ def filas_declaradas(scene: dict, fasteners: dict) -> list[dict]:
             elif tipo == "fijador":
                 propio = _cruza(c, ca) and _cruza(c, cb)
             else:
-                propio = (_cruza(c, ca) or _cruza(c, cb)) and (
+                # la tuerca ENHEBRADA (su centro dentro de la caja de un fijador que cruza las dos
+                # piezas) es de la unión aunque una arandela la separe de la pieza y sea de otra
+                # norma (D4 de bom-de-compra-fiel: la DIN 985 del carro, 2 mm sobre la pletina)
+                propio = ((_cruza(c, ca) or _cruza(c, cb)) and (
                     _centro_en(c, zona) or any(_cruza(c, p, 0.0) for p in cruzan))
+                    or any(_centro_en(c, p) for p in cruzan))
             if propio:
                 del_par.add(fid)
                 faltan[tipo] -= 1

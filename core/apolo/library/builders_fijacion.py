@@ -116,6 +116,16 @@ def leveling_foot_base(rosca: float, altura: float, base_l: float, base_b: float
     return build
 
 
+def flat_washer(d1: float, d2: float, h: float):
+    """Arandela plana (DIN 125-A / ISO 7089): anillo Ø d2 exterior × Ø d1 interior × h. Eje Z,
+    CENTRADA en el origen como `hex_nut` (plan bom-de-compra-fiel D5)."""
+
+    def build(_length=None):
+        return Cylinder(d2 / 2.0, h) - Cylinder(d1 / 2.0, h + 2.0)
+
+    return build
+
+
 BUILDERS = {"blind_rivet": blind_rivet, "hex_wood_screw": hex_wood_screw,
             "carriage_bolt": carriage_bolt, "expansion_anchor": expansion_anchor,
-            "leveling_foot_base": leveling_foot_base}
+            "leveling_foot_base": leveling_foot_base, "flat_washer": flat_washer}

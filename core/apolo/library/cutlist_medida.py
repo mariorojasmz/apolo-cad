@@ -12,10 +12,13 @@ CORTA, medido sobre la forma, no lo que declaró su comando.
   si va inclinado) y el inglete declarado.
 
 `firma` separa en la lista lo que se corta distinto con las mismas medidas; los textos del corte
-(`texto_angulos`, `detalle_corte`) son UNO para el CSV y los planos.
+(`texto_angulos`, `detalle_corte`) son UNO para el CSV y los planos. `medidas` es la medida por
+sólido que leen la lista de corte y la BOM (plan bom-de-compra-fiel D2: una fuente).
 """
 
 from __future__ import annotations
+
+from functools import lru_cache
 
 #: Familias de catálogo que son una BARRA de sección constante (se miden: D1). Rodillos, tambores,
 #: guías y lo demás cortable traen su propio dibujo y siguen por la caja.
@@ -27,6 +30,47 @@ _TOL_L = 1.0    # mm
 
 def es_perfil(comp) -> bool:
     return comp is not None and comp.cuttable and comp.category in CATEGORIAS_PERFIL
+
+
+def dims_ordenadas(solid) -> tuple[float, float, float]:
+    """(espesor, ancho, largo) = extensiones del bbox en orden ascendente."""
+    bb = solid.bounding_box()
+    return tuple(sorted((  # type: ignore[return-value]
+        round(bb.max.X - bb.min.X, 1),
+        round(bb.max.Y - bb.min.Y, 1),
+        round(bb.max.Z - bb.min.Z, 1),
+    )))
+
+
+@lru_cache(maxsize=256)
+def seccion_catalogo(ref: str) -> tuple[float, float]:
+    """(espesor, ancho) de la sección de un perfil cortable del catálogo: lo construye LARGO
+    (1 m) para que el largo no se cuele entre los dos lados (un UPN-120 a 100 mm daba 55×100)."""
+    from .catalog import build_component
+
+    shape, _ = build_component(ref, 1000.0)
+    return dims_ordenadas(shape)[:2]
+
+
+def medidas(f, comp, mat, solidos: list, memo: dict) -> list:
+    """Por sólido: (dims, firma, campos) MEDIDOS (perfil de catálogo o chapa con ficha) o None
+    (la caja de siempre). Las instancias INTACTAS de una misma definición (`mesh_key` +
+    `matrix`: copias rígidas) comparten la medida de la primera en `memo` (largo y cortes no
+    cambian al moverla ni al reflejarla, D5)."""
+    if getattr(f, "chapa", None) and len(solidos) == 1:
+        return [fila_chapa(f, mat)]
+    if es_perfil(comp):
+        from apolo.kernel.corte_barra import medir_barras
+
+        seccion = seccion_catalogo(comp.ref)
+        clave = f.mesh_key if getattr(f, "mesh_key", None) and f.matrix is not None else None
+        barras = memo.get(clave) if clave else None
+        if barras is None:
+            barras = medir_barras(f.shape, seccion)
+            if clave:
+                memo[clave] = barras
+        return [fila_perfil(f, seccion, m) if m else None for m in barras]
+    return [None] * len(solidos)
 
 
 def _angulos_de(ext: dict) -> float | None:

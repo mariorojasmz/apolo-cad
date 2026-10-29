@@ -128,6 +128,20 @@ def tornilleria_join_bolted(doc) -> dict[str, tuple[str, str]]:
             if (cid := getattr(f, "command_id", None)) in jb and fid not in jb[cid]}
 
 
+def aristas_tornilleria_join_bolted(doc) -> list[tuple[str, str, str, str]]:
+    """Las aristas (pieza, a|b, "perno", `jb_<cmd>`) que unen la tornillería de cada
+    `join_bolted` a las dos piezas de su fijador: `check_assembly` las suma al grafo (plan
+    bom-de-compra-fiel D6: sus pernos, arandelas y tuercas salían «aisladas»)."""
+    tipo = {c["id"]: c.get("type") for c in doc.commands}
+    nombre = {f.get("command_id"): str(f.get("name") or "") for f in doc.fasteners.values()
+              if tipo.get(f.get("command_id")) == "join_bolted"}
+    out = []
+    for fid, (a, b) in tornilleria_join_bolted(doc).items():
+        jb = nombre.get(getattr(doc.scene[fid], "command_id", None), "")
+        out += [(fid, a, "perno", jb), (fid, b, "perno", jb)]
+    return out
+
+
 def reglas_de_extensiones(doc) -> dict | None:
     """`{version, reglas}` de las reglas de entrega de las extensiones cargadas
     (`Extension.entrega`; plan puntos-de-extension-entregables, D3), o None si no hay ninguna.

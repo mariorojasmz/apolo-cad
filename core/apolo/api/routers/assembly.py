@@ -249,14 +249,17 @@ def assembly_soundness(body: SoundnessIn) -> dict:
     toca, ¿qué seguiría flotando?'. Read-only."""
     from apolo.assembly.autodetect import detect_connections
     from apolo.assembly.connectivity import build_graph, soundness_report
+    from apolo.services.delivery_inputs import aristas_tornilleria_join_bolted
 
     with STATE_LOCK:
-        extra_edges: list = []
+        # la tornillería de un join_bolted cuelga de las piezas de SU fijador declarado (D6 de
+        # bom-de-compra-fiel): no es una pieza «aislada»
+        extra_edges: list = aristas_tornilleria_join_bolted(S.doc)
         extra_grounds: set = set()
         detected = None
         if body.with_autodetect:
             detected = detect_connections(S.doc.scene)
-            extra_edges = [(c["a"], c["b"], "contacto", "") for c in detected["fasteners"]]
+            extra_edges += [(c["a"], c["b"], "contacto", "") for c in detected["fasteners"]]
             extra_grounds = {g["feature"] for g in detected["grounds"]}
         graph = build_graph(
             S.doc.scene, S.doc.joints, S.doc.mates, S.doc.fasteners, S.doc.grounds,

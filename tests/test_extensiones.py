@@ -70,7 +70,7 @@ def test_apagadas_el_nucleo_queda_identico(extensiones_aisladas, monkeypatch):
     monkeypatch.setenv("APOLO_EXTENSIONES", "0")
     monkeypatch.setenv(EXTRA, "ext_prueba:EXTENSION")  # aunque la pidan
     assert extensiones_aisladas.cargar() == [] and extensiones_aisladas.descubrir() == []
-    assert len(REGISTRY) == 64 and len(CATALOG) == 478  # + 1 empalme de campo (faja-compacta F1b), + create_brace (uniones-que-tocan F1), + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), +1 comando de cadena-de-izaje F1; +7 de bloqueo-de-vastago, +6 de amortiguador-externo, +20 de V8.9 F7b, +2 de plc-en-el-lazo F1d1, +1 de V8.9 F8, +5 de V8.5 F3, +2 cables sin PE
+    assert len(REGISTRY) == 64 and len(CATALOG) == 505  # + 27 de bom-de-compra-fiel D5, 1 empalme de campo (faja-compacta F1b), + create_brace (uniones-que-tocan F1), + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), +1 comando de cadena-de-izaje F1; +7 de bloqueo-de-vastago, +6 de amortiguador-externo, +20 de V8.9 F7b, +2 de plc-en-el-lazo F1d1, +1 de V8.9 F8, +5 de V8.5 F3, +2 cables sin PE
     assert len(asyncio.run(mcp_server.mcp.list_tools())) == 93
     assert extensiones_aisladas.routers() == [] and extensiones_aisladas.webui() is None
 
@@ -121,7 +121,7 @@ def test_cada_punto_entra_al_registro_del_nucleo(con_prueba):
 
     assert "prueba.hola" in REGISTRY and len(REGISTRY) == 65 and "prueba.hola" in PISTAS
     assert PESTANAS["prueba"] == {"orden": 90, "rotulo": "Prueba"}
-    assert CATALOG["prueba.caja"].category == "prueba_catalogo" and len(CATALOG) == 479  # 478 del núcleo + 1
+    assert CATALOG["prueba.caja"].category == "prueba_catalogo" and len(CATALOG) == 506  # 505 del núcleo + 1
     assert CATEGORIES[-1] == "prueba_catalogo"
     assert MODELOS["prueba.lampara"] is Lampara and "prueba.lampara" in TIPOS_MODELO
     assert DE_EXTENSION["prueba.lampara"] == ("ext-prueba", "0.1.0")

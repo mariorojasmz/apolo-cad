@@ -189,6 +189,8 @@ FEA_HARDWARE_CATS = HARDWARE_CATS | {
     "cilindros_neumaticos", "valvulas_neumaticas", "aire_comprimido",
     # el empalme de campo de la banda (faja-compacta F1b): grapas sobre la banda, no estructura
     "empalmes_banda",
+    # la arandela DIN 125-A de join_bolted (bom-de-compra-fiel D5): herraje, como su tuerca
+    "arandelas",
 }
 
 

@@ -117,8 +117,9 @@ def test_ala_de_upn_lleva_perno_y_tuerca():
     cid = doc.execute("join_bolted", {"a": u, "b": p, "size": "M8", "count": 2})
     assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == 6  # vigente (V8.9 F7b: agujeros previos)
     piezas = _de(doc, cid)
-    assert sorted(piezas) == [f"{cid}_perno1", f"{cid}_perno2", f"{cid}_tuerca1", f"{cid}_tuerca2"]
-    assert piezas[f"{cid}_perno1"].name == "Perno M8×20 DIN 933"  # ala 8,5 + chapa 2
+    assert sorted(piezas) == [f"{cid}_arandela1", f"{cid}_arandela2", f"{cid}_perno1",
+                              f"{cid}_perno2", f"{cid}_tuerca1", f"{cid}_tuerca2"]
+    assert piezas[f"{cid}_perno1"].name == "Perno M8×25 DIN 933"  # ala 8,5 + chapa 2 + arandela 1,6
     assert doc.fasteners[f"jb_{cid}"]["size"] == "M8"
     rep = tool_access_report(doc.scene, catalog=CATALOG)  # la llave entra por la abertura
     assert rep["ok"] == rep["evaluados"] >= 2, rep
@@ -155,9 +156,11 @@ def test_bom_tornilleria_con_su_largo():
                                      "position": {"x": 1000}})
     doc.execute("insert_component", {"component": "DIN912-M8", "position": {"x": 1200}})
     filas = {(r["ref"], r["longitud_mm"]): r for r in bom_from_scene(doc.scene)}
-    assert filas[("PERNO-HEX-M8", 20.0)]["cantidad"] == 2
+    # 25 = ala 8,5 + chapa 2 + arandela DIN 125-A 1,6 (bom-de-compra-fiel D5) + tuerca + 2 hilos
+    assert filas[("PERNO-HEX-M8", 25.0)]["cantidad"] == 2
     assert filas[("PERNO-HEX-M8", 50.0)]["cantidad"] == 1
-    assert filas[("PERNO-HEX-M8", 20.0)]["descripcion"].endswith("L=20 mm")
+    assert filas[("PERNO-HEX-M8", 25.0)]["descripcion"].endswith("L=25 mm")
+    assert filas[("ARANDELA-M8", None)]["cantidad"] == 2
     assert ("DIN912-M8", 30.0) in filas  # ficha de largo fijo
     assert filas[("TUERCA-M8", None)]["cantidad"] == 2  # una tuerca no tiene largo
 

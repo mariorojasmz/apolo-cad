@@ -29,7 +29,7 @@ CAT2SUB = {
     "rodillos": "Rodillos y tambores", "tambores": "Rodillos y tambores",
     "rodamientos": "Rodamientos", "chumaceras": "Rodamientos",
     "tornilleria": "Tornilleria", "tornilleria_madera": "Tornilleria",
-    "pernos": "Tornilleria", "tuercas": "Tornilleria",
+    "pernos": "Tornilleria", "tuercas": "Tornilleria", "arandelas": "Tornilleria",
     "guardas": "Guardas",
     "sensores": "Sensores y control", "tableros": "Sensores y control",
     "mandos": "Sensores y control",

@@ -75,7 +75,8 @@ def test_join_bolted_cuenta_y_su_tornilleria_queda_fuera(tmp_path):
     doc.execute("create_group", {"name": "Estructura", "members": [a, b, jb]})
     assert [f["kind"] for f in doc.fasteners.values()] == ["perno"]
     params = _preparar(doc, tmp_path)
-    assert set(params["struct_ids"]) == {a, b} and len(params["excluded"]) == 6
+    # 3 pernos + 3 arandelas DIN 125-A (bom-de-compra-fiel D5) + 3 tuercas
+    assert set(params["struct_ids"]) == {a, b} and len(params["excluded"]) == 9
     assert params["uniones_empernadas"] == 1
 
 

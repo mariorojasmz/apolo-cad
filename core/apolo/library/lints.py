@@ -54,8 +54,8 @@ def es_nombre_de_tornilleria(nombre: str | None) -> bool:
 def _is_bolt(feat, catalog) -> bool:
     """¿La pieza es tornillería (catálogo o modelada a-medida por su nombre/rol)?"""
     comp = catalog.get(getattr(feat, "component", None) or "")
-    if comp is not None and comp.category in HARDWARE_CATS:
-        return True
+    if comp is not None and (comp.category in HARDWARE_CATS or comp.category == "arandelas"):
+        return True  # la arandela de catálogo (D5 de bom-de-compra-fiel) es herraje, no pieza
     return es_nombre_de_tornilleria(getattr(feat, "name", "") or "")
 
 

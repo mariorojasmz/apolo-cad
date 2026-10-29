@@ -21,7 +21,10 @@ Dos criterios por el campo oculto `criterio` (`models_union.py`):
   sin agujeros previos es el 5 tal cual. Los 1–5 guardados regeneran igual (sin `version`).
 
 `sellar` es el sello de entrada (`CommandSpec.al_crear`): un comando NUEVO nace con el criterio
-vigente y con las piezas que eran de madera al crearlo.
+vigente, con las piezas que eran de madera al crearlo y con `arandela=True` (plan
+bom-de-compra-fiel D5: un log viejo no trae el campo y regenera sin arandelas). La arandela va
+bajo la tuerca del perno pasante del criterio de taller (2–6); el 1, el remache ciego y el
+tornillo para madera no la llevan.
 """
 
 from __future__ import annotations
@@ -44,6 +47,8 @@ def sellar(params: dict, material_de: Callable[[str], str | None]) -> dict:
 
     if "criterio" not in params:
         params["criterio"] = CRITERIO_VIGENTE
+    if "arandela" not in params:  # D5 de bom-de-compra-fiel: lo nuevo nace con arandela
+        params["arandela"] = True
     if "madera" not in params:
         ids = [params.get("a"), params.get("b")]
         params["madera"] = [i for i in ids if isinstance(i, str) and es_madera(material_de(i))]

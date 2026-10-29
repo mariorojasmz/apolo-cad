@@ -114,7 +114,9 @@ def test_d1_sin_ciega_para_la_metrica_da_error_que_dice_que_hacer():
 def test_d2_c_de_3mm_mas_placa_de_1_5_da_m6x12():
     doc = Document("d2")
     c, p = _c_chapa(doc)
-    cid = doc.execute("join_bolted", {"a": c, "b": p, "size": "M6", "count": 2})
+    # la regla D2 de este plan, sin la arandela que suma bom-de-compra-fiel D5 (con ella, M6×16)
+    cid = doc.execute("join_bolted", {"a": c, "b": p, "size": "M6", "count": 2,
+                                      "arandela": False})
     pernos = [f for f in _de(doc, cid).values() if f.component == "PERNO-HEX-M6"]
     assert len(pernos) == 2 and all(f.name == "Perno M6×12 DIN 933" for f in pernos)
     assert fj.largo_perno("M6", 3 + PLACA) == 12  # 2,5 hilos fuera de la tuerca
@@ -130,8 +132,11 @@ def test_d3_cabeza_del_lado_de_la_placa_y_tuerca_detras_del_alma(a_es_placa):
     piezas = _de(doc, cid)
     perno, tuerca = piezas[f"{cid}_perno1"], piezas[f"{cid}_tuerca1"]
     assert _caja(perno)[2] == pytest.approx(-PLACA - 4.0, abs=0.05)  # cabeza bajo la placa
+    # detrás del alma (z 3): la arandela DIN 125-A de 1,6 (bom-de-compra-fiel D5) y la tuerca
+    _, _, az0, _, _, az1 = _caja(piezas[f"{cid}_arandela1"])
+    assert az0 == pytest.approx(3.0, abs=0.05) and az1 == pytest.approx(4.6, abs=0.05)
     _, _, tz0, _, _, tz1 = _caja(tuerca)
-    assert tz0 == pytest.approx(3.0, abs=0.05) and tz1 == pytest.approx(8.0, abs=0.05)
+    assert tz0 == pytest.approx(4.6, abs=0.05) and tz1 == pytest.approx(9.6, abs=0.05)
     assert doc.fasteners[f"jb_{cid}"]["size"] == "M6"
 
 

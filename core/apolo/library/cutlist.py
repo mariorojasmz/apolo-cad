@@ -14,11 +14,12 @@ from __future__ import annotations
 import csv
 import io
 from collections import defaultdict
-from functools import lru_cache
 
 from .bom import _base_name
 from .catalog import CATALOG
-from .cutlist_medida import es_perfil, fila_chapa, fila_perfil, texto_angulos, texto_corte
+from .cutlist_medida import (
+    dims_ordenadas, medidas, seccion_catalogo, texto_angulos, texto_corte,
+)
 from .designacion_comercial import (
     categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
 )
@@ -50,24 +51,10 @@ def _solids(shape) -> list:
     return ss or [shape]
 
 
-def _dims_sorted(solid) -> tuple[float, float, float]:
-    """(espesor, ancho, largo) = extensiones del bbox en orden ascendente."""
-    bb = solid.bounding_box()
-    return tuple(sorted((  # type: ignore[return-value]
-        round(bb.max.X - bb.min.X, 1),
-        round(bb.max.Y - bb.min.Y, 1),
-        round(bb.max.Z - bb.min.Z, 1),
-    )))
-
-
-@lru_cache(maxsize=256)
-def _seccion_catalogo(ref: str) -> tuple[float, float]:
-    """(espesor, ancho) de la sección de un perfil cortable del catálogo: lo construye LARGO
-    (1 m) para que el largo no se cuele entre los dos lados (un UPN-120 a 100 mm daba 55×100)."""
-    from .catalog import build_component
-
-    shape, _ = build_component(ref, 1000.0)
-    return _dims_sorted(shape)[:2]
+# la medida vive en `cutlist_medida` (la leen también la BOM: plan bom-de-compra-fiel D2)
+_dims_sorted = dims_ordenadas
+_seccion_catalogo = seccion_catalogo
+_medidas = medidas
 
 
 def _inclinado(comp, f) -> tuple | None:
@@ -84,27 +71,6 @@ def _inclinado(comp, f) -> tuple | None:
     if abs(largo_caja - float(cut)) <= 1.0:
         return None
     return (*_seccion_catalogo(comp.ref), round(float(cut), 1))
-
-
-def _medidas(f, comp, mat, solidos: list, memo: dict) -> list:
-    """Por sólido: (dims, firma, campos) MEDIDOS (perfil de catálogo o chapa con ficha) o None
-    (la caja de siempre). `cutlist_medida` dice qué se mide y cómo. Las instancias INTACTAS de
-    una misma definición (`mesh_key` + `matrix`: copias rígidas) comparten la medida de la
-    primera en `memo` (largo y cortes no cambian al moverla ni al reflejarla, D5)."""
-    if getattr(f, "chapa", None) and len(solidos) == 1:
-        return [fila_chapa(f, mat)]
-    if es_perfil(comp):
-        from apolo.kernel.corte_barra import medir_barras
-
-        seccion = _seccion_catalogo(comp.ref)
-        clave = f.mesh_key if getattr(f, "mesh_key", None) and f.matrix is not None else None
-        barras = memo.get(clave) if clave else None
-        if barras is None:
-            barras = medir_barras(f.shape, seccion)
-            if clave:
-                memo[clave] = barras
-        return [fila_perfil(f, seccion, m) if m else None for m in barras]
-    return [None] * len(solidos)
 
 
 def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:

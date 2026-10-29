@@ -48,6 +48,20 @@ TIRAFONDO_LARGOS = [16, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 120, 14
 _PENETRACION_BUENA = 6.0   # criterio de diseño: ≥ 6·d dentro de la madera (práctica EN 1995-1-1)
 _RESPALDO_MADERA_MM = 2.0  # la punta queda ≥ 2 mm antes de la cara de atrás
 
+# Arandela plana DIN 125-A / ISO 7089: métrica → (d1, d2, h). Espejo de `115_arandelas.yaml`
+# (plan bom-de-compra-fiel D5: join_bolted la pone bajo la tuerca y el largo del perno la cuenta).
+ARANDELAS_DIN125: dict[str, tuple[float, float, float]] = {
+    "M6": (6.4, 12.0, 1.6), "M8": (8.4, 16.0, 1.6), "M10": (10.5, 20.0, 2.0),
+    "M12": (13.0, 24.0, 2.5), "M14": (15.0, 28.0, 2.5), "M16": (17.0, 30.0, 3.0),
+    "M18": (19.0, 34.0, 3.0), "M20": (21.0, 37.0, 3.0), "M24": (25.0, 44.0, 4.0),
+}
+# Tuerca autoblocante DIN 985 / ISO 10511: métrica → altura total h (el anillo de nylon incluido;
+# la entrecaras es la de la DIN 934). Espejo de la familia `TUERCA-AB-*` de `109_tuercas.yaml`.
+TUERCAS_DIN985: dict[str, float] = {
+    "M6": 6.0, "M8": 8.0, "M10": 10.0, "M12": 12.0, "M14": 14.0, "M16": 16.0, "M18": 18.5,
+    "M20": 20.0, "M24": 24.0,
+}
+
 
 @dataclass(frozen=True)
 class Fijacion:
@@ -66,6 +80,11 @@ class Fijacion:
     tuerca_s: float = 0.0
     tuerca_m: float = 0.0
     norma: str = ""
+    nombre_tuerca: str = ""     # nombre de la pieza tuerca en la escena
+    arandela: str | None = None  # ficha de la arandela bajo la tuerca (D5 de bom-de-compra-fiel)
+    arandela_d1: float = 0.0
+    arandela_d2: float = 0.0
+    arandela_h: float = 0.0
 
 
 def paso_grueso(size: str) -> float:
@@ -73,8 +92,10 @@ def paso_grueso(size: str) -> float:
     return COARSE.get(size, (0.125 * d, 0.0))[0]
 
 
-def largo_perno(size: str, grip: float, estricto: bool = False) -> float:
-    """D2: el largo comercial más corto que deja ≥ 2 hilos fuera de la tuerca DIN 934.
+def largo_perno(size: str, grip: float, estricto: bool = False,
+                altura_tuerca: float | None = None) -> float:
+    """D2: el largo comercial más corto que deja ≥ 2 hilos fuera de la tuerca (DIN 934, o la de
+    `altura_tuerca`: la DIN 985 es más alta). `grip` incluye las arandelas que el perno cruza.
 
     `estricto` (criterio 3 de join_bolted, plan puerta-de-publicacion D3): el largo sale de los
     que el CATÁLOGO vende para `PERNO-HEX-{size}` y, si ninguno alcanza, ValueError accionable.
@@ -82,7 +103,7 @@ def largo_perno(size: str, grip: float, estricto: bool = False) -> float:
     serie (200 mm): un log viejo regenera igual y la puerta lo marca FALLA."""
     from .largos_perno import largo_comercial, largos_catalogo
 
-    _, m = hex_nut_mm(size)
+    m = altura_tuerca if altura_tuerca is not None else hex_nut_mm(size)[1]
     minimo = grip + m + 2.0 * paso_grueso(size)
     if not estricto:
         return float(next((L for L in STD_LENGTHS if L >= minimo - 1e-6), STD_LENGTHS[-1]))
@@ -100,16 +121,32 @@ def largo_perno(size: str, grip: float, estricto: bool = False) -> float:
 
 
 def perno_pasante(size: str, grip: float, norma: str = "DIN 933",
-                  estricto: bool = False) -> Fijacion:
-    """Perno hexagonal DIN 933 + tuerca DIN 934, largo por D2 (`estricto`: ver `largo_perno`)."""
+                  estricto: bool = False, arandela: bool = False,
+                  tuerca: str = "din934") -> Fijacion:
+    """Perno hexagonal DIN 933 + tuerca DIN 934 (o autoblocante DIN 985 con `tuerca="din985"`),
+    largo por D2 (`estricto`: ver `largo_perno`). Con `arandela`, una DIN 125-A bajo la tuerca y
+    el largo la cuenta (plan bom-de-compra-fiel D5). Sin los dos, la fijación de siempre."""
     d = nominal_diameter_mm(size)
     s, k = hex_head_mm(size)
     ts, tm = hex_nut_mm(size)
-    largo = largo_perno(size, grip, estricto)
+    ref_tuerca, nombre_tuerca = f"TUERCA-{size}", f"Tuerca {size} DIN 934"
+    if tuerca == "din985":
+        if size not in TUERCAS_DIN985:
+            raise ValueError(f"Sin tuerca autoblocante DIN 985 de catálogo para {size}.")
+        tm = TUERCAS_DIN985[size]
+        ref_tuerca, nombre_tuerca = f"TUERCA-AB-{size}", f"Tuerca autoblocante {size} DIN 985"
+    a_d1 = a_d2 = a_h = 0.0
+    if arandela:
+        if size not in ARANDELAS_DIN125:
+            raise ValueError(f"Sin arandela DIN 125-A de catálogo para {size}.")
+        a_d1, a_d2, a_h = ARANDELAS_DIN125[size]
+    largo = largo_perno(size, grip + a_h, estricto, altura_tuerca=tm)
     clear = clearance_hole_mm(size)
     return Fijacion("perno", f"PERNO-HEX-{size}", f"Perno {size}×{largo:g} {norma}", d, largo,
-                    clear, clear, s, k, tuerca=f"TUERCA-{size}", tuerca_s=ts, tuerca_m=tm,
-                    norma=norma)
+                    clear, clear, s, k, tuerca=ref_tuerca, tuerca_s=ts, tuerca_m=tm,
+                    norma=norma, nombre_tuerca=nombre_tuerca,
+                    arandela=f"ARANDELA-{size}" if arandela else None,
+                    arandela_d1=a_d1, arandela_d2=a_d2, arandela_h=a_h)
 
 
 def remache_ciego(size: str, grip: float, cavidad: float) -> Fijacion:

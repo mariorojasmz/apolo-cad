@@ -18,3 +18,26 @@ families:
       - {ref: "TUERCA-M18", d: 18, across_flats: 27, thickness: 15.0}
       - {ref: "TUERCA-M20", d: 20, across_flats: 30, thickness: 16.0}
       - {ref: "TUERCA-M24", d: 24, across_flats: 36, thickness: 19.0}
+  # Tuercas AUTOBLOCANTES DIN 985 (ISO 10511, anillo de nylon): lo que vibra o recibe golpes (un
+  # rack, una máquina con impacto) no se afloja. join_bolted las pone con `tuerca: "din985"` (plan
+  # bom-de-compra-fiel D5). EJEMPLO: cualquier DIN 985 / ISO 10511 clase 8 zincada de la métrica.
+  # El anillo de nylon se modela como parte del prisma (altura total h de la norma); la entrecaras
+  # es la de las DIN 934 de este catálogo (la de la llave). h es espejo de TUERCAS_DIN985 en
+  # library/fijacion.py (el largo del perno la cuenta: el hilo debe pasar el anillo).
+  # cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+  - name_tpl: "Tuerca autoblocante {ref}"
+    description_tpl: "Tuerca hexagonal autoblocante {ref} DIN 985 / ISO 10511 con anillo de nylon (AF{across_flats}, h{thickness}), clase 8 zincada."
+    builder: hex_nut
+    param_keys: [d, across_flats, thickness]
+    weight_formula: "7.85e-6 * (0.866 * across_flats * across_flats - 0.785 * d * d) * thickness * 0.85"
+    specs_common: {tipo: "tuerca autoblocante", material: "acero clase 8 zincado", norma: "DIN 985 / ISO 10511", linea_referencia: "del orden de las DIN 985 zincadas de cualquier distribuidor de tornillería"}
+    variants:
+      - {ref: "TUERCA-AB-M6", d: 6, across_flats: 10, thickness: 6.0, cost: 0.03}
+      - {ref: "TUERCA-AB-M8", d: 8, across_flats: 13, thickness: 8.0, cost: 0.04}
+      - {ref: "TUERCA-AB-M10", d: 10, across_flats: 17, thickness: 10.0, cost: 0.06}
+      - {ref: "TUERCA-AB-M12", d: 12, across_flats: 18, thickness: 12.0, cost: 0.09}
+      - {ref: "TUERCA-AB-M14", d: 14, across_flats: 21, thickness: 14.0, cost: 0.13}
+      - {ref: "TUERCA-AB-M16", d: 16, across_flats: 24, thickness: 16.0, cost: 0.17}
+      - {ref: "TUERCA-AB-M18", d: 18, across_flats: 27, thickness: 18.5, cost: 0.25}
+      - {ref: "TUERCA-AB-M20", d: 20, across_flats: 30, thickness: 20.0, cost: 0.3}
+      - {ref: "TUERCA-AB-M24", d: 24, across_flats: 36, thickness: 24.0, cost: 0.55}

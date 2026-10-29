@@ -205,7 +205,7 @@ CAMPOS: dict[str, str] = {
         "project_id attachment name overrides position position.x position.y position.z rotation "
         "rotation.x rotation.y rotation.z keep_grounds"
     ),
-    "join_bolted": "name a b size count patron spacing norma criterio madera",
+    "join_bolted": "name a b size count patron spacing norma arandela tuerca criterio madera",
     "layout_tablero": (
         "name ubicacion gabinete position position.x position.y position.z rotation rotation.x "
         "rotation.y rotation.z bisagra reserva ambiente_C ventilacion_m3h overrides"

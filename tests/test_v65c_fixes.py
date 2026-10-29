@@ -42,7 +42,7 @@ def test_expect_dollar_k_multi_solid_expands_in_ids():
     })
     assert r.status_code == 200, r.text
     assert r.json()["contrato"]["ok"] is True
-    assert len(api.DOC.scene) == 2 + 8  # 2 placas + 4 pernos + 4 tuercas
+    assert len(api.DOC.scene) == 2 + 12  # 2 placas + 4 pernos + 4 arandelas (D5) + 4 tuercas
 
 
 def test_expect_dollar_k_multi_solid_in_singular_field_fails_actionably():

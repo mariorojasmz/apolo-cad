@@ -24,6 +24,12 @@ lo que el perno atraviesa de verdad:
 
 La elección (y sus tablas) es de `library/fijacion.py`; aquí sólo se mide, se taladra y se
 colocan las piezas. Todas las fijaciones del patrón son iguales (el mayor agarre manda).
+
+Con `arandela` (plan bom-de-compra-fiel D5) el perno pasante lleva una DIN 125-A entre la base y
+la tuerca (`{cmd}_arandela{n}`, el largo la cuenta) y con `tuerca="din985"` la tuerca es la
+autoblocante; el acceso por detrás mide lo que ocupan las dos. Bajo la CABEZA no va arandela: el
+agujero de `join_bolted` es siempre de paso ISO 273 serie media (el previo del criterio 6 se exige
+igual), nunca sobremedida ni colisa.
 """
 
 from __future__ import annotations
@@ -172,7 +178,7 @@ def _elegir(p: JoinBoltedParams, h: dict, base, anadida, medidas: list[dict]):
                                     min(m["libre"] for m in medidas))
         # criterio 3: el largo sale del catálogo, sin respaldo silencioso a 200 mm
         return fj.perno_pasante(size, max(m["t_add"] + m["t_base"] for m in medidas), p.norma,
-                                estricto=p.criterio >= 3)
+                                estricto=p.criterio >= 3, arandela=p.arandela, tuerca=p.tuerca)
     except (KeyError, ValueError) as exc:
         raise CommandError(str(exc).strip("'\"")) from exc
 
@@ -222,10 +228,11 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
 
     from apolo.assembly.connectivity import ConnectivityError, register_fastener
     from apolo.library.builders import hex_nut
+    from apolo.library.builders_fijacion import flat_washer
     from apolo.library.catalog import CATALOG
     from apolo.library.engineering.bolts import hex_nut_mm
     from apolo.library.engineering.remaches import designacion
-    from apolo.library.fijacion import paso_grueso
+    from apolo.library.fijacion import ARANDELAS_DIN125, TUERCAS_DIN985, paso_grueso
     from apolo.library.herramientas import LARGO_LIBRE_COPA_MM
 
     from .registry import Feature
@@ -236,6 +243,10 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
         nut_m = hex_nut_mm(size)[1]
     except KeyError as exc:
         raise CommandError(str(exc)) from exc
+    # lo que ocupan arandela y tuerca detrás de la base (D5 de bom-de-compra-fiel); sin ellas, la
+    # tuerca DIN 934 de siempre
+    nut_m = TUERCAS_DIN985.get(size, nut_m) if p.tuerca == "din985" else nut_m
+    nut_m += ARANDELAS_DIN125.get(size, (0.0, 0.0, 0.0))[2] if p.arandela else 0.0
     # contacto cara a cara en el plano donde se tocan las cajas (V6.5c Fix 2): una pieza rotada
     # o curva se rechaza pidiendo mates antes de tirar rayos
     a_abajo = (h["amin"][st] + h["amax"][st]) <= (h["bmin"][st] + h["bmax"][st])
@@ -266,7 +277,7 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
                 puntos.append(pt)
         medidas = [_medir(h, base, anadida, pt, otros, acceso, p.criterio) for pt in puntos]
     fij = _elegir(p, h, base, anadida, medidas)
-    for ref in (fij.ref, fij.tuerca):
+    for ref in (fij.ref, fij.tuerca, fij.arandela):
         if ref is not None and ref not in CATALOG:
             raise CommandError(f"Sin ficha de catálogo '{ref}' para {size}.")
     vistos = set()  # asientos planos (V6.5c Fix 2) en las cotas REALES de cada cara
@@ -280,8 +291,10 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
         exigir_asiento(anadida.shape, h, m["cabeza"], "asiento de la cabeza")
         if fij.tipo == "perno":
             exigir_asiento(base.shape, h, m["atras"], "asiento de la tuerca")
-    nombre_tuerca = f"Tuerca {size} DIN 934"
+    nombre_tuerca = fij.nombre_tuerca or f"Tuerca {size} DIN 934"
     tuerca = hex_nut(fij.d, fij.tuerca_s, fij.tuerca_m)() if fij.tuerca else None
+    arandela = (flat_washer(fij.arandela_d1, fij.arandela_d2, fij.arandela_h)()
+                if fij.arandela else None)
     rol = {"perno": "perno", "remache": "remache", "tornillo_madera": "tornillo"}[fij.tipo]
     for n, (pt, m) in enumerate(zip(puntos, medidas, strict=True), start=1):
         _taladrar(base, anadida, fij, m, h, pt)
@@ -291,9 +304,16 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
         fid = f"{cmd_id}_{rol}{n}"
         ctx.scene[fid] = Feature(fid, fij.nombre, Pos(*origen) * Rotation(*rot) * _pieza(fij, m),
                                  cmd_id, component=fij.ref)
+        if arandela is not None:  # D5 de bom-de-compra-fiel: entre la base y la tuerca
+            centro = list(pt)
+            centro[st] = m["atras"] + m["s"] * fij.arandela_h / 2.0
+            ctx.scene[f"{cmd_id}_arandela{n}"] = Feature(
+                f"{cmd_id}_arandela{n}", f"Arandela {size} DIN 125-A",
+                Pos(*centro) * Rotation(*rot) * arandela, cmd_id, component=fij.arandela,
+            )
         if tuerca is not None:
             centro = list(pt)
-            centro[st] = m["atras"] + m["s"] * fij.tuerca_m / 2.0
+            centro[st] = m["atras"] + m["s"] * (fij.arandela_h + fij.tuerca_m / 2.0)
             ctx.scene[f"{cmd_id}_tuerca{n}"] = Feature(
                 f"{cmd_id}_tuerca{n}", nombre_tuerca, Pos(*centro) * Rotation(*rot) * tuerca,
                 cmd_id, component=fij.tuerca,
