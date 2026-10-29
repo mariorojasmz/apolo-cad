@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4 en la Bitácora); F0 y F5 lanzadas, F1–F4 y F6–F7 sin lanzar
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4 en la Bitácora). F0 medida (Bitácora § F0) - 90 hallazgos, 27 los gana una D, 2 ya cubiertos, ninguna D cae; ajustes vetables a D1, D3, D4, D6 y D7 (criterio 4d/3d) antes de su fase. F5 lanzada; F1–F4 y F6–F7 sin lanzar
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -262,3 +262,113 @@ Nada en vuelo choca con las D. Ajustes, vetables:
   sobrediseño), queda para el revisor.
 - **R4 (orden).** F0 y F5 arrancan ya (F5 no depende de la F0). F3 y F6 van cuando una de las dos
   vuelva (máx. 3 agentes contando el modelador de la flota); F1 → F2 y F4 esperan la F0.
+
+### F0 (2026-10-29)
+
+Sólo lectura, sobre `main` en `66b503a`, núcleo sin extensiones. Se midió:
+
+- la puerta (`scripts/testigos.py` en proceso) y la BOM sobre el `.apolo` final de los 9 pilotos
+  (fuera del repo) y sobre los 4 testigos públicos de `tests/data/testigos/`;
+- las D candidatas con `scripts/medir_reglas_candidatas.py` (nuevo, sólo lectura) sobre los 9
+  finales, los 4 testigos y las 36 rondas intermedias (`modelado`, `correccion1..3`), para ver si
+  la regla habría frenado el hallazgo EN la ronda en que el revisor lo encontró.
+
+La faja 38 y la puerta plegable 28 son de la base de uso: en su lugar van los testigos públicos
+(faja, ménsula, ménsula atornillada, rodillos). **Ninguno es de madera**: D7 no tiene testigo sano
+de madera, y la puerta plegable 28 sigue pendiente para F4.
+
+**La puerta de hoy (registro v21, núcleo).** 8 de 9 pilotos siguen APROBADOS. La mesa de bolas cae
+por `entrega.semaforo` e `ingenieria.reglas`: «barreno sin perno» en las 4 tapas de pata Ø13
+(el espárrago del pie articulado modelado a mano no cuenta como tornillería). Con la v19 + la
+extensión había pasado. No se investigó: queda para quien toque el lint. De los testigos, faja y
+ménsulas APROBADOS y rodillos NO: los 4 IGUAL a lo congelado (`scripts/testigos.py --en-proceso`).
+
+**Hallazgos.** Los revisores dieron 90 ALTA y MEDIA (15 ALTA) en las 4 rondas de los 9 pilotos, no
+≈ 60. Grupo (a) = ya lo cubre `main`; (b) = lo cubre una D tal como está escrita, verificado con la
+medida de la ronda cuando la D es medible; (c) = propio de la máquina o de un modo sin D. Los `#`
+son el orden de los reportes (máquina alfabética; revisor, rerevisor1..3).
+
+| grupo | n | hallazgos |
+|---|---|---|
+| (a) `main` hoy | 2 | #32, #42: «pedir la equivalente» en inox ya alcanza (R2, `material_compra.py`) |
+| D1 (+D2) | 1 | #89 haya pesada como acero: la silla final da 4 piezas en FALLA |
+| D3 / D4 | 10 | #13 varilla sin largo (sigue en `main`); #21 y #52 madera sin clase; #33 y #71 metal sin grado; #25, #29, #57 y #60 compra sin norma ni código; #48 kit de compra que sale A-MEDIDA |
+| D5 | 1 | #61 bisagra en 2 sólidos = 4 + 4 medias, compás de 5 filas |
+| D6 | 1 | #70 pie de compra sin carga nominal (la ronda 2 de la Ø28 da 4 en FALLA); #29 también la gana |
+| D7 | 6 | #18 (3,75d), #58 (3,5d), #59 (2,5d), #85 (2d, ronda 2 de la silla) a la testa; #23 (1,9d al canto) y #84 |
+| D8 | 1 | #9: la ronda 2 de la escalera da 8 de 8 pernos de giro con tuerca simple |
+| D9 | 7 | #30, #31, #34, #35, #36, #39, #40 (todos de la mesa inox; R3 suma la lavadora) |
+| (c) | 61 | ver abajo |
+
+De los 61 del grupo (c), 27 se REPITEN en máquinas distintas sin ninguna D que los mida:
+
+| modo repetido | n | máquinas | hallazgos |
+|---|---|---|---|
+| cálculo estructural ausente (madera, pórtico sin riostra) | 8 | 5 | #2, #20, #28, #43, #51, #80, #83, #88 |
+| tirafondo o tornillo EN TESTA (eje a lo largo de la veta) como unión o como eje | 7 | 2 | #1, #3, #5, #73, #74, #75, #78 |
+| pie nivelador: carrera real, rosca enganchada, sin contratuerca ni rótula | 5 | 3 | #24, #44, #63, #66, #67 |
+| lo que pliega no declara su junta ni prueba la pose plegada | 4 | 3 | #0, #7, #49, #87 |
+| arandela chica o ninguna sobre la madera | 2 | 2 | #22, #55 |
+| eje de giro sin traba en una máquina SIN juntas (D8 no aplica) | 1 | 1 | #76 (y #73, #78) |
+
+Huecos de ítems que ya existen (también en c):
+
+- #53, `estructura.vuelco` sin la carga de esquina de los requisitos;
+- #69, D6 con la carga centrada: 197 kg × 1,5 < 350 kg, y el revisor usó el canto cargado;
+- #8, el taco antideslizante pegado no es «desgaste» para `consumibles.reemplazables`;
+- #68, el tornillo Allen encerrado no lo evalúa `union.acceso_herramienta`;
+- #26, la BOM del tubo HSS no dice la pared;
+- #37, ranura de 8 mm, sobre el umbral de 3 mm de D9.
+
+Los demás son propios: función, plegado, desagüe, borne de masa y holguras.
+
+**Falsos positivos posibles.** Piezas o filas que FALLARÍAN y ningún revisor marcó, en los 9 finales
+y en los 4 testigos públicos:
+
+| D | testigos | pilotos finales | medida |
+|---|---|---|---|
+| D1 con `known_material` | 0 | 4 (todas TP) | si además exige `YIELD_MPA` (texto de D1), cae la faja (banda PVC) y 19 piezas de los pilotos (caucho, nylon, HDPE, PP) |
+| D4 sin D3 | faja 33 filas, rodillos 27, ménsulas 1 y 2 | 181 filas | D4 depende de D3 |
+| D4 con D3 | faja 1 (la «Banda» de la plantilla, sin designación) | 97 filas | 18 tienen la norma ESCRITA en el material («clase C16 (EN 338)», «EN 636») y hoy la BOM no la lee; 48 de madera sin clase (el modo de #21/#52: TP); 10 de material no metálico ni madera (caucho, lona, inserto zincado); 13 compras con designación comercial pero sin norma ni código que el revisor aceptó (tuerca de barril M8, taco S6, pies higiénicos, sifón 1½″, regatones PE, pie «tipo Ganter GN 343.1»); 8 TP de compra o largo |
+| D6 | 0 si lee `carga_kg`; faja 4 si sólo lee `capacidad_kg` | 16 sin capacidad | 4 pies de la mesa de bolas (TP); 4 pies de la poza y 6 regatones PE que nadie marcó; 2 tacos de pared que no son apoyo. La Ø28 final cumple (1000 kg en el nombre) |
+| D7 norma cargada | sin madera | 154 de 158 agujeros | a3,t = max(7d, 80 mm) y a4,t = 4d rechazan todo nudo de mueble, también los que el revisor aceptó |
+| D7 4d testa / 3d canto | sin madera | 108 de 158 | 66 en nudos marcados (#18, #58, #59, el cabezal de #3) y 42 sin marcar. Sin marcar: escalera, tirafondos Ø8 del peldaño a 2,65d del canto, tornillos Ø6 de bisagra a 2,25d y pernos M6 de zapata a 2,5d de la testa; silla, M10 a 2,25d del canto en un listón de 45 mm. Aparte: 32 tornillos EN TESTA en la escalera y 18 en el modelado de la silla, todos marcados. No se miden 128 tornillos de madera de catálogo sin hexágono (estantería 80, mesa plegable 44, silla 4); #23 vive ahí |
+| D8 | 0 | 0 de 8 ejes (los 8 con DIN 985) | 11 juntas de giro sin perno coaxial modelado (bisagras y compases de catálogo) y la silla sin ninguna junta: no evaluables, nunca OK |
+
+**Propuestas (vetables).** Ninguna D queda sin hallazgo: no cae ninguna. Se ajustan antes de su
+fase:
+
+- **D1**: sólo `known_material` (densidad), como dice R1. La resistencia se exige donde un
+  cálculo la usa, no en la puerta; si no, la faja cae por la banda de PVC.
+- **D3**:
+  - la norma va por FORMA de producto: el tubo inox es ASTM A554, no la A240 de la chapa;
+  - el grado o la norma que el modelador escribe en el material o en el nombre gana («A36»,
+    «A572 Gr.50», «EN 338 C16»). Hoy la mesa Ø28, que declara A36 y A572, sale con la norma vacía.
+- **D4**:
+  - a medida: exige norma sólo al metal y a la madera; el caucho, la lona y el plástico, sólo D1;
+  - compra: norma, o código de fabricante declarado. La forma «tipo Marca código» y
+    «(compra, Marca código)» la lee el mismo matcher, así la Ø28 pasa;
+  - las 13 filas comerciales sin código se arreglan con un nombre;
+  - la «Banda» de `create_belt_conveyor` lleva su designación (tipo, capas, ancho × lazo), o la
+    faja testigo cae.
+- **D6**:
+  - lee `carga_kg` (la clave de `97_pies_niveladores`, `110_garruchas` y `40_patas`) además de
+    `capacidad_kg`;
+  - aplica sólo a pie, pata, garrucha, rueda y regatón;
+  - el caso de canto cargado (#69) pide la carga excéntrica de los requisitos: sin ella se
+    declara la hipótesis.
+- **D7: criterio 4d a la testa / 3d al canto.** Son los mínimos de extremo y borde DESCARGADOS de
+  EN 1995-1-1 tabla 8.4 (a3,c = 4d, a4,c = 3d), aplicados a todo extremo como criterio de diseño
+  declarado, no como cita del extremo cargado. Mide:
+  - los tornillos de madera sin hexágono (si no, #23 no se ve);
+  - el tornillo EN TESTA como modo propio: medido, gana 7 hallazgos y no tiene falso positivo en
+    los testigos.
+
+  Los 42 agujeros sin marcar violan de verdad ese mínimo y se arreglan con menor Ø o listón más
+  ancho. Se re-mide sobre la puerta plegable 28 antes de mergear F4.
+- **D8**: queda como está (gana #9). Los 3 de la silla (#73, #76, #78) los gana sólo si lo que pliega
+  declara su junta, que es el modo repetido de #0, #7, #49 y #87: plan aparte.
+- **D9**: no medible antes de F6. El umbral de 3 mm deja pasar #37 (8 mm).
+- Fuera de este plan, por tamaño: el cálculo de piezas de madera y la rigidez de pórticos (8
+  hallazgos en 5 máquinas, el bloque repetido más grande) y el pie nivelador (5 en 3) piden su
+  propio plan. La arandela sobre madera (EN 1995-1-1 §10.4.3) cabe en F4 si sale barata.
