@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito (2026-10-29, laptop) sobre 9 pilotos de familia y APROBADO por Mario el mismo día («pushealo … para que la persona de escritorio lo revise e implemente»); el escritorio, dueño del núcleo, lo revisa, mergea el archivo y toma F0–F7
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4 en la Bitácora); F0 y F5 lanzadas, F1–F4 y F6–F7 sin lanzar
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -241,3 +241,24 @@ F1→F2 y F0→F4 van en serie; F3, F5 y F6 pueden ir en paralelo (máx. 3 agent
   funcionando (con el default, como hoy). Sólo la puerta de publicación lo exige; el resto avisa.
 
 ## Bitácora
+
+### Revisión del escritorio (2026-10-29)
+
+Nada en vuelo choca con las D. Ajustes, vetables:
+
+- **R1 (D1).** `materials.known_material()` ya existe (2026-10-29, `fdfa5b5`/`00360ca`): concreto,
+  acetal, PE-UHMW, PP y PA están tabulados, y `set_material` devuelve `aviso_material` cuando el
+  material cae a la densidad del acero. `material.conocido` usa ESA función, no otra lista. Los
+  números de línea citados arriba de `materials.py` se movieron.
+- **R2 (D4).** Una fila a medida con OTRO material asignado ya sale «en acero inoxidable (la ref de
+  catálogo es de acero ASTM A500 Gr.B: pedir la equivalente)» (`material_compra.py`) y alcanza
+  para comprar. `bom.comprable` la acepta tal cual. Un revisor a ciegas marcó tres veces esa
+  misma fila como «BOM que no compra inox», pero leyó la ficha del catálogo, no la BOM: no es un
+  hallazgo para la puerta.
+- **R3 (D9), más evidencia.** Una lavadora de bandejas de ~645 piezas (6 rondas en el escritorio)
+  repitió los dos modos de D9: tubos de patas y postes abiertos arriba en zona húmeda (ronda 5,
+  BAJA), y el tanque y el túnel de secado que no se abrían para limpiar (rondas 4 y 5, ALTA). Lo
+  segundo es ACCESO de limpieza, no rendija: D9 NO lo suma (sin una medida general que no sea
+  sobrediseño), queda para el revisor.
+- **R4 (orden).** F0 y F5 arrancan ya (F5 no depende de la F0). F3 y F6 van cuando una de las dos
+  vuelva (máx. 3 agentes contando el modelador de la flota); F1 → F2 y F4 esperan la F0.
