@@ -212,6 +212,8 @@ def test_el_respaldo_de_200_de_un_log_viejo_regenera_y_la_puerta_lo_marca():
     ("Tensor de cola · Eje fijo Ø25 g6 (roscado p/ perno)", False),
     ("Eje fijo (roscado p/ perno)", False),
     ("Placa con agujero para perno M12", False),
+    ("Buje pasante de perno de soplador, tubo inox 1/2in Sch80 21,3x3,73 (1)", False),
+    ("Separador de perno de guarda M8", False),
     ("Tensor de cola · Perno tensor Allen PERNO-M16×90 (1)", True),
     ("Tornillería ménsula soporte motor", True),
     ("Juego de pernos M10", True),
