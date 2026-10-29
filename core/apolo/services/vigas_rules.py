@@ -16,7 +16,10 @@ STATE_LOCK.
   sus vecinos de nivel inferior, en el solape con cada uno (puntual, o repartida si el solape
   cubre ≥ 20 % de la viga); una viga baja sus REACCIONES reales. La carga útil (`carga_kg`) es
   una puntual MÓVIL repartida por igual entre las vigas que tocan lo portante (`roles.BED_RE`)
-  o, sin cama, entre las vigas más altas.
+  o, sin cama, entre las vigas más altas. Si los requisitos DECLARAN dónde apoya
+  (`carga_sobre`: ids, command_ids o grupos), manda lo declarado: las vigas nombradas o que tocan
+  una pieza nombrada, y CADA NIVEL de ellas (misma cota superior) recibe la carga entera (un rack:
+  un pallet por nivel; sin esto la carga caía en el travesaño del bastidor, el más alto).
 - **D4**: las piezas de un `create_conveyor` las verifica su regla («flecha del bastidor»).
 - Vigas con los MISMOS números salen en UNA regla que las nombra (como las cadenas).
 - Sin vigas detectadas no devuelve nada: la memoria de una máquina sin bastidor no cambia.
@@ -156,22 +159,42 @@ def beam_rules(doc, carga_kg: float | None = None, catalog: dict | None = None) 
                      caja, motivos, catalog, Apoyo, EMPOTRAMIENTO)
 
 
-def _portantes(det: dict, carga_kg: float | None) -> tuple[set, float, str]:
-    """(vigas que reciben la carga útil, N por viga, de dónde): las que tocan lo portante o, sin
-    cama, las más altas. Sin vigas, ninguna."""
+def _portantes(det: dict, carga_kg: float | None) -> tuple[set, dict, str]:
+    """(vigas que reciben la carga útil, {viga: N}, de dónde): las que declara `carga_sobre`
+    (cada nivel con la carga entera), las que tocan lo portante o, sin cama, las más altas. Sin
+    vigas, ninguna; sin carga, el dict vacío."""
     from .roles import BED_RE
 
     scene, graph, vigas, caja = det["scene"], det["graph"], det["vigas"], det["caja"]
     if not vigas:
-        return set(), 0.0, ""
+        return set(), {}, ""
+    declaradas = det.get("carga_sobre")
+    portantes: set = set()
+    if declaradas is not None:
+        portantes = {v for v in vigas if v in declaradas or graph["adj"][v] & declaradas}
+        origen_util = ("las vigas que declara `carga_sobre`, la carga entera en cada nivel"
+                       if portantes else "")
+    if portantes:
+        niveles: list[list] = []  # vigas agrupadas por su cota superior (± _TOL_ALTURA)
+        for v in sorted(portantes, key=lambda v: (caja(v)[1][2], v)):
+            if niveles and caja(v)[1][2] - caja(niveles[-1][0])[1][2] <= _TOL_ALTURA:
+                niveles[-1].append(v)
+            else:
+                niveles.append([v])
+        p = {v: float(carga_kg) * G / len(n) for n in niveles for v in n} if carga_kg else {}
+        return portantes, p, origen_util
     camas = {fid for fid, f in scene.items() if BED_RE.search(f.name or "")}
     portantes = {v for v in vigas if graph["adj"][v] & camas}
     origen_util = "las vigas que tocan la cama/mesa"
     if not portantes:
         tope = max(caja(v)[1][2] for v in vigas)
         portantes = {v for v in vigas if caja(v)[1][2] >= tope - _TOL_ALTURA}
-        origen_util = "las vigas más altas del bastidor (sin cama/mesa identificable)"
-    return portantes, (float(carga_kg or 0.0) * G / len(portantes)) if carga_kg else 0.0, origen_util
+        origen_util = ("las vigas más altas del bastidor (sin cama/mesa identificable; si la carga "
+                       "apoya en otras, declara el requisito `carga_sobre`)")
+    if declaradas is not None:
+        origen_util += " — `carga_sobre` no nombra ninguna viga ni pieza que apoye en una"
+    p = {v: float(carga_kg) * G / len(portantes) for v in portantes} if carga_kg else {}
+    return portantes, p, origen_util
 
 
 def cargas_que_bajan(doc, carga_kg: float | None = None, catalog: dict | None = None,
@@ -249,7 +272,31 @@ def detectar_vigas(doc, catalog: dict | None = None) -> dict | None:
             motivos["menos de dos apoyos por perno o soldadura (contacto, mate o junta no "
                     "cuentan como apoyo)"].append(f.name)
     return {"vigas": vigas, "de_faja": en_faja, "motivos": motivos, "scene": scene,
-            "graph": graph, "nivel": nivel, "caja": caja, "catalog": catalog}
+            "graph": graph, "nivel": nivel, "caja": caja, "catalog": catalog,
+            "carga_sobre": _declaradas(doc, scene)}
+
+
+def _declaradas(doc, scene) -> set | None:
+    """Las piezas que el requisito `carga_sobre` nombra (id, command_id o grupo); None sin él."""
+    from apolo.assembly.groups import group_features, resolve_group
+    from apolo.library.requisitos import CARGA_SOBRE
+
+    tokens = (getattr(doc, "requirements", None) or {}).get(CARGA_SOBRE)
+    if not isinstance(tokens, (list, tuple)) or not tokens:
+        return None
+    grupos = getattr(doc, "groups", None) or {}
+    out: set = set()
+    for t in tokens:
+        t = str(t)
+        if t in scene:
+            out.add(t)
+            continue
+        g = resolve_group(grupos, t)
+        if g is not None:
+            out |= set(group_features(scene, grupos, g))
+            continue
+        out |= {fid for fid, f in scene.items() if f.command_id == t}
+    return out
 
 
 def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg, caja,
@@ -298,7 +345,7 @@ def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_
         apoyos = [Apoyo(x, EMPOTRAMIENTO if solo else "apoyo") for x, _ in por_x.values()]
         f = scene[fid]
         material = resolve_material(f, catalog)
-        p_util_v = p_util if fid in portantes else 0.0
+        p_util_v = p_util.get(fid, 0.0)
         hip = [
             "Apoyos = uniones perno/soldadura a piezas más cercanas a tierra, ARTICULADOS"
             + (" (una sola soldadura: empotramiento)" if solo else

@@ -54,6 +54,15 @@ _EJES = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
 _COMO_SENTIDO = (f"El requisito '{SENTIDO}' es un vector [x, y, z] no nulo (p. ej. [1, 0, 0]) o un "
                  "eje con signo («+X», «-Y»): hacia dónde avanza el ramal de carga de la banda")
 
+#: Dónde apoya la carga útil (plan flecha-de-bastidor, F4): ids de pieza, command_ids o grupos
+#: que la RECIBEN (las vigas portantes o la cama que apoya en ellas). Sin él, la regla de flecha la
+#: busca por el rol «cama/mesa» o, sin cama, en las vigas más altas (un rack: el travesaño del
+#: bastidor). Se guarda como lista de textos.
+CARGA_SOBRE = "carga_sobre"
+_COMO_CARGA_SOBRE = ("El requisito 'carga_sobre' es una lista de ids de pieza, command_ids o grupos "
+                     "que reciben la carga útil (p. ej. [\"Vigas\"] o [\"c46\", \"c47\"]); cada "
+                     "nivel de esas vigas recibe la carga_kg entera")
+
 ASUMIDOS = "asumidos"
 #: La solución por función (D15 de la puerta de publicación) es un metadato propio, no un requisito.
 FUNCIONES = "funciones"
@@ -177,11 +186,24 @@ def _valor(key: str, value):
         return _tipo_carga(value)
     if key == FUNCIONES:
         raise ValueError(_COMO_FUNCIONES)
+    if key == CARGA_SOBRE:
+        return _carga_sobre(value)
     if key == "entorno" and not isinstance(value, str):
         raise ValueError("El requisito 'entorno' es texto (p. ej. «interior, polvo»)")
     if isinstance(value, (str, int, float, bool)):
         return value
     raise ValueError(f"El requisito '{key}' debe ser escalar (texto o número)")
+
+
+def _carga_sobre(value) -> list[str]:
+    if isinstance(value, str):
+        value = value.split(",")
+    if not isinstance(value, (list, tuple)) or not all(isinstance(p, str) for p in value):
+        raise ValueError(_COMO_CARGA_SOBRE)
+    out = [p.strip() for p in value if p.strip()]
+    if not out:
+        raise ValueError(_COMO_CARGA_SOBRE)
+    return out
 
 
 def _marcas(value) -> list[str]:

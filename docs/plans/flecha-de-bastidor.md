@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F3 verificada por MCP (2026-10-21): `engineering_check` coincide con el cálculo a mano (1,50 mm, 45,7 MPa); `calc_report` por MCP FALLA (timeout del MCP a 120 s, STATE_LOCK ~15 min) — lo arregla manual-rapido F2; falta decidir D4
+nota: F4 (carga_sobre, 2026-10-28) implementada. F3 verificada por MCP (2026-10-21): `engineering_check` coincide con el cálculo a mano (1,50 mm, 45,7 MPa); `calc_report` por MCP FALLA (timeout del MCP a 120 s, STATE_LOCK ~15 min) — lo arregla manual-rapido F2; falta decidir D4
 descripcion: La memoria de cálculo verifica la flecha y la tensión de cualquier viga del bastidor, aunque la máquina no salga de una plantilla
 ---
 
@@ -42,6 +42,8 @@ esa forma. Parte de [revision-de-taller](revision-de-taller.md).
   de casos de libro.
 - **F2 (S, `services`)**: detección D1, cargas D2 y la regla en `engineering_check` / memoria.
 - **F3 (S, verificación)**: memoria del proyecto 2 con la flecha de los largueros.
+- **F4 (S, `services` + `library/requisitos`)**: la carga útil sobre lo DECLARADO (requisito
+  `carga_sobre`), § Bitácora F4.
 
 ## Lo que este plan NO hace
 
@@ -142,6 +144,26 @@ esa forma. Parte de [revision-de-taller](revision-de-taller.md).
 - Fuera de alcance, declarado: la faja que `detect_conveyor` reconoce POR NOMBRE (sin
   `create_conveyor`) y con requisitos recibe las dos reglas (la vieja «flecha del bastidor» y
   ésta); D4 sólo excluye `create_conveyor`, como dice el plan.
+
+### F4 (2026-10-28): la carga útil va sobre lo declarado
+
+**Origen**: piloto de la familia `rack-selectivo` (tanda 2026-10-28). Un rack no tiene «cama» y
+su horizontal más alto es el travesaño superior del BASTIDOR: la regla le cargaba los 1000 kg del
+pallet (σ 184 MPa, FS 0,81, FALLA de `estructura.flecha` sin salida) y las vigas portapallet salían
+sin carga útil. Era un control que adivina dónde apoya la carga.
+
+**Decisión (vetable)**: requisito nuevo **`carga_sobre`** (lista de ids de pieza, command_ids o
+grupos; `library/requisitos.py` lo valida). Con él, portantes = las vigas nombradas o que tocan una
+pieza nombrada, y **cada NIVEL** (misma cota superior ± 10 mm) recibe la `carga_kg` ENTERA repartida
+entre sus vigas (un pallet por nivel; con dos posiciones por nivel el modelador declara la carga del
+nivel). Sin el requisito, lo de siempre (cama/mesa o las más altas), y la hipótesis dice que se puede
+declarar. Declarado pero sin ninguna viga: lo de siempre y la hipótesis lo dice (nunca en silencio).
+Lo que baja a las columnas (`cargas_que_bajan`) sigue el mismo reparto.
+
+**Medido** en el `.apolo` del piloto (rack 2400 × 1800 × 800, `carga_kg` 1000, `carga_sobre` = las 4
+vigas): travesaño superior FS 0,81 (aviso) → sin carga útil, OK; vigas TUBO-4X2 de 1721 con 500 kg
+puntual móvil cada una: vano 1,56 mm (límite 6,9), σ 68,6 MPa (adm. 150). Tests:
+`tests/test_vigas_carga_sobre.py`.
 
 ### F3 (2026-10-21): verificación por MCP — FALLA por la memoria, el cálculo pasa
 

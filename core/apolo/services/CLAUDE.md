@@ -259,7 +259,8 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   catálogo cortable HORIZONTAL con ≥ 2 uniones perno/soldadura a vecinos de MENOR nivel (BFS
   desde los `ground`; una sola soldadura = empotramiento). Las cargas bajan por niveles,
   repartidas por igual; una viga baja sus reacciones. Carga útil = puntual MÓVIL sobre las vigas
-  que tocan `BED_RE` o, sin cama, las más altas. Piezas de `create_conveyor` → `no_aplica` (D4).
+  que tocan `BED_RE` o, sin cama, las más altas; el requisito `carga_sobre` (ids/grupos) manda y
+  cada nivel de lo declarado recibe la carga entera (un rack: F4). Piezas de `create_conveyor` → `no_aplica` (D4).
   Sin vigas → `[]` (memoria intacta). [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
 - `columnas_rules.columna_rules` (pandeo, dentro de `structure_rules`): columna = perfil
   estructural de catálogo VERTICAL apoyado abajo por perno/soldadura (o anclado); la carga, la que
