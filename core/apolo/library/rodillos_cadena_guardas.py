@@ -141,7 +141,7 @@ def guarda_transmision(mot: Motriz, d: dict) -> dict:
     c_der, c_der_ext = tira(_extremo_carter(ln, ui, z_b, z_ct, p1x1 + HOLGURA_PIE, 1.0), t, 1.0)
     yi1 = mot.y_cubo - HOLGURA_GIRA
     yo1 = d["y_in_p"] - t - s
-    if yo1 > d["y_in_p"] - OREJA_T - 1.0:
+    if yo1 > d["y_in_p"] - mot.oreja.get("t", OREJA_T) + 1e-6:  # a lo sumo toca (corren juntos)
         raise ValueError("el cárter choca con las orejas del portamotor")
     contorno = _contorno(c_izq_ext, c_der_ext, z_ct)
     interior = list(contorno)
@@ -150,9 +150,11 @@ def guarda_transmision(mot: Motriz, d: dict) -> dict:
         for x0, x1 in sorted(mot.pies, reverse=True):
             interior += [(x1 + HOLGURA_PIE, z_b), (x1 + HOLGURA_PIE, zt), (x0 - HOLGURA_PIE, zt),
                          (x0 - HOLGURA_PIE, z_b)]
+    bx0, bx1 = c_izq_ext[0][0], c_der_ext[0][0]
+    if mot.sinfin:  # F9: la base llega al portamotor y cubre la caja del sinfín
+        bx0, bx1 = min(bx0, mot.sinfin["base_x"][0]), max(bx1, mot.sinfin["base_x"][1])
     carter = {
-        "base": {"x0": c_izq_ext[0][0], "x1": c_der_ext[0][0], "y0": mot.y_base0, "y1": yo1,
-                 "z1": z_b},
+        "base": {"x0": bx0, "x1": bx1, "y0": mot.y_base0, "y1": yo1, "z1": z_b},
         "pared_int": {"puntos": _r(interior), "y0": yi1 - t, "y1": yi1,
                       "eje": (mot.x, mot.z, mot.eje_d + 2.0 * HOLGURA_PIE)},
         "pared_ext": {"puntos": _r(contorno), "y0": yo1 - t, "y1": yo1},
@@ -197,6 +199,70 @@ def guarda_transmision(mot: Motriz, d: dict) -> dict:
         "x_izq": x_l0, "z_base": z_fb, "z_k": z_k,
     }
     return {"carter": carter, "fija": fija}
+
+
+#: E17: chapa del peine. Bajo la rendija de 3 mm el buje queda a 1,8 mm de su canto con la de 2:
+#: ISO 13857 tabla 4 pide ≥ 2 mm para e ≤ 4 (medido con la puerta en el piloto de 2 m)
+PEINE_T = 6.0
+
+
+def peine(d) -> dict:
+    """E17: el PEINE bajo la pestaña interior de la guarda de cadenas, en su mismo plano: una
+    chapa del largo de la guarda cuyo canto sigue cada tubo a `HOLGURA_GIRA` (la rendija del canto
+    de la pestaña al tubo pasa de 5 a 3 mm: ISO 13857 tabla 4, e ≤ 4) y con un DIENTE que baja
+    hasta dentro de la bandeja entre cada par de tubos y en los dos extremos (lo que el piloto
+    agregó a mano: la mano no llega entre los tubos al buje y la cadena). Polígono XZ, y0/y1."""
+    from .rodillos_cadena import GUARDA_PESTANA, HOLGURA_TUBOS
+
+    z1 = d.guarda_z - GUARDA_T - GUARDA_PESTANA
+    r, h = d.d_rodillo / 2.0, d.h_eje
+    ra = r + HOLGURA_GIRA                                   # el canto sigue el tubo a 3 mm
+    z_bajo = d.bandeja["z0"] + GUARDA_T + HOLGURA_GIRA      # el diente baja dentro de la bandeja
+    if z1 - (h + ra) < 1.0 or d.paso - d.d_rodillo < HOLGURA_TUBOS:
+        raise ValueError("no cabe el peine de la guarda de cadenas")
+    x0 = X_INICIO + GUARDA_T + 0.5                          # tras la tapa de la bandeja
+    x1 = d.guardas["fija"]["tapa"]["x0"] - 0.5              # antes de la tapa de la guarda fija
+    pts = [[x0, z1], [x1, z1], [x1, z_bajo]]
+    for i in range(len(d.xs) - 1, -1, -1):                  # de la motriz a la alimentación
+        xa, xb = d.xs[i] - ra, d.xs[i] + ra
+        pts += [[xb, z_bajo], [xb, h]]
+        pts += [[d.xs[i] + ra * math.cos(math.pi * k / 12), h + ra * math.sin(math.pi * k / 12)]
+                for k in range(1, 12)]                      # el arco sobre el tubo
+        pts += [[xa, h], [xa, z_bajo]]
+    pts.append([x0, z_bajo])
+    y1 = d.ancho_util / 2.0 - 3.0 + GUARDA_T                # la cara de afuera de la pestaña
+    return {"puntos": [[round(x, 4), round(z, 4)] for x, z in pts], "y0": y1 - PEINE_T, "y1": y1,
+            "largo": x1 - x0}
+
+
+TAPA_DENTRO = 45.0         # E17: la tapa extrema entra esto bajo el extremo de los tubos
+TAPA_BAJO_TUBO = 10.0      # y llega hasta esto bajo la cara de trabajo (no toca el producto)
+PESTANA_TAPA = (30.0, 38.0)  # pestaña de la tapa contra el alma: largo (X) × alto (Z)
+
+
+def tapa_extrema(d, x_cara: float, hacia: float) -> dict:
+    """E17 (F9): tapa POR FUERA de un extremo del bastidor (`x_cara` = la cara del extremo,
+    `hacia` = +1 si la tapa queda hacia +X): cierra el túnel de la guarda de cadenas (de la
+    bandeja a la chapa de la guarda, del extremo de los tubos al faldón), con una pestaña soldada
+    que va contra el alma del larguero +Y y su M6 a una rosca del alma (sale con herramienta).
+    `d` = la `Disposicion`."""
+    from .rodillos_cadena import GUARDA_PESTANA, SEPARADOR_FONDO
+
+    a2, b = d.ancho_util / 2.0, d.bandeja
+    y_lo, y_n = a2 - TAPA_DENTRO, a2 - 3.0
+    y_ext = d.y_in_p + SEPARADOR_FONDO + GUARDA_T
+    z0, z_g = b["z0"], d.guarda_z
+    z_t = d.altura - TAPA_BAJO_TUBO
+    lx, lz = PESTANA_TAPA
+    pz0 = z0 + GUARDA_T + b["alto_ext"] + 2.0  # sobre la pestaña de la bandeja contra el alma
+    pz1 = min(pz0 + lz, d.sep_z0 - 5.0)
+    if pz1 - pz0 < 15.0 or z_t <= z0 or y_n - y_lo < 5.0 or GUARDA_PESTANA <= 0:
+        raise ValueError("la tapa extrema de la guarda de cadenas no cabe")
+    xa, xb = (x_cara - lx, x_cara) if hacia > 0 else (x_cara, x_cara + lx)
+    return {"puntos": [[y_lo, z0], [y_ext, z0], [y_ext, z_g], [y_n, z_g], [y_n, z_t], [y_lo, z_t]],
+            "pestana": {"puntos": [[xa, pz0], [xb, pz0], [xb, pz1], [xa, pz1]],
+                        "y0": d.y_in_p - GUARDA_T, "y1": d.y_in_p, "z0": pz0, "z1": pz1,
+                        "perno": ((xa + xb) / 2.0, (pz0 + pz1) / 2.0)}}
 
 
 def bandeja(d: dict, x_fin: float, y0: float) -> dict:

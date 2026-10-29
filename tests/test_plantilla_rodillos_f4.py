@@ -56,7 +56,7 @@ def _bb(shape):
 @pytest.fixture(scope="module")
 def tres():
     doc = Document("rodillos-3m")
-    doc.execute("create_roller_conveyor", PARAMS_3M)
+    doc.execute("create_roller_conveyor", {**PARAMS_3M, "motor": "MOTOR-037", "mantenimiento": False})
     doc.set_requirements(dict(FICHA))
     return doc
 

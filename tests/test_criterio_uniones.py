@@ -65,7 +65,7 @@ def _ids(doc, rol):
 @pytest.mark.parametrize("eje", ["roscado", "hexagonal"])
 def test_plantilla_de_rodillos_coincide_con_sus_propias_uniones(eje):
     doc = Document("plantilla")
-    doc.execute("create_roller_conveyor", {"largo": 1000, "eje": eje})
+    doc.execute("create_roller_conveyor", {"largo": 1000, "eje": eje, "motor": "MOTOR-037", "mantenimiento": False})
     uniones = uniones_con_criterio(doc, detect_structure(doc.scene, joints=doc.joints))
     tipo = {frozenset((u["a"], u["b"])): u["kind"] for u in uniones}
     declarado = {frozenset((f["a"], f["b"])): f["kind"] for f in doc.fasteners.values()}

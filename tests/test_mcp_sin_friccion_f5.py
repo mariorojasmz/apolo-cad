@@ -70,7 +70,8 @@ def plantilla() -> Document:
     `test_plantilla_rodillos_f7`). Las pruebas que mutan la devuelven como estaba (undo) o
     trabajan sobre una copia."""
     doc = Document("f5-plantilla-3m")
-    doc.execute("create_roller_conveyor", {"largo": 3000, "eje": "roscado"})
+    doc.execute("create_roller_conveyor", {"largo": 3000, "eje": "roscado", "motor": "MOTOR-037",
+                                           "mantenimiento": False})
     return doc
 
 

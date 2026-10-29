@@ -82,6 +82,10 @@ EJES = ("roscado", "hexagonal")
 # F8 (`pie: "base"`, también sellado): con `anclaje`, pie nivelador con base de anclaje anclado
 # directo al concreto, sin placa de piso ni soldadura (`rodillos_cadena_pies.py`).
 PIES = ("disco", "base")
+# F9: `motor: "auto"` (el sello) elige el sinfín por cuenta; `union` es el eje estructural de la
+# familia (`rodillos_cadena_sinfin`, `commands/receta_rodillos_bastidor.py`).
+MOTOR_AUTO = "auto"
+UNIONES = ("soldado", "empernado")
 ALOJ_HOMBRO_R = 13.0       # hombro de la tapa: sólo el aro EXTERIOR (Da máx del 6201 ≈ 28.4)
 SOBRE_TUERCA = 4.0         # rosca que asoma de la tuerca (> 2 hilos de M12)
 TOPE_SOBRE_EJE = 20.0      # canto superior del larguero sobre el eje (borde del barreno ≥ 1.5·d)
@@ -182,6 +186,9 @@ class Disposicion:
     pies: Pies | None = None  # pie nivelador de cada pata y su pila (D10, `rodillos_cadena_pies`)
     taller: bool = False   # F6: eje trabado, 6201 de compra, contratuerca y anclajes accesibles
     eje_hex: bool = False  # F7: eje hexagonal calzado en ranuras (`rodillos_cadena_eje`)
+    union: str = "soldado"       # F9 (E11): «empernado» = largueros + patas + travesaños
+    mantenimiento: bool = False  # F9 (E15–E18): empujador, cárter y tapas atornillados, largos
+    red_v: float = 220.0         # F9 (E12): tensión de la red con `motor: "auto"`
 
 
 def rodamiento_de(d) -> str:
@@ -216,12 +223,40 @@ def vano_maximo(carga_kg: float, masa_rodillos_kg: float, largo: float, k_w: flo
 
 
 def potencia_requerida(carga_kg: float, masa_rodillos_kg: float, velocidad_m_s: float,
-                       n_rodillos: int) -> float:
+                       n_rodillos: int, eta_reductor: float = ETA_REDUCTOR) -> float:
     """kW: rodadura `MU_RODADURA` con arranque ×`FACTOR_ARRANQUE`; la carga repartida llega
-    al rodillo k a través de k lazos (la motriz es el 1.º) y el reductor rinde `ETA_REDUCTOR`."""
+    al rodillo k a través de k lazos (la motriz es el 1.º) y el reductor rinde `eta_reductor`
+    (`ETA_REDUCTOR` el helicoidal; el sinfín, `rodillos_cadena_sinfin.ETA_SINFIN`)."""
     n = n_rodillos
-    eta = n / sum(ETA_LAZO ** -k for k in range(1, n + 1)) * ETA_REDUCTOR
+    eta = n / sum(ETA_LAZO ** -k for k in range(1, n + 1)) * eta_reductor
     return FACTOR_ARRANQUE * MU_RODADURA * (carga_kg + masa_rodillos_kg) * G * velocidad_m_s / eta / 1000.0
+
+
+def eta_de(mot: Motriz) -> float:
+    """El rendimiento del reductor de la motriz: el del sinfín (F9) o el helicoidal."""
+    from .rodillos_cadena_sinfin import ETA_SINFIN
+
+    return ETA_SINFIN if mot.tipo == "sinfin" else ETA_REDUCTOR
+
+
+def _auto(d: dict, g: dict, d_rod: float, velocidad: float | None, red_v: float,
+          carga_kg: float, m_rod: float, n_rod: int) -> tuple:
+    """F9 (E12–E14): (motriz, guardas) del sinfín que elige `rodillos_cadena_sinfin.elegir`. Sin
+    velocidad pedida, la de siempre (MOTOR-037 con el Z30)."""
+    from . import rodillos_cadena_sinfin as sf
+
+    v_obj = velocidad if velocidad is not None else velocidad_producto(
+        d_rod, float(CATALOG[MOTORES[0]].specs["rpm_salida"]),
+        int(CATALOG[PINON_MOTRIZ].specs["z"]))
+
+    def armar(ref: str, pinon: str, i: float) -> tuple:
+        m = sf.motriz_sinfin(ref, pinon, i, d)
+        return m, guarda_transmision(m, g)
+
+    ref, pinon, i = sf.elegir(
+        d_rod, v_obj, red_v,
+        lambda v: potencia_requerida(carga_kg, m_rod, v, n_rod, sf.ETA_SINFIN), armar)
+    return armar(ref, pinon, i)
 
 
 def _rodillos(largo: float, paso: float) -> tuple:
@@ -234,9 +269,10 @@ def _rodillos(largo: float, paso: float) -> tuple:
 
 
 def _estaciones(largo: float, xs: tuple, mot: Motriz | None, vano: float, z_trav: float) -> tuple:
-    """Voladizo igual en los dos extremos; la motriz bajo el motor. Travesaño a `z_trav` en
+    """Voladizo igual en los dos extremos; la motriz bajo el portamotor (con el helicoidal, bajo
+    el motor; con el sinfín, F9, entre su caja de bornes y su caja). Travesaño a `z_trav` en
     TODAS (D8)."""
-    voladizo = (largo - mot.x) if mot is not None else xs[0] + 50.0
+    voladizo = (largo - mot.portamotor["x"]) if mot is not None else xs[0] + 50.0
     x_f, x_d = voladizo, largo - voladizo
     n_vanos = max(1, math.ceil((x_d - x_f) / vano - 1e-9))
     out = []
@@ -250,7 +286,9 @@ def _estaciones(largo: float, xs: tuple, mot: Motriz | None, vano: float, z_trav
 def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altura: float,
                 carga_kg: float, motriz: bool, motor: str | None,
                 velocidad_m_s: float | None = None, anclaje: bool = True,
-                taller: bool = False, eje: str = "roscado", pie: str = "disco") -> Disposicion:
+                taller: bool = False, eje: str = "roscado", pie: str = "disco",
+                red_v: float = 220.0, union: str = "soldado",
+                mantenimiento: bool = False) -> Disposicion:
     """Todas las cotas del transportador; `ValueError` accionable si no se puede fabricar.
     `velocidad_m_s` (D6) elige el piñón del motor; sin ella, el de siempre (`PINON_MOTRIZ`).
     El pie nivelador de las patas (D10) sale de la carga por pata; `anclaje` pone una placa de
@@ -261,9 +299,13 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     «hexagonal» (F7, sellado también; pide `taller`): el eje se calza en ranuras del ala, asoma
     `rodillos_cadena_eje.SOBRE` por fuera y las ranuras recortan el vano del larguero. `pie`
     «base» (F8, sellado también; pide `taller`): con `anclaje`, el pie de base de anclaje va
-    anclado directo al piso, sin placa de piso ni soldadura."""
+    anclado directo al piso, sin placa de piso ni soldadura. F9: `motor` «auto» elige el sinfín
+    por cuenta a la tensión `red_v` (`rodillos_cadena_sinfin`); `union` «empernado» y
+    `mantenimiento` (E15–E18) los lee la receta (`receta_rodillos_bastidor`/`_servicio`)."""
     from . import rodillos_cadena_eje as hx
 
+    if union not in UNIONES:
+        raise ValueError(f"union '{union}': usa una de {', '.join(UNIONES)}")
     if eje not in EJES:
         raise ValueError(f"eje '{eje}': usa uno de {', '.join(EJES)}")
     if pie not in PIES:
@@ -276,8 +318,8 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         raise ValueError("el pie con base de anclaje va con la plantilla de taller (taller: true)")
     if rodillo not in RODILLOS:
         raise ValueError(f"rodillo '{rodillo}': usa uno de {', '.join(RODILLOS)}")
-    if motriz and motor not in MOTORES:
-        raise ValueError(f"motor '{motor}': usa uno de {', '.join(MOTORES)}")
+    if motriz and motor not in (*MOTORES, MOTOR_AUTO):
+        raise ValueError(f"motor '{motor}': usa uno de {', '.join((*MOTORES, MOTOR_AUTO))}")
     paso = validar_paso(paso, rodillo, motriz)
     if largo < LARGO_MIN:
         raise ValueError(f"largo mínimo {LARGO_MIN:g} mm")
@@ -321,6 +363,10 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     m_rod = len(xs) * _masa_rodillo(rodillo, ancho_util, eje_y1 - eje_y0, motriz)
     d = {"h_eje": h, "xs": xs, "y_h2": y_h2, "d_rodillo": d_rod, "paso": paso,
          "y_in_m": y_in_m, "y_in_p": y_in_p, "ancho_util": ancho_util, "z_pata0": z_pata0}
+    if mantenimiento:  # E15: la oreja del portamotor aloja el cuello del perno DIN 603
+        from .rodillos_cadena_motriz import OREJA_T_SERVICIO
+
+        d["oreja_t"] = OREJA_T_SERVICIO
     # guarda de cadenas: sobre los separadores, por encima de las cadenas y de los tubos
     r_cad = diametro_primitivo(float(sc["paso"]), int(sr["z"])) / 2.0 + float(sc["alto_placa"]) / 2.0
     guarda_base = max(h + r_cad + 3.0, h + d_rod / 2.0 + 3.0 + GUARDA_PESTANA + GUARDA_T)
@@ -337,8 +383,11 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         return m, guarda_transmision(m, g)
 
     mot = guardas = band = None
-    if motriz:
+    if motriz and motor == MOTOR_AUTO:
+        mot, guardas = _auto(d, g, d_rod, velocidad_m_s, red_v, carga_kg, m_rod, len(xs))
+    elif motriz:
         mot, guardas = armar(motor, elegir_pinon(motor, velocidad_m_s, d_rod, armar))
+    if motriz:
         band = bandeja(g, guardas["fija"]["x_izq"] - 1.0, guardas["fija"]["pared_int"]["y0"])
     k_w = k_i = 1.0
     if eje_hex:  # la ranura baja del canto del larguero hasta el fondo de su arco
@@ -349,7 +398,7 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     velocidad = potencia = None
     if mot is not None:
         velocidad = velocidad_producto(d_rod, mot.rpm, mot.z_pinon)
-        potencia = potencia_requerida(carga_kg, m_rod, velocidad, len(xs))
+        potencia = potencia_requerida(carga_kg, m_rod, velocidad, len(xs), eta_de(mot))
         if potencia > mot.potencia_kw:
             raise ValueError(f"{mot.motor} da {mot.potencia_kw:g} kW y la carga pide "
                              f"{potencia:.2f} kW: elige un motorreductor mayor")
@@ -369,7 +418,7 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         travesano_largo=y_in_p - y_in_m, separadores=seps, sep_z0=sep_z0,
         guarda_z=guarda_base + GUARDA_T, vano_max=vano, velocidad_m_s=velocidad,
         potencia_req_kw=potencia, motriz=mot, r_cadena=r_cad, guardas=guardas, bandeja=band,
-        taller=taller, eje_hex=eje_hex,
+        taller=taller, eje_hex=eje_hex, union=union, mantenimiento=mantenimiento, red_v=red_v,
     )
     # D10: el pie sale de la carga por pata; la pata crece lo que la pila baja
     pies = elegir_pies(prov, anclaje, taller, base)

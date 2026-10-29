@@ -46,7 +46,7 @@ RODILLO = ("c1_eje", "c1_tubo", "c1_tapa_m", "c1_tapa_p", "c1_rod_m", "c1_rod_p"
 
 def _doc(params: dict) -> Document:
     doc = Document("rodillos-f7")
-    doc.execute("create_roller_conveyor", dict(params))
+    doc.execute("create_roller_conveyor", {"motor": "MOTOR-037", "mantenimiento": False, **params})
     return doc
 
 
@@ -126,7 +126,7 @@ def test_el_comando_nuevo_nace_con_el_eje_hexagonal_y_el_campo_no_se_publica(lib
     assert libre.commands[0]["params"]["taller"] is True
     spec = REGISTRY["create_roller_conveyor"]
     assert "eje" not in spec.model.model_json_schema()["properties"]
-    assert spec.version == 4  # entra por los params; v4 = la guarda de uniones-que-tocan
+    assert spec.version == 5  # entra por los params; v5 = F9 (v4: uniones-que-tocan)
     # un log F6 (con `taller`, sin `eje`) lee «roscado»; lo explícito se respeta
     assert spec.model.model_validate({**LIBRE, "taller": True}).eje == "roscado"
     assert _doc({**LIBRE, "eje": "roscado"}).commands[0]["params"]["eje"] == "roscado"

@@ -43,7 +43,7 @@ def _doc(params: dict) -> Document:
     soldado a la placa de piso). La de F7 (eje hexagonal) en `test_plantilla_rodillos_f7`; la de F8
     (pie con base de anclaje), en `test_plantilla_rodillos_f8`."""
     doc = Document("rodillos-f6")
-    doc.execute("create_roller_conveyor", {"eje": "roscado", "pie": "disco", **params})
+    doc.execute("create_roller_conveyor", {"eje": "roscado", "pie": "disco", "motor": "MOTOR-037", "mantenimiento": False, **params})
     return doc
 
 
@@ -103,7 +103,7 @@ def test_el_comando_nuevo_nace_con_taller_y_el_campo_no_se_publica(libre):
     assert libre.commands[0]["params"]["taller"] is True  # el sello de entrada
     spec = REGISTRY["create_roller_conveyor"]
     assert "taller" not in spec.model.model_json_schema()["properties"]  # criterio de Apolo
-    assert spec.version == 4  # entra por los params; v4 = la guarda de uniones-que-tocan
+    assert spec.version == 5  # entra por los params; v5 = F9 (v4: uniones-que-tocan)
     viejo = _doc({**LIBRE, "taller": False})  # lo que el cliente trae se respeta
     assert viejo.commands[0]["params"]["taller"] is False
 

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F8 mergeadas a main (F8 = 9ea2364, create_roller_conveyor v4 con uniones-que-tocan). F9 (lo que el piloto de la familia rodillos-cadena destapó, E11–E19) contrato escrito 2026-10-28, en implementación; quedan las 4 preguntas a Mario
+nota: F0–F8 mergeadas a main (F8 = 9ea2364, create_roller_conveyor v4 con uniones-que-tocan). F9 (E11–E19) implementada en su rama, sin mergear (v5; transmision.capacidad sigue en FALLA por los avisos de la regla, F9-e, decisión de Mario); quedan las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -226,6 +226,127 @@ todos de la PLANTILLA (el modelador no los puede corregir desde fuera). Decision
   después (como `create_conveyor`).
 
 ## Bitácora
+
+### F9 (2026-10-28): bastidor empernado, motor por cuenta, cadena por su par, tensor y cierres
+
+**Origen**: el contrato de arriba (E11–E19). Medido sobre el piloto (L 2000, W 400, H 500,
+500 kg, 0,25 m/s) y el máximo de la familia (L 4000, W 800, H 750), los dos `union: "empernado"`,
+`motor: "auto"`, `red_v: 220`.
+
+**Decisiones tomadas en la fase (vetables por número)**:
+- **F9-a (E12, E13) — el motor auto es un SINFÍN NMRV de ejes ortogonales**, no un helicoidal:
+  salida a lo ancho a la hilera 2 del último rodillo, motor A LO LARGO bajo los rodillos. Ocupa el
+  Ø de su motor y su caja, no su largo: arma con W 400 sin agrandar los tubos (el helicoidal coaxial
+  pide 463). Es el del catálogo (`31_motorreductores_sinfin`, 220/380 V, la red de Lima en
+  triángulo), su velocidad sale de la relación `i` de su serie y del piñón ASA 40 del motor. Va
+  girado 180° sobre X (brida y eje hueco hacia la cadena, tapa hacia −Y; el motor queda sobre el
+  eje y la caja de bornes mira al piso), con el **eje de salida simple enchufable** (accesorio de
+  la serie, compra) y un **calzo** soldado a la base (el cuerpo del motor baja 2–8 mm más que la
+  caja). Sus 4 tornillos a las roscas de la cara de la caja van desde abajo; el travesaño
+  portamotor (y su estación de patas) se corre a −X, entre la caja de bornes y esa llave. Un
+  **collar** soldado al cárter tapa el eje entre el cubo de la brida y el cárter (el cuerpo del
+  motor no deja acercar más la caja). Con un `motor` explícito, la motriz helicoidal de siempre.
+- **F9-b (E12) — tensión**: sirve el motor con una tensión de placa a ±5 % de `red_v` (IEC
+  60034-1 §7.3, zona A): Lima 220 V acepta 220/380 y 230/400, nunca un 400 V solo (MOTOR-150).
+  `red_v` es VISIBLE (default 220, el mercado de la casa; Europa pasa 400).
+- **F9-c (E12) — potencia**: la cuenta de siempre (`potencia_requerida`, arranque ×1,5) con el η
+  del sinfín 0,75 (el de `rules.detect_conveyor`); la regla «motor» de `engineering_check` usa el
+  mismo η. Sin `velocidad_m_s`, la de siempre (MOTOR-037 con Z30: 0,266 m/s).
+- **F9-d (E14) — cadena por el par nominal**: la cadena motriz y los lazos declaran la potencia
+  NOMINAL del motor elegido (un bulto trabado le pide todo su par) y el motor auto sólo se elige si
+  la ASA 40-1 con el Z15 del rodillo la lleva con FS ≥ 1,2 (la cuenta de `regla_cadena`, tabla ACA
+  de ASME B29.1, servicio moderado). El piñón del motor, ≥ Z17 (Tsubaki «Chain Drive Selection»:
+  con menos, sólo servicio lento y liviano; la cifra de `engineering/cadena.py`) y con su piloto ≤
+  el eje (se agranda, no se achica). **ASA 40-2 y ASA 50 no se ofrecen**: el lazo rodillo a rodillo
+  pide un piñón doble-dúplex o un ASA 50 doble-simple que el catálogo no tiene; el error lo dice.
+  Con la ASA 40-1 el motor tope es ~0,31 kW a 0,25 m/s → **el NMRV-040 (0,25 kW) es el único que
+  sirve y limita la carga**: ~890 kg en 2 m, ~450 kg en 4 m (con 250 kg/m del piloto, el de 4 m da
+  el error accionable).
+- **F9-e (E14) — HALLAZGO, sin resolver: `transmision.capacidad` sigue en FALLA** con FS 1,50 en
+  los dos tamaños. `vida.cadena` vuelve FALLA todo AVISO de la regla «transmisión por cadena», y la
+  regla avisa (a) el Z15 del piñón doble-simple del rodillo (< 17; es el único doble-simple de
+  catálogo y fija los pasos 95,25/107,95/120,65) y (b) los 12 pasos de centros de la cadena motriz
+  (< 30, sólo exento el 1:1 corto). Con H 500 no caben 30 pasos (381 mm) bajo los rodillos, y un 1:1
+  Z17/Z17 da 0,219 o 0,293 m/s con las relaciones NMRV (20 o 15): fuera del ±10 % de 0,25. Salidas,
+  para que decida Mario: un doble-simple Z17 de catálogo (Tsubaki DS40 / Martin DS40B; con 32
+  eslabones da el mismo paso 95,25) + relaciones intermedias (i = 18 de una serie Bonfiglioli VF)
+  o el 30–50 p con H ≥ ~700; o que `vida.cadena` juzgue sólo el FS (cambio de la puerta, que el
+  contrato no admite). Un test `xfail(strict)` lo deja ejecutable.
+- **F9-f (E11) — empernado**: cada pata lleva soldadas su placa de cabeza (120 × 72 × 8), su placa
+  de pie y la tuerca del pie (se transporta entera) y se atornilla al ala horizontal del larguero
+  con 2 M10×25 DIN 933 por fuera del tubo; cada travesaño lleva una oreja soldada en cada extremo
+  atornillada a la pata con 2 M10×70 pasantes por BUJES soldados dentro del tubo. Todo modelado
+  (perno + tuerca de catálogo con su largo). El bastidor se desarma en largueros + patas +
+  travesaños (+ el portamotor).
+- **F9-g (E15) — tensor**: los pernos de las orejas del portamotor, modelados: de **cuello
+  cuadrado DIN 603** en la ranura (su cabeza de hongo no pide llave junto al cárter; el cuello frena
+  el giro) con la tuerca por fuera de la pata y un buje por perno; la oreja pasa a 7 mm (el cuello
+  mide 6,6). El tensor: un **talón** roscado M10 soldado bajo cada oreja, un **tope** soldado a la
+  pata y un M10×45 DIN 933 que tira de la oreja hacia abajo sobre la línea de centros (aleja el
+  motor: tensa; el tiro de la cadena lo toma el tornillo) con su contratuerca contra el talón. Sus
+  agujeros van sobre la línea (20°): `boolean_op` de una broca, como el eje de F7 (`drill_hole`
+  sólo taladra en los ejes). El acceso de herramienta lee el DIN 603 como al espárrago: lo aprieta
+  su tuerca (`acceso_herramienta._cuello_cuadrado`).
+- **F9-h (E16) — cárter**: sus 4 paredes soldadas entre sí y 2 pestañas al pie de la pared
+  interior atornilladas (M6x12) a la base: sale entero; el piñón motriz sale hacia +Z.
+- **F9-i (E17) — cierres de la guarda de cadenas**, los tres medidos con las sondas: una **tapa
+  extrema** por fuera de cada extremo del bastidor (de la bandeja a la chapa de la guarda, del
+  extremo de los tubos al faldón) con su pestaña y un M6 al alma; el **peine** (lo que el piloto
+  agregó a mano): chapa de 6 mm bajo la pestaña interior cuyo canto sigue cada tubo a 3 mm (la
+  rendija pasa de 5 a 3: ISO 13857 tabla 4, e ≤ 4 → sr ≥ 2; con 2 mm de chapa el buje quedaba a
+  1,8) y un diente entre cada par de tubos que baja dentro de la bandeja; y un **faldón interior**
+  contra el alma bajo la guarda (el brazo doblado entraba desde afuera, bajo el faldón exterior,
+  por los 24 mm entre el canto del alma y la chapa).
+- **F9-j (E18)**: toda unión `perno` lleva su designación con el largo en la nota («M6x12 DIN
+  933», «prisionero M6x8 DIN 916») o va modelada; la BOM no tiene ninguna «largo sin declarar».
+- **F9-k (E19) — bug de la puerta, corregido en su detector**: la salida del motorreductor se
+  sondeaba por las DOS caras de la caja a lo largo del eje; con el helicoidal del piloto (eje
+  macizo que sale sólo por +Y) el lado −Y caía 1 mm fuera de la tapa del ventilador (y = −211,7:
+  y_m + la cara del motor). Ahora un lado cuenta sólo si lo que gira sale por esa cara
+  (`calidad_salidas._puntos`, la caja del eje). Sin ítem, umbral ni `aplica_si` nuevos: sin bump de
+  `VERSION_REGISTRO`; su caso, en `test_plantilla_rodillos_f9` (el eje hueco expuesto de
+  `test_puerta_f3b` sigue en FALLA).
+- **Compatibilidad**: `red_v` y `union` VISIBLES (defaults = lo de hoy) y el oculto
+  `mantenimiento`; el sello pone `mantenimiento=True` y, sin `motor` explícito, `motor="auto"` con
+  `taller`. `version` 5. Un log v4 regenera idéntico: huella de piezas, uniones y anclajes y la
+  geométrica congeladas con el código de e7ab995 (libre 1,5 m y cadena 3 m).
+
+**Archivos**: nuevos `library/rodillos_cadena_sinfin.py` (elección y motriz del sinfín),
+`library/rodillos_cadena_bastidor.py` (cotas del empernado y largos),
+`commands/receta_rodillos_bastidor.py` (tornillería, cabeza, travesaño, bujes) y
+`commands/receta_rodillos_motriz.py` (portamotor, tensor y motorreductor: salieron de
+`receta_rodillos_cadena.py` byte a byte); cambian `rodillos_cadena.py`, `rodillos_cadena_motriz.py`,
+`rodillos_cadena_guardas.py` (peine, tapa extrema), `rodillos_cadena_reglas.py`,
+`receta_rodillos_cadena.py`, `receta_rodillos_guardas.py`, `models_rodillos_cadena.py`,
+`exec_rodillos_cadena.py`, `library/acceso_herramienta.py` y `services/calidad_salidas.py`.
+
+**Medido**:
+
+| máquina | sólidos | masa | motor | piñón / i | v | P pedida | cadena | pie |
+|---|---|---|---|---|---|---|---|---|
+| piloto 2000/400/500, 500 kg | 339 | 139,8 kg | NMRV-040 0,25 kW | Z17 / 20 | 0,249 m/s | 0,166 kW | FS 1,50 | PIE-BA-M12-50 |
+| máximo 4000/800/750, 450 kg | 603 | 337,4 kg | NMRV-040 0,25 kW | Z17 / 20 | 0,249 m/s | 0,234 kW | FS 1,50 | PIE-BA-M12-50 |
+
+- Cadena motriz 40 eslabones, 152,3 mm, tensado +7,6/−3 mm. 0 interferencias entre TODAS las
+  piezas, sin tope y sin excluir la tornillería, en los dos.
+- Puerta (registro v19, sin marcha ni sobrantes): entrega VERDE, acceso de herramienta OK (48
+  fijadores con llave, los 4 DIN 603 por su tuerca), `riesgos.partes_moviles` OK (salida del
+  motorreductor y extremo del eje OK; el piloto hecho a mano tenía 27 sondas en la tapa del
+  ventilador y 2 por el extremo), `consumibles.reemplazables` OK (102 piezas con salida),
+  resguardos con herramienta, contacto real y distancia al borde OK. FALLA: `transmision.capacidad`
+  (F9-e) y `diseno.soluciones_por_funcion` (las declara el modelador, D15).
+
+**Tests**: `tests/test_plantilla_rodillos_f9.py` (la puerta de los dos tamaños, el máximo sin
+choques y el `xfail` de F9-e con `-m torture`). Recalibrados: `test_contrato_comandos` (CAMPOS +
+v5), `test_version_comandos` (v5) y los que miden la v4 con un comando nuevo, fijados a
+`motor: "MOTOR-037", mantenimiento: false` (`test_plantilla_rodillos_cadena`, `_f4`, `_f6`, `_f7`,
+`_f8`, `test_criterio_uniones`, `test_mcp_sin_friccion_f5`). El schema del comando sigue bajo los
+7 500 bytes de D12 (el docstring se acortó).
+
+**Fuera** (no se decidió): F9-e; contrastar las cotas del calzo, del eje enchufable y de las roscas
+de la caja (M6/M8/M10 «del orden de» Motovario) con la ficha del fabricante; que
+`services/criterio_uniones` reconozca las piezas nuevas (tensor, peine, pernos de cuello cuadrado:
+su test sigue midiendo la v4); el tablero (es del modelador); las 4 preguntas a Mario.
 
 ### F8 (2026-10-28): el pie anclado sin soldar
 

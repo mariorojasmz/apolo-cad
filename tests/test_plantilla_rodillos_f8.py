@@ -40,7 +40,7 @@ HUELLA_F7 = {"libre": ((180, 216, "8ed34ff4fd67ae75"),
 
 def _doc(params: dict) -> Document:
     doc = Document("rodillos-f8")
-    doc.execute("create_roller_conveyor", dict(params))
+    doc.execute("create_roller_conveyor", {"motor": "MOTOR-037", "mantenimiento": False, **params})
     return doc
 
 
@@ -110,7 +110,7 @@ def test_el_comando_nuevo_nace_con_el_pie_de_base_y_el_campo_no_se_publica(libre
     assert (p["pie"], p["eje"], p["taller"]) == ("base", "hexagonal", True)
     spec = REGISTRY["create_roller_conveyor"]
     assert "pie" not in spec.model.model_json_schema()["properties"]
-    assert spec.version == 4  # entra por los params; v4 = la guarda de uniones-que-tocan
+    assert spec.version == 5  # entra por los params; v5 = F9 (v4: uniones-que-tocan)
     # un log F7 (con `taller` y `eje`, sin `pie`) lee «disco»; lo explícito se respeta
     assert spec.model.model_validate({**LIBRE, "taller": True, "eje": "hexagonal"}).pie == "disco"
     assert "pie" not in _doc({**LIBRE, "taller": False}).commands[0]["params"]

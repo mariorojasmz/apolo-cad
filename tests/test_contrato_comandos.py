@@ -143,7 +143,7 @@ CAMPOS: dict[str, str] = {
     "create_robot_arm": "name alcance position position.x position.y position.z",
     "create_roller_conveyor": (
         "name largo ancho_util paso rodillo altura carga_kg motriz motor velocidad_m_s anclaje taller eje "
-        "pie position position.x position.y position.z"
+        "pie position position.x position.y position.z red_v union mantenimiento"
     ),
     "create_sheet_metal": (
         "name ancho fondo espesor lados altura_pestana angulo radio k_factor holes holes[].x "
@@ -306,7 +306,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "create_robot_arm": (1, "c4ceee70195b1ad0"),
     # compuesto: la huella es la del executor; cotas y receta viven en otros módulos (regla D10)
     # v4 (uniones-que-tocan F1): la pared interior de la guarda fija soldada a sus extremos
-    "create_roller_conveyor": (4, "450707432cde2d9d"),
+    "create_roller_conveyor": (5, "450707432cde2d9d"),
     "create_sheet_metal": (2, "df4169fdaf850a3b"),
     "create_structural_profile": (1, "ada70bc0722ffb7f"),
     # +coronado_mm: con 0 (default) la geometría no cambia; v2: «Anillo Seeger DIN 472-Ø» (F6)

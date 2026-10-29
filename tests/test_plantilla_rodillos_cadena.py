@@ -119,7 +119,7 @@ def test_la_receta_valida_y_sus_nombres_caben():
 @pytest.fixture(scope="module")
 def chico():
     doc = Document("rodillos-cadena-chico")
-    doc.execute("create_roller_conveyor", {"largo": 1000})
+    doc.execute("create_roller_conveyor", {"largo": 1000, "motor": "MOTOR-037", "mantenimiento": False})
     return doc
 
 

@@ -17,12 +17,14 @@ from __future__ import annotations
 import math
 
 from apolo.library import rodillos_cadena as rc
+from apolo.library import rodillos_cadena_bastidor as rb
 from apolo.library.catalog import CATALOG
-from apolo.library.rodillos_cadena_motriz import OREJA_T, PERNO_OREJA, RANURA_OREJA
 from apolo.library.rodillos_cadena_pies import ANCLAJE_D, ANCLAJE_REF, PLACA_PISO_T
 
+from . import receta_rodillos_bastidor as rbas
 from . import receta_rodillos_eje as rex
-from .receta_rodillos_guardas import bandeja, guarda_cadenas, guarda_transmision, placa_xz
+from .receta_rodillos_guardas import bandeja, guarda_cadenas, guarda_transmision, tapas_extremas
+from .receta_rodillos_motriz import motorreductor, portamotor
 
 #: (grupo, rol) en el orden del árbol; la raíz es el nombre del transportador.
 GRUPOS = (("Bastidor", "estructura"), ("Rodillos", "rodillos"), ("Cadenas", "transmision"),
@@ -238,31 +240,6 @@ def _cadenas(r: _Receta, d: rc.Disposicion) -> None:
     r.ultimo_pinon = pinon(len(d.xs) - 1)
 
 
-def _portamotor(r: _Receta, d: rc.Disposicion, k: int, donde: str, patas: dict) -> str:
-    """Travesaño portamotor ATORNILLADO a las caras interiores de las patas con orejas soldadas
-    a sus extremos, de ranuras paralelas a la línea de centros (D7)."""
-    m, w = d.motriz, float(CATALOG[rc.PATA].specs["width"])
-    pm, o = m.portamotor, m.oreja
-    trav = r.pieza("insert_component", f"trav_e{k}", "Patas", f"Travesaño portamotor ({donde})", {
-        "component": rc.PATA, "length": round(pm["largo"], 4),
-        "position": r.pos(pm["x"], pm["y"], pm["z"]), "rotation": _EN_Y})
-    puntos = [[pm["x"] + x, pm["z"] + z] for x, z in o["puntos"]]
-    for s, rot, y0, y1, eje in (("m", "-Y", d.y_in_m, d.y_in_m + OREJA_T, "-y"),
-                                ("p", "+Y", d.y_in_p - OREJA_T, d.y_in_p, "y")):
-        oreja = placa_xz(r, f"oreja_{s}", "Patas", f"Oreja del portamotor ({rot})", puntos, y0, y1)
-        r.union(f"oreja_trav_{s}", oreja, trav, "soldadura", "oreja soldada al extremo del portamotor",
-                throat_mm=4, length_mm=4 * w)
-        cara = y0 if s == "m" else y1
-        for j, (px, pz) in enumerate(o["pernos"]):
-            r.taladro(f"tal_pata_{s}{j}", patas[s], r.pos(pm["x"] + px, cara, pm["z"] + pz), eje,
-                      RANURA_OREJA)
-        r.union(f"oreja_pata_{s}", oreja, patas[s], "perno",
-                f"2 {PERNO_OREJA} pasantes a la pata por ranuras sobre la línea de centros: corre "
-                f"+{m.tensado_mm:.1f}/−{m.montaje_mm:g} mm y tensa la cadena",
-                size=PERNO_OREJA, qty=2)
-    return trav
-
-
 def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, pata: str) -> None:
     """Pie nivelador bajo una pata (D10): placa de la pata con la tuerca de la rosca del pie
     soldada por debajo y barreno de paso del vástago; el disco al piso o, con anclaje, a una
@@ -348,17 +325,26 @@ def _estaciones(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str) -> dict
         if est.rol == "motriz" and d.motriz is None:
             donde = "descarga"  # rodillos libres: el extremo no lleva motor
         patas = {}
+        empernado = d.union == "empernado"
+        largo_pata = d.pata_largo - (rb.PLACA_CABEZA_T if empernado else 0.0)
         for s, rot, y, larg in (("m", "-Y", d.y_in_m - w / 2.0, larg_m),
                                 ("p", "+Y", d.y_in_p + w / 2.0, larg_p)):
             pata = r.pieza("insert_component", f"pata_{s}_e{k}", "Patas", f"Pata ({rot}, {donde})",
-                           {"component": rc.PATA, "length": round(d.pata_largo, 4),
-                            "position": r.pos(est.x, y, d.pies.z_pata0 + d.pata_largo / 2.0)})
-            r.union(f"pata_larg_{s}_e{k}", pata, larg, "soldadura",
-                    "pata soldada bajo el ala horizontal del ángulo", throat_mm=3, length_mm=4 * w)
+                           {"component": rc.PATA, "length": round(largo_pata, 4),
+                            "position": r.pos(est.x, y, d.pies.z_pata0 + largo_pata / 2.0)})
+            if empernado:  # E11: placa de cabeza soldada y 2 M10 al ala del larguero
+                rbas.cabeza(r, d, f"{s}_e{k}", f"{rot}, {donde}", est.x, larg, pata)
+            else:
+                r.union(f"pata_larg_{s}_e{k}", pata, larg, "soldadura",
+                        "pata soldada bajo el ala horizontal del ángulo", throat_mm=3,
+                        length_mm=4 * w)
             _pie(r, d, f"{s}_e{k}", f"{rot}, {donde}", est.x, y, pata)
             patas[s] = pata
         if est.rol == "motriz" and d.motriz:
-            travesanos[est.rol] = _portamotor(r, d, k, donde, patas)
+            travesanos[est.rol] = portamotor(r, d, k, donde, patas)
+            continue
+        if empernado:  # E11: el travesaño con orejas atornilladas a las patas
+            travesanos[est.rol] = rbas.travesano(r, d, k, donde, est.x, est.z_travesano, patas)
             continue
         trav = r.pieza("insert_component", f"trav_e{k}", "Patas", f"Travesaño ({donde})", {
             "component": rc.PATA, "length": round(d.travesano_largo, 4),
@@ -368,39 +354,6 @@ def _estaciones(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str) -> dict
                     "travesaño entre las patas (H)", throat_mm=3, length_mm=4 * w)
         travesanos[est.rol] = trav
     return travesanos
-
-
-def _motorreductor(r: _Receta, d: rc.Disposicion, portamotor: str) -> str:
-    m, b = d.motriz, d.guardas["carter"]["base"]
-    base = r.pieza("create_box", "base_motor", "Motorreductor", "Base del motor", {
-        "width": round(b["x1"] - b["x0"], 4), "depth": round(b["y1"] - b["y0"], 4),
-        "height": rc.BASE_MOTOR_T,
-        "position": r.pos((b["x0"] + b["x1"]) / 2.0, (b["y0"] + b["y1"]) / 2.0,
-                          b["z1"] - rc.BASE_MOTOR_T / 2.0)})
-    for i, (x0, x1) in enumerate(m.pies):  # 2 roscas M8 bajo cada riel de patas
-        for j, y in enumerate((m.y_base0 + 30.0, m.pies_y1 - 25.0)):
-            r.pasos.append(("drill_hole", f"rosca_motor{i}{j}", {
-                "feature": base, "position": r.pos((x0 + x1) / 2.0, y, b["z1"]), "axis": "-z",
-                "depth": 0, "thread": "M8"}))
-    motor = r.pieza("insert_component", "motor", "Motorreductor", "Motorreductor", {
-        "component": m.motor, "position": r.pos(m.x, m.y, m.z),
-        "rotation": {"x": 0, "y": 0, "z": 90}})
-    pinon = r.pieza("insert_component", "pinon_m", "Motorreductor", f"Piñón motriz Z{m.z_pinon}", {
-        "component": m.pinon, "position": r.pos(m.x, m.y_pinon, m.z), "rotation": _EN_Y})
-    r.taladro("tal_pinon_m", pinon, r.pos(m.x, m.y_pinon + 10.0, m.z), "-y", round(m.eje_d, 4),
-              fit="H7")
-    r.pieza("create_chain", "cad_m", "Motorreductor", "Cadena motriz", {
-        "cadena": rc.CADENA, "pinon_a": pinon, "pinon_b": r.ultimo_pinon, "hilera_a": 1,
-        "hilera_b": 2, "eslabones": m.eslabones, "fase": "auto", "potencia_kw": m.potencia_kw,
-        "rpm_a": m.rpm, "servicio": "moderado"})
-    r.union("base_portamotor", base, portamotor, "soldadura", "base del motor sobre el portamotor",
-            throat_mm=4, length_mm=200)
-    r.union("motor_base", motor, base, "perno",
-            "patas del motor a las roscas M8 de la base: corre con el portamotor sobre la línea "
-            "de centros", size="M8", qty=4)
-    r.union("pinon_motor", pinon, motor, "perno", "chaveta + prisionero en el eje de salida",
-            size="M6", qty=1)
-    return base
 
 
 def receta(d: rc.Disposicion, cmd_id: str, nombre: str, origen=(0.0, 0.0, 0.0)):
@@ -415,8 +368,10 @@ def receta(d: rc.Disposicion, cmd_id: str, nombre: str, origen=(0.0, 0.0, 0.0)):
         _cadenas(r, d)
     travesanos = _estaciones(r, d, larg_m, larg_p)
     if motriz:
-        base = _motorreductor(r, d, travesanos["motriz"])
+        base = motorreductor(r, d, travesanos["motriz"])
         guarda_cadenas(r, d, larg_p)
         guarda_transmision(r, d, larg_p, base)
         bandeja(r, d, larg_p)
+        if d.mantenimiento:  # E17: la guarda de cadenas cerrada en sus dos extremos
+            tapas_extremas(r, d, larg_p)
     return r.pasos, {g: m for g, m in r.grupos.items() if m}

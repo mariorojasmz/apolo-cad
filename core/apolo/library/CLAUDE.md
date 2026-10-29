@@ -354,7 +354,9 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   evaluado. Un sólido con VARIOS hexágonos coaxiales (perno + tuerca fundidos) son varios
   fijadores (`reconocer_fijadores`). Sin hexágono: un remache de catálogo (`herramienta:
   remachadora`) se lee por su cilindro mayor y se le cruza la remachadora coaxial; un DIN 571
-  (`llave: true`) entra como tornillería de llave. [plan](../../../docs/plans/acceso-de-herramienta.md)
+  (`llave: true`) entra como tornillería de llave; un DIN 603 (cuello cuadrado) lo aprieta su
+  tuerca, como el espárrago ([rodillos F9](../../../docs/plans/plantilla-rodillos-cadena.md)).
+  [plan](../../../docs/plans/acceso-de-herramienta.md)
 - `MIN_SOLIDOS_SUJECION` también dispara la alarma ambiental `aviso_estructura` de toda mutación
   ([api](../api/CLAUDE.md)). [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
 - **Puerta de publicación — seguridad y reparabilidad** (`seguridad/`, `reparabilidad.py`; OCCT en

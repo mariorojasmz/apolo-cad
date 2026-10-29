@@ -202,12 +202,13 @@ def _pies(d, carga_total: float) -> dict:
 
 
 def _motor(d, carga_total: float) -> dict:
-    from .rodillos_cadena import _masa_rodillo, potencia_requerida
+    from .rodillos_cadena import _masa_rodillo, eta_de, potencia_requerida
 
     m = d.motriz
     carga = max(d.carga_kg, carga_total)
     m_rod = len(d.xs) * _masa_rodillo(d.rodillo, d.ancho_util, d.eje_y1 - d.eje_y0, True)
-    p_req = potencia_requerida(carga, m_rod, d.velocidad_m_s, len(d.xs))
+    eta_r = eta_de(m)
+    p_req = potencia_requerida(carga, m_rod, d.velocidad_m_s, len(d.xs), eta_r)
     fs = m.potencia_kw / p_req
     calc = {"titulo": "Potencia del motor", "entradas": {
                 "carga": f"{carga:g} kg + rodillos {m_rod:.0f} kg", "v": f"{d.velocidad_m_s:.3f} m/s",
@@ -216,7 +217,8 @@ def _motor(d, carga_total: float) -> dict:
             "sustitucion": f"P = 1.5·0.05·{carga + m_rod:.0f}·9.81·{d.velocidad_m_s:.3f} / η",
             "resultado": f"P = {p_req:.3f} kW → FS {fs:.2f}",
             "criterio": f"FS ≥ 1 (aviso bajo {FS_AVISO:g})", "fs": round(fs, 2),
-            "norma": "criterio de diseño (rodadura 5 %, arranque ×1.5, η lazo 0.98, reductor 0.85)"}
+            "norma": "criterio de diseño (rodadura 5 %, arranque ×1.5, η lazo 0.98, reductor "
+                     f"{eta_r:g})"}
     return _check("motor", _fs_estado(fs), f"{m.motor}: pide {p_req:.3f} kW de {m.potencia_kw:g} kW "
                   f"(FS {fs:.2f}).", "Elige un motorreductor mayor." if fs < FS_AVISO else None,
                   calc=calc)
@@ -277,7 +279,8 @@ def reglas_rodillos_cadena(params: dict, carga_kg: float, largo_paquete_mm: floa
                         params["altura"], params["carga_kg"], params["motriz"] == "cadena",
                         params["motor"], params.get("velocidad_m_s"), params.get("anclaje", True),
                         bool(params.get("taller", False)), params.get("eje", "roscado"),
-                        params.get("pie", "disco"))
+                        params.get("pie", "disco"), float(params.get("red_v", 220.0)),
+                        params.get("union", "soldado"), bool(params.get("mantenimiento", False)))
     except (ValueError, KeyError) as exc:
         return [_check("transportador de rodillos", "error", f"La plantilla no se arma: {exc}")]
     reglas = []

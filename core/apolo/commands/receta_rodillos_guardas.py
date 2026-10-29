@@ -17,6 +17,8 @@ plano YZ extruidos en X (`axis: "x"`: [x, y] → (·, y, −x)).
 
 from __future__ import annotations
 
+import math
+
 from apolo.library import rodillos_cadena as rc
 from apolo.library.rodillos_cadena_guardas import GUARDA_T, M6_PASO
 
@@ -74,8 +76,8 @@ def guarda_cadenas(r, d: rc.Disposicion, larg_p: str) -> None:
                   for x in d.separadores],
         "position": r.pos(d.largo / 2.0, yg, d.guarda_z), "rotation": {"x": 180, "y": 0, "z": 0}})
     for i, sep in enumerate(seps):
-        r.union(f"guarda_sep{i}", guarda, sep, "perno", "tornillo M6 a la rosca del separador",
-                size="M6", qty=1)
+        r.union(f"guarda_sep{i}", guarda, sep, "perno", "tornillo M6 a la rosca del separador"
+                + (" (M6x12 DIN 933)" if d.mantenimiento else ""), size="M6", qty=1)
     # faldón: tapa la luz entre el canto del ala y la chapa por fuera (+Y); queda en el
     # bastidor al sacar la guarda
     z0 = d.sep_z0 - 5.0
@@ -85,6 +87,64 @@ def guarda_cadenas(r, d: rc.Disposicion, larg_p: str) -> None:
     r.union("faldon_sep", faldon, "+".join(seps), "soldadura",
             "faldón soldado a la cara exterior de los separadores", throat_mm=2,
             length_mm=2 * rc.SEPARADOR_X)
+    if d.mantenimiento:
+        _peines(r, d, guarda)
+        # E17: entre los separadores, el canto del alma queda 24 mm bajo la chapa y el brazo
+        # doblado entra por ahí desde afuera (bajo el faldón exterior) al lazo: una tira soldada
+        # bajo la guarda, contra la cara interior del alma, lo cierra (sale con la guarda)
+        z0 = d.sep_z0 - 4.0
+        tira = r.pieza("create_box", "faldon_int", "Guardas",
+                       "Faldón interior de la guarda de cadenas", {
+                           "width": d.largo, "depth": GUARDA_T, "height": round(base - z0, 4),
+                           "position": r.pos(d.largo / 2.0, d.y_in_p - GUARDA_T / 2.0,
+                                             (base + z0) / 2.0)})
+        r.union("faldon_int", tira, guarda, "soldadura",
+                "faldón interior soldado bajo la guarda de cadenas (sale con ella)", throat_mm=2,
+                length_mm=round(d.largo, 1))
+
+
+def _peines(r, d: rc.Disposicion, guarda: str) -> None:
+    """F9 (E17): el peine soldado bajo la pestaña interior de la guarda de cadenas (cotas en
+    `library/rodillos_cadena_guardas.peine`); sale con la guarda."""
+    from apolo.library.rodillos_cadena_guardas import peine
+
+    p = peine(d)
+    pe = placa_xz(r, "peine", "Guardas", "Peine de la guarda de cadenas", p["puntos"], p["y0"],
+                  p["y1"])
+    r.union("peine_guarda", pe, guarda, "soldadura",
+            "peine soldado al canto de la pestaña interior de la guarda (sale con ella)",
+            throat_mm=1.4, length_mm=round(p["largo"], 1))
+
+
+def _carter_atornillado(r, d: rc.Disposicion, ci: str, ce: str, extremos: list, base: str) -> None:
+    """E16: las 4 paredes del cárter soldadas entre sí y 2 pestañas soldadas al pie de la pared
+    interior, atornilladas a roscas M6 de la base: el cárter sale entero con herramienta para
+    cambiar el piñón y la cadena motriz, y sigue resguardando."""
+    from apolo.library.rodillos_cadena_bastidor import PESTANA_T, PESTANA_X, PESTANA_Y
+
+    c = d.guardas["carter"]
+    r.union("carter_paredes", f"{extremos[0]}+{extremos[1]}", ce, "soldadura",
+            "extremos del cárter soldados a su pared exterior", throat_mm=2, length_mm=150)
+    r.union("carter_int", f"{extremos[0]}+{extremos[1]}", ci, "soldadura",
+            "pared interior del cárter soldada a sus dos extremos", throat_mm=2, length_mm=150)
+    yi0, z_b = c["pared_int"]["y0"], c["base"]["z1"]
+    xs = [p[0] for p in c["pared_int"]["puntos"] if abs(p[1] - z_b) < 1e-3]
+    x0, x1 = min(xs), max(xs)
+    for k, xa in enumerate((x0 + 3.0, x1 - 3.0 - PESTANA_X)):
+        tab = r.pieza("create_box", f"pestana_carter{k}", "Guardas", "Cárter · pestaña de fijación", {
+            "width": PESTANA_X, "depth": PESTANA_Y, "height": PESTANA_T,
+            "position": r.pos(xa + PESTANA_X / 2.0, yi0 - PESTANA_Y / 2.0, z_b + PESTANA_T / 2.0)})
+        xc, yc = xa + PESTANA_X / 2.0, yi0 - PESTANA_Y / 2.0
+        r.taladro(f"tal_pestana{k}", tab, r.pos(xc, yc, z_b + PESTANA_T + 1.0), "-z", M6_PASO)
+        r.pasos.append(("drill_hole", f"rosca_pestana{k}", {
+            "feature": base, "position": r.pos(xc, yc, z_b), "axis": "-z", "depth": 0,
+            "thread": "M6"}))
+        r.union(f"pestana_carter{k}", tab, ci, "soldadura",
+                "pestaña soldada al pie de la pared interior del cárter", throat_mm=2,
+                length_mm=PESTANA_X)
+        r.union(f"carter_base{k}", tab, base, "perno",
+                "pestaña del cárter a la rosca M6 de la base (M6x12 DIN 933): el cárter sale "
+                "entero con herramienta", size="M6", qty=1)
 
 
 def guarda_transmision(r, d: rc.Disposicion, larg_p: str, base: str) -> None:
@@ -99,9 +159,23 @@ def guarda_transmision(r, d: rc.Disposicion, larg_p: str, base: str) -> None:
     extremos = [placa_xz(r, f"carter_x{k}", "Guardas", f"Cárter · extremo ({lado})", e["puntos"],
                          e["y0"], e["y1"])
                 for k, (lado, e) in enumerate(zip(("−X", "+X"), c["extremos"]))]
-    r.union("carter_base", f"{ci}+{ce}+{extremos[0]}+{extremos[1]}", base, "soldadura",
-            "cárter soldado a la base del motor: corre con él al tensar", throat_mm=2,
-            length_mm=150)
+    if d.mantenimiento:  # E16: el cárter, una caja soldada que se atornilla a la base
+        _carter_atornillado(r, d, ci, ce, extremos, base)
+    else:
+        r.union("carter_base", f"{ci}+{ce}+{extremos[0]}+{extremos[1]}", base, "soldadura",
+                "cárter soldado a la base del motor: corre con él al tensar", throat_mm=2,
+                length_mm=150)
+    if d.motriz.sinfin:  # F9: el collar tapa el eje de salida entre la brida y el cárter
+        co = d.motriz.sinfin["collar"]
+        largo = round(co["y1"] - co["y0"], 4)
+        collar = r.pieza("create_revolve", "collar_eje", "Guardas",
+                         "Cárter · collar del eje de salida",
+                         {"profile": [[co["ri"], 0], [co["re"], 0], [co["re"], largo],
+                                      [co["ri"], largo]], "axis": "y",
+                          "position": r.pos(d.motriz.x, co["y0"], d.motriz.z)})
+        r.union("collar_carter", collar, ci, "soldadura",
+                "collar soldado a la pared interior del cárter (corre con él)", throat_mm=2,
+                length_mm=round(2.0 * math.pi * co["re"], 1))
     # ---- guarda fija
     po = f["pared_ext"]
     fe = placa_xz(r, "guarda_tr_ext", "Guardas", "Guarda de la transmisión · pared exterior",
@@ -118,8 +192,8 @@ def guarda_transmision(r, d: rc.Disposicion, larg_p: str, base: str) -> None:
     ft = placa_yz(r, "guarda_tr_tapa", "Guardas", "Guarda de la transmisión · tapa del extremo",
                   t["puntos"], t["x0"], t["x1"])
     r.union("guarda_tr", fe, larg_p, "perno",
-            "guarda fija atornillada al alma del larguero: 2 M6 a sus roscas, sale con herramienta",
-            size="M6", qty=len(po["pernos"]))
+            "guarda fija atornillada al alma del larguero: 2 M6 a sus roscas, sale con herramienta"
+            + (" (M6x10 DIN 933)" if d.mantenimiento else ""), size="M6", qty=len(po["pernos"]))
     # los dos extremos tocan las dos paredes; la interior NO toca la exterior (77 mm de luz):
     # se suelda a los extremos (uniones-que-tocan F1: la v3 declaraba una soldadura fantasma)
     r.union("guarda_tr_paredes", f"{fx[0]}+{fx[1]}", fe, "soldadura",
@@ -130,6 +204,31 @@ def guarda_transmision(r, d: rc.Disposicion, larg_p: str, base: str) -> None:
     r.union("guarda_tr_tapa", ft, fx[1], "soldadura",
             "tapa del extremo soldada sobre el extremo +X de la guarda fija", throat_mm=2,
             length_mm=round(t["puntos"][1][0] - t["puntos"][0][0], 1))
+
+
+def tapas_extremas(r, d: rc.Disposicion, larg_p: str) -> None:
+    """E17: la guarda de cadenas cerrada en sus extremos: una tapa por fuera de cada extremo del
+    bastidor, del extremo de los tubos al alma del larguero +Y, con una pestaña soldada contra el
+    alma y un M6 a su rosca (sale con herramienta). Cotas en `rodillos_cadena_bastidor`."""
+    from apolo.library.rodillos_cadena_guardas import tapa_extrema
+
+    for k, (x0, x1, hacia, donde) in enumerate(((-GUARDA_T, 0.0, -1.0, "alimentación"),
+                                                (d.largo, d.largo + GUARDA_T, 1.0, "motriz"))):
+        t = tapa_extrema(d, x1 if hacia < 0 else x0, hacia)
+        tapa = placa_yz(r, f"tapa_ext{k}", "Guardas", f"Tapa extrema de la guarda de cadenas ({donde})",
+                        t["puntos"], x0, x1)
+        p = t["pestana"]
+        pest = placa_xz(r, f"tapa_ext{k}_p", "Guardas",
+                        f"Tapa extrema de la guarda de cadenas · pestaña ({donde})", p["puntos"],
+                        p["y0"], p["y1"])
+        r.union(f"tapa_ext{k}_p", pest, tapa, "soldadura", "pestaña soldada a la tapa extrema",
+                throat_mm=2, length_mm=round(p["z1"] - p["z0"], 1))
+        r.taladro(f"tal_tapa_ext{k}", pest, r.pos(p["perno"][0], p["y0"], p["perno"][1]), "y",
+                  M6_PASO)
+        _rosca_alma(r, f"rosca_tapa_ext{k}", larg_p, d, *p["perno"])
+        r.union(f"tapa_ext{k}", pest, larg_p, "perno",
+                "tapa extrema atornillada al alma del larguero (M6x10 DIN 933): sale con "
+                "herramienta", size="M6", qty=1)
 
 
 def bandeja(r, d: rc.Disposicion, larg_p: str) -> None:
@@ -152,8 +251,8 @@ def bandeja(r, d: rc.Disposicion, larg_p: str) -> None:
         for j, s in enumerate((-1.0, 1.0)):
             _rosca_alma(r, f"rosca_bandeja{k}_{j}", larg_p, d, (xa + xb) / 2.0 + s * u, b["z_perno"])
         r.union(f"bandeja{k}", tramo, larg_p, "perno",
-                "tramo de bandeja colgado del alma del larguero: 2 M6, sale sin desarmar nada más",
-                size="M6", qty=2)
+                "tramo de bandeja colgado del alma del larguero: 2 M6, sale sin desarmar nada más"
+                + (" (M6x10 DIN 933)" if d.mantenimiento else ""), size="M6", qty=2)
         tramos.append(tramo)
     t = b["tapa"]
     tapa = placa_yz(r, "tapa_bandeja", "Guardas", "Tapa de la bandeja (alimentación)",

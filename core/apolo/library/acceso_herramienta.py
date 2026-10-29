@@ -75,6 +75,13 @@ def _es_remache(feat, catalog) -> bool:
     return comp is not None and (comp.specs or {}).get("herramienta") == "remachadora"
 
 
+def _cuello_cuadrado(feat, catalog) -> bool:
+    """El perno de cuello cuadrado DIN 603 de catálogo: su cabeza de hongo no lleva llave (el
+    cuello frena el giro) y lo aprieta su TUERCA, que se evalúa aparte (como el espárrago)."""
+    comp = catalog.get(getattr(feat, "component", None) or "") if catalog else None
+    return comp is not None and (comp.specs or {}).get("norma") == "DIN 603"
+
+
 def _choque(ghost, mrc, vecinos: list[_Solido]) -> _Solido | None:
     """El primer vecino que el fantasma (local, colocado con `mrc`) corta; None si libre."""
     g = mrc * ghost
@@ -235,6 +242,9 @@ def tool_access_report(scene: dict, *, catalog=None) -> dict | None:
             fjs = reconocer_remache(propio.solid)
         if not fjs and es_esparrago(propio.nombre) and geometria_esparrago(propio.solid):
             rep["esparragos"] = rep.get("esparragos", 0) + 1  # lo aprieta su tuerca (F3c)
+            continue
+        if not fjs and _cuello_cuadrado(scene[propio.fid], catalog):
+            rep["cuello_cuadrado"] = rep.get("cuello_cuadrado", 0) + 1  # ídem (rodillos F9)
             continue
         if not fjs:
             rep["no_evaluados"].append({"id": propio.fid, "nombre": propio.nombre,

@@ -43,6 +43,8 @@ TOL_VELOCIDAD = 0.10       # ±10 %: el criterio «0.9 × objetivo» de la veloc
 ESTIRADO_REEMPLAZO = 0.03
 MONTAJE_MM = 3.0           # acercar el motor para montar el eslabón de unión
 OREJA_T = 6.0              # chapa de la oreja del portamotor
+#: F9 (E15, `mantenimiento`): el cuello cuadrado del perno DIN 603 M10 (6,6) queda en la oreja
+OREJA_T_SERVICIO = 7.0
 OREJA_U = 35.0             # media anchura de la oreja (según û)
 OREJA_W = 75.0             # medio largo de la oreja (según ŵ)
 PERNO_OREJA = "M10"
@@ -173,6 +175,11 @@ class Motriz:
     pies_y1: float         # extremo de los rieles hacia la transmisión
     portamotor: dict       # x, y, z (centro del tubo) y largo (entre orejas)
     oreja: dict            # puntos XZ relativos al centro del tubo, pernos y ranuras
+    # F9 (`motor: "auto"`, `rodillos_cadena_sinfin`): el sinfín de ejes ortogonales. Con el
+    # helicoidal todo queda en None (la motriz de v4).
+    tipo: str = "helicoidal"
+    relacion: float | None = None   # i del reductor
+    sinfin: dict | None = None      # calzo, eje de salida, collar, roscas de la caja, base en X
 
 
 def _a_xz(u: float, w: float, a: float) -> tuple[float, float]:
@@ -266,6 +273,9 @@ def motriz(motor: str, pinon: str, d: dict) -> Motriz:
     if z_t - oreja["medio_alto"] - tensado < d.get("z_pata0", PLACA_PATA_T) + 20.0:
         raise ValueError("altura insuficiente para el motorreductor bajo los rodillos: sube la "
                          "altura de trabajo")
+    ot = d.get("oreja_t", OREJA_T)
+    if ot != OREJA_T:  # F9: la oreja del perno de cuello cuadrado (la de v4 no lleva la clave)
+        oreja["t"] = ot
     sp = CATALOG[motor].specs
     return Motriz(
         motor=motor, pinon=pinon, z_pinon=zm, potencia_kw=float(sp["potencia_kW"]),
@@ -274,7 +284,7 @@ def motriz(motor: str, pinon: str, d: dict) -> Motriz:
         r_envolvente=r_env, z_base=z_b, y_base0=y_m + ml.pie_x0 - 5.0, pies=pies, pies_z=pies_z,
         pies_y1=pies_y1,
         portamotor={"x": x_m, "y": (d["y_in_m"] + d["y_in_p"]) / 2.0, "z": z_t,
-                    "largo": d["y_in_p"] - d["y_in_m"] - 2.0 * OREJA_T},
+                    "largo": d["y_in_p"] - d["y_in_m"] - 2.0 * ot},
         oreja=oreja,
     )
 

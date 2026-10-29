@@ -19,66 +19,45 @@ def _rodillos() -> list[str]:
 
 
 def _motores() -> list[str]:
-    from apolo.library.rodillos_cadena import MOTORES
+    from apolo.library.rodillos_cadena import MOTOR_AUTO, MOTORES
 
-    return list(MOTORES)
+    return [MOTOR_AUTO, *MOTORES]
 
 
 class CreateRollerConveyorParams(BaseModel):
     """Transportador de rodillos MOTORIZADO POR CADENA rodillo a rodillo, completo, fabricable y
-    sostenido, en UNA orden (super-comando): bastidor de 2 largueros de ángulo L 75x6 (ala
-    vertical por dentro, ala horizontal ABAJO y hacia AFUERA), rodillos de tubo redondo sobre
-    eje fijo HEXAGONAL 11 (barra EN 10278, extremos con doble plano) CALZADO en una ranura
-    abierta hacia arriba en el ala vertical de cada larguero (no gira ni corre: el rodillo se saca
-    levantándolo, sin tocar una tuerca), con un rodamiento 6202-HEX11 de compra en el alojamiento
-    de cada tapa y un separador sobre el eje que deja el juego axial del rodillo en 0.5 mm por lado,
-    piñón doble-simple ASA 40 Z15 soldado a un buje en cada rodillo, cadenas ASA 40 1:1
-    alternando las dos hileras, motorreductor bajo el último rodillo con su piñón y cadena
-    motriz, patas de tubo 2x2 en H (travesaño ENTRE las patas) con pie nivelador de catálogo
-    (tuerca soldada bajo la placa de la pata; con `anclaje`, base del pie con 2 anclajes y
-    `ground`), guarda de cadenas sobre separadores soldados, guarda de la transmisión CERRADA
-    (cárter que corre con el motor + guarda fija atornillada al larguero, ISO 14120) y bandeja
-    inferior de cadenas en tramos atornillados. Todas las uniones van declaradas (`fasten` en
-    conjuntos) y las piezas quedan en el grupo `name` con sus subgrupos Bastidor, Rodillos,
-    Cadenas, Patas, Motorreductor y Guardas.
+    sostenido, en UNA orden (super-comando): 2 largueros de ángulo L 75x6 (ala horizontal ABAJO y
+    hacia AFUERA), rodillos de tubo sobre eje HEXAGONAL calzado en una ranura abierta hacia
+    arriba del ala (el rodillo sale levantándolo) con 6202-HEX11 en cada tapa, piñón doble-simple
+    ASA 40 Z15 por rodillo y cadenas 1:1 alternando hileras, motorreductor bajo el último rodillo
+    con su cadena motriz, patas de tubo 2x2 en H con pie nivelador (y anclajes con `anclaje`),
+    guarda de cadenas con peine y tapas extremas, guarda de la transmisión CERRADA (cárter que
+    corre con el motor + guarda fija) y bandeja inferior atornillada. Todas las uniones van
+    declaradas y las piezas en el grupo `name` (subgrupos Bastidor, Rodillos, Cadenas, Patas,
+    Motorreductor, Guardas).
 
     CÓMO MONTAR (IMPORTANTE):
-    - Transporte a lo largo de +X: la alimentación en x = position.x y la motriz (motor) en
-      x = position.x + largo. El centro de los tubos en y = position.y; la transmisión va hacia
-      +Y. position.z es el piso (las bases o los discos de los pies apoyan en z = position.z). Para girarlo o moverlo después, transform_group sobre el grupo
-      `name`; no lleva rotation.
-    - `altura` = cara superior de los rodillos (altura de trabajo), con los pies niveladores a
-      la mitad de su recorrido. El eje queda a altura − Ø/2.
-    - Pies niveladores: la familia sale de la carga por pata ((masa + carga_kg) / patas × 1.5
-      contra la carga del pie); engineering_check publica la carga por pie y el recorrido de
-      nivelación (±). Cada vástago lleva su contratuerca (traba la altura nivelada).
-      `anclaje: true` (default) = la BASE del pie atornillada al concreto con 2 anclajes de
-      expansión M12 de compra, por FUERA de la placa de la pata (entran el taladro y el dado),
-      sin soldar: se re-nivela con la contratuerca suelta, sin tocar el anclaje; `false` = disco
-      directo al piso.
-    - `paso`: con `motriz: cadena` NO es libre: con cadena 1:1 sólo cierran sin sobrante 95.25,
-      107.95 o 120.65 mm (30, 32 o 34 eslabones). Con `motriz: libre` va de Ø del tubo + 20 mm
-      (luz entre tubos) a 300 mm (TUBOR-2: 70.8–300). El número de rodillos sale de `largo`
-      (par, ≥ 50 mm del eje extremo al final del larguero) y los rodillos quedan centrados.
-    - `ancho_util` = largo del tubo (lo que ve el producto). Con `motriz: cadena` el motor va
-      entre las patas, bajo los rodillos: si no cabe, el error dice el ancho mínimo.
-    - La cadena motriz va inclinada 20° hacia la alimentación y se TENSA sobre su línea de
-      centros: el travesaño portamotor (con base, motor y cárter) va atornillado a las patas por
-      orejas de ranuras paralelas a esa línea; corre lo que pide el estirado de reemplazo (3 %
-      del largo de la cadena) y 3 mm hacia adentro para montar el eslabón de unión. Sus
-      eslabones y centros salen solos (centros exactos, nunca una cota a mano).
-    - `velocidad_m_s` (opcional) = velocidad del PRODUCTO: elige el piñón del motor (ASA 40
-      simple del catálogo) que la da dentro de ±10 %; si ninguno, el error dice las velocidades
-      que salen con ese motor y qué motor + piñón da la pedida. Sin ella, piñón Z30. El motor
-      sigue siendo el que diga `motor`.
-    - Todas las estaciones llevan el travesaño a la misma altura (la del portamotor; a media
-      pata con `motriz: libre`).
-    - Las estaciones de patas quedan con el mismo voladizo en los dos extremos y se agregan
-      intermedias para que el vano del larguero (ángulo libre, flecha L/240 con `carga_kg`
-      repartida) no pase de 1.8 m. `carga_kg` es la carga TOTAL sobre el transportador; con
-      cadena también verifica que el motor alcance (rodadura, rendimiento de los lazos).
-    - `motriz: libre` = rodillos locos (gravedad o empuje a mano): sin piñones, cadenas, motor
-      ni guardas; el bastidor queda simétrico.
+    - Transporte a lo largo de +X: la alimentación en x = position.x y la motriz en x =
+      position.x + largo; el centro de los tubos en y = position.y, la transmisión hacia +Y;
+      position.z es el piso. Para moverlo, transform_group sobre `name` (no lleva rotation).
+    - `altura` = cara superior de los rodillos, con los pies a la mitad de su recorrido.
+    - Pies: la familia sale de (masa + carga_kg) / patas × 1.5; cada vástago con contratuerca.
+      `anclaje: true` = la base del pie atornillada al concreto con 2 anclajes M12, sin soldar;
+      `false` = disco directo al piso.
+    - `paso`: con cadena sólo 95.25, 107.95 o 120.65 mm (1:1 sin sobrante); libre, de Ø + 20 a
+      300 mm. Los rodillos (par) salen de `largo` y quedan centrados.
+    - `ancho_util` = largo del tubo. `motor: auto` (el de todo comando nuevo) = sinfín NMRV con el
+      motor a lo largo (cabe desde 400 de ancho), el más chico que da la potencia de `carga_kg` a
+      la tensión `red_v` y cuya cadena aguanta su par nominal (FS ≥ 1.2, piñón ≥ Z17); si ninguno,
+      el error dice qué falta. Con un `motor` explícito, la plantilla no lo cambia.
+    - `union: empernado` = patas atornilladas al ala del larguero y travesaños a las patas.
+    - La cadena motriz va inclinada 20° y se TENSA sobre su línea de centros (portamotor sobre
+      orejas ranuradas, con tornillo tensor): corre el 3 % del largo de la cadena y 3 mm para el
+      eslabón de unión. Eslabones y centros salen solos.
+    - `velocidad_m_s` = la del PRODUCTO (± 10 %); sin ella, la de siempre (0.266 m/s).
+    - Estaciones de patas con el mismo voladizo en los extremos e intermedias para un vano ≤
+      1.8 m (flecha L/240 con `carga_kg`, la carga TOTAL; con cadena también dimensiona el motor).
+    - `motriz: libre` = rodillos locos: sin piñones, cadenas, motor ni guardas.
     - Las piezas tienen id `{id del comando}_{rol}` (p. ej. c5_larg_p = larguero +Y, c5_trav_e0
       = travesaño de la alimentación, c5_motor): úsalos para unir lo que agregues después.
     Editar cualquier parámetro regenera la máquina entera; para atarla a variables, da los
@@ -112,9 +91,15 @@ class CreateRollerConveyorParams(BaseModel):
         description="cadena = motorizado rodillo a rodillo; libre = rodillos locos",
     )
     motor: str = Field(
-        "MOTOR-037", title="Motorreductor", description="sólo con transmisión por cadena",
+        "MOTOR-037", title="Motorreductor",
+        description="auto (lo pone el sello) = el sinfín más chico que da la cuenta a red_v",
         json_schema_extra=lambda schema: schema.update({"enum": _motores()}),
     )
+    red_v: float = Field(220, ge=100, le=1000, title="Tensión de la red",
+                         description="V entre fases (Lima 220): con motor auto")
+    union: Literal["soldado", "empernado"] = Field(
+        "soldado", title="Bastidor",
+        description="empernado = largueros, patas y travesaños con pernos (se desarma)")
     velocidad_m_s: float | None = Field(
         None, gt=0, le=3, title="Velocidad",
         description="m/s del producto (opcional): elige el piñón del motor; vacío = piñón Z30",
@@ -139,6 +124,10 @@ class CreateRollerConveyorParams(BaseModel):
     # «disco» = el disco del pie soldado a una placa de piso anclada (F5–F7). El sello la pone en
     # «base» junto con `taller`; un log F6/F7 no la trae → «disco» → igual.
     pie: SkipJsonSchema[Literal["disco", "base"]] = Field("disco")
+    # F9, también FUERA del schema: tornillo empujador en el portamotor, cárter atornillado a la
+    # base, tapas extremas de la guarda de cadenas y el largo de toda unión perno (E15–E18). El
+    # sello lo pone con `taller`; un log v4 no lo trae → False → igual.
+    mantenimiento: SkipJsonSchema[bool] = Field(False)
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
 
     @model_validator(mode="after")

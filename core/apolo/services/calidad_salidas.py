@@ -21,7 +21,11 @@ from apolo.library.seguridad.transmision_rigida import (
 )
 
 
-def _puntos(tr, redondo, caja_motor) -> list[tuple]:
+def _puntos(tr, redondo, caja_motor, caja_eje=None) -> list[tuple]:
+    """Los puntos de la salida. Un lado cuenta sólo si lo que gira SALE de la caja por esa cara
+    (`caja_eje` pasa de ella hacia afuera): el eje macizo de un motorreductor coaxial sale por la
+    caja reductora y no por la tapa del ventilador (plantilla-rodillos-cadena E19: 27 sondas
+    juzgaban la tapa cerrada del ventilador); el eje hueco pasante sale por las dos."""
     k = redondo.eje
     otros = [a for a in range(3) if a != k]
     largo = caja_motor[1][k] - caja_motor[0][k] + 40.0
@@ -40,6 +44,11 @@ def _puntos(tr, redondo, caja_motor) -> list[tuple]:
                 if not cruces:
                     continue
                 t = cruces[0][0]  # el primer cruce desde afuera = la cara de ese lado
+                cara = o[k] + sentido * t
+                if caja_eje is not None and (
+                        caja_eje[0][k] > cara - PUNTO_FUERA_MM if sentido > 0
+                        else caja_eje[1][k] < cara + PUNTO_FUERA_MM):
+                    continue  # por esta cara no sale nada que gire
                 q = list(o)
                 q[k] = o[k] + sentido * (t - PUNTO_FUERA_MM)
                 out.append(tuple(q))
@@ -53,7 +62,7 @@ def peligros_de_salida(dc: dict, cuerpos: list[set[str]]) -> list[dict]:
     piezas, out = dc["piezas"], []
     for motor, eje, cuerpo in pares_salida(piezas, cuerpos):
         tr = Trazador({motor: dc["solidos"].get(motor, [])})
-        puntos = _puntos(tr, piezas[eje].redondo, piezas[motor].caja)
+        puntos = _puntos(tr, piezas[eje].redondo, piezas[motor].caja, piezas[eje].caja)
         if puntos:
             out.append(peligro_salida(motor, eje, cuerpo, puntos, piezas))
     return out

@@ -188,7 +188,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   con `add_joinery` «rebaje» (en sitio: conserva el id del larguero) y el eje sale de un
   `boolean_op` con el sufijo `eje` (`receta_rodillos_eje.py`). F8, por el oculto `pie` («base»,
   sellado con `taller`; un log F7 lee «disco»): pie de base de anclaje atornillado al concreto, sin
-  placa de piso ni soldadura (nada zincado se suelda). Una
+  placa de piso ni soldadura (nada zincado se suelda). v5 (F9): el oculto `mantenimiento` y
+  `motor: "auto"` (sellados con `taller`; un log v4 no los trae y regenera idéntico) y `union`
+  VISIBLE: tocar las ramas `mantenimiento=False`/helicoidal cambia los logs v4 guardados; un
+  agujero inclinado (sobre la línea de centros) es `boolean_op` de una broca, no `drill_hole`. Una
   regla que busque un tipo en el log recorre `comandos_efectivos` (lo hace la de cadenas).
   `create_extrude_poly` extruye hacia la normal del polígono: la receta lo pasa ANTIHORARIO
   (`receta_rodillos_guardas._antihorario`), si no la chapa sale corrida un espesor.

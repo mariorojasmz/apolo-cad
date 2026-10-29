@@ -42,7 +42,7 @@ def disposicion_de(p: CreateRollerConveyorParams):
 
     return disposicion(p.largo, p.ancho_util, p.paso, p.rodillo, p.altura, p.carga_kg,
                        p.motriz == "cadena", p.motor, p.velocidad_m_s, p.anclaje, p.taller, p.eje,
-                       p.pie)
+                       p.pie, p.red_v, p.union, p.mantenimiento)
 
 
 def sellar(params: dict, material_de) -> dict:
@@ -54,11 +54,15 @@ def sellar(params: dict, material_de) -> dict:
     / «roscado» / «disco» → la geometría de siempre; uno F6 trae `taller` sin `eje` → el eje M12
     trabado; uno F7 trae `eje` sin `pie` → el disco soldado a la placa de piso. El replay y los
     edits no sellan y lo explícito se respeta (`taller=False` deja el eje roscado y el disco:
-    hexagonal y base piden `taller`)."""
+    hexagonal y base piden `taller`). F9: con `taller`, también `mantenimiento=True` (E15–E18) y,
+    sin un `motor` explícito, `motor="auto"` (E12: el sinfín por cuenta); un log v4 no trae ni
+    uno ni otro → el MOTOR-037 y la motriz de siempre."""
     params.setdefault("taller", True)
     if params.get("taller") is True:
         params.setdefault("eje", "hexagonal")
         params.setdefault("pie", "base")
+        params.setdefault("mantenimiento", True)
+        params.setdefault("motor", "auto")
     return params
 
 
@@ -126,6 +130,8 @@ SPECS_RODILLOS_CADENA = [
         # v4 (uniones-que-tocan F1): la pared interior de la guarda fija se suelda a sus dos
         # extremos, no a la exterior (77 mm de luz: soldadura fantasma). Misma geometría, pero
         # el checkpoint guarda los fasteners: todo log la corrige y la caché vieja vence.
-        version=4, al_crear=sellar,
+        # v5 (F9): el executor pasa los campos nuevos (`red_v`, `union`, `mantenimiento`, `motor`
+        # «auto») a la disposición; un log v4 (sin ellos) regenera idéntico (huella congelada).
+        version=5, al_crear=sellar,
     ),
 ]
