@@ -33,6 +33,12 @@ v7 (plan faja-compacta, D1–D5): el criterio 9 (el del sello desde su F1; 5–8
 calcula la carrera del tensor de cola y saca el carro al inicio de ella; `motor` acepta los
 motorreductores sinfín de eje hueco (NMRV, con `velocidad` VISIBLE: su relación) y `tensor` la
 «placa-ranurada»: valores que un log viejo no trae (`tests/test_belt_conveyor_compacta.py`).
+
+v8 (faja-compacta F1b, D7–D12): el criterio 10 (el del sello desde la F1b; 5–9 quedan como
+estaban) no rechaza el sinfín por la carga supuesta, dimensiona la ranura de la placa sin el tope
+del perno de catálogo, elige la relación con el radio de la simulación, pone una estación de
+patas a cada lado de cada empalme (cada tramo se sostiene solo) y el empalme de campo de la banda
+(`tests/test_belt_conveyor_f1b_compacta.py`).
 """
 
 from __future__ import annotations
@@ -47,12 +53,12 @@ from .spec import run_executor
 from .state import ExecContext
 
 TRAMO_NUEVO = 6000.0   # barra comercial de tubo (D2)
-CRITERIO_NUEVO = 9     # faja-compacta: el 8 + la carrera del tensor calculada, carro al inicio
+CRITERIO_NUEVO = 10    # faja-compacta F1b: el 9 + tramos que se sostienen solos y empalme de campo
 
 
 def sellar(params: dict, material_de: Callable[[str], str | None]) -> dict:
     """Sello de entrada de una faja NUEVA: con los cierres de la v5, los tramos de 6 m (barra
-    comercial) y el criterio 9 (faja-compacta) (lo que el cliente ya trae se respeta: un test
+    comercial) y el criterio 10 (faja-compacta F1b) (lo que el cliente ya trae se respeta: un test
     puede pedir la v4 tal cual)."""
     params.setdefault("cierres", True)
     params.setdefault("tramo_max", TRAMO_NUEVO)

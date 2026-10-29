@@ -43,6 +43,12 @@ faja-compacta (criterio 9, el del sello desde su F1): la carrera del tensor de c
 carro al INICIO de ella (`belt_conveyor_carrera.py`); valores nuevos de `motor` (motorreductor
 sinfín de eje hueco calzado en el tambor, `belt_conveyor_nmrv*.py`) y de `tensor`
 («placa-ranurada», `belt_conveyor_placa.py`).
+
+faja-compacta F1b (criterio 10, el del sello desde la F1b): el sinfín no se rechaza por la carga
+supuesta y su relación sale con el radio de la simulación (`belt_conveyor_nmrv_cuenta.py`), la
+placa ranurada llega a su tope GEOMÉTRICO (`belt_conveyor_carrera.tope_placa`), una estación de
+patas a cada lado de cada empalme con la cuenta del tramo suelto (`belt_conveyor_tramo_suelto.py`)
+y el empalme de campo de la banda (`belt_conveyor_empalme.py`).
 """
 
 from __future__ import annotations
@@ -204,4 +210,10 @@ def belt_conveyor_parts(
     if c.n_tramos > 1:
         tramos.placas_de_empalme(plan, c)
     retorno.rodillos(plan, c)
+    if c.criterio >= 10:  # faja-compacta F1b: el empalme de campo (D12) y el tramo suelto (D11)
+        from .belt_conveyor_empalme import empalme
+        from .belt_conveyor_tramo_suelto import verificar
+
+        empalme(plan, c)
+        verificar(plan, c)
     return plan

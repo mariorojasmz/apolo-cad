@@ -1,10 +1,10 @@
 {
  "testigo": "faja",
- "descripcion": "create_belt_conveyor v5 por defecto (con sus cierres: guardas inferiores bajo la ranura banda-larguero, placas de cierre de los largueros y techo de cola hasta la cama, F6) con requisitos y funciones D15: aprueba entera",
+ "descripcion": "create_belt_conveyor v5 por defecto (con sus cierres: guardas inferiores bajo la ranura banda-larguero, placas de cierre de los largueros y techo de cola hasta la cama, F6) con el empalme de campo de la banda a mano (registro v20), requisitos y funciones D15: aprueba entera",
  "tortura": false,
  "aprobado": true,
- "version_registro": "19",
- "firma": "9a178d0b311d7cbcd400",
+ "version_registro": "20",
+ "firma": "2b20aa4ca546b1f58f4c",
  "items": {
   "entrega.semaforo": "OK",
   "entrega.gravedad": "OK",

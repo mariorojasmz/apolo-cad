@@ -58,7 +58,7 @@ def clasificadora():
 def test_el_sello_pone_el_criterio_7_y_lado_abierto_es_visible():
     d, _ = _faja()
     p = d.commands[0]["params"]
-    assert p["criterio"] == 9 and p["tramo_max"] == 6000  # F1c: al 8; faja-compacta: al 9
+    assert p["criterio"] == 10 and p["tramo_max"] == 6000  # F1c: al 8; faja-compacta: al 9 y 10
     props = REGISTRY["create_belt_conveyor"].model.model_json_schema()["properties"]
     assert props["lado_abierto"]["enum"] == ["ninguno", "+y", "-y"]
     assert REGISTRY["create_belt_conveyor"].model.model_validate({}).lado_abierto == "ninguno"

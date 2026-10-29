@@ -193,7 +193,7 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `create_extrude_poly` extruye hacia la normal del polígono: la receta lo pasa ANTIHORARIO
   (`receta_rodillos_guardas._antihorario`), si no la chapa sale corrida un espesor.
   [plan](../../../docs/plans/plantilla-rodillos-cadena.md)
-- `create_belt_conveyor` (v7, `exec_faja.py`) también es COMPUESTO: sus piezas llevan el
+- `create_belt_conveyor` (v8, `exec_faja.py`) también es COMPUESTO: sus piezas llevan el
   command_id del comando (la puerta de publicación las cruza, D13b) y corre `fasten`/`ground`
   del plan con ids `{cmd}_u_…`/`{cmd}_g_…`. Cotas y plan en `library/belt_conveyor*.py`: la
   huella D11 no los ve (cambiar su geometría = subir su `version` a mano). Un `tensor`
@@ -215,7 +215,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   v7: el sello en criterio 9 (carrera del tensor = la cuenta de `calidad/tensor.carrera_requerida`,
   carro al INICIO: `Cotas.x_tc` es el centro de la carrera, −half hasta el 8) y los valores nuevos
   `motor` NMRV (con `velocidad`) y `tensor` «placa-ranurada»; el origen de la UCT sigue en su
-  agujero (la puerta lee ahí el tambor). [faja-compacta](../../../docs/plans/faja-compacta.md)
+  agujero (la puerta lee ahí el tambor). v8 (F1b): el sello en criterio 10 (patas a los dos lados
+  de cada empalme con la cuenta del tramo suelto, empalme de campo de la banda, placa sin el tope
+  del perno de catálogo, el sinfín sin rechazo por la carga supuesta y su relación en el nombre
+  «Motorreductor (i = N)», que leen L10 y par); tocar la rama 9 cambia fajas ya selladas
+  (`tests/test_belt_conveyor_f1b_compacta.py`). [faja-compacta](../../../docs/plans/faja-compacta.md)
 - `layout_tablero` (`tablero.py`, V8.5 D1) es de ESCENA, lee el carril (`lee_carril`) y es
   COMPUESTO (corre `fasten`/`add_joint`); su spec va en `SPECS_ELECTRICO`, junto al carril que
   lee, no en `registry.py`. Las cajas salen de `library/electrico/armado.py` y la geometría de

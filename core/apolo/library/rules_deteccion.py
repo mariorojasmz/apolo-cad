@@ -68,7 +68,7 @@ def detect_conveyor(scene: dict, variables: dict | None = None, fasteners=None) 
     motor_specs = CATALOG[motor_ref].specs
     rodillo_ref = Counter(r for _, r in rollers).most_common(1)[0][0] if rollers else "RODILLO-50"
 
-    return _enrich_conveyor({
+    out = _enrich_conveyor({
         "tipo": "banda" if tambores else "rodillos",
         "largo": largo,
         "ancho": ancho,
@@ -81,6 +81,11 @@ def detect_conveyor(scene: dict, variables: dict | None = None, fasteners=None) 
         "torque_Nm": motor_specs.get("torque_Nm"),
         "n_rodillos": len(rollers),
     }, scene, variables)
+    if not out.get("rpm_motor"):  # faja-compacta F1b (D9): la relación de la placa del sinfín
+        from .relacion_motor import rpm_salida
+
+        out["rpm_motor"] = rpm_salida(CATALOG[motor_ref], getattr(motors[0][0], "name", None))
+    return out
 
 
 def _detect_by_name(scene: dict, variables: dict | None = None) -> dict | None:

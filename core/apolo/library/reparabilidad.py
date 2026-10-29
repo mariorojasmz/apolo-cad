@@ -33,6 +33,10 @@ _RODILLO_RE = re.compile(r"\brodillos?\b", re.I)
 _MOTOR_RE = re.compile(r"\b(moto-?reductor(es)?|reductor(es)?|gear-?motor)\b", re.I)
 _EMPALME_RE = re.compile(r"\b(grapas?|empalme\s+mec[aá]nico|clipper|lacing|abierta)\b", re.I)
 DIRECCIONES = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
+CATEGORIA_EMPALME = "empalmes_banda"   # catálogo del empalme de campo (F1b de faja-compacta)
+_HOLGURA_LAZO = 1.0    # mm: cruza la banda a lo ancho si llega a 1 mm de cada borde o más allá
+_ESPESOR_MIN = 0.5     # mm: queda entre los ramales (dentro de la caja de la banda, sin tocarla)
+_APOYOS_DEL_LAZO = ("gira", "eje")  # roles (`roles.rol_union`) de lo que gira con el lazo
 
 
 def desgaste(p: Pieza) -> str | None:
@@ -134,6 +138,39 @@ def camino_libre(barridos: dict[tuple, list[str]], propia: set[str], marco: set[
 
 def empalme_mecanico(p: Pieza) -> bool:
     return bool(_EMPALME_RE.search(p.nombre))
+
+
+def empalme_de_campo(banda: str, piezas: dict[str, Pieza], uniones: list[dict]) -> str | None:
+    """La pieza de EMPALME DE CAMPO de la banda (faja-compacta F1b, D12): una de catálogo
+    `empalmes_banda` con una unión declarada a ella, o None."""
+    for u in uniones:
+        otra = u["b"] if u.get("a") == banda else u["a"] if u.get("b") == banda else None
+        if otra is not None and otra in piezas and piezas[otra].categoria == CATEGORIA_EMPALME:
+            return otra
+    return None
+
+
+def atraviesan_el_lazo(piezas: dict[str, Pieza], banda: str, eje: int,
+                       tambores: set[str]) -> list[str]:
+    """Las piezas (fuera de los tambores que la banda abraza) que ATRAVIESAN su lazo: cruzan la
+    banda entera a lo ancho (eje `eje`) y quedan ENTRE sus dos ramales, dentro del lazo en su
+    plano (cama, soportes de la cama, un travesaño). Por cajas: lo que envuelve el lazo por
+    fuera (una guarda de tambor, un techo) sale del lazo y no cuenta, y lo que GIRA con el lazo
+    (rol «gira» o «eje»: los ejes de los tambores, un rodillo) es su apoyo, como los tambores. Una
+    banda sin fin así atravesada no se cambia sin desarmarlas (faja-compacta F1b, D12)."""
+    lo, hi = piezas[banda].caja
+    largo, alto = sorted((k for k in range(3) if k != eje), key=lambda k: hi[k] - lo[k],
+                         reverse=True)
+    out = []
+    for i, p in piezas.items():
+        if i == banda or i in tambores or p.rol in _APOYOS_DEL_LAZO:
+            continue
+        a, b = p.caja
+        if (a[eje] <= lo[eje] + _HOLGURA_LAZO and b[eje] >= hi[eje] - _HOLGURA_LAZO
+                and a[alto] >= lo[alto] + _ESPESOR_MIN and b[alto] <= hi[alto] - _ESPESOR_MIN
+                and a[largo] < hi[largo] and b[largo] > lo[largo]):
+            out.append(i)
+    return sorted(out)
 
 
 def banda_montable(lados: dict[str, list[str]]) -> dict:

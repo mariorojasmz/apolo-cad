@@ -187,6 +187,8 @@ FEA_HARDWARE_CATS = HARDWARE_CATS | {
     "alimentacion_electrica", "proteccion_electrica", "maniobra_control", "conexion_electrica",
     # neumática (plan V8.9 F2): cilindros, válvulas y aire comprimido no son estructurales
     "cilindros_neumaticos", "valvulas_neumaticas", "aire_comprimido",
+    # el empalme de campo de la banda (faja-compacta F1b): grapas sobre la banda, no estructura
+    "empalmes_banda",
 }
 
 

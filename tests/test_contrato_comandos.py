@@ -285,8 +285,10 @@ VERSIONES: dict[str, tuple[int, str]] = {
     # compuesto: corre fasten/ground; cotas y plan en library/belt_conveyor*.py (D10). v5: cierres
     # (campo oculto que pone el sello de entrada; un log v4 trae False → misma geometría). v6:
     # tramo_max + criterio (faja-larga-en-tramos; un log v5 no los trae → una pieza, criterio 5)
-    # plan faja-compacta F1: v7 (criterio 9, motorreductor sinfín, placa ranurada, `velocidad`)
-    "create_belt_conveyor": (7, "f48031cadb53bcbb"),
+    # plan faja-compacta F1: v7 (criterio 9, motorreductor sinfín, placa ranurada, `velocidad`);
+    # F1b: v8 (criterio 10: patas a los dos lados del empalme, empalme de campo, placa sin el tope
+    # del perno de catálogo; el executor no cambió: la huella es la de la v7)
+    "create_belt_conveyor": (8, "f48031cadb53bcbb"),
     "create_box": (1, "fcc825dfc9669eac"),
     # plan uniones-que-tocan F1: comando nuevo; la geometría vive en library/miembro.py (D10)
     "create_brace": (1, "6f61a7cc0d8a79a8"),

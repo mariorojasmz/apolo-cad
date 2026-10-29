@@ -87,7 +87,7 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     # + 2 de plc-en-el-lazo F1d1 (el panel de operador y el cable de red)
     # + 1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR)
     # + 5 prensaestopas M16–M40 (V8.5 F3) + 2 cables sin PE (CABLE-5X1, CABLE-7X1)
-    assert len(CATALOG) == 477  # + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago
+    assert len(CATALOG) == 478  # + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago, + 1 empalme de campo de la banda (faja-compacta F1b)
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS + DIFERENCIALES + SIN_PE)
@@ -165,8 +165,8 @@ def test_contactores_con_bobina_de_24vdc_y_220vac():
 
 def test_categorias_nuevas_al_final_y_en_su_subsistema():
     i = CATEGORIES.index(NUEVAS_CATEGORIAS[0])  # al final, antes de las neumáticas (V8.9)
-    assert CATEGORIES[i:i + 4] == NUEVAS_CATEGORIAS and CATEGORIES[i + 4:] == [
-        "cilindros_neumaticos", "valvulas_neumaticas", "aire_comprimido"]
+    assert CATEGORIES[i:i + 4] == NUEVAS_CATEGORIAS and CATEGORIES[i + 4:i + 7] == [
+        "cilindros_neumaticos", "valvulas_neumaticas", "aire_comprimido"]  # y las más nuevas
     tree = (RAIZ / "ui" / "src" / "panels" / "Tree.tsx").read_text(encoding="utf-8")
     for cat in NUEVAS_CATEGORIAS:
         assert CAT2SUB[cat] == "Sensores y control"

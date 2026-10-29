@@ -89,7 +89,10 @@ un perno de la serie ISO); v19 (uniones-que-tocan F1) `union.contacto_real` (lo 
 toca: cada soldadura con un cordón medido ≥ max(30 mm, 6·a) de EN 1993-1-8 §4.5.2, cada apoyo con
 área y cada perno cruzando un hueco menor que su largo; `contacto.py`) y el dimensionado de cada
 soldadura con el MENOR entre el largo declarado y el medido (una riostra a 5 mm de su poste con
-«100 mm de cordón» declarados daba τ en verde).
+«100 mm de cordón» declarados daba τ en verde); v20 (faja-compacta F1b, D12)
+`consumibles.reemplazables`: una banda sin fin que ATRAVIESAN piezas además de sus tambores (cama,
+soportes, un travesaño) no se cambia sin desarmarlas y falla salvo con su empalme de campo (pieza
+de catálogo `empalmes_banda` unida a la banda) o el empalme mecánico en su nombre.
 """
 
 from __future__ import annotations
@@ -105,7 +108,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "19"  # 19: lo declarado unido se toca (`union.contacto_real`)
+VERSION_REGISTRO = "20"  # 20: la banda sin fin atravesada pide su empalme de campo
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -220,7 +223,8 @@ MAPA_SEGURIDAD = {
         vacio_ok=("seguridad.guarda_con_herramienta",)),  # «tapas» que no cubren nada (F3b)
     "consumibles.reemplazables": General(
         "Cada pieza de desgaste o consumible se cambia sin cortar uniones permanentes "
-        "(también los lazos cerrados, que deben salir de sus apoyos)", "montaje",
+        "(también los lazos cerrados: salen de sus apoyos o se abren por su empalme de campo)",
+        "montaje",
         ("reparabilidad.*",), hay("consumibles", "sin piezas de desgaste"), "consumibles",
         vacio_ok=("reparabilidad.desgaste_desmontable", "reparabilidad.banda_montable")),
 }

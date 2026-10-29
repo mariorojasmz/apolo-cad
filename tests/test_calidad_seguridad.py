@@ -187,10 +187,21 @@ def test_banda_en_marco_soldado_cerrado_falla(faja_sin_guardas):
     assert ids["larg+Y"] in b["bloqueos"]["+Y"]
 
 
-def test_banda_con_cama_atornillada_es_montable():
+def test_banda_con_cama_atornillada_es_montable_por_su_empalme_de_campo():
+    """faja-compacta F1b (D12, registro v20): la cama atornillada ya no basta. La banda sin fin
+    la atraviesa la cama (los ejes de los tambores no cuentan: son su apoyo) y cambiarla obliga a
+    desarmarla; con el empalme de campo de catálogo unido a la banda, sale abriéndolo."""
     d, ids = _faja(cama="perno")
     it = _item(controles_reparabilidad(d)["items"], ID_BANDA)
-    assert it["estado"] == "OK", it["detalle"]
+    assert it["estado"] == "FALLA", it["detalle"]
+    assert it["evidencia"]["bandas"][0]["atraviesan"] == [ids["cama"]]
+    g = d.execute("insert_component", {"component": "EMPALME-GRAPA-ART", "length": 400,
+                                       "name": "Empalme de campo de la banda",
+                                       "position": {"x": 0, "y": 0, "z": 645},
+                                       "rotation": {"z": 90}})
+    d.execute("fasten", {"name": "empalme", "a": g, "b": ids["banda"], "kind": "contacto"})
+    it = _item(controles_reparabilidad(d)["items"], ID_BANDA)
+    assert it["estado"] == "OK" and "empalme de campo" in it["detalle"], it["detalle"]
 
 
 def test_chumacera_soldada_al_bastidor_falla():

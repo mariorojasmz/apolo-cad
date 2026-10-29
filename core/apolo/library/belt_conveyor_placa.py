@@ -22,6 +22,13 @@ exterior del larguero, y un perno empujador con contratuerca en una oreja soldad
   resto de la tornillería de la plantilla (la BOM lo compra de la nota, con su tuerca): modelado,
   la puerta lo leía como un perno que tiene que enroscar en la placa que empuja y le probaba la
   llave contra la cara del larguero, a 3 mm de su eje.
+- **Criterio 10 (F1b del plan, D8)**: la carrera ya no la limita el perno de catálogo. Si el DIN
+  933 M12 más largo no la cubre, el empujador es una VARILLA ROSCADA M12 DIN 976-1 cortada a
+  medida (de rosca corrida, comercial en barras: el «espárrago» que la BOM compra con su largo) con
+  dos tuercas contra-apretadas en su punta exterior (la cabeza de la llave) y la contratuerca en la
+  oreja. El tope es GEOMÉTRICO (`belt_conveyor_carrera.tope_placa`): lo que el tensor ocupa por la
+  cara exterior del larguero (hasta la punta del empujador y su llave) tiene que caber antes del
+  primer empalme del bastidor y dejar sitio al primer soporte de la cama.
 """
 
 from __future__ import annotations
@@ -60,12 +67,28 @@ def _carrera_max() -> float:
 
 
 CARRERA_MAX = _carrera_max()
+VARILLA = "DIN 976-1"     # criterio 10: la varilla roscada cuando el DIN 933 no cubre la carrera
+PASO_VARILLA = 10.0       # se corta a medida: el largo, redondeado a 10 mm hacia arriba
+
+
+def empujador(c: Cotas) -> tuple[float, bool]:
+    """(largo, es varilla): el DIN 933 de catálogo que cubre la carrera o, con el criterio 10 y
+    una carrera que ninguno cubre, la varilla roscada (con sus dos tuercas de cabeza)."""
+    from .largos_perno import largo_comercial
+
+    largo = largo_comercial(PERNO, _fijos_perno() + c.carrera)
+    if largo is not None or c.criterio < 10:
+        return largo, False
+    from .fijacion import paso_grueso
+
+    cabeza = 2.0 * float(CATALOG[TUERCA].params["thickness"]) + 2.0 * paso_grueso("M12")
+    total = _fijos_perno() + c.carrera + cabeza
+    return PASO_VARILLA * math.ceil(total / PASO_VARILLA - 1e-9), True
 
 
 def medidas(c: Cotas) -> dict:
     """Las cotas de la placa al inicio de la carrera, relativas al eje (x = −half)."""
     from .belt_conveyor_taller import paso
-    from .largos_perno import largo_comercial
 
     p = CATALOG[c.chum_c].params
     w, h = float(p["size_w"]), float(p["size_h"])
@@ -73,13 +96,14 @@ def medidas(c: Cotas) -> dict:
     p0 = w / 2.0 + LLAVE_ESPARRAGO + d0 / 2.0           # el espárrago, al inicio de la carrera
     b = p0 + c.carrera + d0 / 2.0 + math.ceil(1.2 * d0)  # canto +X (donde empuja el perno)
     a = max(w / 2.0 + 10.0, c.carrera + c.d_c / 2.0 + HOLGURA_EJE + 10.0)  # tapa la ranura
-    largo = largo_comercial(PERNO, _fijos_perno() + c.carrera)
+    largo, varilla = empujador(c)
     if largo is None:
         raise ValueError(f"la carrera de {c.carrera:g} mm no cabe en un perno empujador de "
                          f"catálogo ({PERNO})")
     return {"w": w, "h": h, "d0": d0, "p0": p0, "a": a, "b": b, "hz": h / 2.0 + 5.0,
-            "x_e": -c.half + b, "largo_perno": largo,
-            "cabeza": float(CATALOG[PERNO].params["head_h"])}
+            "x_e": -c.half + b, "largo_perno": largo, "varilla": varilla,
+            # la varilla lleva su «cabeza» (las dos tuercas) dentro de su largo
+            "cabeza": 0.0 if varilla else float(CATALOG[PERNO].params["head_h"])}
 
 
 def voladizo(c: Cotas) -> float:
@@ -96,6 +120,22 @@ def x_extremo_tensor(c: Cotas) -> float:
     """Hasta dónde llega el tensor por la cara exterior del larguero (la cabeza del perno)."""
     m = medidas(c)
     return m["x_e"] + m["largo_perno"] + m["cabeza"]
+
+
+def x_fin_oreja(c: Cotas) -> float:
+    """El canto +X de la oreja (donde termina lo soldado del tensor)."""
+    return medidas(c)["x_e"] + HUELGO + OREJA_T
+
+
+def zona_empujador(c: Cotas) -> tuple[float, float, float]:
+    """Criterio 10 (D8): (desde, hasta, z mínima) de la franja de la cara exterior del larguero que
+    recorre el empujador con su llave: un perno pasante con tuerca por fuera (soporte de la cama)
+    puede ir ahí sólo POR ENCIMA, con su llave de vaso sin tocar las tuercas de la punta del
+    empujador (que recorren toda la carrera)."""
+    from .belt_conveyor_bastidor import LLAVE_M8
+
+    r_tuerca = float(CATALOG[TUERCA].params["across_flats"]) / math.sqrt(3.0)  # circunradio
+    return (medidas(c)["x_e"], x_extremo_tensor(c) + LLAVE_M8, c.zc + r_tuerca + LLAVE_M8)
 
 
 def tensor_placa(plan: Plan, c: Cotas, i: int, s: float, rail: str) -> float:
@@ -151,8 +191,14 @@ def tensor_placa(plan: Plan, c: Cotas, i: int, s: float, rail: str) -> float:
     plan.union(f"{osuf}_sold", osuf, rail, "soldadura",
                "oreja soldada a la cara exterior del larguero (filetes a los dos lados)",
                throat_mm=4, length_mm=round(2.0 * OREJA_ALTO, 1))
+    if m["varilla"]:  # criterio 10 (D8): el DIN 933 de catálogo no cubre la carrera
+        quien = (f"empujador de varilla roscada M12x{m['largo_perno']:g} {VARILLA} (espárrago de "
+                 "rosca corrida, cortado a medida) con dos tuercas DIN 934 contra-apretadas en su "
+                 "punta exterior (la cabeza de la llave),")
+    else:
+        quien = f"perno empujador M12x{m['largo_perno']:g} DIN 933"
     plan.union(f"empuje_c{i}", osuf, psuf, "perno",
-               f"perno empujador M12x{m['largo_perno']:g} DIN 933 a la rosca de la oreja "
+               f"{quien} a la rosca de la oreja "
                f"(enganche {OREJA_T:g} mm ≥ 1·d) + contratuerca contra la oreja: su punta empuja "
                f"el canto de la placa hacia la cola al tensar (carrera {c.carrera:g} mm; banda "
                "recién montada: al inicio)", size="M12", qty=1)

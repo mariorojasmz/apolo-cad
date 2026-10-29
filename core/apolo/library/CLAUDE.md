@@ -217,7 +217,9 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   `return`); `tests/test_reglas_faja_congeladas.py` congela tres salidas texto a texto.
   [plan](../../../docs/plans/partir-nucleo-congelado-ii.md) (F3)
 - `detect_conveyor` se enriquece con VARIABLES, nombres y specs de catálogo (reconoce
-  `motorreductores_sinfin`: η = 0.75 sinfín vs 0.85 helicoidal). Un transportador de rodillos a
+  `motorreductores_sinfin`: η = 0.75 sinfín vs 0.85 helicoidal; sin `rpm_salida` de ficha, sus rpm
+  salen de la relación de su PLACA en el nombre, «i = 40», `relacion_motor.py`, y lo declarado
+  gana: [faja-compacta](../../../docs/plans/faja-compacta.md) F1b). Un transportador de rodillos a
   mano (tubo redondo de catálogo con eje, bastidor de ángulo) lo reconoce `rodillos_a_mano.py`
   por catálogo y geometría, sólo con motorreductor. Su capacidad sale de lo MEDIDO
   (`rodillos_a_mano_medida.py`: eje con el Ø que TRABAJA —el menor del vano, no el de su caja—,
@@ -358,7 +360,9 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
 - **Puerta de publicación — seguridad y reparabilidad** (`seguridad/`, `reparabilidad.py`; OCCT en
   `services/calidad_*.py`): peligros ISO 12100 derivados del modelo, sondas ISO 13857 (la banda no
   es peligro ni se atraviesa; el rodillo portante liso no es peligro), guarda atornillada, desgaste
-  sin soldar y desmontable, banda montable. Entran por la fuente «seguridad» (`seguridad.electrico`
+  sin soldar y desmontable, banda montable (sin fin y ATRAVESADA por algo más que sus tambores —la
+  cama, sus soportes— falla salvo su empalme de campo: ref `empalmes_banda` unida a ella;
+  faja-compacta F1b). Entran por la fuente «seguridad» (`seguridad.electrico`
   se descarta: es `riesgos.electrico`). Las sondas rectas no ven lo que se alcanza doblando el
   brazo: `alcance.py` + `services/calidad_codo.py` (la mano ≤ 230 mm, juzgada por
   `sondas.veredicto`). Umbrales y calibración: [plan](../../../docs/plans/puerta-de-publicacion.md)

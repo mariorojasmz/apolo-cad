@@ -163,7 +163,9 @@ def rodamientos_declarados(doc) -> dict | None:
         rpm = _num(var["rpm_motor"]) / _num(var["ratio_red"])
         fuente = "variables rpm_motor / ratio_red"
     if rpm is None:
-        de_catalogo = {_num((c.specs or {}).get("rpm_salida")) for f in doc.scene.values()
+        from apolo.library.relacion_motor import rpm_salida  # F1b de faja-compacta: la «i = N»
+
+        de_catalogo = {_num(rpm_salida(c, getattr(f, "name", None))) for f in doc.scene.values()
                        if (c := CATALOG.get(getattr(f, "component", None) or "")) is not None
                        and c.category in ("motorreductores", "motorreductores_sinfin")}
         if len(de_catalogo) == 1 and None not in de_catalogo:

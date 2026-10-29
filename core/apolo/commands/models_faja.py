@@ -66,8 +66,8 @@ class CreateBeltConveyorParams(BaseModel):
     su eje hueco tiene que ser el Ø del eje del tambor motriz; pide `velocidad`, que elige la
     relación, y la cuenta de potencia juzga el tamaño) calzado en el eje motriz con chaveta, el
     motor acostado a lo largo del larguero hacia la cola y un brazo de reacción a la pata de
-    cabeza, del lado opuesto a `lado_abierto`, sin acople ni base; cama atornillada sobre soportes (la banda se cambia de costado quitando
-    pernos); guardas atornilladas (`guardas`: laterales en L, cajas de los tambores, tapas de los
+    cabeza, del lado opuesto a `lado_abierto`, sin acople ni base; cama atornillada sobre soportes (la banda lleva un empalme de campo de grapas articuladas:
+    se cambia abriéndolo, sin desarmar la cama); guardas atornilladas (`guardas`: laterales en L, cajas de los tambores, tapas de los
     extremos de eje, cubierta del acople y guardas inferiores bajo la ranura entre el borde de la
     banda y el larguero); las puntas de los largueros, cerradas con placa soldada. Una faja
     larga sale en tramos (`tramo_max`, 6000 mm por defecto en toda faja nueva: la barra
@@ -136,7 +136,9 @@ class CreateBeltConveyorParams(BaseModel):
     # con el pie de tuerca soldada y contratuerca y los brazos del motor a tope contra la pata;
     # 8 (F1c) = el 7 con los agujeros de cada unión, sin tuercas dentro de los tubos, paños ≤ 3 m,
     # cama calculada y el largo de cada perno; 9 (faja-compacta D4) = el 8 con la carrera del
-    # tensor de cola calculada y el carro al inicio. Un log de antes no lo trae → 5 → la v5 tal cual.
+    # tensor de cola calculada y el carro al inicio; 10 (faja-compacta F1b) = el 9 con la estación de
+    # patas a cada lado de cada empalme, el empalme de campo de la banda y la placa sin el tope del
+    # perno de catálogo. Un log de antes no lo trae → 5 → la v5 tal cual.
     criterio: SkipJsonSchema[int] = Field(5)
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")

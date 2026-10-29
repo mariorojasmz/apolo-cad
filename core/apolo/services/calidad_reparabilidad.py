@@ -139,9 +139,33 @@ def _eje_de_tambores(dc: dict, banda: str, tambores: list[str]) -> int:
     return lados[1]
 
 
+def _por_que(piezas: dict, b: str, r: dict) -> str:
+    partes = []
+    if r.get("atraviesan"):
+        nombres = ", ".join(piezas[i].nombre for i in r["atraviesan"][:3])
+        mas = r["n_atraviesan"] - min(3, len(r["atraviesan"]))
+        partes.append(f"es sin fin y la atraviesan {nombres}" + (f" y {mas} más" if mas > 0 else "")
+                      + ": cambiarla obliga a desarmarlas; lleva un empalme de campo (grapas "
+                        "articuladas de catálogo, con su unión a la banda)")
+    if r.get("bloqueos"):
+        partes.append("la abrazan " + ", ".join(
+            f"{k}: {', '.join(piezas[i].nombre for i in v[:3])}" for k, v in r["bloqueos"].items()))
+    return f"{piezas[b].nombre}: " + "; ".join(partes)
+
+
 def banda_montable(dc: dict, tr, tambores: dict[str, list[str]]) -> dict:
-    """El ítem `reparabilidad.banda_montable`."""
-    from apolo.library.reparabilidad import NORMA, empalme_mecanico, marco_soldado
+    """El ítem `reparabilidad.banda_montable`. Con un empalme mecánico (en el nombre) o de campo
+    (`empalme_de_campo`) la banda se abre y sale a lo largo: OK. Sin él, un lazo sin fin que
+    ATRAVIESA algo más que sus tambores es FALLA (faja-compacta F1b, D12: cambiarla obliga a
+    desarmar lo que lo atraviesa); si sólo lo abrazan sus tambores, sale de costado salvo marco
+    soldado que pase por dentro."""
+    from apolo.library.reparabilidad import (
+        NORMA,
+        atraviesan_el_lazo,
+        empalme_de_campo,
+        empalme_mecanico,
+        marco_soldado,
+    )
     from apolo.library.reparabilidad import banda_montable as decidir
     from apolo.library.seguridad.modelo import SOLDADAS, clase_flexible, componentes, item, vecinos
 
@@ -163,7 +187,14 @@ def banda_montable(dc: dict, tr, tambores: dict[str, list[str]]) -> dict:
         if empalme_mecanico(pb):
             resultados.append({"banda": b, "montable": True, "modo": "empalme mecánico en sitio"})
             continue
+        empalme = empalme_de_campo(b, piezas, uniones)
+        if empalme:
+            resultados.append({"banda": b, "montable": True, "empalme": empalme,
+                               "modo": f"empalme de campo ({piezas[empalme].nombre})"})
+            continue
         a = _eje_de_tambores(dc, b, tambores.get(b, []))
+        # faja-compacta F1b (D12): sin fin y atravesada → no se cambia sin desarmar
+        atraviesan = atraviesan_el_lazo(piezas, b, a, set(tambores.get(b, [])))
         lo, hi = pb.caja
         # el «adentro» del lazo: su caja en el plano del lazo, a lo ancho de la banda
         esp = 3.0
@@ -183,6 +214,9 @@ def banda_montable(dc: dict, tr, tambores: dict[str, list[str]]) -> dict:
             lados[nombre] = sorted(i for i in cruzan if i in marco
                                    and any(pasa_por_dentro(m) for m in comp_de[i]))
         r = decidir(lados)
+        if atraviesan:
+            r = {**r, "montable": False, "lado": None, "atraviesan": atraviesan[:8],
+                 "n_atraviesan": len(atraviesan)}
         resultados.append({"banda": b, "eje": "XYZ"[a], **r})
         if not r["montable"]:
             malas.append((b, r))
@@ -190,11 +224,9 @@ def banda_montable(dc: dict, tr, tambores: dict[str, list[str]]) -> dict:
     if malas:
         return item(ID_BANDA, titulo, "FALLA", modo, NORMA, ev,
                     [b for b, _ in malas] + [i for _, r in malas for v in r["bloqueos"].values()
-                                             for i in v],
-                    "; ".join(f"{piezas[b].nombre}: la abrazan "
-                              + ", ".join(f"{k}: {', '.join(piezas[i].nombre for i in v[:3])}"
-                                          for k, v in r["bloqueos"].items())
-                              for b, r in malas[:3]))
+                                             for i in v]
+                    + [i for _, r in malas for i in r.get("atraviesan", ())],
+                    "; ".join(_por_que(piezas, b, r) for b, r in malas[:3]))
     return item(ID_BANDA, titulo, "OK", modo, NORMA, ev,
                 detalle="; ".join(f"{piezas[r['banda']].nombre}: "
                                   + (r.get("modo") or f"sale por {r['lado']}")

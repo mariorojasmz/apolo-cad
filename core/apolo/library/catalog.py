@@ -80,6 +80,8 @@ CATEGORIES = [
     "alimentacion_electrica", "proteccion_electrica", "maniobra_control", "conexion_electrica",
     # catálogo neumático genérico (plan V8.9 D16)
     "cilindros_neumaticos", "valvulas_neumaticas", "aire_comprimido",
+    # empalme de campo de la banda (plan faja-compacta F1b, D12)
+    "empalmes_banda",
 ]
 
 

@@ -193,6 +193,13 @@ def x_rodillos(c: Cotas) -> list[float]:
     cands = [x for x in cands if xa < x < xb
              and all(abs(x - p) >= LEG_W / 2.0 + SOPORTE_RET_W / 2.0 + 10.0 for p in patas)
              and all(abs(x - s) >= EMPALME_T + SOPORTE_RET_W / 2.0 + 10.0 for s in c.empalmes)]
+    from .belt_conveyor_bastidor import sobre_empujador
+
+    if sobre_empujador(c):  # faja-compacta F1b (D8): sus tuercas, fuera de la franja del empujador
+        from .belt_conveyor_placa import zona_empujador
+
+        za, zb, _ = zona_empujador(c)
+        cands = [x for x in cands if not za - SOPORTE_RET_W < x < zb + SOPORTE_RET_W]
     n = math.ceil(c.largo / PASO_RETORNO - 1e-9) - 1
 
     def vanos_ok(xs):

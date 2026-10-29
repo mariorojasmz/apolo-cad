@@ -41,7 +41,9 @@ F8 = ["PRESOSTATO-1-10BAR"]
 
 
 def test_categorias_al_final_con_sus_refs():
-    assert CATEGORIES[-3:] == list(NUEVAS)  # al final: no reordenan la UI
+    j = CATEGORIES.index("cilindros_neumaticos")  # al final: no reordenan la UI; después,
+    assert CATEGORIES[j:j + 3] == list(NUEVAS)  # sólo las más nuevas (empalmes_banda, F1b)
+    assert CATEGORIES[j + 3:] == ["empalmes_banda"]
     for categoria, refs in NUEVAS.items():
         extra = F7B + RACORES + F8 if categoria == "aire_comprimido" else []
         assert sorted(refs_in_category(categoria)) == sorted(refs + extra)

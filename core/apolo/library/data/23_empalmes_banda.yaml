@@ -1,0 +1,25 @@
+category: empalmes_banda
+# EMPALME DE CAMPO de una banda transportadora liviana (plan faja-compacta F1b, D12): grapas
+# metálicas ARTICULADAS que se clavan en las dos puntas de la banda y se unen con un PASADOR. Para
+# cambiar la banda se saca el pasador y se tira de ella a lo largo de la faja: no hay que desarmar
+# la cama, sus soportes ni el retorno que atraviesan el lazo (con una banda sin fin, sí).
+# Función a respetar al reemplazarla: empalme mecánico ARTICULADO (abre por su pasador) para el
+# espesor y la tracción de la banda que se compre, apto para pasar sobre la cama de deslizamiento
+# y por el Ø del tambor más chico de la faja (lo dice la tabla de selección del fabricante).
+# Línea de referencia: del orden de Flexco Clipper® (ganchos de alambre con pasador) o Flexco
+# Alligator® Wire Hooks; se consiguen con los proveedores de bandas de PVC.
+# COTAS: envolvente REPRESENTATIVA de la tira de grapas sobre la cara de la banda (25 mm a lo
+# largo de la banda, 2 mm de alto), NO las de un tamaño concreto: verificar con la ficha del
+# fabricante. Peso = esa envolvente en acero (7850 kg/m³), por metro de ancho de banda.
+# cost_por_m = USD REFERENCIAL de orden de magnitud, SIN COTIZAR (grapas + pasador por metro de
+# ancho de banda): actualizar con el proveedor para cotizar en firme.
+components:
+  - ref: EMPALME-GRAPA-ART
+    name: Empalme de campo de grapas articuladas
+    description: Tira de grapas metálicas articuladas con pasador para empalmar en sitio una banda liviana de PVC; se abre sacando el pasador para cambiar la banda sin desarmar la cama. Se corta al ancho de la banda. Verificar el tamaño de grapa con la tabla del fabricante (espesor de banda y Ø de tambor mínimo).
+    builder: guard
+    params: {thickness: 25, height: 2}
+    weight: 0.39
+    cuttable: true
+    default_length: 600
+    specs: {tipo: "empalme mecánico articulado (grapas + pasador)", material: acero, abre: pasador, linea_referencia: "orden de Flexco Clipper® / Alligator® Wire Hooks", cotas_verificadas: false, cost_por_m: 45}

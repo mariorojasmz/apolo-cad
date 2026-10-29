@@ -91,17 +91,18 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
             # de todos los candidatos (motor + reductor), el de mayor potencia CONOCIDA:
             # specs de catálogo (potencia_kW — un NMRV insertado la lleva) o legible en el
             # nombre — así el "Motor 1.5HP" gana al "Reductor 1:30" (que no la lleva)
-            kw, kw_comp = 0.0, None
+            kw, kw_comp, kw_nombre = 0.0, None, None
             for f in cands:
                 comp = CATALOG.get(getattr(f, "component", None) or "")
                 spec_kw = float((comp.specs or {}).get("potencia_kW") or 0.0) if comp else 0.0
                 name_kw = _parse_power_kw(getattr(f, "name", "")) or 0.0
                 if max(spec_kw, name_kw) > kw:
-                    kw, kw_comp = max(spec_kw, name_kw), comp
+                    kw, kw_comp, kw_nombre = max(spec_kw, name_kw), comp, getattr(f, "name", None)
             if kw > 0:  # un motorreductor de catálogo trae sus rpm de salida (par, vida L10)
+                from .relacion_motor import rpm_salida  # faja-compacta F1b: la «i = N» del sinfín
+
                 base["motor_kW"] = kw
-                base["rpm_motor"] = base.get("rpm_motor") or (
-                    (kw_comp.specs or {}) if kw_comp is not None else {}).get("rpm_salida")
+                base["rpm_motor"] = base.get("rpm_motor") or rpm_salida(kw_comp, kw_nombre)
                 if not base.get("torque_Nm") and base.get("rpm_motor"):
                     omega = base["rpm_motor"] * 2.0 * math.pi / 60.0
                     if omega > 0:

@@ -23,8 +23,10 @@ NMRV = {"motor": "NMRV-063", "velocidad": 0.5}
 
 
 def _faja(**params):
+    """Con el criterio 9 (el de la F1): el de la F1b (10) lo prueba
+    `test_belt_conveyor_f1b_compacta.py`; aquí queda fijo lo que la F1 selló."""
     d = Document()
-    cid = d.execute("create_belt_conveyor", params)
+    cid = d.execute("create_belt_conveyor", {"criterio": 9, **params})
     return d, cid
 
 
@@ -69,11 +71,11 @@ def placa():
     return _faja(tensor="placa-ranurada")
 
 
-def test_el_sello_pone_el_criterio_9():
+def test_el_sello_respeta_el_criterio_9():
     from apolo.commands.exec_faja import CRITERIO_NUEVO
 
     d, _ = _faja()
-    assert CRITERIO_NUEVO == 9 and d.commands[0]["params"]["criterio"] == 9
+    assert CRITERIO_NUEVO >= 9 and d.commands[0]["params"]["criterio"] == 9
 
 
 # ------------------------------------------------------------------ D1, D2: NMRV
@@ -279,6 +281,8 @@ def test_d6_la_puerta_del_nmrv_con_placa_sin_falla_nueva():
     tg = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tg)
 
+    # con el criterio del sello (10 desde la F1b): el 9 no trae el empalme de campo y, desde el
+    # registro v20, su banda sin fin atravesada por la cama falla en `consumibles.reemplazables`
     d = Document("faja-compacta")
     d.execute("create_belt_conveyor", {"tensor": "placa-ranurada", **NMRV})
     d.set_requirements(dict(tg.REQUISITOS))
@@ -289,9 +293,10 @@ def test_d6_la_puerta_del_nmrv_con_placa_sin_falla_nueva():
     assert fallas == ["diseno.sin_sobrantes"], [(k, est[k].get("detalle")) for k in fallas]
     sobran = est["diseno.sin_sobrantes"]["detalle"]
     for nueva in ("Motorreductor", "Brazo de reacción", "Soporte del brazo", "Placa ranurada",
-                  "Oreja del tensor"):
+                  "Oreja del tensor", "Empalme de campo"):
         assert nueva not in sobran
     for iid in ("union.contacto_real", "transmision_flexible.tension", "riesgos.partes_moviles",
+                "consumibles.reemplazables", "elementos_rodantes.l10",
                 "union.acceso_herramienta", "accionamiento.factor_servicio", "entrega.semaforo",
                 "entrega.gravedad"):
         assert est[iid]["estado"] == "OK", (iid, est[iid].get("detalle"))

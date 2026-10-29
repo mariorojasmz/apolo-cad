@@ -13,7 +13,11 @@ cama con sus soportes y sus guardas laterales, y se une al siguiente por un EMPA
   placa (la pata no cae sobre la placa ni tapa los pernos de abajo): el empalme queda apoyado y
   trabaja a corte, sin voladizo;
 - las estaciones se calculan JUNTAS (`belt_conveyor_bastidor.estaciones`): las de los extremos y
-  las de los empalmes primero, y las intermedias sólo donde un vano pasa `VANO_MAX`.
+  las de los empalmes primero, y las intermedias sólo donde un vano pasa `VANO_MAX`;
+- con el criterio 10 (faja-compacta F1b, D11) hay una estación a CADA lado del empalme
+  (`pata_de_empalme_cabeza`): al desarmar, la punta del tramo de la cabeza ya no cuelga de los
+  pernos del empalme y cada tramo se sostiene solo, con su cuenta de vuelco
+  (`belt_conveyor_tramo_suelto.py`).
 
 Sin `tramo_max` (los logs de antes de la v6) o con un tramo que cubre todo, el bastidor sale en
 una pieza, con los mismos sufijos y la misma geometría de siempre (`rail1`, `cama`…).
@@ -62,6 +66,12 @@ def partir(c: Cotas) -> tuple[tuple, tuple]:
 def pata_de_empalme(s: float) -> float:
     """X de la estación de patas de un empalme: bajo el tramo de la cola, junto a la placa."""
     return s - EMPALME_T - PATA_A_EMPALME - LEG_W / 2.0
+
+
+def pata_de_empalme_cabeza(s: float) -> float:
+    """Criterio 10 (faja-compacta F1b, D11): la estación del OTRO lado del empalme, bajo el tramo
+    de la cabeza, simétrica de `pata_de_empalme`: cada tramo apoya en sus dos puntas."""
+    return s + EMPALME_T + PATA_A_EMPALME + LEG_W / 2.0
 
 
 def indice(c: Cotas, x: float) -> int:

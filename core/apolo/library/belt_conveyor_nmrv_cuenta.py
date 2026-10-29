@@ -12,7 +12,21 @@ D2). Pura: de las cotas a los números, sin OCCT. La geometría, en `belt_convey
   + banda) con μ = 0,33 (banda sobre cama), la carga de diseño de la cama (`CARGA_KG_M`, la misma de
   `belt_conveyor_cama.py`: la plantilla no recibe la del encargo) y el peso del lazo de banda (PVC);
   η = 0,75 del sinfín-corona (`rules_enriquecer`, ya reconocida por la regla) y el margen de servicio
-  `POWER_MARGIN`. Si la placa del motor no alcanza: error con el NMRV siguiente que alcanza.
+  `POWER_MARGIN`. Si la placa del motor no alcanza: error con el NMRV siguiente que alcanza
+  (criterio ≤ 9).
+
+Con el criterio 10 (F1b del plan):
+- **D7** la plantilla no rechaza por potencia: la carga de la cuenta es la SUPUESTA de la cama
+  (no conoce la del encargo; en la mesa de sorteo eran 14 kg/m reales contra 50) y quien juzga es
+  la regla de motorización con los requisitos (`rules_faja_motor`). Si no alcanza con la supuesta,
+  la cuenta sale `ok: False` con su `aviso` (la nota de la unión del eje lo repite), no error.
+  Sólo lo GEOMÉTRICO (el calce) sigue siendo error.
+- **D9** la velocidad sale con el radio de la CARA de la banda sobre el tambor (exterior + espesor):
+  el mismo que la simulación (`physics.banda.superficie_banda`: del eje al tope de la banda); con
+  el exterior del tambor solo, 56,8 contra 60,8 mm en la mesa de sorteo (7 % en la velocidad).
+- **D10** η = 0,75 sigue como CRITERIO DE DISEÑO: ni el repo ni las normas a mano tienen la ficha
+  del fabricante con el rendimiento por relación (el de un sinfín cae con la relación: la ficha
+  eléctrica de la familia lo deja en 0,45–0,90 como ajuste de `add_device`).
 - **Brazo de reacción**: con el par de ARRANQUE (2 × el nominal de salida: arranque directo de un
   motor de inducción, el criterio de la base del coaxial, `belt_conveyor_motor.ARRANQUE`), la fuerza
   en el anclaje F = T / R; la flexión del brazo en su raíz (σ ≤ 0,6·f_y, A36), el corte del perno del
@@ -72,7 +86,8 @@ def cuenta(c, largo_lazo: float) -> dict:
                          "(m/s) para elegir su relación")
     comp = CATALOG[ref]
     n_motor = float(comp.electrico.modelo["n_rpm"])
-    d_ext = 2.0 * c.r_m
+    f1b = c.criterio >= 10
+    d_ext = 2.0 * (c.r_m + c.t) if f1b else 2.0 * c.r_m  # D9: el radio de la simulación
     n_pedida = c.velocidad * 60.0 / (math.pi * d_ext / 1000.0)
     serie = [float(i) for i in comp.specs["relaciones_i"]]
     i = min(serie, key=lambda k: abs(n_motor / k - n_pedida))
@@ -86,7 +101,9 @@ def cuenta(c, largo_lazo: float) -> dict:
     out = {
         "titulo": "Motorreductor sinfín de eje hueco",
         "entradas": {"motorreductor": ref, "velocidad pedida": f"{c.velocidad:g} m/s",
-                     "motor": f"{n_motor:g} rpm", "Ø tambor (engomado)": f"{d_ext:.1f} mm",
+                     "motor": f"{n_motor:g} rpm",
+                     ("Ø de la cara de la banda" if f1b else "Ø tambor (engomado)"):
+                         f"{d_ext:.1f} mm",
                      "carga de diseño": f"{CARGA_KG_M:g} kg/m × {c.largo / 1000.0:g} m",
                      "banda": f"{banda:.1f} kg", "μ banda-cama": f"{BED_FRICTION}",
                      "η sinfín": f"{ETA_SINFIN}", "margen": f"{POWER_MARGIN}x"},
@@ -98,11 +115,20 @@ def cuenta(c, largo_lazo: float) -> dict:
         "resultado": f"P requerida = {p_req:.2f} kW; motor {p:g} kW",
         "criterio": "P motor ≥ P requerida",
         "fs": round(p / p_req, 2) if p_req > 0 else None,
-        "norma": "CEMA (unit handling) — slider bed; carga: criterio de diseño (la de la cama)",
+        "norma": "CEMA (unit handling) — slider bed; carga: criterio de diseño (la de la cama)"
+                 + ("; η 0,75: criterio de diseño (sin ficha del fabricante por relación)"
+                    if f1b else ""),
         "relacion": i, "n_tambor_rpm": round(n_tambor, 1), "v_m_s": round(v, 3),
         "p_req_kw": round(p_req, 3), "p_motor_kw": p,
         "par_salida_nm": round(p * 1000.0 * ETA_SINFIN / (n_tambor * 2.0 * math.pi / 60.0), 1),
     }
+    if p < p_req and f1b:  # D7: la potencia la juzga la regla con la carga del encargo
+        out["ok"] = False
+        out["aviso"] = (f"con la carga de diseño SUPUESTA de la cama ({CARGA_KG_M:g} kg/m) la banda "
+                        f"a {v:.2f} m/s pediría {p_req:.2f} kW y el {ref} da {p:g} kW: la "
+                        "motorización la juzga engineering_check con la carga del encargo "
+                        "(requisito carga_kg)")
+        return out
     if p < p_req:
         mas = sorted((r for r in refs_in_category(CATEGORIA) if _potencia_kw(r) >= p_req),
                      key=_potencia_kw)

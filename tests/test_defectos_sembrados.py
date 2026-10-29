@@ -310,11 +310,23 @@ def chumacera_soldada(d):
                          "kind": "soldadura", "throat_mm": 3, "length_mm": 100})
 
 
+def sin_empalme_de_campo(d):
+    """faja-compacta F1b (D12, registro v20): sin su empalme de campo, la banda es sin fin y la
+    atraviesan la cama y sus soportes: no se cambia sin desarmarlos (la re-revisión de la mesa de
+    sorteo, MEDIA). La pieza se quita de la escena con su unión, como haría `remove_commands`."""
+    g = _id(d, "Empalme de campo de la banda (grapas articuladas)")
+    d.scene.pop(g)
+    d.fasteners = {k: f for k, f in d.fasteners.items() if g not in (f.get("a"), f.get("b"))}
+
+
 def travesano_en_el_lazo(d):  # un travesaño soldado a los dos largueros DENTRO del lazo
     b = _caja(d, "Travesaño interior", 40, 772, 40, 0, 0, 840)
     for k in (1, 2):
         d.execute("fasten", {"name": f"s{k}", "a": b, "b": _id(d, f"Faja de banda · Larguero ({k})"),
                              "kind": "soldadura", "throat_mm": 4, "length_mm": 80})
+    # con el empalme de campo la banda se abre y sale igual: el defecto es el lazo SIN empalme
+    # (al final: cada `execute` regenera la escena y lo traería de vuelta)
+    sin_empalme_de_campo(d)
 
 
 def sin_guardas(d):
@@ -432,6 +444,8 @@ DEFECTOS = (
             {"riesgos.resguardos_desmontables_con_herramienta": FALLA}),
     Defecto("chumacera_soldada", "faja", chumacera_soldada, {"consumibles.reemplazables": FALLA}),
     Defecto("travesano_en_el_lazo", "faja", travesano_en_el_lazo,
+            {"consumibles.reemplazables": FALLA}),
+    Defecto("sin_empalme_de_campo", "faja", sin_empalme_de_campo,
             {"consumibles.reemplazables": FALLA}),
     Defecto("sin_guardas", "faja", sin_guardas, {"riesgos.partes_moviles": FALLA}),
     Defecto("sin_cierres", "faja", sin_cierres, {"riesgos.partes_moviles": FALLA}),

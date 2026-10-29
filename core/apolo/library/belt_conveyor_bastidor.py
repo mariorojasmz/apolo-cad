@@ -41,7 +41,13 @@ from .belt_conveyor_cotas import (
 )
 from .belt_conveyor_plan import Plan, caja, cilindro_y, ranura_x
 from .belt_conveyor_tramos import cama as cama_suf
-from .belt_conveyor_tramos import nombre_larguero, pata_de_empalme, rail, tramos_cama
+from .belt_conveyor_tramos import (
+    nombre_larguero,
+    pata_de_empalme,
+    pata_de_empalme_cabeza,
+    rail,
+    tramos_cama,
+)
 from .catalog import CATALOG, build_component
 
 CIERRE_T = 3.0           # placa de cierre de la punta del larguero (v5)
@@ -95,7 +101,10 @@ def estaciones(c: Cotas) -> list[float]:
     que hagan falta para que ningún vano pase de `VANO_MAX`. Se calculan JUNTAS: las fijas
     primero y las intermedias repartidas en cada vano entre fijas, así ninguna pata cae sobre una
     placa de empalme."""
-    fijas = [c.x_leg_t] + [pata_de_empalme(s) for s in c.empalmes] + [c.x_leg_h]
+    junto = [pata_de_empalme(s) for s in c.empalmes]
+    if c.criterio >= 10:  # faja-compacta F1b (D11): una a cada lado: cada tramo se sostiene solo
+        junto = sorted(junto + [pata_de_empalme_cabeza(s) for s in c.empalmes])
+    fijas = [c.x_leg_t] + junto + [c.x_leg_h]
     extra = []
     for a, b in zip(fijas, fijas[1:]):
         vano = b - a
@@ -221,9 +230,11 @@ def _libres(c: Cotas) -> tuple[float, float]:
         return float(CATALOG[ref].params["size_w"]) + 30.0
 
     if c.placa_c:  # faja-compacta D3: hasta la cabeza del perno empujador
-        from .belt_conveyor_placa import x_extremo_tensor
+        from .belt_conveyor_placa import x_extremo_tensor, x_fin_oreja
 
-        x_cola = x_extremo_tensor(c)
+        # F1b (D8): con el criterio 10, si los pernos del soporte caben por encima del empujador,
+        # los soportes empiezan después de la oreja (la cama no queda en voladizo largo)
+        x_cola = x_fin_oreja(c) if sobre_empujador(c) else x_extremo_tensor(c)
     else:
         cola = (float(CATALOG[c.uct].params["L"]) / 2.0 if c.uct else ancho_placa(c.chum_c) / 2.0)
         if c.uct and c.criterio >= 8:  # F1c (D11): la placa porta-tensor sale del marco
@@ -238,12 +249,14 @@ def pernos_soporte(c: Cotas, x: float) -> list[tuple[float, float]]:
     """(x, z) de los dos pernos pasantes de la placa del soporte de cama en `x` (criterio 6):
     uno sobre otro si el alma del larguero da (el buje entero dentro del hueco del tubo y
     1,2·d0 de la placa al borde), si no lado a lado."""
-    from .belt_conveyor_retorno import agujero_perno, limites_buje
-
     z0, z1 = z_soportes(c)
-    lo, hi = limites_buje(c)
-    borde = 1.2 * agujero_perno()
-    lo, hi = max(lo, z0 + borde), min(hi, z1 - borde)
+    lo, hi = _rango_pernos(c)
+    if sobre_empujador(c):  # F1b (D8): en la franja del empujador, sólo por encima de él
+        from .belt_conveyor_placa import zona_empujador
+
+        xa, xb, z_min = zona_empujador(c)
+        if xa - 30.0 <= x <= xb + 30.0:  # la placa del soporte (±30) toca la franja
+            lo = max(lo, z_min)
     zc = (z0 + z1) / 2.0
     if hi - lo >= LEG_W / 2.0:
         zc = min(max(zc, lo + LEG_W / 4.0), hi - LEG_W / 4.0)
@@ -253,6 +266,27 @@ def pernos_soporte(c: Cotas, x: float) -> list[tuple[float, float]]:
                          "con su buje: usa un tubo de más canto")
     z = min(max(zc, lo), hi)
     return [(x - 15.0, z), (x + 15.0, z)]
+
+
+def _rango_pernos(c: Cotas) -> tuple[float, float]:
+    """(z mín, z máx) del eje de un perno pasante del soporte de la cama: el buje dentro del tubo
+    y 1,2·d0 de la placa del soporte a su borde."""
+    from .belt_conveyor_retorno import agujero_perno, limites_buje
+
+    z0, z1 = z_soportes(c)
+    lo, hi = limites_buje(c)
+    borde = 1.2 * agujero_perno()
+    return max(lo, z0 + borde), min(hi, z1 - borde)
+
+
+def sobre_empujador(c: Cotas) -> bool:
+    """Criterio 10 con placa ranurada: los pernos del soporte de la cama caben POR ENCIMA de la
+    franja del empujador (`belt_conveyor_placa.zona_empujador`), uno junto al otro."""
+    if not (c.placa_c and c.criterio >= 10):
+        return False
+    from .belt_conveyor_placa import zona_empujador
+
+    return _rango_pernos(c)[1] >= zona_empujador(c)[2]
 
 
 def z_soportes(c: Cotas) -> tuple[float, float]:

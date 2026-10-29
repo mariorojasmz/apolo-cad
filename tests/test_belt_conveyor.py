@@ -141,7 +141,9 @@ def test_belt_conveyor_genera_todas_las_piezas():
     assert cuenta("Guarda del rodillo de retorno") == 1 and cuenta("Placa de empalme") == 0
     # F1b (criterio 7): tuerca soldada y contratuerca en cada pie
     assert cuenta("Tuerca soldada del pie") == 4 and cuenta("Contratuerca del pie") == 4
-    assert len(d.scene) == 89
+    # faja-compacta F1b (criterio 10): el empalme de campo de la banda
+    assert cuenta("Empalme de campo de la banda") == 1
+    assert len(d.scene) == 90
 
 
 def test_belt_conveyor_banda_es_lazo_hueco():

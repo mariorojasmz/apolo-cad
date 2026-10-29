@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 mergeada (2026-10-28; create_belt_conveyor v7, criterio 9; el motriz NMRV sobresale 222,6 mm contra 776,4 del coaxial); F2 primera corrida APROBADA con 12 puestos pero la familia 24/36 no regenera y la re-revisión marcó dos MEDIA de la plantilla; F1b (D7–D12, criterio 10) lanzada; después se repite F2
+nota: F1 mergeada (2026-10-28; create_belt_conveyor v7, criterio 9; el motriz NMRV sobresale 222,6 mm contra 776,4 del coaxial); F2 primera corrida APROBADA con 12 puestos pero la familia 24/36 no regenera y la re-revisión marcó dos MEDIA de la plantilla; F1b (D7–D12) implementada, sin mergear (create_belt_conveyor v8, criterio 10, registro de la puerta v20; la mesa de 36 puestos regenera: carrera 310 mm, 5 tramos estables solos, empalme de campo); después se repite F2
 descripcion: La faja ofrece motorreductor sinfín de eje hueco calzado en el tambor (motor a lo largo del larguero) y tensor de placa ranurada, con la carrera del tensor calculada y el carro al inicio
 ---
 
@@ -231,3 +231,122 @@ criterio 9. Módulos nuevos por responsabilidad: `belt_conveyor_carrera.py` (D4)
 **No cubierto en la F1**: la F2 (la mesa de sorteo por MCP); la meta de ≤ 200 mm (ver lo
 medido); la carga del encargo en la cuenta del NMRV (F1-2); el agarre del perno empujador, que la
 puerta no mide (declarado); la ranura de la UCT en una faja larga con el lado abierto (F1-13 b).
+
+### F1b (2026-10-28)
+
+Implementada en la rama del agente (worktree), sin mergear. `create_belt_conveyor` v8, sello en
+criterio 10 (5–9 regeneran igual: piezas, uniones, volumen, notas y nombres del criterio 9
+congelados en `tests/test_belt_conveyor_f1b_compacta.py`). Módulos nuevos:
+`belt_conveyor_empalme.py` (D12), `belt_conveyor_tramo_suelto.py` (D11), `relacion_motor.py`
+(D9); el catálogo suma `23_empalmes_banda.yaml` (categoría `empalmes_banda`). La puerta sube a
+`VERSION_REGISTRO` 20.
+
+**Decisiones del agente (vetables, por número):**
+
+- **F1b-1 (D7) Aviso, no error**: con el criterio 10 la cuenta del sinfín con la carga SUPUESTA de
+  la cama (50 kg/m) que no alcanza sale `ok: False` con su `aviso` en `Plan.calculos` y en la nota
+  de la unión `motor_eje` («AVISO: … la juzga engineering_check con la carga del encargo»): la
+  plantilla no recibe los requisitos, así que el aviso va siempre que la supuesta no da, haya o no
+  requisitos; con ellos, la regla `motorización` de siempre juzga. El calce sigue siendo error.
+- **F1b-2 (D9) La relación va en el NOMBRE** («Motorreductor (i = 40)», sólo criterio 10): es la
+  placa del reductor que se compra, un dato que el sistema lee del nombre como el nameplate
+  (excepción de la raíz). `relacion_motor.rpm_salida` = n_rpm de la placa del motor / i, sólo
+  para refs con `relaciones_i` y sin `rpm_salida` de ficha; lo leen la detección de la faja
+  (`rules_deteccion`, `rules_enriquecer`) y `rodamientos_declarados`. Lo declarado gana (requisito
+  o variable `rpm_salida`: el variador a 65 Hz de la mesa).
+- **F1b-3 (D9) El radio de la simulación**: la velocidad de la cuenta usa el radio de la CARA de
+  la banda (exterior del tambor + espesor), el de `physics.banda.superficie_banda` (del eje al tope
+  de la banda). El de la línea media (+ t/2) sería el físico; se eligió el de la simulación porque
+  el contrato pide que coincidan y es la cifra que el escenario mide (3,4 % de diferencia con la
+  línea media en el TAMBOR-102). La regla `velocidad` de `engineering_check` sigue con el Ø
+  medido del tambor (no es la plantilla: fuera de esta fase).
+- **F1b-4 (D10) η = 0,75 como criterio de diseño**: ni el repo ni `C:\t\normas` tienen la ficha de
+  Motovario (ni de otro fabricante de sinfín) con el rendimiento por relación; la cuenta lo
+  escribe así en su `norma`. La ficha eléctrica de la familia ya lo deja en 0,45–0,90 como ajuste.
+- **F1b-5 (D8) Varilla roscada cuando el perno no alcanza**: el tope de 165 mm era el DIN 933 M12
+  más largo del catálogo (200). Con el criterio 10, si ninguno cubre la carrera el empujador es una
+  varilla roscada M12 DIN 976-1 cortada a medida (de 10 en 10 mm) con dos tuercas DIN 934
+  contra-apretadas en su punta (la cabeza de la llave) y la contratuerca en la oreja; la nota dice
+  «espárrago de rosca corrida» y la BOM la compra como espárrago con su largo y tuerca. El pandeo
+  del empujador no se calcula: tensada la banda, la placa queda apretada por los espárragos M10 y
+  el empujador sólo posiciona (vetable).
+- **F1b-6 (D8) El tope geométrico** (`belt_conveyor_carrera.tope_placa`, en `carrera_tensor` como
+  `tope_geometrico_mm` y `tope_por`): la carrera más larga, en pasos de 5 mm, con la que (a) el
+  primer empalme sigue dejando su estación de patas, (b) la punta del empujador con su llave no
+  pasa la placa del primer empalme y (c) desde donde empiezan los soportes de la cama quedan 160 mm
+  (dos placas de 60 + 40: criterio de diseño) antes del final de la primera chapa de la cama. Se
+  mide desde la carrera elegida hacia arriba (o hacia abajo si no cabe), así el tope escrito nunca
+  contradice el veredicto aunque al crecer la carrera la faja cambie de número de tramos. Más
+  allá, error «la placa ranurada llega a N mm en esta faja (motivo): acorta la faja o alarga el
+  tramo». Con una UCT que no alcanza, el error dice ese tope.
+- **F1b-7 (D8) Los soportes de la cama sobre el empujador**: con la varilla larga, correr los
+  soportes hasta pasar su punta dejaba la cama de la mesa de 36 en voladizo de ~700 mm (ninguna
+  chapa ≤ 8 mm daba la cuenta de la cama). Con el criterio 10, en la franja que recorre el
+  empujador (de la placa a su punta con la llave) los pernos pasantes de los soportes van uno junto
+  al otro POR ENCIMA de él (z ≥ eje de cola + circunradio de la tuerca M12 + llave de vaso M8), si el
+  alma del larguero lo deja (`bastidor.sobre_empujador`); entonces los soportes empiezan tras la
+  oreja. Si no, se corren como en el criterio 9. Los rodillos de retorno no van en esa franja.
+- **F1b-8 (D11) Una estación a cada lado** del empalme (`tramos.pata_de_empalme_cabeza`, simétrica
+  de la de la cola, soldada al tramo de la cabeza). Cuenta del tramo suelto
+  (`belt_conveyor_tramo_suelto.py`): sin la banda ni el empalme de campo, masa de ficha (compra con
+  peso por unidad) o volumen × densidad, centro = el de la caja de cada pieza (hipótesis declarada),
+  margen del CG a la base ≥ 10 % por dirección (el de `estructura.vuelco`); si no, error.
+- **F1b-9 (D12) El empalme de campo SIEMPRE con el criterio 10**: en la plantilla la cama y sus
+  soportes atraviesan el lazo en toda faja. Ref nueva `EMPALME-GRAPA-ART` (grapas articuladas con
+  pasador, del orden de Flexco Clipper® / Alligator® Wire Hooks; envolvente representativa 25 × 2 mm
+  por metro de ancho, `cotas_verificadas: false`; `cost_por_m` 45 USD REFERENCIAL de orden de
+  magnitud, SIN COTIZAR) con builder `guard` (cortable al ancho). Se modela sobre la cara exterior
+  del ramal de retorno, en el medio del vano libre entre el tambor de cola y el primer rodillo de
+  retorno, girada a la pendiente del ramal (se toca con la banda en toda su cara), unida por
+  `contacto`. El catálogo pasa a 478 refs; `empalmes_banda` va al final de `CATEGORIES` (los tests
+  de orden de las categorías eléctricas y neumáticas aceptan las posteriores) y en
+  `FEA_HARDWARE_CATS` (no es estructura); su subsistema del árbol sale del nombre («banda»).
+- **F1b-10 (D12) La regla** (`calidad_reparabilidad.banda_montable`, registro v20): con empalme de
+  campo (pieza `empalmes_banda` con una unión a la banda) o mecánico en el nombre, OK; si no, un
+  lazo que ATRAVIESAN piezas además de sus tambores (cruzan la banda a lo ancho y quedan entre sus
+  ramales, por cajas: `reparabilidad.atraviesan_el_lazo`; lo que gira con él —rol «gira» o «eje»:
+  ejes de tambor, rodillos— es su apoyo y no cuenta) es FALLA, nombrándolas en `atraviesan`; la
+  regla de costado de siempre (marco soldado que lo abraza) se sigue midiendo y sale en
+  `bloqueos`. Cambia un test viejo a propósito: la faja a mano con la cama ATORNILLADA
+  (`test_calidad_seguridad`) era «montable» y ahora falla sin empalme y pasa con él.
+- **F1b-11 Testigos** (cada uno re-congelado con `--en-proceso --congelar --solo`): `faja` mueve su
+  `.apolo`: la receta reproduce la v5 tal cual (`criterio: 5`, `tramo_max: null`, explícitos: el
+  sello de hoy le pondría el 10) y le suma el empalme de campo A MANO (`insert_component` de la ref
+  nueva + `fasten` contacto, en el lugar de la plantilla): sin él, su banda sin fin atravesada por
+  la cama fallaría y dejaría de ser el testigo bueno de los defectos; sale APROBADA con los 36
+  ítems como antes (cambian su firma y `version_registro`). `mensula`, `mensula_atornillada` y
+  `rodillos`: sólo `version_registro` 19 → 20 (sus ítems no se movieron). Defectos sembrados:
+  `sin_empalme_de_campo` (nuevo: quitarlo da FALLA) y `travesano_en_el_lazo` quita también el
+  empalme (con él, la banda se abre y sale igual: un travesaño soldado ya no la atrapa).
+
+**Medido:**
+
+- **La mesa de 36 puestos** (29,4 m, TUBO-4X2, NMRV-063 a 0,254 m/s, placa, `lado_abierto -y`):
+  regenera en ~15 s, 460 piezas, 5 tramos, sin interferencias (sin exclusiones), todo a tierra y
+  601 uniones que se tocan. Lazo 59 151 mm → pide 305,8 mm → carrera y ranura de 310 mm con
+  varilla M12x370 DIN 976-1; placa de 732 × 105 × 20 mm (10,8 kg); tope geométrico de esa cola
+  1525 mm (lo para la primera chapa de la cama). Sinfín: i = 40, 42,8 rpm, 0,272 m/s; con 50 kg/m
+  supuestos pediría 2,55 kW (aviso); con el encargo de la mesa (29 paquetes de 10 kg + 199 kg de
+  banda: 1582 N) la regla `motorización` pide 0,73 kW ≤ 1,1 kW (OK). L10: 42,75 rpm de la placa.
+- **Tramos sueltos**: mesa de 36, 5 tramos de 461–542 kg, margen ≥ 0,385 a lo largo y ≥ 0,451 a lo
+  ancho; 10 m en dos tramos, 469 y 520 kg, 0,40 × 0,50 y 0,41 × 0,39.
+- **4 m NMRV + placa** (criterio 10): i = 20, 0,544 m/s (antes 0,509 con el radio del tambor),
+  0,70 kW ≤ 1,1; L10 evaluada (6,0 M h) sin declarar `rpm_salida`; su puerta entera sólo con
+  `diseno.sin_sobrantes` en FALLA, como la F1 (`consumibles.reemplazables` y
+  `elementos_rodantes.l10` en OK).
+- **La puerta de la mesa de 36** (en proceso, gravedad y marcha reales, ~14 min; test de tortura
+  `test_la_puerta_de_la_mesa_de_36_sin_falla_nueva`), con el encargo de la mesa y las funciones del
+  testigo, sin justificaciones: primera corrida, `diseno.sin_sobrantes` (20 piezas, guardas y tapas
+  como en la de 4 m) y `ingenieria.reglas` por la regla `velocidad de banda`: con las 42,75 rpm de
+  la placa a 60 Hz (que desde D9 sí se leen) la banda va a 0,254 m/s contra 0,3 del encargo. Es la
+  máquina, no la plantilla: la mesa real lleva el variador a 65 Hz y declara `rpm_salida` 48,5; con
+  esa variable las 9 reglas cumplen. Segunda corrida, con `rpm_salida` 48,5: verde salvo
+  `diseno.sin_sobrantes` (lo mismo que la de 4 m); `consumibles.reemplazables`,
+  `transmision_flexible.tension` (310 mm), `union.contacto_real`, gravedad y marcha en OK
+  (815 s en el test).
+- **Suite completa** secuencial verde (pytest, sin xdist) y `ruff check core tests scripts` limpio.
+
+**No cubierto en la F1b**: la F2 de nuevo (la mesa por MCP con 12, 24 y 36 puestos); el pandeo del
+empujador largo (F1b-5); la regla `velocidad` de `engineering_check` con el radio de la simulación
+(F1b-3); el η del sinfín en la regla `motorización` (sigue con el 0,85 general; con 0,75 la mesa
+pediría 0,83 kW, también OK).

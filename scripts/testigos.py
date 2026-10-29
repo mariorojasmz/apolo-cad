@@ -88,12 +88,45 @@ JUSTIFICADAS_FAJA = [
 ]
 
 
+def _empalme_a_mano(d, cmd: str) -> None:
+    """faja-compacta F1b (D12, registro v20): la banda sin fin de la v5 la atraviesan la cama y sus
+    soportes, y sin empalme de campo no se cambia sin desarmarlos. El testigo lleva el empalme
+    de catálogo A MANO (la plantilla lo pone sólo desde su criterio 10), en el mismo lugar que la
+    plantilla: sobre la cara exterior del ramal de retorno, unido a la banda por contacto."""
+    import math
+
+    from apolo.commands.models_faja import CreateBeltConveyorParams
+    from apolo.library.belt_conveyor_cotas import cotas
+    from apolo.library.belt_conveyor_empalme import REF, _cara_retorno, x_empalme
+    from apolo.library.catalog import CATALOG
+
+    q = CreateBeltConveyorParams.model_validate(d.commands[0]["params"])
+    c = cotas(q.largo, q.ancho_banda, q.altura, q.tambor_motriz, q.tambor_cola, q.tubo, q.tensor,
+              q.motor, q.espesor_banda, q.guardas, q.cierres, q.tramo_max, q.criterio)
+    a, b, dd, beta = _cara_retorno(c)
+    x = x_empalme(c)
+    z = (dd - a * x) / b
+    e = float(CATALOG[REF].params["height"])
+    grapa = d.execute("insert_component", {
+        "component": REF, "name": "Empalme de campo de la banda (grapas articuladas)",
+        "length": q.ancho_banda,
+        "position": {"x": x + a * e / 2.0, "y": 0.0, "z": z + b * e / 2.0},
+        "rotation": {"x": 0.0, "y": -(math.degrees(beta) + 90.0), "z": 90.0}})
+    d.execute("fasten", {"name": "empalme_banda", "a": grapa, "b": f"{cmd}_banda",
+                         "kind": "contacto",
+                         "nota": "empalme de campo: grapas articuladas con pasador clavadas en las "
+                                 "dos puntas de la banda; se abre para cambiarla sin desarmar la "
+                                 "cama"})
+
+
 def _faja():
     from apolo.doc import Document
     from apolo.services.puerta_publicacion import poner_justificadas
 
     d = Document("faja-de-banda")
-    d.execute("create_belt_conveyor", {})  # v5: nace con sus cierres (sello de entrada)
+    # v5 tal cual (con sus cierres): el sello de hoy le pondría tramos y el criterio nuevo
+    cmd = d.execute("create_belt_conveyor", {"cierres": True, "tramo_max": None, "criterio": 5})
+    _empalme_a_mano(d, cmd)
     d.set_requirements(dict(REQUISITOS))
     d.funciones = [dict(f) for f in FUNCIONES_FAJA]
     poner_justificadas(d, [dict(j) for j in JUSTIFICADAS_FAJA])
@@ -136,7 +169,8 @@ def _mensula_atornillada():
 RECETAS = {
     "faja": (_faja, "create_belt_conveyor v5 por defecto (con sus cierres: guardas inferiores bajo "
                     "la ranura banda-larguero, placas de cierre de los largueros y techo de cola "
-                    "hasta la cama, F6) con requisitos y funciones D15: aprueba entera", False),
+                    "hasta la cama, F6) con el empalme de campo de la banda a mano (registro v20), "
+                    "requisitos y funciones D15: aprueba entera", False),
     "rodillos": (_rodillos, "create_roller_conveyor de 1500 mm con requisitos (sin D15): su "
                             "veredicto de hoy, con lo que falta", True),
     "mensula": (_mensula, "una ménsula suelta anclada: pieza estática que se aprueba", False),

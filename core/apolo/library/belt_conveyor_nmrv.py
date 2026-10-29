@@ -91,12 +91,16 @@ def montar(plan: Plan, c: Cotas, collar: float) -> float:
     b, top = float(spec["chavetero_b"]), float(spec["chavetero_t"]) - c.d_m / 2.0
     ranura = caja(x - b / 2.0, x + b / 2.0, s * (y["cubo"] - 1.0),
                   s * (y["centro"] + y["hy"] / 2.0 - 0.6), z + g["br"], z + top)
-    plan.pieza("motor", "Motorreductor", motor - ranura, comp=c.motor)
+    # F1b (D9, criterio 10): la relación en el nombre, como en la placa del reductor que se compra
+    # (NMRV-063 i = 40): de ahí la leen la vida L10 y el par (`relacion_motor.rpm_salida`)
+    nombre = f"Motorreductor (i = {calc['relacion']:g})" if c.criterio >= 10 else "Motorreductor"
+    plan.pieza("motor", nombre, motor - ranura, comp=c.motor)
     y0k, y1k, bk, _ = chaveta(c, collar)
     plan.union("motor_eje", "tambor_motriz", "motor", "contacto",
                f"eje motriz en el eje hueco del {c.motor} con chaveta {bk:g}x"
                f"{CHAVETA[int(bk)][0]:g}x{LARGO_CHAVETA:g} DIN 6885 (i = {calc['relacion']:g}: "
-               f"{calc['n_tambor_rpm']:g} rpm → {calc['v_m_s']:g} m/s)")
+               f"{calc['n_tambor_rpm']:g} rpm → {calc['v_m_s']:g} m/s)"
+               + (f"; AVISO: {calc['aviso']}" if calc.get("aviso") else ""))
 
     # brazo de reacción: disco sobre la brida + barra hasta el anclaje
     r_brazo = min(R_BRAZO, z - z_pata0(c) - D_SOPORTE)
