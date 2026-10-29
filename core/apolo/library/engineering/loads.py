@@ -27,21 +27,33 @@ def _reachable_without(adj: dict, seeds, a: str, b: str) -> set:
     return seen
 
 
-def hanging_load_kg(graph: dict, masses: dict[str, float], a: str, b: str) -> float | None:
-    """Masa (kg) que cuelga de la unión a↔b: piezas que estaban aterrizadas y
-    dejan de estarlo al quitar la arista. None si la unión es redundante (nada
-    pierde tierra → carga compartida no determinable) o si el lado ya flotaba."""
-    adj, seeds = graph["adj"], graph["grounded_seed"]
-    if not seeds:
-        return None
+def alcanzables(graph: dict) -> set:
+    """Los nodos que llegan a tierra en `graph` (DFS desde `grounded_seed`): lo que
+    `hanging_load_kg` compara contra el grafo sin cada arista."""
+    adj = graph["adj"]
     before: set = set()
-    stack = list(seeds)
+    stack = list(graph["grounded_seed"])
     while stack:
         n = stack.pop()
         if n in before:
             continue
         before.add(n)
         stack.extend(adj.get(n, ()))
+    return before
+
+
+def hanging_load_kg(graph: dict, masses: dict[str, float], a: str, b: str,
+                    before: set | None = None) -> float | None:
+    """Masa (kg) que cuelga de la unión a↔b: piezas que estaban aterrizadas y
+    dejan de estarlo al quitar la arista. None si la unión es redundante (nada
+    pierde tierra → carga compartida no determinable) o si el lado ya flotaba.
+    `before` = `alcanzables(graph)` si el llamador recorre muchas uniones del MISMO
+    grafo sin cambiarlo (una vez por grafo, no por unión: plan puerta-rapida, D3)."""
+    adj, seeds = graph["adj"], graph["grounded_seed"]
+    if not seeds:
+        return None
+    if before is None:
+        before = alcanzables(graph)
     after = _reachable_without(adj, seeds, a, b)
     hanging = before - after
     if not hanging:

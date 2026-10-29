@@ -210,13 +210,28 @@ class Prueba:
         self.en_holgura = [p for p in sondas["peligros"] if p.get("en_holgura")]
         self._tr_base = None
         self._campo_base = None
+        self._empuje_f3 = None
+
+    def empuje(self, q: set, dc: dict):
+        """La `BandaEmpujable` de la máquina sin `q` (`dc` = `_dc_sin(an["dc"], q)`): la de la
+        corrida (la de F3 en `compartido`, o una armada una vez) con `q` enmascarado, sin rehacer
+        sus árboles (plan puerta-rapida, D1); rehecha sólo si `q` quita una banda."""
+        from .calidad_codo import BandaEmpujable
+
+        if self._empuje_f3 is None:
+            e = self.compartido.get("empuje")
+            self._empuje_f3 = (e if e is not None and e.dc is self.an["dc"]
+                               else BandaEmpujable(self.an["dc"], self.nubes))
+        v = self._empuje_f3.sin(q)
+        return v if v is not None else BandaEmpujable(dc, self.nubes)
 
     def _campo(self, dc: dict, empuje, r: set):
         """El campo de la muñeca sin lo quitado: la primera vez entero (y el de la base); después,
-        el de la base con sólo la zona de `r` recalculada (`CampoAlcance.libre_sin`): el
-        teselado y la distancia de las demás piezas no cambian. La base es el campo que F3 ya
-        armó en la corrida (`compartido`), con lo ya quitado recalculado en su zona."""
-        from .calidad_codo import BandaEmpujable, campo_alcance
+        el de la base con sólo la zona de `r` recalculada (`CampoAlcance.libre_sin` y
+        `sin_zona`): el teselado y la distancia de las demás piezas no cambian. La base es el
+        campo que F3 ya armó en la corrida (`compartido`), con lo ya quitado recalculado en su
+        zona."""
+        from .calidad_codo import campo_alcance
 
         if self._campo_base is None:
             base = _dc_sin(self.an["dc"], self.quitadas)
@@ -224,10 +239,10 @@ class Prueba:
             if f3 is not None and f3.misma_grilla(base["caja"], base["z_piso"],
                                                   base.get("piso_solido", False)):
                 self._campo_base = (f3 if not self.quitadas else self._sin_zona(
-                    f3, base, BandaEmpujable(base, self.nubes), self.quitadas))
+                    f3, base, self.empuje(self.quitadas, base), self.quitadas))
             if self._campo_base is None:
                 self._campo_base = campo_alcance(base["solidos"], base["caja"], base["z_piso"],
-                                                 BandaEmpujable(base, self.nubes), self.nubes,
+                                                 self.empuje(self.quitadas, base), self.nubes,
                                                  base.get("piso_solido", False))
         cb = self._campo_base
         return (self._sin_zona(cb, dc, empuje, r)
@@ -236,10 +251,8 @@ class Prueba:
 
     def _sin_zona(self, cb, dc: dict, empuje, r: set):
         """El campo `cb` con sólo la zona de `r` recalculada sobre los sólidos de `dc`
-        (`CampoAlcance.libre_sin`); None si la grilla cambió (otra caja o piso)."""
+        (`CampoAlcance.libre_sin` y `sin_zona`); None si la grilla cambió (otra caja o piso)."""
         import numpy as np
-
-        from apolo.library.seguridad.alcance import CampoAlcance
 
         from .calidad_codo import EMPUJE_MM, nubes_de
 
@@ -261,8 +274,7 @@ class Prueba:
                 x = x[~empuje.empujable(x)]
             pts.append(x)
         pts = np.concatenate(pts) if pts else np.zeros((0, 3))
-        return CampoAlcance(None, dc["caja"], dc["z_piso"], libre=cb.libre_sin(pts, lo, hi),
-                            piso_solido=dc.get("piso_solido", False))
+        return cb.sin_zona(cb.libre_sin(pts, lo, hi))
 
     def _cron(self, etapa: str, t0: float) -> None:
         self.ms[etapa] += (time.perf_counter() - t0) * 1000.0
@@ -270,7 +282,7 @@ class Prueba:
 
     def probar(self, c: str) -> dict | None:
         """None si `c` sobra (y queda quitada); si no, {control, detalle}."""
-        from .calidad_codo import BandaEmpujable, sondas_con_codo
+        from .calidad_codo import sondas_con_codo
         from .calidad_sondas import Trazador
 
         doc, dc0 = self.doc, self.an["dc"]
@@ -308,7 +320,7 @@ class Prueba:
         if tocados:
             t0 = time.perf_counter()
             tr = Trazador(dc["solidos"])
-            empuje = BandaEmpujable(dc, self.nubes)
+            empuje = self.empuje(q, dc)
             for p, ks in tocados:
                 malo = self._rectas(p, ks, tr, dc, empuje)
                 if malo:
@@ -316,7 +328,7 @@ class Prueba:
                     return {"control": "peligros", "detalle": f"{p['peligro']}: {malo}"}
             self._cron("rectas", t0)
         t0 = time.perf_counter()
-        malo, tr, empuje = self._holguras(r, dc, tr, empuje)
+        malo, tr, empuje = self._holguras(r, dc, tr, empuje, q)
         self._cron("rectas", t0)
         if malo:
             return {"control": "peligros", "detalle": malo}
@@ -358,11 +370,10 @@ class Prueba:
         self._tr_base = None
         return None
 
-    def _holguras(self, r: set, dc: dict, tr, empuje):
+    def _holguras(self, r: set, dc: dict, tr, empuje, q: set):
         """(motivo | None, tr, empuje): un objetivo que la corrida sacó por caer en una holgura
         funcional (`calidad_sondas.fuera_de_holguras`) vuelve a contar si lo quitado forma esa
-        rendija; con ella abierta, se sondea con las rectas."""
-        from .calidad_codo import BandaEmpujable
+        rendija; con ella abierta, se sondea con las rectas. `q`: todo lo quitado (`dc` sin él)."""
         from .calidad_sondas import Trazador, evaluar_peligro, holgura
 
         for p in self.en_holgura:
@@ -370,7 +381,7 @@ class Prueba:
             if not puntos:
                 continue
             if tr is None:
-                tr, empuje = Trazador(dc["solidos"]), BandaEmpujable(dc, self.nubes)
+                tr, empuje = Trazador(dc["solidos"]), self.empuje(q, dc)
             libres = [q for q in puntos if holgura(tr, q) is None]
             if not libres:
                 continue
@@ -386,7 +397,6 @@ class Prueba:
         """Las sondas rectas de los objetivos `ks` del peligro sin lo quitado: None si ninguno
         empeora (un peligro resguardado: ninguna llega; uno que ya falla: no llegan más que
         antes por objetivo). Deja lo medido en `p["_nuevas"]` (la base si la candidata sobra)."""
-        from .calidad_codo import BandaEmpujable
         from .calidad_sondas import Trazador, evaluar_peligro
 
         n = _n_direcciones(p)
@@ -405,7 +415,7 @@ class Prueba:
                 if self._tr_base is None:
                     base = _dc_sin(self.an["dc"], self.quitadas)
                     self._tr_base = (Trazador(base["solidos"]), base,
-                                     BandaEmpujable(base, self.nubes))
+                                     self.empuje(self.quitadas, base))
                 tb, base, emp = self._tr_base
                 sb, _ms = evaluar_peligro(tb, {**p, "objetivos": [p["objetivos"][k]]},
                                           base["caja"], base["z_piso"], n, emp.salta,

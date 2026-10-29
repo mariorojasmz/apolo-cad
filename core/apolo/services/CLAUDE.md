@@ -138,9 +138,14 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [lo-que-se-mueve](../../../docs/plans/lo-que-se-mueve.md)). Un control nuevo que una pieza pueda empeorar entra ahí. Lo eléctrico (`del_carril`: el
   `layout_tablero`, los dispositivos) no es «agregado»; un objetivo de enganche que las sondas
   sacaron por caer en una holgura ≤ 4 mm (`calidad_sondas.fuera_de_holguras`) se re-sondea si se
-  quita una de sus dos paredes. El campo del codo y el teselado salen de F3 (`compartido` en
-  `f3.sondas`), y `reunir` abre `mass.memo_de_geometria`: nada de eso se rehace por candidata.
-  [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5, D7, D9, F3c)
+  quita una de sus dos paredes. El campo del codo, el teselado y la `BandaEmpujable` salen de F3
+  (`compartido` en `f3.sondas`), y `reunir` abre `mass.memo_de_geometria`: nada de eso se rehace por
+  candidata. [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5, D7, D9, F3c) Sin la
+  candidata: la banda es la de F3 con lo quitado ENMASCARADO (`Prueba.empuje` →
+  `BandaEmpujable.sin`), el campo se rehace en las cajas S1/S2 (`CampoAlcance.sin_zona`) y lo que
+  la ingeniería repite va a los memos de la corrida (`engineering/memo_corrida.py`, abiertos con
+  el de geometría: sólo lo puro e inmutable, la forma por `is`). Todo, IGUAL al recalculado: un
+  atajo nuevo entra con su test de igualdad. [puerta-rapida](../../../docs/plans/puerta-rapida.md)
 - Un detector de `puerta_hechos` usa el criterio de SU control: `vigas` = lo que
   `vigas_rules.detectar_vigas` calcula como viga (un riel o las patas de un tanque no son vigas:
   NO_APLICA, no SIN_EVALUAR). (F3c)

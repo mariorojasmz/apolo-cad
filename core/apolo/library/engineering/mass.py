@@ -57,13 +57,18 @@ _MEMO_GEOMETRIA: ContextVar[dict | None] = ContextVar("memo_geometria_masa", def
 def memo_de_geometria():
     """Mientras dura, la geometría de masa de cada forma se calcula una vez (anidable: el de
     afuera manda). Quien lo abre garantiza que ninguna forma se muta adentro (regla del
-    regenerate: ningún executor muta un shape in situ)."""
+    regenerate: ningún executor muta un shape in situ). Abre también los memos exactos de la
+    corrida (`memo_corrida.py`: volumen por forma, viga continua, carrera de la plantilla; plan
+    puerta-rapida, D3)."""
+    from .memo_corrida import memo_de_corrida
+
     if _MEMO_GEOMETRIA.get() is not None:
         yield
         return
     token = _MEMO_GEOMETRIA.set({})
     try:
-        yield
+        with memo_de_corrida():
+            yield
     finally:
         _MEMO_GEOMETRIA.reset(token)
 

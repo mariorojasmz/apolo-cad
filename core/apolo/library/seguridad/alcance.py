@@ -113,6 +113,7 @@ class CampoAlcance:
                  piso_solido: bool = False):
         import numpy as np
 
+        self._args = {"paso": paso, "r_brazo": r_brazo, "alcance": alcance}  # `_entero`
         lo, hi = (np.asarray(c, dtype=float) for c in caja)
         self.lo = np.array([lo[0] - MARGEN_MM, lo[1] - MARGEN_MM, z_piso])
         top = np.array([hi[0] + MARGEN_MM, hi[1] + MARGEN_MM, hi[2] + MARGEN_MM])
@@ -131,20 +132,85 @@ class CampoAlcance:
         if self.piso_solido:  # el piso, una pared: la sonda del brazo no cabe a < r de él
             libre = libre & (c[2] - self.z_piso >= self.r_brazo)[None, None, :]
         self.libre = libre
+        brazo = self._recta(libre, self._semillas(libre))  # hombro → codo: recto desde fuera
+        brazo[brazo > alcance] = np.inf
+        antebrazo = self._recta(libre, brazo)         # codo → muñeca: otro tramo recto
+        antebrazo[antebrazo > alcance] = np.inf
+        self._brazo, self._prof = brazo, antebrazo  # el brazo, para `sin_zona`
+
+    def _semillas(self, libre, zona=None):
+        """Las semillas del brazo (docstring de la clase) en la `zona` de la grilla (tupla de
+        slices; None = toda), con lo no transitable en ∞: elemento a elemento, las mismas cuentas
+        en una zona que en la grilla entera."""
+        import numpy as np
+
+        zona = zona or tuple(slice(0, n) for n in self.forma)
+        lo, hi = (np.asarray(c, dtype=float) for c in self.caja)
+        c = [(self.lo[k] + (np.arange(self.forma[k]) + 0.5) * self.paso)[zona[k]] for k in range(3)]
+        forma = tuple(len(x) for x in c)
         fuera_xy = ((c[0] < lo[0]) | (c[0] > hi[0]))[:, None] | ((c[1] < lo[1]) | (c[1] > hi[1]))[None, :]
         semillas = np.full(forma, np.inf, dtype=np.float32)
         semillas[fuera_xy] = 0.0
         semillas[:, :, c[2] > hi[2]] = 0.0
-        if not self.piso_solido:  # sobre ruedas, el brazo llega por el piso bajo la máquina
-            borde = np.minimum(np.minimum(c[0] - lo[0], hi[0] - c[0])[:, None],
+        if not self.piso_solido and zona[2].start == 0:  # sobre ruedas, el brazo llega por el
+            borde = np.minimum(np.minimum(c[0] - lo[0], hi[0] - c[0])[:, None],  # piso bajo ella
                                np.minimum(c[1] - lo[1], hi[1] - c[1])[None, :])
             semillas[:, :, 0] = np.minimum(semillas[:, :, 0], np.maximum(borde, 0.0))
         semillas[~libre] = np.inf
-        brazo = self._recta(libre, semillas)          # hombro → codo: recto desde fuera
-        brazo[brazo > alcance] = np.inf
-        antebrazo = self._recta(libre, brazo)         # codo → muñeca: otro tramo recto
-        antebrazo[antebrazo > alcance] = np.inf
-        self._prof = antebrazo
+        return semillas
+
+    def sin_zona(self, libre) -> CampoAlcance:
+        """El campo con los voxeles transitables `libre` (los de `libre_sin`: la prueba de
+        sobrantes quita una pieza), recalculado sólo donde puede cambiar (plan puerta-rapida, D2).
+        Sin voxeles cambiados, `self`. Si sólo se LIBERAN voxeles, brazo y antebrazo sólo bajan, y
+        un tramo que vale ≤ el alcance mide ≤ L voxeles por eje: lo nuevo del brazo está a ≤ L de
+        un voxel cambiado (caja S1) y lo del antebrazo a ≤ L de lo que cambió en el brazo o en
+        `libre` (S2); en cada caja, mín(viejo, `_recta` de la caja), fuera lo viejo. Es idéntico
+        al entero: la recurrencia de `_recta` va por cada recta en el mismo orden, y
+        fl(mín(x, y) + p) = mín(fl(x + p), fl(y + p)). Si alguno se CIERRA (una banda que deja de
+        empujarse), el campo entero, como antes."""
+        import numpy as np
+
+        if self.piso_solido:  # lo mismo que hace `__init__` con un `libre` dado
+            c2 = self.lo[2] + (np.arange(self.forma[2]) + 0.5) * self.paso
+            libre = libre & (c2 - self.z_piso >= self.r_brazo)[None, None, :]
+        if tuple(libre.shape) != self.forma or getattr(self, "_brazo", None) is None:
+            return self._entero(libre)
+        cambio = libre != self.libre
+        if not cambio.any():
+            return self
+        if (cambio & self.libre).any():  # se cierra un voxel: el campo puede subir lejos
+            return self._entero(libre)
+        largo = int(math.ceil(self.alcance / self.paso)) + 2
+        s1 = self._caja_de(cambio, largo)
+        sub = self._recta(libre[s1], self._semillas(libre[s1], s1))
+        sub[sub > self.alcance] = np.inf
+        brazo = self._brazo.copy()
+        brazo[s1] = np.minimum(self._brazo[s1], sub)
+        cambio[s1] |= brazo[s1] != self._brazo[s1]
+        s2 = self._caja_de(cambio, largo)
+        sub = self._recta(libre[s2], brazo[s2])
+        sub[sub > self.alcance] = np.inf
+        prof = self._prof.copy()
+        prof[s2] = np.minimum(self._prof[s2], sub)
+        nuevo = object.__new__(CampoAlcance)
+        nuevo.__dict__.update(self.__dict__)
+        nuevo.libre, nuevo._brazo, nuevo._prof = libre, brazo, prof
+        return nuevo
+
+    def _entero(self, libre) -> CampoAlcance:
+        """El campo entero con `libre` (lo que hacía la prueba de sobrantes antes de D2)."""
+        return CampoAlcance(None, self.caja, self.z_piso, libre=libre,
+                            piso_solido=self.piso_solido, **self._args)
+
+    def _caja_de(self, marca, holgura: int) -> tuple:
+        """La caja (slices) de los voxeles marcados, ensanchada `holgura` por lado."""
+        import numpy as np
+
+        idx = np.argwhere(marca)
+        a = np.maximum(0, idx.min(axis=0) - holgura)
+        b = np.minimum(np.array(self.forma), idx.max(axis=0) + 1 + holgura)
+        return tuple(slice(int(a[k]), int(b[k])) for k in range(3))
 
     def misma_grilla(self, caja, z_piso: float, piso_solido: bool = False) -> bool:
         """¿La grilla de `caja`/`z_piso` (y su piso) es ésta? (sólo entonces sirve `libre_sin`)."""
@@ -205,11 +271,12 @@ class CampoAlcance:
         """F(v) = mín, sobre las 26 direcciones d de la red y k ≥ 0, de base(v − k·d) + k·|d|·paso
         con los k + 1 voxeles de esa recta transitables: un tramo RECTO del brazo que sale de
         donde `base` es finita. El paso (≤ la diagonal del voxel < 2·r_brazo) no salta paredes.
-        Barrido por capas a lo largo del eje MÁS CORTO en que d avanza."""
+        Barrido por capas a lo largo del eje MÁS CORTO en que d avanza (`base` puede ser una caja
+        de la grilla: `sin_zona`)."""
         import numpy as np
 
         mejor = base.copy()
-        n = self.forma
+        n = base.shape
         for d in [(dx, dy, dz) for dx in (-1, 0, 1) for dy in (-1, 0, 1) for dz in (-1, 0, 1)
                   if (dx, dy, dz) != (0, 0, 0)]:
             a = min((k for k in range(3) if d[k]), key=lambda k: n[k])

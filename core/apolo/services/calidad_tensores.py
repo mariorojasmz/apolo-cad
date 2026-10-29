@@ -287,6 +287,7 @@ def _placas_ranuradas(doc) -> list[dict]:
     from apolo.commands.expressions import resolve_params
     from apolo.commands.models_faja import TENSOR_PLACA, CreateBeltConveyorParams
     from apolo.library.belt_conveyor_cotas import cotas
+    from apolo.library.engineering.memo_corrida import por_clave
 
     out = []
     for cmd in comandos_efectivos(doc.commands, doc.variables_resolved):
@@ -297,10 +298,12 @@ def _placas_ranuradas(doc) -> list[dict]:
         try:
             p = CreateBeltConveyorParams.model_validate(
                 resolve_params(cmd["params"], doc.variables_resolved), extra="ignore")
-            carrera = cotas(p.largo, p.ancho_banda, p.altura, p.tambor_motriz, p.tambor_cola,
-                            p.tubo, p.tensor, None if p.motor == "ninguno" else p.motor,
-                            p.espesor_banda, p.guardas, p.cierres, p.tramo_max, p.criterio,
-                            p.lado_abierto, p.velocidad).carrera
+            # la carrera, una vez por params en la corrida de la puerta (puerta-rapida, D3)
+            carrera = por_clave(
+                "carrera_plantilla", lambda *a: cotas(*a).carrera, p.largo, p.ancho_banda,
+                p.altura, p.tambor_motriz, p.tambor_cola, p.tubo, p.tensor,
+                None if p.motor == "ninguno" else p.motor, p.espesor_banda, p.guardas, p.cierres,
+                p.tramo_max, p.criterio, p.lado_abierto, p.velocidad)
         except Exception:  # noqa: BLE001 — params rotos: el regenerate ya lo dijo
             continue
         for i in (1, 2):

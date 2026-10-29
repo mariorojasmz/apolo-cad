@@ -126,13 +126,14 @@ def _candidata(f, caja_de, catalog):
 
 def _masa_kg(f, catalog) -> float:
     from apolo.library.materials import density, resolve_material
+    from apolo.library.engineering.memo_corrida import volumen
 
     comp = catalog.get(getattr(f, "component", None) or "")
     if comp is not None:
         cut = getattr(f, "cut_length", None)
         return comp.weight * (cut / 1000.0) if (comp.cuttable and cut) else comp.weight
-    try:
-        return float(f.shape.volume) * density(resolve_material(f, catalog))
+    try:  # el volumen, una vez por forma en la corrida de la puerta (puerta-rapida, D3)
+        return volumen(f.shape) * density(resolve_material(f, catalog))
     except Exception:
         return 0.0
 

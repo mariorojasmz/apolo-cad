@@ -22,7 +22,7 @@ _SIN_ELLA = ": sin ella"
 def tambien_tapa(prueba, r: set, apoya: list[str]) -> dict:
     """{"tambien_tapa": peligro} si una sonda llega sin `r` (lo que apoya, `apoya`, se queda); si
     no, {"solo_apoyo": True}. Suma su tiempo a la etapa «apoyo» de `prueba`."""
-    from .calidad_codo import BandaEmpujable, sondas_con_codo
+    from .calidad_codo import sondas_con_codo
     from .calidad_sobrantes import N_DIRECCIONES, _cercanos, _dc_sin, _llegan
     from .calidad_sondas import Trazador
 
@@ -36,14 +36,15 @@ def tambien_tapa(prueba, r: set, apoya: list[str]) -> dict:
                           for h in p["en_holgura"])
         if not tocados and not hay_holgura:
             return {"solo_apoyo": True}
-        dc = _dc_sin(dc0, prueba.quitadas | r2)
-        tr, empuje = Trazador(dc["solidos"]), BandaEmpujable(dc, prueba.nubes)
+        q = prueba.quitadas | r2
+        dc = _dc_sin(dc0, q)
+        tr, empuje = Trazador(dc["solidos"]), prueba.empuje(q, dc)  # D1 de puerta-rapida
         for p, ks in tocados:
             malo = prueba._rectas(p, ks, tr, dc, empuje)
             p.pop("_nuevas", None)  # lo medido aquí no es la base: la candidata no sobra
             if malo:
                 return {"tambien_tapa": p["peligro"]}
-        malo, tr, empuje = prueba._holguras(r2, dc, tr, empuje)
+        malo, tr, empuje = prueba._holguras(r2, dc, tr, empuje, q)
         if malo:
             return {"tambien_tapa": malo.rsplit(_SIN_ELLA, 1)[0]}
         doblar = [(p, ks) for p, ks in tocados if p["estado"] == "OK"]

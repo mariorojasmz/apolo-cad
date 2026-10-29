@@ -327,6 +327,8 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
     compartido: dict = {"nubes": {}}  # el teselado y el campo del codo, para la de sobrantes
     empuje = (BandaEmpujable(dc, compartido["nubes"]) if peligros and banda_empujable
               else None)  # la banda se empuja (F6)
+    if empuje is not None:  # la de sobrantes la reusa sin cada candidata (puerta-rapida, D1)
+        compartido["empuje"] = empuje
     resultados, sondas_de = {}, {}
     entradas = llegadas(doc, {**an, "peligros": peligros}) if peligros else {}
     for p in peligros:

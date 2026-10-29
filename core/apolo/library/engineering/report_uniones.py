@@ -10,7 +10,7 @@ from __future__ import annotations
 from ..materials import resolve_material, yield_strength
 from ..rules import _check
 from .bolts import TENSILE_AREA_MM2, bolt_shear_capacity_n
-from .loads import hanging_load_kg
+from .loads import alcanzables, hanging_load_kg
 from .remaches import diametro as diametro_remache
 from .report_comun import G
 from .welds import weld_allowable_mpa, weld_throat_stress_mpa
@@ -91,6 +91,7 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog,
     # real declara >100 uniones; un aviso por cada una ahogaría el reporte)
     sin_size: list[str] = []
     sin_cordon: list[str] = []
+    en_tierra = alcanzables(graph) if graph.get("grounded_seed") else None  # una vez por grafo
 
     for f in fasteners.values():
         kind = f.get("kind", "perno")
@@ -98,7 +99,7 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog,
         if a not in scene or b not in scene or kind not in ("perno", "soldadura"):
             continue
         label = f"{f.get('name')} ({scene[a].name} ↔ {scene[b].name})"
-        load_kg = hanging_load_kg(graph, masses, a, b)
+        load_kg = hanging_load_kg(graph, masses, a, b, en_tierra)
 
         if kind == "perno":
             size, qty = f.get("size"), int(f.get("qty") or 1)

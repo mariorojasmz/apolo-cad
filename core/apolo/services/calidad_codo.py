@@ -80,11 +80,53 @@ def _nube(solidos) -> list:
     return np.concatenate(out) if out else np.zeros((0, 3))
 
 
+def _nube_y_bloques(solidos: dict, fids, nubes: dict | None):
+    """(la nube de `nubes_de(solidos, fids, nubes)`, {fid: (desde, hasta)} de sus filas)."""
+    import numpy as np
+
+    partes, bloques, n = [], {}, 0
+    for fid in fids:
+        x = nubes_de(solidos, [fid], nubes)
+        bloques[fid] = (n, n + len(x))
+        n += len(x)
+        if len(x):
+            partes.append(x)
+    return (np.concatenate(partes) if partes else np.zeros((0, 3))), bloques
+
+
+def _distancia(kd, pts, quitado):
+    """La distancia de cada punto al vecino de `kd` más cercano NO `quitado` (máscara por fila
+    del árbol; None = ninguno), ∞ si no hay a ≤ `EMPUJE_MM`: la misma que daría el árbol armado
+    sin lo quitado (`query(k)` creciente con la misma cota; cada distancia es la del mismo par)."""
+    import numpy as np
+
+    d, i = kd.query(pts, k=1, distance_upper_bound=EMPUJE_MM)
+    if quitado is None:
+        return d
+    n = kd.n
+    pend = np.flatnonzero((i < n) & quitado[np.minimum(i, n - 1)])
+    k = 4
+    while len(pend):
+        dk, ik = kd.query(pts[pend], k=k, distance_upper_bound=EMPUJE_MM)
+        valido = ik < n
+        libre = valido & ~quitado[np.minimum(ik, n - 1)]
+        hay = libre.any(axis=1)
+        primero = np.argmax(libre, axis=1)
+        d[pend] = np.where(hay, dk[np.arange(len(pend)), primero], np.inf)
+        pend = pend[~hay & valido[:, -1]]  # todos quitados y quizá más dentro de la cota
+        k *= 4
+    return d
+
+
 class BandaEmpujable:
     """Las bandas (`clase_flexible` «banda») se empujan en la abertura de una guarda (rol
     «guarda»): un punto de banda a ≤ `EMPUJE_MM` de una guarda y SIN apoyo a esa distancia (ni
     tambor, ni cama, ni otra pieza que no sea guarda ni banda: un tramo libre) no bloquea. Donde la
-    banda abraza un tambor o asienta en la cama no se mueve."""
+    banda abraza un tambor o asienta en la cama no se mueve.
+
+    `sin(q)` es la de la máquina sin las piezas `q` SIN rehacer los árboles (plan puerta-rapida,
+    D1): las filas de `q` se enmascaran al consultar (`_distancia`). Las bandas no cambian (si `q`
+    tiene una, None: hay que rehacerla) y una guarda o un apoyo quitado sólo pierde sus puntos."""
 
     def __init__(self, dc: dict, nubes: dict | None = None):
         import numpy as np
@@ -93,16 +135,44 @@ class BandaEmpujable:
         from apolo.library.seguridad.modelo import clase_flexible
 
         piezas = dc["piezas"]
+        self.dc = dc  # el de la corrida, para reusarla sin una pieza (`sin`)
         self.bandas = {i for i, p in piezas.items() if clase_flexible(p) == "banda"}
         guardas = {i for i, p in piezas.items() if p.rol == "guarda"}
         self._kd_guarda = self._kd_apoyo = None
+        self._bloques_g = self._bloques_a = {}
+        self._sin_g = self._sin_a = None  # filas enmascaradas de cada árbol (`sin`)
         if self.bandas and guardas:
-            pg = nubes_de(dc["solidos"], sorted(guardas), nubes)
-            pa = nubes_de(dc["solidos"], [i for i in dc["solidos"]
-                                          if i not in guardas and i not in self.bandas], nubes)
+            pg, self._bloques_g = _nube_y_bloques(dc["solidos"], sorted(guardas), nubes)
+            pa, self._bloques_a = _nube_y_bloques(
+                dc["solidos"], [i for i in dc["solidos"]
+                                if i not in guardas and i not in self.bandas], nubes)
             self._kd_guarda = cKDTree(pg) if len(pg) else None
             self._kd_apoyo = cKDTree(pa) if len(pa) else None
         self._np = np
+
+    def sin(self, q) -> BandaEmpujable | None:
+        """La de esta máquina sin las piezas `q` (una vista: los árboles son éstos), `self` si
+        ninguna de `q` aporta puntos, None si `q` quita una banda."""
+        import copy
+
+        np = self._np
+        if set(q) & self.bandas:
+            return None
+        mascaras = []
+        for kd, bloques in ((self._kd_guarda, self._bloques_g), (self._kd_apoyo, self._bloques_a)):
+            filas = [bloques[i] for i in q if i in bloques and bloques[i][1] > bloques[i][0]]
+            if kd is None or not filas:
+                mascaras.append(None)
+                continue
+            m = np.zeros(kd.n, dtype=bool)
+            for a, b in filas:
+                m[a:b] = True
+            mascaras.append(m)
+        if all(m is None for m in mascaras):
+            return self
+        v = copy.copy(self)
+        v._sin_g, v._sin_a = mascaras
+        return v
 
     def empujable(self, pts):
         """Máscara de los puntos de banda que se empujan (en una abertura y sin apoyo)."""
@@ -110,10 +180,10 @@ class BandaEmpujable:
         pts = np.asarray(pts, dtype=float).reshape(-1, 3)
         if self._kd_guarda is None:
             return np.zeros(len(pts), dtype=bool)
-        d, _ = self._kd_guarda.query(pts, k=1, distance_upper_bound=EMPUJE_MM)
+        d = _distancia(self._kd_guarda, pts, self._sin_g)
         out = d <= EMPUJE_MM
         if self._kd_apoyo is not None and out.any():
-            da, _ = self._kd_apoyo.query(pts[out], k=1, distance_upper_bound=EMPUJE_MM)
+            da = _distancia(self._kd_apoyo, pts[out], self._sin_a)
             out[np.flatnonzero(out)] = da > EMPUJE_MM
         return out
 

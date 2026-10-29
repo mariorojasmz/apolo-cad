@@ -65,8 +65,12 @@ def _parse_diam(name: str) -> float | None:
 
 
 def _vol_safe(f) -> float:
+    """El volumen de la forma de `f` (0 si OCCT no puede), una vez por forma si hay un memo de
+    corrida abierto (`memo_corrida`: la puerta lo pide en cada prueba de sobrantes)."""
+    from .engineering.memo_corrida import volumen
+
     try:
-        return float(f.shape.volume)
+        return volumen(f.shape)
     except Exception:
         return 0.0
 

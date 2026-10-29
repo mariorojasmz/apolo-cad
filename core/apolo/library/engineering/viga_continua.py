@@ -159,7 +159,16 @@ def _resolver_banda(a: list[list[float]], b: list[float], banda: int) -> list[fl
 def viga_continua(largo_mm: float, ei_nmm2: float, apoyos, cargas) -> ResultadoViga:
     """Resuelve una viga recta de EI constante sobre `apoyos` (lista de `Apoyo`) con `cargas`
     (`CargaPuntual` / `CargaRepartida`). Lanza ValueError si los datos no forman una viga
-    estable (apoyos fuera, duplicados, un solo apoyo articulado…)."""
+    estable (apoyos fuera, duplicados, un solo apoyo articulado…). Con un memo de corrida
+    abierto (`memo_corrida`: la puerta de publicación), una vez por entradas: es pura y el
+    resultado es inmutable (dataclasses congeladas y tuplas)."""
+    from .memo_corrida import por_clave
+
+    return por_clave("viga_continua", _viga_continua, largo_mm, ei_nmm2, tuple(apoyos),
+                     tuple(cargas))
+
+
+def _viga_continua(largo_mm: float, ei_nmm2: float, apoyos, cargas) -> ResultadoViga:
     largo, ei = float(largo_mm), float(ei_nmm2)
     apoyos = list(apoyos)
     puntuales = [c for c in cargas if isinstance(c, CargaPuntual)]
