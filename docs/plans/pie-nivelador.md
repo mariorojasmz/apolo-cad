@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); falta todo desde la F0. La F2 espera la F2 de puerta-fuera-de-catalogo (clasificar por rol)
+nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1–D5, D7, D8 ajustadas); falta F1–F4. La F2 espera la F2 de puerta-fuera-de-catalogo
 descripcion: La puerta revisa que cada pie nivelador se pueda enroscar, quede trabado y nivele lo que pide el piso, y el catálogo trae los pies que el mercado vende
 ---
 
@@ -167,7 +167,7 @@ buje de soldar» (mesa inox, modelado).
 
 ## Fases
 
-- **F0 — medir** (sólo lectura, S). Las 9 máquinas con pie: por pie, cómo está modelado (catálogo o a
+- **F0 — medir** (sólo lectura, S). Hecha (Bitácora). Las 9 máquinas con pie: por pie, cómo está modelado (catálogo o a
   mano), qué recibe la rosca, enganche, contratuerca, carrera medida y qué decidirían D2–D4; por qué
   la mesa inox de 2 m no tiene apoyos en `apoyo.capacidad`; si el reconocimiento geométrico de D1
   encuentra los 5 pies a mano. Fuentes: DIN 18202 Tabla 3, DIN 934 / ISO 4032 (altura m), ISO 2306
@@ -209,3 +209,46 @@ F1 y F3 son independientes entre sí y de F2 (hasta 3 agentes a la vez); F2 espe
   `nivelacion_mm` declarado manda el requisito.
 - **Regresión en las plantillas** (faja, rodillos): sus pies son tests de la F2 desde el primer
   commit.
+
+## Bitácora
+
+### F0 — medir (2026-10-30)
+
+Las 9 máquinas con pie medidas en el eje del vástago (núcleo 9ce35728, modelos en su estado final),
+fuentes de norma y fichas de fabricante. Lo que cambia del contrato (aprobado por Claude con la
+delegación de Mario; vetable):
+
+- **D1**: el reconocimiento geométrico exige el ROL pie **y** un vástago cilíndrico convexo con base
+  coaxial: sin el rol, las garruchas de un carro y los caladrillos (cilindros cóncavos) de una pata
+  de madera pasan la prueba. Con rol + geometría se reconocen los 5 pies a mano y los 3 de catálogo
+  redondos; el de base de anclaje (base placa), sólo por la categoría del catálogo.
+- **D2** (se reescribe):
+  - el enganche es la rosca en la pieza **más** la tuerca a tope del lado de la carga (la mesa Ø28,
+    que el contrato daba como «pasa», falla con la regla escrita: 12 < 16 mm de placa sola);
+  - una tuerca alta (DIN 6334) se juzga como rosca en pieza (k·d), no por su altura entera;
+  - m ≥ 0,8·d admite la igualdad (DIN 934 M10 = 8,0 mm);
+  - se juzga en la **pose de diseño**, y la carrera de D4 sale del mismo umbral (juzgar en el
+    extremo alto, que a su vez depende del umbral, era circular);
+  - la «placa maciza» de la mesa de trabajo soldada era un falso positivo del revisor (el taladro
+    lo hace otro comando): el caso «material en el eje» se prueba con fixture sintético.
+- **D3**: cuentan como traba la contratuerca a tope de **la pila** (tuerca, placa o tapa que recibe
+  la rosca), la traba fundida al pie (hexágono de bloqueo del sólido) y el parche DIN 267-28
+  declarado en la nota de la unión. Con la regla escrita, cuatro mesas fallaban sin razón.
+- **D4**: Δ = DIN 18202 Tabla 2 fila 1 (ángulo) + Tabla 3 fila 3 (planitud del piso terminado) a la
+  diagonal entre pies (12,5–14,3 mm en la tanda). FALLA si sube + baja < Δ; AVISO si un sentido
+  < Δ/2. `nivelacion_mm` declarado manda.
+- **D5**: las familias del YAML salen de fichas leídas (GN 343.2 de espárrago, LV.A de Elesa —su
+  carga es de ROTURA: se aplica factor—, GN 20 higiénico M12–M24); las designaciones que usaron tres
+  mesas («GN 343.1» con espárrago, «GN 343.7» higiénico M10) no existen así: el catálogo lo evita.
+- **D7**: se mantiene con test sintético: en los modelos finales no hay compra doble sólo porque 8 de
+  9 escribieron «incluido» o usaron `contacto`, y la mesa inox por un error de clasificación.
+- **D8**: la broca sale de `threads.COARSE` (DIN 336, la que ya usa el núcleo); la fórmula reproduce
+  las cinco interferencias reportadas (174,3 / 199,3 / 217,9 / 457,7 / 565,5 mm³). En 4 de 9 la
+  rosca no tiene solape (agujero ≥ d): no hay anillo y la rosca se reconoce por el nombre o por la
+  tuerca de catálogo.
+
+**Fix que va a la F2 de puerta-fuera-de-catalogo** (no a este plan): `es_nombre_de_tornilleria`
+lee «espárrago» dentro de «(compra: …)» y saca los 4 pies de la mesa inox de `installation_data`: 0
+apoyos en `apoyo.capacidad` y sin lámina de instalación.
+
+**Sin medir**: el acceso de llave a la contratuerca; ISO 2306 (se usa DIN 336); la carga de GN 20.

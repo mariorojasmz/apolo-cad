@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); falta todo desde la F0. La escalera de la F5 espera la F5 de puerta-fuera-de-catalogo (raíz del patrón)
+nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1, D3–D7 ajustadas); falta F1–F5. La escalera de la F5 espera la F5 de puerta-fuera-de-catalogo
 descripcion: La puerta revisa que lo que se pliega se pliegue de verdad en el modelo, recorra sin chocar, quede del tamaño pedido y se trabe abierto
 ---
 
@@ -165,7 +165,7 @@ modelo no tiene juntas (`get_kinematics` vacío)».
 
 ## Fases
 
-- **F0 — medir** (sólo lectura, S). Las 3 plegables y sus 3 mínimos: confirmar la hipótesis del buje
+- **F0 — medir** (sólo lectura, S). Hecha (Bitácora). Las 3 plegables y sus 3 mínimos: confirmar la hipótesis del buje
   (D4), cuántas juntas pliegan, qué trabas tendrían que declarar y qué decidiría D5 con ellas; el
   ángulo de rodilla medido en la escalera de 7 y la mesa de 1,8 m; el costo de `scan_collisions` por
   paso en la mesa de 1,8 m; fuentes de D6. Ajusta D1–D7 (vetable).
@@ -213,3 +213,39 @@ F2 y F4 corren en paralelo con F1 (hasta 3 agentes a la vez); F3 espera a F1 y F
   imposible.
 - **Máquinas aprobadas que dejan de aprobar** (toda plegable sin trabas declaradas): es lo buscado;
   la F0 da el antes y la F5 el después.
+
+## Bitácora
+
+### F0 — medir (2026-10-30)
+
+Las 3 plegables y sus 3 mínimos (núcleo 9ce35728): juntas, lazo, trabas, rodilla y costo del
+tránsito. Lo que cambia del contrato (aprobado por Claude con la delegación de Mario; vetable):
+
+- **D1**: `plegable` se pregunta en la ficha APARTE de `desarmable` (las dos sillas declaran
+  `desarmable: true` y ningún requisito dice que se pliegan).
+- **D3**: el tránsito cuesta 15–17 s de CPU por paso en la mesa de 1,8 m (173 piezas; 10,3 s es
+  `interference_report` por pose) y las 56 interferencias de cada paso son de diseño (tornillos en
+  su pretaladro, nudillos). El tránsito cuenta sólo los choques NUEVOS respecto de la pose de
+  diseño y va a `delivery_check` (AVISO), no a la puerta, hasta que cueste ≤ 1 s de CPU por paso.
+  El espesor del guardado sí queda en la puerta.
+- **D4**: el lazo se declara con DOS restricciones (`distancia` + `punto_coincidente`: cada una se
+  ancla al hijo de su junta) y su `axis` es obligatorio (hoy el default es X). Medido en la mesa de
+  1,8 m: reproduce el estudio con ≤ 0,09° y residuo ≤ 0,065 mm, a 0,06–2,7 s de CPU por pose. La
+  hipótesis del buje se confirmó: está en el pivote que cierra el lazo, sin junta, y cae en
+  «alojamiento arrastrado». La cadena del lazo tiene que cerrar en un pivote de la pieza raíz: la
+  escalera hoy cierra sobre una pieza que se mueve y se re-modela (tirante desde el larguero
+  trasero).
+- **D5**:
+  - las trabas se piden por **grado de libertad**, no por junta (escalera: 5 juntas / 1 GDL; mesa:
+    10 / 2);
+  - tipo nuevo `tirante` (el lazo deja de cerrar al mover 3°): la apertura de la escalera la limita
+    el tirante y una prueba de tope no la ve;
+  - la prueba de `tope` pide además distancia de diseño ≤ 0,5 mm (el pasador de la escalera sólo
+    llegaba a 2× `TOL_VOL_MM3`).
+- **D6**: sobre-centro = 180° − ∠PKQ ≥ 2° (entre brazos). Medido: escalera de 7 4,0° (OK), mesa de
+  1,8 m 2,25° (OK), escalera de 3 y mesa de 1,2 m 0° (FALLA). Sin cifra normativa pública (EN 131,
+  EN 1730, EN 12521, EN 15372): queda como criterio de diseño escrito como tal.
+- **D7**: fixture del remache ciego = la mesa de 1,8 m en su corrección 2.
+
+**Sin medir**: el tránsito de las otras plegables y el costo del filtro de choques nuevos; la puerta
+v32 de los 3 mínimos (corrieron con un registro viejo).
