@@ -68,7 +68,8 @@ backend: se mantiene ≤ 10 KB.
 - `render_view` fuerza `vtk_only` (sin caída a matplotlib). Las tools que producen archivos
   (`motion_gif`, `drawing_set`, `calc_report`, `drop_test`, exports…) los escriben a `path`;
   `calc_report`, `assembly_manual`, `drawing_set` y `drawing` van como job (`tools/entregable.py`:
-  recibo → `get_job` lo guarda).
+  recibo → `get_job` lo guarda). `delivery_check`, `check_interference` y `engineering_check`
+  también (lecturas; `get_job` las da como la tool por su `tipo`: `validacion.de_job`).
 
 ## Agente de la app (`agent/`) y criterio (`design/`)
 

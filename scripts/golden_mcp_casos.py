@@ -154,7 +154,15 @@ JOBS_SUELTOS = {"jmc": _archivo("k1", "golden-memoria-calculo.pdf"),
                                       "trazas": {"discretas": {"-K1.%QX0.0": {
                                           "cambios": [[0.0, False], [0.31, True]], "total": 2,
                                           "offset": 0, "truncado": False}}}},
-                "jpu": PUERTA_PUBLICACION, "jsv": SESION_VIVA}
+                "jpu": PUERTA_PUBLICACION, "jsv": SESION_VIVA,
+                "jci": {"interferencias": {"pares": []}},
+                "jck": {"ingenieria": [{"ok": True}], "estructura": {"reglas": []}},
+                "jckr": {"ingenieria": [{"ok": True}], "estructura": {"reglas": []},
+                         "conteo": {"ingenieria": {"ok": 1}, "estructura": {}}},
+                "jdc": {"veredicto": "VERDE", "bloqueantes": []}}
+#: El `tipo` de los jobs de lectura (`get_job` reconoce por él qué tool los pidió).
+TIPOS_SUELTOS = {"jci": "checks:interferencias", "jck": "checks:ingenieria,estructura,lints",
+                 "jckr": "checks:ingenieria,estructura,lints", "jdc": "delivery_check"}
 
 
 def _plc_test(req):
@@ -222,11 +230,12 @@ def _conexiones(req):
 
 
 def _checks(req):
-    out = {"interferencias": {"pares": []}, "ingenieria": [{"ok": True}],
-           "estructura": {"reglas": []}, "otro": "no se muestra"}
-    if json.loads(req.content).get("resumen"):  # el modo corto suma el conteo por estado
-        out["conteo"] = {"ingenieria": {"ok": 1}, "estructura": {}}
-    return J(out)
+    """`/api/checks?async=true` con sus `partes` (maquinas-grandes D4/D5): un job por lectura; el
+    modo corto de la ingeniería suma el conteo por estado."""
+    cuerpo = json.loads(req.content)
+    if cuerpo.get("partes") == ["interferencias"]:
+        return _encolado("jci")
+    return _encolado("jckr" if cuerpo.get("resumen") else "jck")
 
 
 def _escena_grande(n: int = 41) -> dict:
@@ -241,7 +250,8 @@ def _escena_grande(n: int = 41) -> dict:
 def _job(req):
     jid = req.url.path.rsplit("/", 1)[-1]
     if jid in JOBS_SUELTOS:
-        return J({"id": jid, "estado": "ok", "resultado": JOBS_SUELTOS[jid]})
+        tipo = {"tipo": TIPOS_SUELTOS[jid]} if jid in TIPOS_SUELTOS else {}
+        return J({"id": jid, **tipo, "estado": "ok", "resultado": JOBS_SUELTOS[jid]})
     return JOB_OK
 
 
@@ -391,7 +401,7 @@ RUTAS = [
     ("POST", r"/api/assembly/declare", _declare),
     ("GET", r"/api/connectivity", _conexiones),
     ("POST", r"/api/connections/remove", J({**escena(), "conexiones_borradas": ["f1", "g1"]})),
-    ("POST", r"/api/delivery-check", J({"veredicto": "VERDE", "bloqueantes": []})),
+    ("POST", r"/api/delivery-check", _encolado("jdc")),
     ("POST", r"/api/puerta-publicacion", _encolado("jpu")),
     ("GET", r"/api/justificadas", J({"justificadas": [
         {"pieza": "c427", "porque": "la guía del producto pide cerrar el lateral contra el polvo"}]})),
@@ -563,26 +573,32 @@ CASOS = [
          rutas=_job_error("Variable 'L': Expresión inválida 'L*': invalid syntax")),
     caso("interferencia global", "check_interference"),
     caso("interferencia global truncada", "check_interference", rutas={
-        ("POST", r"/api/checks"): J({"interferencias": {
-            "solidos": 297, "parejas_analizadas": 400, "truncado": True, "interferencias": [],
-            "parejas_candidatas": 1234, "parejas_sin_revisar": 834,
-            "como_acotar": "Se revisaron 400 de 1234 parejas candidatas: faltan 834. …"}})}),
+        ("POST", r"/api/checks"): _encolado("jx"), ("GET", r"/api/jobs/[^/]+"): J({
+            "tipo": "checks:interferencias", "estado": "ok", "resultado": {"interferencias": {
+                "solidos": 297, "parejas_analizadas": 400, "truncado": True, "interferencias": [],
+                "parejas_candidatas": 1234, "parejas_sin_revisar": 834,
+                "como_acotar": "Se revisaron 400 de 1234 parejas candidatas: faltan 834. …"}}})}),
     caso("interferencia acotada en pose", "check_interference",
          {"joint_values": {"j1": 30}, "ids": ["Estructura"]}),
     caso("interferencia acotada, página siguiente sin lo declarado", "check_interference",
          {"ids": ["Rodillos"], "desde": 400, "excluir_declaradas": True}, rutas={
-             ("POST", r"/api/checks"): J({"interferencias": {
+             ("POST", r"/api/checks"): _encolado("jx"), ("GET", r"/api/jobs/[^/]+"): J({
+                 "tipo": "checks:interferencias", "estado": "ok", "resultado": {"interferencias": {
                  "solidos": 330, "parejas_analizadas": 400, "truncado": True, "interferencias": [],
                  "desde": 400, "parejas_candidatas": 1100, "parejas_sin_revisar": 300,
                  "desde_siguiente": 800,
                  "como_acotar": "Se revisaron las parejas 401–800 de 1100 parejas candidatas: "
                                 "faltan 300. Sigue con la página siguiente: check_interference("
-                                "ids=[\"Rodillos\"], excluir_declaradas=true, desde=800)."}})}),
+                                "ids=[\"Rodillos\"], excluir_declaradas=true, desde=800)."}}})}),
+    caso("interferencia → recibo", "check_interference", {"ids": ["c53", "c88"]}, espera=0.0),
+    caso("job de la interferencia: como la tool", "get_job", {"job_id": "jci"}),
     caso("ingeniería", "engineering_check", {"carga_kg": 15, "velocidad_m_s": 0.5}),
     caso("ingeniería filtrada y completa", "engineering_check",
          {"grupo": "unión apernada", "solo_fallas": True, "detail": "full"}),
     caso("ingeniería faja", "engineering_check", {"conveyor": {"largo": 4000},
                                                   "conveyor_solid_ids": ["c1"]}),
+    caso("ingeniería → recibo", "engineering_check", espera=0.0),
+    caso("job de la ingeniería: como la tool", "get_job", {"job_id": "jckr"}),
     caso("render", "render_view"),
     caso("render completo", "render_view", {
         "view": "planta", "highlight_ids": ["c1"], "show_axes": True, "show_bbox": True,
@@ -633,9 +649,15 @@ CASOS = [
     caso("borrar conexión sin nombre", "delete_connection"),
     caso("puerta de entrega", "delivery_check", {"con_gravedad": True}),
     caso("puerta de entrega con tiempos", "delivery_check", rutas={
-        ("POST", r"/api/delivery-check"): J({"veredicto": "VERDE", "bloqueantes": [],
-                                             "tiempos_s": {"total": 12.3, "por_regla": {
-                                                 "interferencias": 10.2, "poses": 0.4}}})}),
+        ("POST", r"/api/delivery-check"): _encolado("jx"), ("GET", r"/api/jobs/[^/]+"): J({
+            "tipo": "delivery_check", "estado": "ok", "resultado": {
+                "veredicto": "VERDE", "bloqueantes": [],
+                "tiempos_s": {"total": 12.3, "por_regla": {"interferencias": 10.2, "poses": 0.4}}}})}),
+    caso("puerta de entrega → recibo", "delivery_check", espera=0.0),
+    caso("puerta de entrega repetida mientras corre → el mismo recibo", "delivery_check", rutas={
+        ("POST", r"/api/delivery-check"): J({"job_id": "jdc", "estado": "corriendo",
+                                             "repetida": True}, 202)}, espera=0.0),
+    caso("job de la puerta de entrega: como la tool", "get_job", {"job_id": "jdc"}),
     caso("puerta de publicación", "publication_gate"),
     caso("puerta de publicación completa", "publication_gate", {"completo": True}),
     caso("puerta de publicación: un ítem", "publication_gate", {"item": "entrega.gravedad"}),

@@ -284,6 +284,64 @@ def _job_cosim(tipo: str, work, async_: bool, origen: str | None = None):
     )
 
 
+def _clave_lectura(tipo: str, peticion: dict) -> str | None:
+    """La clave de deduplicación de una lectura (D5 de maquinas-grandes): la ruta (`tipo`), el
+    cuerpo, el proyecto, el documento (su token) y la firma del modelo (`puerta_publicacion.firma`:
+    el log más los metadatos que también leen estas lecturas —estudios de movimiento, requisitos,
+    escenarios—; `firma_documento` deja fuera el movimiento y los requisitos).
+
+    Toma `STATE_LOCK` sólo si está libre: el 202 tiene que ser instantáneo aunque otra lectura
+    larga lo sostenga, y es justo entonces cuando llega el reintento a deduplicar. Sin el lock se
+    lee el log de datos puros (sin OCCT): con una LECTURA en curso nada lo cambia; con una mutación
+    a medias, la firma puede ser la de antes o la de después, y las dos son una linealización
+    válida. Si la lectura sin lock falla, None: se encola un job nuevo, como antes de D5."""
+    import hashlib
+    import json
+
+    from apolo.services.puerta_publicacion import firma
+
+    tomado = STATE_LOCK.acquire(timeout=0.2)
+    try:
+        doc = S.doc
+        datos = [tipo, peticion, S.project_id, token(doc), firma(doc)]
+        texto = json.dumps(datos, sort_keys=True, default=str)
+    except Exception:  # noqa: BLE001 — un log cambiando bajo los pies: sin deduplicar
+        return None
+    finally:
+        if tomado:
+            STATE_LOCK.release()
+    return hashlib.sha256(texto.encode()).hexdigest()
+
+
+def _job_lectura(tipo: str, work, async_: bool, peticion: dict):
+    """Una LECTURA larga (`/api/checks`, `/api/delivery-check`: D5 del plan
+    `docs/plans/maquinas-grandes.md`) en directo o como JOB en `COSIM_JOBS`, la cola de las
+    lecturas largas (la puerta, la co-simulación). `work(proyecto)` toma SUS locks y revalida
+    `proyecto` con `_mismo_proyecto` (None en directo). Sin `?async`, la respuesta de siempre.
+    Con él, 202 + recibo; si una lectura IDÉNTICA (`_clave_lectura`) sigue encolada o corriendo,
+    el recibo es el de ESA (`repetida: true`) y no se encola otra: un reintento del agente tras
+    un timeout no apila trabajo huérfano sobre `STATE_LOCK`."""
+    if not async_:
+        return work(None)
+    expected = S.project_id
+    documento = esperado()  # el ContextVar de la cabecera no llega al hilo del worker
+    clave = _clave_lectura(tipo, peticion)
+
+    def guarded():
+        with esperando(documento):
+            return work(expected)
+
+    if clave is None:
+        return JSONResponse(status_code=202, content={
+            "job_id": COSIM_JOBS.submit(tipo, guarded), "estado": "encolado"})
+    job_id, nuevo = COSIM_JOBS.submit_unico(tipo, guarded, clave)
+    if nuevo:
+        return JSONResponse(status_code=202, content={"job_id": job_id, "estado": "encolado"})
+    estado = (COSIM_JOBS.get(job_id) or {}).get("estado", "encolado")
+    return JSONResponse(status_code=202, content={"job_id": job_id, "estado": estado,
+                                                  "repetida": True})
+
+
 def _job_entregable(tipo: str, work, async_: bool, origen: str | None = None):
     """Un entregable en archivo (memoria, manual) en directo o como JOB (plan manual-rapido F2).
     `work(proyecto)` arma la `Response` con el archivo tomando SUS locks; `proyecto` = el activo

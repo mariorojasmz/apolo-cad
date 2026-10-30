@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 medida (2026-10-30, bitácora). Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29 «tú toma las decisiones a partir de ahora»); D1–D6 siguen vetables por Mario. F1 (D1) implementada en su rama, sin mergear (lavadora: replay 348 → 80 s, editar c86 → 54 s, 723/723 piezas y 649 fijadores iguales). F2 (D2+D3) implementada en su rama sobre la F1, sin mergear (lavadora, CPU: barreno sin perno 103 → 3,4 s, delivery_check 172 → 66 s, puerta sin sobrantes 595 → 261 s, completa 1221 → 889 s; salida IGUAL); F3–F4 sin lanzar
+nota: F0 medida (2026-10-30, bitácora). Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29 «tú toma las decisiones a partir de ahora»); D1–D6 siguen vetables por Mario. MERGEADAS F1 (D1, caja memoizada: replay de la lavadora 348 → 80 s), F2 (D2–D3: barreno sin perno 103 → 3,4 s, delivery_check 172 → 67 s) y F3 (D4–D5: check_interference acotado 139 → 0,6 s; delivery_check como job con recibo y deduplicado). Sin lanzar - F4 (volver a medir; sobrantes ~700 s y la F2 de puerta-rapida)
 descripcion: En una máquina de ~700 piezas, editar el principio del log, delivery_check, check_interference, engineering_check y la puerta terminan en minutos y sin cortarse por tiempo, con los mismos resultados
 ---
 
@@ -374,3 +374,54 @@ tiempo (`ms`, `ms_*`). Gate: `lint_agujeros_atribuidos` ≤ 10 s ✔ (3,4), `ent
 puerta sin sobrantes ≤ 300 s ✔ (261). `scripts/testigos.py --en-proceso`: los cuatro IGUAL, sin
 re-congelar. Lo que queda de la puerta es `sobrantes` (~700 s, intacto: codo y apoyo, F4 y la F2
 de puerta-rapida) y `fuentes.seguridad` (~100 s).
+
+### F3 (2026-10-30)
+
+`/api/checks` y `/api/delivery-check` pasaron de `validation.py` (500 líneas, en el tope) a un
+router propio, `api/routers/chequeos.py`, sin cambiar lo que responden.
+
+- **D4**: `partes` ⊆ `interferencias`, `ingenieria`, `estructura`, `lints` (otra o `[]` → 400 con
+  las válidas). `lints` sale DENTRO de `estructura`, como siempre. `estructura` sin `ingenieria`
+  igual detecta la faja (la estructura la necesita), pero no corre sus reglas. Sin `partes`, la
+  ruta de siempre: contra el router de `main` (10e8756) cargado al lado, 6 cuerpos × 4 testigos
+  de `/api/checks` dieron los MISMOS bytes (24 de 24) y la puerta de entrega el mismo dict sin `tiempos_s`.
+  `tests/test_lecturas_job.py` lo congela (sin `partes` = todas, byte a byte, y el orden de las
+  claves). `check_interference` pide `["interferencias"]`, `engineering_check`
+  `["ingenieria", "estructura", "lints"]`.
+- **D5**: `?async=true` en las dos rutas → `_job_lectura` (`api/common.py`) en `COSIM_JOBS`, con
+  el `tipo` `checks:<partes>` o `delivery_check`. El job revalida el proyecto
+  (`_mismo_proyecto`: 409 si cambió en la cola). Deduplicación: `JobStore.submit_unico(clave)`
+  une lo encolado o corriendo y suelta la clave al terminar (un job terminado no se reutiliza).
+  La clave (`_clave_lectura`) es la ruta, el cuerpo, el proyecto, el token del documento y
+  `puerta_publicacion.firma`. **Decisión** (vetable): no `firma_documento`, que deja fuera el
+  movimiento, los requisitos y lo justificado, que también leen estas lecturas. La clave toma
+  `STATE_LOCK` sólo si está libre (0,2 s). Si no lo está, lee el log sin el lock, porque el
+  reintento llega justo cuando otra lectura lo sostiene. Con una lectura en curso el log no
+  cambia. Con una mutación a medias, la firma es la de antes o la de después: las dos son válidas.
+  Medido: el POST con recibo, 0,1–0,3 s en la lavadora.
+- **Cola** (vetable): `COSIM_JOBS`, como dice D5. Una cola propia no evitaría que un
+  `delivery_check` espere detrás de la puerta: la puerta sostiene `STATE_LOCK` en `reunir`, y la
+  lectura lo necesita igual. La cola sólo ordenaría la espera. Lo más simple gana.
+- MCP: las tres tools usan `_submit_and_wait` y, si no llega, el recibo de siempre. `get_job`
+  reconoce el job por su `tipo` (`validacion.de_job`) y da lo mismo que la tool, más `job`.
+  Golden re-congelado a propósito: cambian las tres descripciones y la de `get_job`, más
+  `?async=true` y `partes` en las peticiones. Hay casos nuevos: recibo, recibo repetido y `get_job`
+  de cada lectura. Las salidas de los casos que ya existían no cambiaron.
+  `scripts/e2e_mcp.py` recoge con `get_job` el recibo de las tres.
+
+E2E por stdio (cliente `mcp` real) contra una API en :8340 sobre una COPIA (`C:\t\mg3`: base,
+home y logs propios) con la lavadora de la ronda 9 importada (731 sólidos, 1505 comandos), el
+código de F1 + F3, en el escritorio:
+
+| qué | antes | F3 |
+|---|---|---|
+| `check_interference(ids=[c53, c88])` | 139,1 s (la ruta entera, que es lo que corría la tool) | **0,6 s**, mismo resultado |
+| `delivery_check` con la espera de siempre (90 s) | se cortaba a los 120 s | recibo a los 90,6 s → `get_job` → VERDE (`tiempos_s` 149,7) |
+| dos `delivery_check` seguidos (espera 5 s) | dos lecturas apiladas sobre el lock | **el mismo job** (`8470d8ff`) en los dos recibos → VERDE (179,5 s, con otras lecturas en paralelo) |
+| `engineering_check` | se cortaba | recibo a los 94 s → `get_job` (ingeniería 9 ok + 1 aviso, estructura 525 ok) |
+
+`scripts/e2e_mcp.py --puerto 8340 --proyecto 1`: 30/31 pasos ok en 427 s. `delivery_check` y
+`engineering_check` dieron recibo y `get_job` los recogió. El paso #23 (`set_variable` de la
+primera variable × 1,1) lo rechaza el MODELO: «el taladro no toca el sólido» en `c977`. El
+documento quedó intacto (resumen y 1505 comandos iguales). No es de F3. La API se paró al
+terminar.

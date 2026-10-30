@@ -5,7 +5,7 @@ Bloque de `mcp_server.py` movido tal cual, con 4 espacios más de sangría (plan
 partir-nucleo-congelado, F1). `mcp_server` llama `registrar` EN EL LUGAR del bloque con
 `globals().update(...)`: el orden de `list_tools()` no cambia y cada tool sigue siendo un
 atributo de `apolo.mcp_server`. NO importa `apolo.mcp_server` (con `-m` el servidor es
-`__main__`: `tests/test_mcp_registro.py`). `_api` y `_paso`: lambdas que buscan el del servidor en
+`__main__`: `tests/test_mcp_registro.py`). `_api`, `_paso` y `esperar`: lambdas que buscan el del servidor en
 CADA llamada (un test que lo parchea por nombre también llega aquí). Importa lo que nombran
 las anotaciones: FastMCP las evalúa.
 """
@@ -17,10 +17,13 @@ from collections.abc import Callable
 
 from apolo.brief import _one_or_many, _scene_brief
 
+from .recibo import job_receipt
 
-def registrar(mcp, _api, _paso) -> dict[str, Callable]:
+
+def registrar(mcp, _api, _paso, esperar) -> dict[str, Callable]:
     """Registra en `mcp` (el del servidor que corre) las tools de `introspeccion` y las
-    devuelve por nombre para que `mcp_server` las re-exporte."""
+    devuelve por nombre para que `mcp_server` las re-exporte. `esperar` es su
+    `_submit_and_wait`: `delivery_check` va como JOB (D5 de maquinas-grandes)."""
 
     @mcp.tool()
     def get_command(command_id: str) -> str:
@@ -154,8 +157,12 @@ def registrar(mcp, _api, _paso) -> dict[str, Callable]:
         ROJO = defecto que el cliente verá (piezas flotantes, colisiones, poses rotas):
         NO ENTREGUES EN ROJO — corrige (declare_structure / ground / fasten / reposiciona)
         y re-corre hasta VERDE o AMARILLO declarando los avisos. `no_aplica` lista lo que
-        no pudo evaluarse — no cuenta como verde. `tiempos_s`: total y por regla. Read-only."""
-        payload = _api("POST", "/api/delivery-check", json={"con_gravedad": con_gravedad}).json()
+        no pudo evaluarse — no cuenta como verde. `tiempos_s`: total y por regla. Read-only.
+        En una máquina grande tarda minutos: si no llega, RECIBO {"job"} (nunca un corte por
+        tiempo); recógelo con get_job (repetirla mientras corre devuelve ese mismo job)."""
+        payload, job_id = esperar("POST", "/api/delivery-check", {"con_gravedad": con_gravedad})
+        if job_id:
+            return job_receipt(job_id)
         return json.dumps(payload, ensure_ascii=False)
 
     @mcp.tool()

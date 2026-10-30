@@ -2412,16 +2412,44 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/checks",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "joint_values": {},
      "interference_desde": 0,
-     "excluir_declaradas": false
+     "excluir_declaradas": false,
+     "partes": [
+      "interferencias"
+     ]
     },
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jci",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -2445,16 +2473,44 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/checks",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "joint_values": {},
      "interference_desde": 0,
-     "excluir_declaradas": false
+     "excluir_declaradas": false,
+     "partes": [
+      "interferencias"
+     ]
     },
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jx",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -2485,7 +2541,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/checks",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "joint_values": {
       "j1": 30
@@ -2494,12 +2555,35 @@
      "excluir_declaradas": false,
      "interference_ids": [
       "Estructura"
+     ],
+     "partes": [
+      "interferencias"
      ]
     },
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jci",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -2529,19 +2613,132 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/checks",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "joint_values": {},
      "interference_desde": 400,
      "excluir_declaradas": true,
      "interference_ids": [
       "Rodillos"
+     ],
+     "partes": [
+      "interferencias"
      ]
     },
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jx",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "interferencia → recibo",
+  "tool": "check_interference",
+  "args": {
+   "ids": [
+    "c53",
+    "c88"
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"jci\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jci') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "joint_values": {},
+     "interference_desde": 0,
+     "excluir_declaradas": false,
+     "interference_ids": [
+      "c53",
+      "c88"
+     ],
+     "partes": [
+      "interferencias"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job de la interferencia: como la tool",
+  "tool": "get_job",
+  "args": {
+   "job_id": "jci"
+  },
+  "salida": [
+   {
+    "texto": "{\"pares\": [], \"job\": \"jci\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jci",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -2568,7 +2765,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/checks",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "carga_kg": 15.0,
      "largo_paquete_mm": null,
@@ -2578,12 +2780,37 @@
      "grupo": null,
      "solo_fallas": false,
      "resumen": true,
+     "partes": [
+      "ingenieria",
+      "estructura",
+      "lints"
+     ],
      "velocidad_m_s": 0.5
     },
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jckr",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -2611,7 +2838,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/checks",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "carga_kg": null,
      "largo_paquete_mm": null,
@@ -2620,12 +2852,37 @@
      "conveyor_solid_ids": null,
      "grupo": "unión apernada",
      "solo_fallas": true,
-     "resumen": false
+     "resumen": false,
+     "partes": [
+      "ingenieria",
+      "estructura",
+      "lints"
+     ]
     },
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jck",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -2656,7 +2913,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/checks",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "carga_kg": null,
      "largo_paquete_mm": null,
@@ -2669,12 +2931,120 @@
      ],
      "grupo": null,
      "solo_fallas": false,
-     "resumen": true
+     "resumen": true,
+     "partes": [
+      "ingenieria",
+      "estructura",
+      "lints"
+     ]
     },
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jckr",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "ingeniería → recibo",
+  "tool": "engineering_check",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"job\": \"jckr\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jckr') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "carga_kg": null,
+     "largo_paquete_mm": null,
+     "ancho_paquete_mm": null,
+     "conveyor": null,
+     "conveyor_solid_ids": null,
+     "grupo": null,
+     "solo_fallas": false,
+     "resumen": true,
+     "partes": [
+      "ingenieria",
+      "estructura",
+      "lints"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job de la ingeniería: como la tool",
+  "tool": "get_job",
+  "args": {
+   "job_id": "jckr"
+  },
+  "salida": [
+   {
+    "texto": "{\"ingenieria\": [{\"ok\": true}], \"estructura\": {\"reglas\": []}, \"conteo\": {\"ingenieria\": {\"ok\": 1}, \"estructura\": {}}, \"job\": \"jckr\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jckr",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -4174,7 +4544,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/delivery-check",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "con_gravedad": true
     },
@@ -4182,6 +4557,26 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jdc",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -4205,7 +4600,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/delivery-check",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "con_gravedad": false
     },
@@ -4213,6 +4613,133 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jx",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "puerta de entrega → recibo",
+  "tool": "delivery_check",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"job\": \"jdc\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jdc') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/delivery-check",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "con_gravedad": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "puerta de entrega repetida mientras corre → el mismo recibo",
+  "tool": "delivery_check",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"job\": \"jdc\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jdc') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/delivery-check",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "con_gravedad": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job de la puerta de entrega: como la tool",
+  "tool": "get_job",
+  "args": {
+   "job_id": "jdc"
+  },
+  "salida": [
+   {
+    "texto": "{\"veredicto\": \"VERDE\", \"bloqueantes\": [], \"job\": \"jdc\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jdc",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {

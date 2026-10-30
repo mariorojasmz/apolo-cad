@@ -59,6 +59,7 @@ from .fea_runs import (  # D4: por IDENTIDAD (los tests espían la guardia y el 
 from .guardia_documento import CabeceraDocumento
 from .routers import (
     assembly,
+    chequeos,
     commands,
     core,
     cosim,
@@ -186,8 +187,8 @@ def _fea_rules() -> list[dict]:
 # -------------------------------------------------------------------- routers
 # Cada router agrupa las rutas de un tema; las rutas que pueden casar la MISMA URL viven en
 # el mismo router y en su orden de siempre (D5 del plan partir-api-main).
-_ROUTERS = (core, commands, features, render, projects, deliverables, validation, motion,
-            assembly, fea, drawings, electrico, cosim, cosim_vivo, video, video_guion)
+_ROUTERS = (core, commands, features, render, projects, deliverables, validation, chequeos,
+            motion, assembly, fea, drawings, electrico, cosim, cosim_vivo, video, video_guion)
 # Extensiones (plan nucleo-abierto-extensiones-privadas, A3): se cargan AQUÍ, antes de las
 # rutas (su prefijo no puede ser un tramo /api/<x>/ del núcleo), y sus routers van DESPUÉS de
 # los del núcleo y ANTES de la UI (un `Mount("/")` previo los taparía). Nunca tumban el arranque.

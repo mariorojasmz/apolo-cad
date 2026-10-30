@@ -9,7 +9,9 @@ proyecto: lectura (escena, comandos, interferencia, consultas espaciales, ensamb
 puerta de entrega, verify, render, BOM, plano, ingeniería), un ensayo fantasma (`preview`) y dos
 mutaciones que se deshacen solas: un `run_batch` cuyo contrato FALLA (debe revertirse) y
 `set_variable` + `undo` (si el regenerate pasa la espera del MCP, `set_variable` devuelve un
-RECIBO y el guion lo recoge con `get_job` hasta que termina). Imprime por paso la tool,
+RECIBO y el guion lo recoge con `get_job` hasta que termina). Las lecturas largas
+(`check_interference`, `delivery_check`, `engineering_check`: D5 de maquinas-grandes) también
+pueden responder con RECIBO en una máquina grande y se recogen igual. Imprime por paso la tool,
 ok/ERROR, el tiempo y lo esencial; con `--md` repite la tabla en Markdown (para la bitácora de
 un plan). Sale con 1 si un paso falla.
 
@@ -297,7 +299,9 @@ async def recorrer(g: Guion, a) -> None:
     def interferencia(res):
         d = _json(res)
         return f"{len(d['interferencias'])} interferencias en pares con {a_id}", None
-    await g.paso("check_interference", {"ids": [a_id]}, interferencia, "check_interference (ids)")
+    v = await g.paso("check_interference", {"ids": [a_id]}, _o_recibo(interferencia),
+                     "check_interference (ids)")
+    await recoger(g, v, interferencia, "get_job (check_interference)", a.espera)
 
     def cerca(res):
         d = _json(res)
@@ -327,7 +331,8 @@ async def recorrer(g: Guion, a) -> None:
         _exige(d["veredicto"] in ("VERDE", "AMARILLO", "ROJO"), f"veredicto {d['veredicto']!r}")
         return (f"{d['veredicto']}: {len(d['bloqueantes'])} bloqueantes, {len(d['avisos'])} "
                 f"avisos, {len(d['no_aplica'])} no aplica"), None
-    await g.paso("delivery_check", {}, puerta)
+    v = await g.paso("delivery_check", {}, _o_recibo(puerta))
+    await recoger(g, v, puerta, "get_job (delivery_check)", a.espera)
 
     def aserciones(res):
         d = _json(res)
@@ -418,7 +423,8 @@ async def recorrer(g: Guion, a) -> None:
         _exige("ingenieria" in d and "estructura" in d, f"faltan bloques: {sorted(d)}")
         return (f"ingeniería: {_estados(d['ingenieria'])} · estructura: "
                 f"{_estados(d['estructura'])}"), None
-    await g.paso("engineering_check", {}, ingenieria)
+    v = await g.paso("engineering_check", {}, _o_recibo(ingenieria))
+    await recoger(g, v, ingenieria, "get_job (engineering_check)", a.espera)
 
     await g.paso("get_scene", {"summary": True}, _igual_a(g, r0, salud0, "al final"),
                  "get_scene (summary)")

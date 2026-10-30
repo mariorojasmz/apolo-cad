@@ -5,7 +5,7 @@ Bloque de `mcp_server.py` movido tal cual, con 4 espacios más de sangría (plan
 partir-nucleo-congelado, F1). `mcp_server` llama `registrar` EN EL LUGAR del bloque con
 `globals().update(...)`: el orden de `list_tools()` no cambia y cada tool sigue siendo un
 atributo de `apolo.mcp_server`. NO importa `apolo.mcp_server` (con `-m` el servidor es
-`__main__`: `tests/test_mcp_registro.py`). `_api`: lambdas que buscan el del servidor en
+`__main__`: `tests/test_mcp_registro.py`). `_api` y `esperar`: lambdas que buscan el del servidor en
 CADA llamada (un test que lo parchea por nombre también llega aquí). Importa lo que nombran
 las anotaciones: FastMCP las evalúa.
 """
@@ -17,10 +17,39 @@ from collections.abc import Callable
 
 from mcp.server.fastmcp import Image
 
+from .recibo import job_receipt
 
-def registrar(mcp, _api) -> dict[str, Callable]:
+#: Lo que pide cada tool a `/api/checks` (D4 de maquinas-grandes: sólo su parte). El `tipo` del job
+#: es `checks:` + estas partes, y así `get_job` sabe qué tool lo pidió.
+PARTES_INTERFERENCIA = ["interferencias"]
+PARTES_INGENIERIA = ["ingenieria", "estructura", "lints"]
+
+
+def de_ingenieria(payload: dict) -> dict:
+    """La salida de `engineering_check`: los dos bloques y, en modo corto, `conteo`."""
+    claves = ["ingenieria", "estructura"] + (["conteo"] if "conteo" in payload else [])
+    return {k: payload.get(k) for k in claves}
+
+
+def de_job(job: dict) -> dict | None:
+    """El resultado de un job de lectura (D5 de maquinas-grandes) tal como lo da su tool, por el
+    `tipo` del job: `check_interference` (sus interferencias), `engineering_check` (sus bloques) o
+    `delivery_check` (el semáforo entero). None si el job no es uno de ésos."""
+    tipo = job.get("tipo") or ""
+    resultado = job.get("resultado") or {}
+    if tipo == "checks:" + ",".join(PARTES_INTERFERENCIA):
+        return dict(resultado.get("interferencias") or {})
+    if tipo == "checks:" + ",".join(PARTES_INGENIERIA):
+        return de_ingenieria(resultado)
+    if tipo == "delivery_check":
+        return dict(resultado)
+    return None
+
+
+def registrar(mcp, _api, esperar) -> dict[str, Callable]:
     """Registra en `mcp` (el del servidor que corre) las tools de `validacion` y las
-    devuelve por nombre para que `mcp_server` las re-exporte."""
+    devuelve por nombre para que `mcp_server` las re-exporte. `esperar` es su
+    `_submit_and_wait`: las dos lecturas de `/api/checks` van como JOB."""
 
     @mcp.tool()
     def check_interference(joint_values: dict | None = None, ids: list[str] | None = None,
@@ -31,10 +60,14 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         valida TU zona de trabajo tras una operación en vez de la máquina entera. Hasta 400 parejas
         por llamada: con más, `truncado` suma `parejas_sin_revisar`, `desde_siguiente` y
         `como_acotar` (la llamada siguiente); `desde` pide esa página. `excluir_declaradas=true` deja
-        fuera los pares con unión declarada (como la puerta)."""
+        fuera los pares con unión declarada (como la puerta). Si tarda, RECIBO {"job"}: recógelo
+        con get_job (repetir la MISMA llamada mientras corre devuelve ese mismo job)."""
         body = {"joint_values": joint_values or {}, "interference_desde": desde,
-                "excluir_declaradas": excluir_declaradas, **({"interference_ids": ids} if ids else {})}
-        payload = _api("POST", "/api/checks", json=body).json()
+                "excluir_declaradas": excluir_declaradas, **({"interference_ids": ids} if ids else {}),
+                "partes": PARTES_INTERFERENCIA}
+        payload, job_id = esperar("POST", "/api/checks", body)
+        if job_id:
+            return job_receipt(job_id)
         return json.dumps(payload["interferencias"], ensure_ascii=False)
 
     @mcp.tool()
@@ -59,16 +92,18 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         deja lo que no está ok. `detail`: "summary" (def.) agrupa lo repetido (las reglas de una
         unión, por su par de piezas) en UNA línea (`n`, estado y detalle del PEOR caso, `peor`; lo ok
         sin detalle salvo con `grupo`), suma `conteo` por estado y sólo trae `calc` (fórmula,
-        criterio, FS) donde da error; "full" lo da todo."""
+        criterio, FS) donde da error; "full" lo da todo. Si tarda, RECIBO {"job"}: recógelo con
+        get_job (repetir la MISMA llamada mientras corre devuelve ese mismo job)."""
         body = {"carga_kg": carga_kg, "largo_paquete_mm": largo_paquete_mm,
                 "ancho_paquete_mm": ancho_paquete_mm, "conveyor": conveyor,
                 "conveyor_solid_ids": conveyor_solid_ids, "grupo": grupo, "solo_fallas": solo_fallas,
-                "resumen": detail != "full"}
+                "resumen": detail != "full", "partes": PARTES_INGENIERIA}
         if velocidad_m_s is not None:
             body["velocidad_m_s"] = velocidad_m_s
-        payload = _api("POST", "/api/checks", json=body).json()
-        claves = ["ingenieria", "estructura"] + (["conteo"] if "conteo" in payload else [])
-        return json.dumps({k: payload.get(k) for k in claves}, ensure_ascii=False)
+        payload, job_id = esperar("POST", "/api/checks", body)
+        if job_id:
+            return job_receipt(job_id)
+        return json.dumps(de_ingenieria(payload), ensure_ascii=False)
 
     @mcp.tool()
     def render_view(

@@ -103,7 +103,8 @@ def test_la_tool_pide_el_resumen_y_el_detalle_completo_a_pedido(monkeypatch):
     cuerpos: list[dict] = []
 
     def por_la_api(method, path, **kw):
-        cuerpos.append(kw.get("json"))
+        if path == "/api/checks":  # el resto es el sondeo del job (maquinas-grandes D5)
+            cuerpos.append(kw.get("json"))
         return client.request(method, path, **kw)
 
     monkeypatch.setattr(mcp_server, "_api", por_la_api)

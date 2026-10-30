@@ -23,7 +23,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `render` | `render.png` y `pick` (misma cámara) |
 | `projects` | proyectos, revisiones, importar/exportar (STEP, STL, `.apolo`) |
 | `deliverables` | catálogo, BOM y costeo, lista de corte, nesting, memoria de cálculo, cotización, manual |
-| `validation` | `/api/checks`, `verify`, puerta de entrega y de publicación, requisitos, stack-up, tensores, funciones y justificaciones declarados |
+| `validation` | `verify`, puerta de publicación, requisitos, stack-up, tensores, funciones y justificaciones declarados |
+| `chequeos` | las lecturas largas: `/api/checks` (con `partes`) y la puerta de entrega, en directo o como job |
 | `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
 | `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica y la serie de la marcha |
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
@@ -165,6 +166,13 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   bajo `PHYSICS_LOCK`, insumos bajo `STATE_LOCK` (`services/puerta_publicacion.py`), y 409 si la
   firma del modelo cambia entre las tomas: un veredicto no mezcla dos modelos.
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F1)
+- Las lecturas largas (`/api/checks`, `/api/delivery-check`) con `?async=true` también van en
+  `COSIM_JOBS` (`_job_lectura`; tipo `checks:<partes>` o `delivery_check`). Una IDÉNTICA en curso
+  (`_clave_lectura`: ruta, cuerpo, proyecto, token y `puerta_publicacion.firma`) devuelve su job
+  con `repetida: true`: un reintento no apila trabajo sobre `STATE_LOCK`. La clave se calcula sin
+  ESPERAR el lock (lo toma sólo si está libre: el reintento llega justo cuando otra lectura lo
+  sostiene). Un job terminado no se reutiliza.
+  [maquinas-grandes](../../../docs/plans/maquinas-grandes.md) (D5)
 - Los entregables en archivo que tardan (memoria, manual, juego de planos, plano por intención)
   van en `ENTREGABLES_JOBS`
   (`_job_entregable`, `?async=true`), tampoco en `JOBS`: un job guarda JSON, así que el PDF queda
@@ -198,7 +206,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - **Modo corto = parámetro opt-in; sin él, byte-idéntico (la UI no lo pide, el MCP sí, por
   defecto)**: `undo|redo?detail=diff`, `GET /api/connectivity?ids&kind&resumen=si|auto`,
   `soundness {resumen}`, `/api/checks {grupo, solo_fallas, resumen, interference_desde,
-  excluir_declaradas}`, `assembly/declare
+  excluir_declaradas, partes}` (sin `partes`, todo: lo no pedido no sale ni con `null`), `assembly/declare
   {resumen}` (propuesta y aplicada; sin cuerpo, la escena de siempre). `/api/schemas` (vista
   agente) publica `x-catalogo` en vez de un enum de > 50 refs; la vista persona conserva el
   enum (desplegable de la UI); `/api/schemas/{type}` no repite la `description` en la raíz del

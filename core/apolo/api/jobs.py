@@ -79,29 +79,37 @@ class JobStore:
         self._worker: threading.Thread | None = None
         self.retention = retention
         self._al_cambiar_estado = al_cambiar_estado
+        # Deduplicación de lecturas (D5 de maquinas-grandes): clave → job EN CURSO y su inversa.
+        # La entrada se borra al terminar el job (`_finish`): sólo une lo que todavía corre.
+        self._por_clave: dict[str, str] = {}
+        self._clave_de: dict[str, str] = {}
 
     # ------------------------------------------------------------------ API pública
     def submit(self, tipo: str, fn: Callable[[], dict], origen: str | None = None) -> str:
         """Encola ``fn`` y devuelve el recibo (``job_id``) al instante. ``origen`` (opcional,
         «visor»: lo encoló la persona desde la UI) viaja en el job y en sus avisos; sin él, todo
         como siempre (el visor cuenta el job como del agente)."""
-        job_id = uuid.uuid4().hex[:8]
         with self._cv:
-            self._jobs[job_id] = {
-                "id": job_id,
-                "tipo": tipo,
-                "estado": "encolado",
-                "resultado": None,
-                "error": None,
-                "http_status": None,
-                "creado": time.time(),
-                "terminado": None,
-                **({"origen": origen} if origen else {}),
-            }
-            self._order.append(job_id)
-            self._ensure_worker()
+            job_id = self._crear(tipo, origen)
         self._queue.put((job_id, fn))
         return job_id
+
+    def submit_unico(self, tipo: str, fn: Callable[[], dict], clave: str,
+                     origen: str | None = None) -> tuple[str, bool]:
+        """Como `submit`, pero si un job con la misma ``clave`` sigue encolado o corriendo
+        devuelve ESE en vez de encolar otro → ``(job_id, nuevo)``. Para las LECTURAS largas (D5
+        del plan `docs/plans/maquinas-grandes.md`): un reintento idéntico del agente no apila
+        trabajo huérfano detrás del que ya corre. Un job terminado no se reutiliza: la misma
+        petición después vuelve a calcular."""
+        with self._cv:
+            previo = self._por_clave.get(clave)
+            if previo is not None and previo in self._jobs:
+                return previo, False
+            job_id = self._crear(tipo, origen)
+            self._por_clave[clave] = job_id
+            self._clave_de[job_id] = clave
+        self._queue.put((job_id, fn))
+        return job_id, True
 
     def get(self, job_id: str, wait_s: float = 0.0) -> dict | None:
         """Estado del job; None si es desconocido (nunca existió, reload o desalojado).
@@ -132,6 +140,24 @@ class JobStore:
             ]
 
     # ------------------------------------------------------------------ interno
+    def _crear(self, tipo: str, origen: str | None) -> str:
+        """Alta de un job encolado (asume ``_cv`` sostenido); el llamador lo pone en la cola."""
+        job_id = uuid.uuid4().hex[:8]
+        self._jobs[job_id] = {
+            "id": job_id,
+            "tipo": tipo,
+            "estado": "encolado",
+            "resultado": None,
+            "error": None,
+            "http_status": None,
+            "creado": time.time(),
+            "terminado": None,
+            **({"origen": origen} if origen else {}),
+        }
+        self._order.append(job_id)
+        self._ensure_worker()
+        return job_id
+
     def _ensure_worker(self) -> None:
         """Arranca el worker perezosamente (asume ``_cv`` sostenido): un proceso que nunca
         encola un job tampoco paga un hilo. Daemon: muere con el proceso."""
@@ -212,6 +238,9 @@ class JobStore:
                     terminado=time.time(),
                 )
                 self._evict()
+            clave = self._clave_de.pop(job_id, None)
+            if clave is not None and self._por_clave.get(clave) == job_id:
+                del self._por_clave[clave]
             self._cv.notify_all()
 
     def _evict(self) -> None:

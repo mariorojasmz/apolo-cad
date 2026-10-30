@@ -1,11 +1,11 @@
-"""Rutas de validación: chequeos, aserciones `verify`, puerta de entrega, puerta de publicación,
-requisitos (y la identificación comercial del proyecto, que viaja con ellos), stack-up y los
-tensores, funciones y justificaciones declarados (metadatos de la puerta de publicación).
+"""Rutas de validación: aserciones `verify`, puerta de publicación, requisitos (y la
+identificación comercial del proyecto, que viaja con ellos), stack-up y los tensores, funciones y
+justificaciones declarados (metadatos de la puerta de publicación). `/api/checks` y la puerta de
+entrega viven en `chequeos.py` (F3 de maquinas-grandes: lecturas largas como job).
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
-`main.py`. El dominio (aserciones, insumos de la puerta, reglas de ingeniería, evaluación de
-cadenas) es de `apolo.services`; aquí queda el transporte y las diferencias DELIBERADAS de
-`/api/checks` frente a la memoria (D7). El `PUT /api/stackup` hace ROLLBACK si la cadena no
+`main.py`. El dominio (aserciones, insumos de la puerta, evaluación de cadenas) es de
+`apolo.services`; aquí queda el transporte. El `PUT /api/stackup` hace ROLLBACK si la cadena no
 evalúa.
 """
 
@@ -17,19 +17,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from apolo.doc import DocumentError
-from apolo.library import conveyor_engineering_check, interference_report
-from apolo.services import conexiones
-from apolo.services import reglas_cortas as rc
 from apolo.services.assertions import verify_checks
-from apolo.services.delivery_inputs import delivery_inputs, exclusiones_declaradas
-from apolo.services.engineering_rules import (
-    conveyor_params_from_doc,
-    inherit_inclination,
-    inherit_tensor,
-    requirement_inputs,
-    structure_rules,
-)
-from apolo.services.interferencias import como_acotar
 from apolo.services.stackup_eval import evaluate_stackups
 from apolo.state import STATE_LOCK
 
@@ -47,119 +35,6 @@ from ..sims import StabilityIn, _stability
 router = APIRouter()
 
 
-class ChecksIn(BaseModel):
-    carga_kg: float | None = None
-    largo_paquete_mm: float | None = None
-    ancho_paquete_mm: float | None = None
-    velocidad_m_s: float = 0
-    joint_values: dict[str, float] = {}
-    conveyor: dict | None = None  # validación predictiva: params de faja a evaluar sin construirla
-    conveyor_solid_ids: list[str] | None = None  # marca explícita de los sólidos que forman la faja
-    interference_ids: list[str] | None = None  # V6.5b: acota la interferencia a pares que tocan estos ids/grupos
-    # mcp-sin-friccion D10: página de parejas candidatas y el criterio de la puerta (sin lo declarado)
-    interference_desde: int = 0
-    excluir_declaradas: bool = False
-    # mcp-sin-friccion D1/D2 (`services/reglas_cortas.py`): sin ellos, byte-idéntico (la UI)
-    grupo: str | None = None  # familia de regla («unión apernada», «flecha de viga»…)
-    solo_fallas: bool = False  # sólo lo que no está «ok»
-    resumen: bool = False  # patrones repetidos en una línea con su peor caso, sin `calc` salvo error
-
-
-@router.post("/api/checks")
-def run_checks(body: ChecksIn) -> dict:
-    with STATE_LOCK:
-        from apolo.library.checks import (
-            hardware_ids, interpenetration_report, joint_pairs, same_command_pairs,
-        )
-
-        jpairs = joint_pairs(S.doc)
-        shapes_override = None
-        pose_warnings: list[str] = []
-        if any(v != 0 for v in body.joint_values.values()):
-            from apolo.robotics.pose import posed_shapes
-
-            shapes_override, pose_warnings = posed_shapes(S.doc, body.joint_values)
-        # V6.5b: `interference_ids` acota a las parejas donde participa un id/grupo dado
-        # (O(k·n)) — el agente valida SU zona de trabajo, no la máquina entera.
-        focus = _expand_ids(body.interference_ids) if body.interference_ids else None
-        excl_pares, excl_ids = (exclusiones_declaradas(S.doc) if body.excluir_declaradas
-                                else (set(), set()))
-        interferencias = interference_report(
-            S.doc.scene, shapes_override=shapes_override,
-            exclude_pairs=jpairs | same_command_pairs(S.doc) | excl_pares,
-            exclude_ids=hardware_ids(S.doc) | excl_ids,
-            focus=focus, desde=body.interference_desde,
-        )
-        if interferencias["truncado"]:  # D4/D10 de mcp-sin-friccion: la página siguiente y zonas
-            interferencias["como_acotar"] = como_acotar(
-                S.doc, interferencias, body.interference_ids, body.excluir_declaradas)
-        if shapes_override is not None:  # interpenetración de cuerpos con junta compartida
-            interferencias["interferencias"] += interpenetration_report(
-                S.doc.scene, shapes_override, jpairs
-            )
-            interferencias["interferencias"].sort(key=lambda c: -c["volumen_mm3"])
-        interferencias["avisos_pose"] = pose_warnings
-        ingenieria = None
-        conveyor = None
-        req, carga, largo_paq, ancho_paq = requirement_inputs(
-            S.doc, body.carga_kg, body.largo_paquete_mm, body.ancho_paquete_mm)
-        velocidad = body.velocidad_m_s or float(req.get("velocidad_m_s") or 0)
-        if carga and largo_paq:
-            from apolo.library.rules import detect_conveyor, infer_from_solids
-
-            conveyor = (
-                body.conveyor
-                or conveyor_params_from_doc(S.doc)
-                or (infer_from_solids(S.doc.scene, body.conveyor_solid_ids)
-                    if body.conveyor_solid_ids else None)
-                or detect_conveyor(S.doc.scene, S.doc.variables_resolved, S.doc.fasteners)
-            )
-            inherit_inclination(conveyor, req)
-            inherit_tensor(S.doc, conveyor)
-            if conveyor:
-                ingenieria = conveyor_engineering_check(
-                    conveyor,
-                    carga_kg=carga,
-                    largo_paquete_mm=largo_paq,
-                    velocidad_m_s=velocidad,
-                    ancho_paquete_mm=ancho_paq,
-                )
-            else:
-                ingenieria = [
-                    {
-                        "regla": "transportador",
-                        "estado": "aviso",
-                        "detalle": "No hay ningún transportador en el documento que validar.",
-                    }
-                ]
-        # chequeo estructural UNIVERSAL + resultados FEA guardados (con vigencia)
-        estructura = structure_rules(S.doc, carga, conveyor)
-        # V7.2b: lints pre-entrega (barreno sin perno · pieza sin grupo ni unión) —
-        # olvidos de MODELADO que el chequeo estructural no ve; vacíos si el modelo está sano
-        from apolo.commands.expressions import resolve_params
-        from apolo.library.lints import predelivery_lints
-        from apolo.services.calidad_agujeros import agujeros_atribuidos
-
-        doc = S.doc
-        estructura += predelivery_lints(
-            doc.scene, doc.commands, doc.fasteners, doc.grounds, doc.joints, doc.mates,
-            resolve=lambda p: resolve_params(p, doc.variables_resolved),
-            material_vertical=doc.default_material(),
-            agujeros_declarados=lambda: agujeros_atribuidos(doc),
-        )
-    out = {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
-    if body.grupo or body.solo_fallas or body.resumen:
-        for k in ("ingenieria", "estructura"):
-            out[k] = rc.filtrar_reglas(out[k], body.grupo, body.solo_fallas)
-        if body.resumen:  # D12: las de cada unión, por el par de piezas; lo «ok», sin detalle
-            out["conteo"] = {k: rc.conteo(out[k]) for k in ("ingenieria", "estructura")}
-            with STATE_LOCK:  # la clave lee las uniones y los nombres del documento
-                clave = conexiones.clave_de_reglas(S.doc)
-                for k in ("ingenieria", "estructura"):
-                    out[k] = rc.reglas_cortas(out[k], clave, ok_sin_detalle=not body.grupo)
-    return out
-
-
 class VerifyIn(BaseModel):
     checks: list[dict] = []
 
@@ -173,40 +48,6 @@ def verify_endpoint(body: VerifyIn) -> dict:
     with STATE_LOCK:
         resultados = verify_checks(S.doc, S.doc.scene, body.checks, expand=_expand_ids)
     return {"ok": all(r["ok"] for r in resultados), "resultados": resultados}
-
-
-class DeliveryIn(BaseModel):
-    con_gravedad: bool = False
-
-
-@router.post("/api/delivery-check")
-def delivery_check_endpoint(body: DeliveryIn) -> dict:
-    """PUERTA DE ENTREGA (V6.9): corre la batería de cierre y devuelve el SEMÁFORO
-    {veredicto VERDE|AMARILLO|ROJO, bloqueantes, avisos, no_aplica, resumen}. Agregación
-    PURA de chequeos existentes (library/delivery.py): interferencias en DISEÑO
-    (exclusiones normales) + sujeción DECLARADA (soundness SIN autodetect — la puerta
-    valida lo que el modelo declara, no lo que un detector adivina) + lints pre-entrega
-    + integridad/suprimidos + colisión EN POSE en los fotogramas de REPOSO de los
-    estudios declarados (extremos + dwells; asiento ≤ tolerancia declarado, no bloquea).
-    `con_gravedad` añade la simulación MuJoCo (cara; opt-in). Read-only. `tiempos_s` dice
-    cuánto tardó en total y cada regla (mcp-sin-friccion D4)."""
-    from apolo.library.delivery import delivery_report
-
-    t0 = time.perf_counter()
-    tiempos: dict = {}
-    gravedad = None
-    if body.con_gravedad:
-        # dos-locks propio (_stability); with_autodetect=False: la puerta es DECLARADA, y su
-        # tornillería, asentada (como en su sujeción)
-        res = _stability(StabilityIn(with_autodetect=False), tornilleria_asentada=True)
-        gravedad = {k: res.get(k) for k in ("fell", "estables", "settled", "n_grounded")}
-        tiempos["gravedad"] = round(time.perf_counter() - t0, 2)
-
-    with STATE_LOCK:  # la puerta valida lo DECLARADO: services/delivery_inputs.py
-        out = delivery_report(**delivery_inputs(S.doc, expand=_expand_ids, tiempos=tiempos),
-                              gravedad=gravedad)
-    out["tiempos_s"] = {"total": round(time.perf_counter() - t0, 2), "por_regla": tiempos}
-    return out
 
 
 @router.post("/api/puerta-publicacion", response_model=dict)

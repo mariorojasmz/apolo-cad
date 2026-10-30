@@ -185,7 +185,8 @@ def get_job(job_id: str, detail: str = "diff", wait_s: float = 20, path: str | N
     """Recoge el resultado de una mutación que devolvió un RECIBO {"job": id} (run_command,
     edit_command, set_variable, run_batch, edit_batch o remove_commands tardaron más que la
     espera; también calc_report, assembly_manual, drawing_set y drawing: guarda el archivo en su
-    `path` o en `path`).
+    `path` o en `path`; y las lecturas delivery_check, check_interference y engineering_check:
+    lo mismo que la tool).
     Espera hasta `wait_s` segundos (long-poll: responde en cuanto el job termina) y
     devuelve lo MISMO que habría devuelto la tool (sólidos + `contrato`), o
     `{"estado": "corriendo"}` si aún no acaba — vuelve a llamar. El de publication_gate llega
@@ -202,6 +203,9 @@ def get_job(job_id: str, detail: str = "diff", wait_s: float = 20, path: str | N
         return _job_receipt(job_id, job["estado"])
     if "archivo" in (job.get("resultado") or {}):
         return entregable.recoger(_api, job_id, job["resultado"], path)
+    lectura = validacion.de_job(job)  # delivery_check, check_interference, engineering_check
+    if lectura is not None:
+        return json.dumps({**lectura, "job": job_id}, ensure_ascii=False)
     puerta = calidad.de_job(job.get("resultado") or {}, detail)
     if puerta is not None:
         return json.dumps({**puerta, "job": job_id}, ensure_ascii=False)
@@ -234,7 +238,8 @@ def set_variable(name: str, expression: str) -> str:
 
 
 # -------------------------------------------------------------- validación
-globals().update(validacion.registrar(mcp, lambda *a, **k: _api(*a, **k)))
+globals().update(validacion.registrar(
+    mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _submit_and_wait(*a, **k)))
 
 
 # ---------------------------------------------------------------- proyectos
@@ -243,7 +248,8 @@ globals().update(proyectos.registrar(mcp, lambda *a, **k: _api(*a, **k)))
 
 # ---------------------------------------------------------- lectura/introspección
 globals().update(introspeccion.registrar(
-    mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _paso(*a, **k)))
+    mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _paso(*a, **k),
+    lambda *a, **k: _submit_and_wait(*a, **k)))
 
 
 # ----------------------------------------------------- topología / selectores
