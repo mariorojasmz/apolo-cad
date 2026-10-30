@@ -14,7 +14,11 @@ Cada unión perno, soldadura o pegado entre piezas que mueven juntas de movimien
 1. **Eje de la junta** (`calidad_ejes_giro`): el perno o pasador que es el eje une sus dos
    cuerpos: es el pivote → OK.
 2. **Bisagra** (D1b): las DOS piezas tienen una cara cilíndrica coaxial (± 1 mm) con la junta (las
-   palas de una bisagra, el barril y su soporte) → OK.
+   palas de una bisagra, el barril y su soporte) → OK. El pivote que CIERRA un lazo declarado con
+   restricciones (`distancia` + `punto_coincidente`, D4 de plegables-en-la-puerta: el brazo del
+   compás y el buje del tablero) cuenta como una junta más: OK si el lazo cierra en diseño y en
+   cada pose de prueba (residuo ≤ `RESIDUO_LAZO_MM`), su `axis` está declarado y cierra sobre la
+   pieza raíz; si no, SIN_EVALUAR con el porqué, nunca OK.
 3. **Alojamiento arrastrado** (D1d): la pieza que se mueve con la junta es coaxial con ella y la
    otra no se mueve (la chumacera hija del eje empernada a su ménsula, la carcasa del motor) →
    FALLA, aunque la pose no la delate (una brida empernada cara a cara gira en su plano sin
@@ -47,14 +51,24 @@ NORMA = ("criterio de diseño (D1 de lo-fijo-que-gira-y-lo-que-cuelga: lo que el
 REGLA_AVISO = "unión rígida entre piezas que se mueven distinto"
 COMO = ("corrige la junta: saca la pieza de lo que mueve la junta (su `fija` o el `arrastrar` "
         "que la arrastra), hazla hija de lo que de verdad la mueve o modela el pivote con su eje; "
-        "si la unión se quita para mover (servicio) o cierra un lazo, justifícalo por escrito "
-        f"(regla «{REGLA_AVISO}» y la pieza)")
+        "si cierra un lazo, declara su pivote con add_constraint (`distancia` + "
+        "`punto_coincidente` con su `axis`, cerrando en la pieza raíz); si la unión se quita "
+        f"para mover (servicio), justifícalo por escrito (regla «{REGLA_AVISO}» y la pieza)")
+#: Lo que `solve_constraints` puede dejar sin cerrar un lazo para que la pose valga (D4 de
+#: plegables-en-la-puerta; la F0 midió ≤ 0,065 mm en el compás de la mesa de 1,8 m).
+RESIDUO_LAZO_MM = 0.5
 
 
 def _sin_eje(c: dict) -> tuple[str, str]:
     """(estado, motivo) del caso sin la excepción del eje. Estado OK | FALLA | SIN_EVALUAR |
     «aviso»."""
     juntas = ", ".join(c.get("juntas") or [])
+    lazo = c.get("lazo")
+    if lazo:  # el par se une en el pivote que cierra un lazo (D4)
+        if lazo.get("estado") == OK:
+            return OK, (f"bisagra del lazo: las dos piezas son coaxiales con el pivote "
+                        f"{lazo['pivote']} que cierra el lazo y el lazo cierra en cada pose")
+        return SIN_EVALUAR, f"pivote del lazo {lazo['pivote']}: {lazo.get('motivo')}"
     mueve, quieta = c.get("coaxial_mueve") or [], c.get("coaxial_quieta") or []
     if mueve and quieta:
         return OK, f"bisagra: las dos piezas son coaxiales con {juntas}"
@@ -98,8 +112,9 @@ def coherente(ins: dict) -> dict:
     """El control del ítem: `ins["movimiento"]` = {juntas: {tipo: n}, casos: [{a, b, nombre_a,
     nombre_b, uniones, tipos, par_de_junta, juntas, quietas, coaxial_mueve, coaxial_quieta,
     servicio, pose: {dist_diseno_mm, comun_diseno_mm3, poses: [{junta, valor, dist_mm,
-    comun_mm3, sigue, solapa}], sigue} | None, eje}]}
-    (None: no se midió); `ins["justificadas"]` = el metadato."""
+    comun_mm3, sigue, solapa}], sigue} | None, eje, lazo?: {pivote, estado, motivo, …}}],
+    lazos?: [{nombre, estado, motivo?, motores, poses}]} (None: no se midió);
+    `ins["justificadas"]` = el metadato."""
     datos = ins.get("movimiento")
     if datos is None or datos.get("error"):
         return {"estado": SIN_EVALUAR, "detalle": "no se midieron las uniones entre juntas"
@@ -124,6 +139,8 @@ def coherente(ins: dict) -> dict:
     ev = {"juntas": datos.get("juntas") or {}, "uniones_entre_juntas": len(filas),
           "casos": rec["casos"], **({"casos_omitidos": rec["casos_omitidos"]}
                                     if "casos_omitidos" in rec else {})}
+    if datos.get("lazos"):
+        ev["lazos"] = datos["lazos"]
     if avisos:
         ev["avisos"] = [{"regla": REGLA_AVISO, "piezas": [c["a"], c["b"]]} for c, _m in avisos[:20]]
     if js_usadas:

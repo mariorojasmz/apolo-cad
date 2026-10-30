@@ -122,7 +122,10 @@ transporte que los llama, en [api](../api/CLAUDE.md).
   su test de igualdad. [plan](../../../docs/plans/puerta-sin-sobrediseno.md) (D5–D9) ·
   [puerta-rapida](../../../docs/plans/puerta-rapida.md)
 - `movimiento.coherente` (`calidad_movimiento.py`) juzga los pares rígidos de
-  `uniones_entre_juntas(tocan=False)` con la prueba de pose relativa y la firma coaxial. Pernos y
+  `uniones_entre_juntas(tocan=False)` con la prueba de pose relativa y la firma coaxial; el
+  pivote que cierra un lazo declarado (`punto_coincidente` + su `axis`) es un eje más si el lazo
+  cierra en cada pose (`calidad_lazos.py`, sin pose relativa: abriría el lazo;
+  [plegables](../../../docs/plans/plegables-en-la-puerta.md) D4). Pernos y
   ejes de giro se miden UNA vez por corrida (`pernos_y_ejes`, memo del `contexto`): un control
   nuevo los pide ahí. Lo colgado de un `contacto` (`calidad_cuelga.py`) sale de
   `loads.piezas_colgadas` sobre el grafo DECLARADO; la unión de tubería que tira se declara en la

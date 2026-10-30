@@ -17,8 +17,8 @@ hacia la punta, mm):
      "giro": {"junta"}, "retenes": [{"fid", "nombre", "tipo"}], "tirafondo": bool}
 
 El PASADOR (o la tornillería de madera sin llave) que es eje de una junta y que `calidad_pernos`
-no mide entra aparte, sólo a la retención: {"fid", "nombre", "pasador": True, "tirafondo", "giro",
-"retenes", "tuercas": [{"fid", "nombre", "t0", "t1", "autoblocante"}]}.
+no mide entra aparte, sólo a la retención: {"fid", "nombre", "pasador": True, "tirafondo",
+"remache_ciego", "giro", "retenes", "tuercas": [{"fid", "nombre", "t0", "t1", "autoblocante"}]}.
 
 Tres controles, cada uno un ítem que agrega todos los pernos (los casos que fallan van en la
 evidencia con sus números):
@@ -30,8 +30,8 @@ evidencia con sus números):
   ≥ 1·d en acero y ≥ 1,5·d en aluminio o fundición (VDI 2230 / criterio de taller); en madera,
   ≥ 2/3 del largo dentro (DIN 571, el criterio de `fijacion.tornillo_madera`). El perno o pasador
   que es EJE de una junta de giro, además, va TRABADO (tuerca autoblocante, contratuerca, pasador
-  de aletas o anillo de retención) y no es un tirafondo ni un tornillo de madera
-  (`library/ejes_giro.py`); si no, FALLA con la junta y el motivo.
+  de aletas o anillo de retención) y no es un tirafondo, un tornillo de madera ni un remache
+  ciego (`library/ejes_giro.py`); si no, FALLA con la junta y el motivo.
 - **largo**: el largo es de la serie (ISO 4014/4017/4762; DIN 571) y el catálogo lo vende; el
   ESPÁRRAGO (`cabeza: "esparrago"`, t = 0 en su base y su tuerca en la punta: F3c), de la serie
   de espárragos, sin ficha.
@@ -185,11 +185,14 @@ def _con_giro(p: dict, base: tuple, tuercas: list[dict]) -> tuple:
 
 
 def _pasador(p: dict) -> tuple:
-    """La retención de un PASADOR (o tornillo de madera sin llave) que es eje de una junta."""
-    from ..ejes_giro import PIDE, traba
+    """La retención de un PASADOR (o tornillo de madera sin llave, o remache ciego) que es eje de
+    una junta."""
+    from ..ejes_giro import PIDE, SALIDA_REMACHE, traba
 
     junta = p["giro"]["junta"]
     nums = {"eje_de_giro": junta}
+    if p.get("remache_ciego"):  # D7 de plegables-en-la-puerta: no es un pivote
+        return (FALLA, f"es el eje de la junta {junta} y {SALIDA_REMACHE}", nums)
     if p.get("tirafondo"):
         return (FALLA, f"es el eje de la junta {junta} y es un tornillo de madera: gira contra la "
                        f"madera, la agranda y se sale; va un perno o pasador trabado ({PIDE})",

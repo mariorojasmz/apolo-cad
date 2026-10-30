@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1, D3–D7 ajustadas); falta F1–F5. La escalera de la F5 espera la F5 de puerta-fuera-de-catalogo
+nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1, D3–D7 ajustadas); F2 y F4 mergeadas (registro v34); falta F1, F3 y F5. La escalera de la F5 espera la F5 de puerta-fuera-de-catalogo
 descripcion: La puerta revisa que lo que se pliega se pliegue de verdad en el modelo, recorra sin chocar, quede del tamaño pedido y se trabe abierto
 ---
 
@@ -249,3 +249,49 @@ tránsito. Lo que cambia del contrato (aprobado por Claude con la delegación de
 
 **Sin medir**: el tránsito de las otras plegables y el costo del filtro de choques nuevos; la puerta
 v32 de los 3 mínimos (corrieron con un registro viejo).
+
+### F2 y F4 — el lazo y el remache ciego (2026-10-30)
+
+Registro v34 (una sola subida para las dos fases; la rama la tomó como v36 y se renumeró al mergear).
+
+- **F2 (D4)**: `services/calidad_lazos.py`.
+  - Cada `punto_coincidente` sobre una junta de giro es un pivote de lazo. Sus restricciones son
+    las de las juntas de su cadena; sus motores, las juntas de movimiento de la cadena que
+    ninguna restricción resuelve.
+  - Un par rígido cuyas dos piezas tienen una cara cilíndrica por el pivote, una movida por la
+    junta del `punto_coincidente`, es bisagra (OK) si: el `axis` está declarado, el lazo cierra
+    en diseño y con cada motor movido 3° (residuo ≤ 0,5 mm), y la otra pieza no se mueve (cierra
+    en la pieza raíz).
+  - Si no, SIN_EVALUAR con el porqué. Con lazo no se corre la prueba de pose relativa: mover una
+    junta sin resolver el lazo lo abre.
+- **Decidido solo**:
+  - **`axis` declarado = el comando `add_constraint` lo trae en sus params.** El modelo no cambia:
+    el default X sigue, y un log viejo regenera igual.
+  - **Solver por continuación.** En la mesa de 1,8 m real, `solve_constraints` directo desde 0
+    con la pata a −3° se queda en 5,99 mm (punto muerto de la rodilla, 2,2 s de CPU). En 6 pasos
+    con arranque en caliente cierra a 0 mm en 0,4–0,6 s. Va primero la continuación y, si no
+    cierra, el directo.
+  - **`assembly/constraints.py` no se tocó**: lo usan la pose y el render en vivo.
+  - **Un `axis` declarado que no es el de los agujeros** sale SIN_EVALUAR («corrige su `axis`»),
+    no FALLA.
+- **Verificado en la mesa de 1,8 m real (copia de la F0, en memoria)**: con el lazo A(+Y)
+  declarado, c301 ↔ c375 pasa a OK y los otros tres compases siguen FALLA. El ítem cuesta
+  +1,1 s de CPU por lazo (4,9 → 6,1 s).
+- **F4 (D7)**: `ejes_giro.es_remache_ciego`, por ficha (`herramienta: remachadora`) o por rol
+  (DIN 7337, ISO 15973–15984, «pop»). No cuentan el remache de hombro, el macizo, la
+  remache-tuerca ni la pieza que sólo lo menciona.
+  - `calidad_ejes_giro` lo trata como candidato a eje y `agarre.retencion` lo falla siempre,
+    aunque tenga retén. El mensaje da la salida de mercado: remache de hombro, o perno de hombro
+    ISO 7379 con tuerca autoblocante.
+  - Antes no se juzgaba: `calidad_pernos` salta la tornillería de remachadora y el rol
+    «Remache…» no es tornillería.
+  - Verificado en la mesa real de la corrección 2: los 8 remaches de P y K (c930–c940) fallan.
+  - Límite: el remache del faldón en Q (c932) no se ve, porque `agarre` mira los ejes de las
+    juntas del árbol y no los pivotes de lazo. Pendiente para la F3, que ya usa el punto del
+    lazo.
+- **Tests**:
+  - `tests/test_lazo_movimiento.py`, con un compás sintético equivalente: sin lazo FALLA; con lazo
+    OK; SIN_EVALUAR con el lazo imposible, el bloqueado por límites, el que no tiene `axis` y el
+    que cierra sobre una pieza que se mueve. La chumacera arrastrada sigue FALLA.
+  - `tests/test_remache_ciego_eje.py`, sintético: la mesa real de la corrección 2 pesa 173 piezas
+    y está fuera del repo.

@@ -98,4 +98,12 @@ el grupo de la norma peruana, «Grupo C (E.010)», además de la clase EN 338 / 
 también se lee del NOMBRE de la pieza (sólo normas de producto de madera: «Repisa (triplay
 fenólico 18 mm EN 314-2)» pasa); un grupo mejor que el que la E.010 da a la especie (copaiba =
 C) falla; el latón a medida pide su aleación y el cobre sin calificar es Cu-ETP.
+v34 (plegables-en-la-puerta F2 y F4, D4 y D7) `movimiento.coherente` toma el pivote que CIERRA un
+lazo declarado con restricciones (`distancia` + `punto_coincidente`) como un eje más: el par
+coaxial con él (el brazo del compás y el buje del tablero) es bisagra si el lazo cierra en diseño
+y con cada motor movido 3° o 3 mm (residuo ≤ 0,5 mm), su `axis` está declarado y cierra sobre la
+pieza raíz; si no, SIN_EVALUAR con el porqué (`calidad_lazos.py`; el compás de la mesa plegable de
+1,8 m con su lazo declarado deja de fallar como alojamiento arrastrado); y `agarre.retencion` falla
+el REMACHE CIEGO (DIN 7337, ISO 15973–15984, ficha de remachadora) que es eje de una junta de
+giro, con la salida de mercado (remache de hombro o perno de hombro ISO 7379 con autoblocante).
 """

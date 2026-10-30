@@ -14,8 +14,10 @@ de `calidad_pernos` (con su eje y su cabeza medidos de la GEOMETRÍA) es eje de 
    abraza el buje. Un tubo de rodillo (radio ≫ d) alrededor de un perno que entra en la punta de
    su eje fijo no lo toca: ese perno no es el eje (el rodillo gira en sus rodamientos).
 
-Un pasador o bulón SIN cabeza que lo haga perno (rol «Pasador…», «Bulón…») y la tornillería de
-madera sin llave de catálogo (que `calidad_pernos` no mide) entran por sus caras CILÍNDRICAS
+Un pasador o bulón SIN cabeza que lo haga perno (rol «Pasador…», «Bulón…»), la tornillería de
+madera sin llave de catálogo y el REMACHE CIEGO (ficha de remachadora o rol, `ejes_giro`; no es
+eje y lo dice: D7 de plegables-en-la-puerta), que `calidad_pernos` no mide, entran por sus caras
+CILÍNDRICAS
 coaxiales con la junta y tocan los cuerpos por caja; sus tuercas son las coaxiales que tocan su
 caja (el tramo, la proyección de la caja sobre el eje).
 
@@ -146,15 +148,20 @@ def _marcar_perno(esc, p: dict, juntas: list[dict]) -> None:
 
 
 def _candidato_pasador(feat, catalog) -> str | None:
-    """'pasador' | 'madera' | None: lo que `calidad_pernos` no mide y puede ser eje."""
+    """'pasador' | 'madera' | 'remache' | None: lo que `calidad_pernos` no mide y puede ser eje
+    (el remache ciego, para decir que NO lo es: D7 de plegables-en-la-puerta)."""
     from apolo.library import ejes_giro as E
 
     comp = catalog.get(getattr(feat, "component", None) or "")
     if comp is not None:
+        if E.es_remache_ciego(None, comp.specs or {}):
+            return "remache"
         return "madera" if comp.category == "tornilleria_madera" else None
     nombre = getattr(feat, "name", "") or ""
     if E.es_tirafondo(nombre):
         return "madera"
+    if E.es_remache_ciego(nombre):
+        return "remache"
     return "pasador" if E.es_pasador(nombre) else None
 
 
@@ -192,7 +199,8 @@ def _pasador(esc, fid, feat, solid, mn, mx, juntas, clase, catalog) -> dict | No
                             "t0": round(min(ts), 2), "t1": round(max(ts), 2),
                             "autoblocante": es_autoblocante(ofeat, catalog)})
         return {"fid": fid, "nombre": getattr(feat, "name", fid), "pasador": True,
-                "tirafondo": clase == "madera", "giro": {"junta": j["nombre"]},
+                "tirafondo": clase == "madera", "remache_ciego": clase == "remache",
+                "giro": {"junta": j["nombre"]},
                 "tuercas": tuercas, "retenes": _retenes(esc, mn, mx, fid)}
     return None
 

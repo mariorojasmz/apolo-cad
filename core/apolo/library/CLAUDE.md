@@ -357,4 +357,6 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   cerrada, a ≥ 1,5·d0 (oreja de `rodillos_cadena_motriz.py`). [hallazgos-del-revisor](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D7)
 - **El eje de una junta de giro va trabado** (`ejes_giro.py`, en `agarre.retencion`; medido en
   `services/calidad_ejes_giro.py`): eje = coaxial ± 1 mm Y toca sus dos cuerpos. Sin junta
-  declarada no se juzga. [plan](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D8)
+  declarada no se juzga. Tirafondo y remache CIEGO no son eje (falla con la salida de mercado).
+  [plan](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D8) ·
+  [plegables](../../../docs/plans/plegables-en-la-puerta.md) (D7)

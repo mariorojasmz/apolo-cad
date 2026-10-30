@@ -13,7 +13,11 @@ tijera y la silla plegable de los pilotos). Cumple sólo si lleva
   su nombre (el catálogo no los tiene), tocando el perno;
 
 y es un perno o pasador: un TIRAFONDO o tornillo de madera (DIN 571, ficha `tornilleria_madera`)
-no es eje de giro (gira contra la madera, la agranda y se sale).
+no es eje de giro (gira contra la madera, la agranda y se sale), ni un REMACHE CIEGO (DIN 7337,
+ISO 15973–15984, «pop»; ficha con `herramienta: remachadora`): al colocarlo prensa las chapas y la
+articulación queda dura o, dejado flojo, se ovaliza con los ciclos (la mesa plegable de 1,8 m,
+re-revisión 2; D7 de plegables-en-la-puerta). Su salida de mercado es el remache de HOMBRO o el
+perno de hombro ISO 7379 con tuerca autoblocante.
 
 Los matchers de nombre van ANCLADOS al rol (`materials.piece_role`): «Arandela de la tuerca
 autoblocante» no es una tuerca autoblocante ni «Placa del pasador de aletas» un pasador.
@@ -52,6 +56,21 @@ ES_TIRAFONDO = re.compile(
 #: Pasador o bulón a medida (sin cabeza que lo haga perno): candidato a eje.
 ES_PASADOR = re.compile(r"^\s*(pasador(es)?|bul[oó]n(es)?)\b", re.I)
 
+#: Remache CIEGO a medida: el rol lo dice («Remache ciego…», «Remache pop…», «Blind rivet…») o
+#: un rol de remache lleva su norma (DIN 7337, ISO 15973–15984). El remache de HOMBRO, el macizo
+#: (DIN 660) y la remache-tuerca no lo son.
+_REMACHE_ROL = re.compile(r"^\s*(remaches?|rivets?|blind\s+rivets?|pop\s+rivets?)\b", re.I)
+_REMACHE_CIEGO = re.compile(
+    r"^\s*(remaches?\s+(ciegos?|pop|de\s+tracci[oó]n|tipo\s+pop)|blind\s+rivets?|pop\s+rivets?)\b"
+    r"|\bDIN\s*-?\s*7337\b|\bISO\s*-?\s*159(7[3-9]|8[0-4])\b", re.I)
+_NO_CIEGO = re.compile(
+    r"^\s*remaches?(\s+(de\s+hombro|macizos?|s[oó]lidos?)|\s*-?\s*tuercas?)\b", re.I)
+
+#: Lo que se pide en vez de un remache ciego como eje (mensaje de `agarre.retencion`).
+SALIDA_REMACHE = ("es un remache ciego (DIN 7337 / ISO 15977): al colocarse prensa las chapas y la "
+                  "articulación queda dura o, floja, se ovaliza con los ciclos; va un remache de "
+                  "hombro (pivote) o un perno de hombro ISO 7379 con tuerca autoblocante")
+
 
 def rol(nombre: str | None) -> str:
     from .materials import piece_role
@@ -70,6 +89,16 @@ def tipo_reten(nombre: str | None) -> str | None:
 
 def es_tirafondo(nombre: str | None) -> bool:
     return bool(ES_TIRAFONDO.search(rol(nombre)))
+
+
+def es_remache_ciego(nombre: str | None, specs: dict | None = None) -> bool:
+    """¿Remache ciego? Por la ficha (`specs.herramienta: remachadora` o `tipo` «remache ciego»)
+    o, a medida, por el ROL de su nombre."""
+    if specs is not None:
+        return (specs.get("herramienta") == "remachadora"
+                or "remache ciego" in str(specs.get("tipo") or "").lower())
+    r = rol(nombre)
+    return bool(_REMACHE_ROL.search(r) and _REMACHE_CIEGO.search(r) and not _NO_CIEGO.search(r))
 
 
 def es_pasador(nombre: str | None) -> bool:

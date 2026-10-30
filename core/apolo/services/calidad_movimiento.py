@@ -23,7 +23,10 @@ F0 midió que anulaba los 12 casos reales.
   prismática);
 - `eje`: la junta cuyo EJE (perno o pasador de `calidad_ejes_giro`) une las dos piezas: sólo se
   mide si alguna candidata no salió OK por geometría, y con lo que ya midió la fuente mecánica
-  (`pernos_y_ejes`, memo de la corrida).
+  (`pernos_y_ejes`, memo de la corrida);
+- `lazo` (sólo si lo hay): el par se une en el pivote que CIERRA un lazo declarado con
+  restricciones (`calidad_lazos.py`, D4 de plegables-en-la-puerta), con su estado medido; con
+  él no se corre la prueba de pose (mover una junta sin resolver el lazo lo abre).
 """
 
 from __future__ import annotations
@@ -203,7 +206,10 @@ def movimiento(doc, contexto=None) -> dict:
     from .calidad_juntas import clasificar
     from .delivery_inputs import _juntas_que_mueven
 
+    from .calidad_lazos import par_de_lazo, pivotes
+
     clases = clasificar(doc, MOVIMIENTO)
+    lazos = pivotes(doc)
     casos = []
     for par, u in _candidatas(doc).items():
         a, b = sorted(par)
@@ -217,7 +223,9 @@ def movimiento(doc, contexto=None) -> dict:
         coax = {f: _coaxiales(doc, f, distintas) for f in (a, b)}
         con = {f for f in (a, b) if coax[f]}
         se_mueve = {f for f in (a, b) if de[f] & distintas}
+        lazo = par_de_lazo(doc, a, b, de, lazos) if lazos else None
         casos.append({
+            **({"lazo": lazo} if lazo else {}),
             "a": a, "b": b, "nombre_a": getattr(doc.scene[a], "name", a),
             "nombre_b": getattr(doc.scene[b], "name", b),
             "uniones": [n for n, _k in u["uniones"]],
@@ -226,11 +234,14 @@ def movimiento(doc, contexto=None) -> dict:
             "quietas": sorted(f for f in (a, b) if not de[f]),
             "coaxial_mueve": sorted(con & se_mueve), "coaxial_quieta": sorted(con - se_mueve),
             "servicio": all(not clases.get(j, {"accionada": True})["accionada"] for j in distintas),
-            "pose": prueba_de_pose(doc, a, b, distintas)})
+            "pose": None if lazo else prueba_de_pose(doc, a, b, distintas)})
     from apolo.library.calidad.movimiento import resuelto_sin_eje
 
     if any(not resuelto_sin_eje(c) for c in casos):  # el eje, sólo si hace falta (lo caro)
         ejes = _ejes(doc, contexto)
         for c in casos:
             c["eje"] = _por_eje((c["a"], c["b"]), c["juntas"], ejes)
-    return {"juntas": juntas_de_movimiento(doc), "casos": casos}
+    medidos = [{k: p[k] for k in ("nombre", "estado", "motivo", "motores", "poses") if k in p}
+               for p in lazos if "estado" in p]
+    return {"juntas": juntas_de_movimiento(doc), "casos": casos,
+            **({"lazos": medidos} if medidos else {})}
