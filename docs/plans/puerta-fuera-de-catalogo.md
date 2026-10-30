@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); falta todo desde la F0 (medir con la puerta v32 sobre las 15 máquinas)
+nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0 hecha (Bitácora, D1–D8 ajustadas); falta F1–F6
 descripcion: La puerta juzga bien la madera, el plástico, el tornillo y la viga que no salen del catálogo, en vez de rechazarlos por no saber leerlos o aprobarlos sin mirarlos
 ---
 
@@ -104,40 +104,71 @@ falla, con lo visto en las 15 y el código de `main`:
   leerse como PVC), PC (policarbonato) y el latón con su designación (CuZn39Pb3, EN 12164 / ASTM
   B16). Cada uno con densidad y resistencia de fuente citada en el código, como las maderas de D2
   de hallazgos-del-revisor. Las especies se buscan ANTES que el genérico (regla actual de `_norm`).
+  *Ajuste F0*: se suman **cobre** y **EPDM**; el PRODUCTO se busca antes que la especie
+  («contrachapado de copaiba» es contrachapado, no copaiba maciza); el HDF no tiene fuente y no se
+  tabula hasta tenerla. `bom.comprable` lee la norma de la madera también del NOMBRE de la pieza,
+  como ya lo hace el metal (`norma_de_material`).
 - **D2. La clase resistente de la madera también se acepta por la norma peruana**: «grupo A/B/C
   (E.010)» del RNE, además de EN 338 / EN 14080. Para las especies tabuladas (copaiba, pino
   radiata, eucalipto, haya) la tabla trae la clase con su fuente cuando la fuente existe; si no
   existe, no se inventa: el material la tiene que escribir quien modela y la FALLA queda. Porqué:
   Apolo modela madera de Lima y el comprador de Lima compra por grupo E.010, no por EN 338.
+  *Ajuste F0*: copaiba → **Grupo C** (E.010 Anexo 1, sólo *Copaifera officinalis*; la nota lo
+  dice); el grupo D (nuevo en 2021) también se acepta. Pino radiata y haya NO llevan clase por
+  defecto: su clase EN depende del grado visual (UNE 56544, AGR-VISUAL), así que la escribe quien
+  modela; eucalipto, sin fuente. La designación propuesta (E.010 no fija formato; Art. 11.5 pide
+  grupo y contenido de humedad en planos): «copaiba, Grupo C (E.010), CH ≤ 22 %».
 - **D3. El tipo de tornillería sale del rol y de la ficha, no de cualquier palabra**: una pieza a
   medida es `perno` sólo si su ROL (`piece_role`, la cabeza del nombre) es perno/tornillo de
   máquina/espárrago; «tornillo para madera», «tirafondo», «autorroscante» → `madera`; y la tabla de
   largos comerciales usa la serie de su tipo (madera: la serie de EN 14592 / DIN 7997). Lo mismo
-  para `_TUERCA_RE`, `es_nombre_de_tornilleria` y el peligro de «eje»: por rol.
+  para `_TUERCA_RE`, `es_nombre_de_tornilleria` y el peligro de «eje»: por rol. *Ajuste F0*: la
+  norma después del complemento («Arandela ancha del tablero DIN 9021») no se corta en `cabeza()`.
 - **D4. El acceso de herramienta se evalúa por la impronta, no sólo por el hexágono**: Torx,
   Pozidriv/Phillips, Allen y ranura llevan destornillador o punta en línea con el eje (holgura
   = largo de la punta + mano, con su fuente: ISO 10664 / ISO 4757); una grapa o fijación de
   sistema se evalúa por su llave declarada en la ficha. Lo que no tiene impronta ni llave
   declarada sigue SIN_EVALUAR, pero ahora **justificable** con la herramienta escrita.
+  *Ajuste F0*: el largo de la llave Allen sale de ISO 2936 y el de la punta PH/PZ de ISO 8764-2
+  (no ISO 4757); Torx no tiene largo normalizado (ISO 10664 es sólo la impronta) y la holgura de
+  mano tampoco: van como criterio de diseño, escrito como tal en el código. La tuerca martillo, la
+  de barril y el inserto roscado se evalúan por la cabeza del perno con el que trabajan (eran 20
+  de los SIN_EVALUAR de la estructura de paneles, no la grapa).
 - **D5. El catálogo de tornillo de madera pasa a familia**: EN 14592, cabeza avellanada con
   huella TX y PZ, Ø 3–6 × 16–80 mm (la serie comercial), con norma, huella y carga característica
   de arranque. Los 4 TIRAFONDO-* actuales quedan (ids estables) con su norma completada.
+  *Ajuste F0*: los largos por diámetro siguen una serie real de ETA (Ø3: 15–45; Ø3,5: 16–55;
+  Ø4 y Ø4,5: 20–80 de 5 en 5 sin 75; Ø5: 20–120; Ø6: 20, 30–300); la ficha guarda f_ax,k y ρa,
+  no una carga fija: EN 1995-1-1 ec. 8.38–8.39 vale sólo para 6 ≤ d ≤ 12 y bajo Ø6 se usa el
+  f_ax,k declarado corregido por (ρk/ρa)^0,8 (ec. 8.40a).
 - **D6. Una unión declarada no tapa una interferencia de volumen**: entre piezas que no son
   tornillería, un par con `fasten` cuyo volumen común supera la tolerancia de la puerta
   (`EXCESS_TOL_MM3`, la misma de los pares no declarados) FALLA en
   `interferencia.sin_colision`. Contacto, soldadura y encolado son caras que se tocan, no
-  volumen compartido.
+  volumen compartido. *Ajuste F0*: ese ítem no existe (la interferencia vive en
+  `entrega.semaforo`); el nuevo se llama `union.interferencia_declarada`. La rosca engranada no
+  cuenta: un pie nivelador en su placa roscada (565,5 mm³) o un espárrago en su tuerca soldada
+  (457,7 mm³) son volumen intencional y entran a los tests como casos que NO fallan.
 - **D7. Flecha y pandeo calculan la pieza estructural que no es de catálogo, con la sección de
   su geometría**: rectángulo macizo (tablero, montante, travesaño de madera) y tubo rectangular
   o redondo (`run_script`, `create_sheet_metal` cerrado) se reconocen por la caja orientada y la
   sección constante a lo largo del eje; el material da E y la resistencia (D1, D2). Lo que no
   tiene sección constante reconocible sale **SIN_EVALUAR justificable**, nunca NO_APLICA en
   silencio. Criterio de flecha: el de hoy de `vigas_rules` para el metal y EN 1995-1-1 § 7.2
-  para la madera, con la cláusula citada en el código.
+  para la madera, con la cláusula citada en el código. *Ajuste F0*: la madera por grupo E.010 se
+  calcula con SUS esfuerzos admisibles y el **E mínimo** del grupo por elemento (Art. 17: el
+  promedio sólo en acción de conjunto; grupo C: 5 394 MPa, no el E de la tabla de materiales); la
+  de clase EN, con EN 1995-1-1: nunca se mezclan admisibles con kmod/γM. E del contrachapado: EN
+  12369-2 o la ficha del fabricante. La plancha perforada sale SIN_EVALUAR justificable: dos
+  máquinas aprobadas hoy pasan a pedir justificación (se cuenta en la F6).
 - **D8. El vuelco suma lo que declaran los requisitos**: con fuerza horizontal de trabajo y
   carga de borde en `set_requirements`, `estructura.vuelco` compara el momento estabilizador con
   F_h·h + la carga de borde en la arista más desfavorable, coeficiente 1,5 (EN 1990 para acción
-  variable desfavorable). Sin esos requisitos, sigue como hoy y lo dice.
+  variable desfavorable). Sin esos requisitos, sigue como hoy y lo dice. *Ajuste F0*: las claves
+  no existen en `requisitos.NUMERICAS` y se crean; se usa EN 1990 Tabla A1.2(A) completa (peso
+  propio estabilizante ×0,9, desestabilizante ×1,1, variable desfavorable ×1,5, la favorable en 0:
+  el caso que el revisor halló fue la mesa VACÍA). Ninguna de las 15 declara esas cargas: D8 no
+  cambia nada en la F6 sin re-hacer una máquina que las declare.
 - **D9. La raíz de un patrón es ciudadana**: `ground`, `add_joint` y `set_justifications`
   aceptan la raíz de un patrón (o un conjunto), y `set_material` / color de la raíz los heredan
   las copias, también las que nacen al subir la variable (metadato por comando, no por pieza:
@@ -161,7 +192,7 @@ falla, con lo visto en las 15 y el código de `main`:
 
 ## Fases
 
-- **F0 — medir** (sólo lectura, S). Puerta v32 (con `wip/normas-en` integrada) sobre las 15
+- **F0 — medir** (sólo lectura, S). Hecha (Bitácora). Puerta v32 (con `wip/normas-en` integrada) sobre las 15
   máquinas (incluida la de paneles); tabla por ítem; las piezas de cada máquina que caen en los
   modos 1–7, para los tests de cada fase; fuentes de clase resistente de copaiba, pino radiata,
   eucalipto y haya (EN 1912, RNE E.010 Anexo, Junta del Acuerdo de Cartagena) y de los
@@ -203,3 +234,68 @@ ninguna.
   sale SIN_EVALUAR justificable; los tests incluyen tablero perforado y tubo con tapas.
 - **D9 cambia cómo se guardan material y color**: un `.apolo` viejo tiene que abrir igual; el
   test de replay de proyectos testigo es el gate.
+
+## Bitácora
+
+### F0 — medir (2026-10-30)
+
+**Puerta v32** (`main` 9ce35728) sobre las 15 máquinas, sin tocar los modelos: aprueban **3 de
+15** (mesas de soldadura Ø16 y de bolas, carro de tres niveles; la de paneles ya tiene veredicto).
+Ítems en FALLA o SIN_EVALUAR:
+
+| ítem | máquinas | modo |
+|---|---|---|
+| `bom.comprable` FALLA | 12 de 15 | 1 (madera, latón) y compras sin designación del modelo |
+| `union.distancia_al_borde` FALLA | 5 (estantería, escalera, mesa plegable, silla, rodillos) | defectos reales; en rodillos, la oreja |
+| `union.acceso_herramienta` SIN_EVALUAR | 2 (estantería 106, paneles 20) | 2 |
+| `movimiento.coherente` FALLA | 2 (escalera, mesa plegable) | plegables: plan aparte |
+| `union.largo_comercial` FALLA | 1 (estantería, 40 de 146) | 2 |
+| `union.contacto_no_cuelga` FALLA | 1 (desagüe de la mesa con poza) | del modelo |
+
+Por modo (las piezas de cada máquina, para los tests de cada fase, en el reporte de la F0):
+
+1. Madera sin clase: **7 de 14** (no 9): calzos, entrepaños, tableros y repisas de «madera»,
+   peldaños, travesaños y tarugos de copaiba; dos tableros escriben «contrachapado fenólico EN
+   314-2» en el NOMBRE y la puerta no lo lee (ajuste de D1). Latón sin grado en **2**: un inserto
+   roscado y un conductor de tierra de cobre que el modelador declaró latón porque «cobre» no
+   está; un sellador de PU se pesa como acero.
+2. Tornillo de madera medido como perno («PERNO-M3×29.6 no está en el catálogo»): la estantería.
+   En paneles, lo SIN_EVALUAR es la **tuerca martillo**, no la grapa (ajuste de D4).
+3. Por palabra: el espárrago del pie nivelador medido como perno, un «Eje» que no gira como parte
+   móvil, una «Correa» de paneles leída como transmisión, una arandela «de perno» como tornillería.
+4. La silla (9 903 mm³ entre travesaño y pata) ya se corrigió en la ronda 2: el test usa una
+   fixture con el par, no la máquina.
+5. `estructura.flecha` NO_APLICA en **10 de 15**: tubos inox, planchas, copaiba y las vigas L de
+   paneles (van inclinadas: hipótesis a confirmar en la F4).
+6. Mesa de ensamble: el centro de gravedad «se cae a partir de ≈ 202 N» con la mesa vacía hacia
+   atrás; mesa Ø16 a 1000×800: 660 contra 675 N·m.
+7. Copias sin material (mesa inox), `set_justifications` sobre una copia («pieza inexistente»),
+   `ground` y material sobre copias (mesa Ø28), `add_joint` sobre una copia (escalera).
+
+**Fuentes leídas** (cifra verificada en la fuente salvo donde se dice):
+
+- RNE E.010 (2021): Anexo 1 (copaiba = Grupo C, sólo *C. officinalis*); Tablas 2, 3 y 5
+  (admisibles del grupo C: fm 9,8; ft 7,3; fc∥ 7,8; fc⊥ 1,5; fv 0,8; Emín 5 394; Eprom 8 826 MPa;
+  A: fm 20,6 / Emín 9 316; B: 14,7 / 7 355; D: 6,8 / 4 414); Art. 11.5 y 17.
+- Pino radiata: UNE 56544 ME-1 → C24, ME-2 → C18 (CTE DB SE-M Tabla C.1; AGR-VISUAL 2024). Haya:
+  H1 → D40, H2 → D35 (Francia), LS1 → D45 (Italia), AGR-VISUAL 2024. *E. globulus*: sin fuente
+  primaria (D40 por UNE 56546 sólo en fuentes secundarias). El manual de la Junta del Acuerdo de
+  Cartagena no se leyó.
+- OSB/3 EN 300 (copia no oficial y fichas de fabricante); MDF EN 622-5 (ficha de fabricante);
+  contrachapado fenólico EN 314-2 clase 3 (ficha de fabricante, 18 mm: Em 10 048, fm,k 40,2 MPa);
+  PU de rueda 92–95 ShA, ρ 1,26; PC (ISO 527/178: ρ 1 200, E 2 400, σy 65 MPa); latón CW614N
+  (EN 12164: ρ 8,47, E 97 GPa, R430). HDF: sin fuente.
+- Herramienta: ISO 2936 (largo de la llave Allen), ISO 8764-2 (hoja PH/PZ); Torx sin largo
+  normalizado.
+- Tornillo de madera: EN 1995-1-1+A1 § 8.7.2 (ec. 8.38–8.40a) y una ETA de tornillo EN 14592
+  (f_ax,k 14,0 N/mm² para d < 6 y la serie de largos de D5).
+
+**Fuera del plan, visto en la medición** (no se arregla aquí):
+
+- Defectos reales de diseño: borde de madera en estantería, escalera, mesa plegable y silla;
+  compras sin designación del modelo (pie «o equivalente», laina, sifón, eje del reductor,
+  autoperforante, varilla, regatón, taco); el desagüe de la mesa con poza que cuelga de un
+  contacto. Son producción con la receta, después de la F6.
+- `bom.comprable` le pide comprable a un elemento EXISTENTE del sitio (la cubierta sobre la que
+  apoya la estructura de paneles): fix directo aparte.
+- La oreja del portamotor de rodillos: fix directo en curso (no es de este plan).
