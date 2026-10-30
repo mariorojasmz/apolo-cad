@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito (2026-10-30, laptop) sobre 15 máquinas re-evaluadas con la puerta v31; falta la aprobación de Mario, después F0
+nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); falta todo desde la F0 (medir con la puerta v32 sobre las 15 máquinas)
 descripcion: La puerta juzga bien la madera, el plástico, el tornillo y la viga que no salen del catálogo, en vez de rechazarlos por no saber leerlos o aprobarlos sin mirarlos
 ---
 
