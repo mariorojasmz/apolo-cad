@@ -60,7 +60,8 @@ Cuatro causas explican casi todo:
    19 874 cajas, **290 s de los 365 del replay**. Esas mismas formas no cambian entre un
    `join_bolted` y el siguiente. Las cajas son también el 73 % de `structure_rules` (33,6 de
    46 s: `mass._bbox`, `vigas_rules._caja`, `contacto`), 65 s de `delivery_check` (41 s en las
-   poses: `interference_report` pide 624 cajas por pose) y 167 s de la puerta sin sobrantes.
+   poses: `interference_report` pide 624 cajas por pose) y 299 s de la puerta (152 s en
+   `vigas_rules._caja`, dentro de la ingeniería de cada candidata de `sobrantes`).
    Escala O(join_bolted × piezas): crece con el cuadrado del tamaño de la máquina.
 2. **El clasificador de punto de OCCT se construye por punto.** `Rayos.dentro`
    (`kernel/rayo.py:99-109`), `Rayos.tramos` y `Filtro._alguno_dentro`
@@ -213,7 +214,8 @@ Cuatro causas explican casi todo:
   `delivery_check()` da el semáforo o un recibo, nunca un error de timeout.
 - **F4 — volver a medir** (sólo lectura; S). `medir_maquinas_grandes.py` y `medir_sobrantes.py`
   sobre la lavadora tras F1–F3. Con ese perfil se decide la F2 de puerta-rapida (el `Trazador`
-  compartido: hoy codo 380 s y apoyo 375 s de los 983 de `sobrantes`, con 172 candidatas) y si el
+  compartido: hoy codo 380 s y apoyo 375 s de los 983 de `sobrantes`, con 172 candidatas; D1 ya
+  ataca los ~150 s de cajas de `vigas_rules` en su ingeniería) y si el
   `scene_payload` de una mutación por MCP (23–28 s, de los que las cajas eran 7) pide un modo
   sin mallas.
 
@@ -269,6 +271,7 @@ mismo con y sin perfilador (365–373 s): el tiempo está en C++.
 | puerta sin gravedad ni marcha | 1833 | 1613 | | `sobrantes` 1025 · `fuentes.mecanica` 315 · `entrega` 239 · `fuentes.seguridad` 129 · `fabricabilidad` 59 · `hechos` 38 |
 | puerta sin sobrantes (abierta en caliente) | 670 | 668 | 61 032 / 167 | `interference_report` 42 s · `vigas_rules._caja` 21 · `calidad_agujeros._caja` 19 · `process._sorted_dims` 14 · `contacto` 22 |
 | `sobrantes` (`medir_sobrantes.py --sin-perfil`) | 983 | 958 | | 172 candidatas (104 sobran, 68 necesarias, 2 vueltas): codo 380 · apoyo 375 · ingeniería 181 · rectas 45 |
+| puerta completa sin gravedad ni marcha (abierta en caliente) | 1569 | 1571 | 155 329 / 299 | `sobrantes` 913 · `fuentes.mecanica` 252 · `entrega` 222; `vigas_rules._caja` 75 722 cajas / 152 s, casi todas en la ingeniería de cada candidata |
 
 Ronda 4 (`rondas/correccion4.apolo`: 630 sólidos, 1319 comandos, 26 `join_bolted`), mismo
 script: replay 241 s (cajas 12 423 / 193 s, el 80 %), estructura 42 s (cajas 31 s), lints 96 s
