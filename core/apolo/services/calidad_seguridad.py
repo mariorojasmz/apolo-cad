@@ -47,7 +47,9 @@ def _maquinas(doc) -> set[str]:
 
 
 def _caja(shape):
-    bb = shape.bounding_box()
+    from apolo.kernel.caja import caja
+
+    bb = caja(shape)
     return ((bb.min.X, bb.min.Y, bb.min.Z), (bb.max.X, bb.max.Y, bb.max.Z))
 
 

@@ -37,7 +37,9 @@ def _shape_com(shape) -> list[float] | None:
 
 
 def _bbox(shape) -> tuple[list[float], list[float]]:
-    bb = shape.bounding_box()
+    from apolo.kernel.caja import caja
+
+    bb = caja(shape)
     return (
         [float(bb.min.X), float(bb.min.Y), float(bb.min.Z)],
         [float(bb.max.X), float(bb.max.Y), float(bb.max.Z)],

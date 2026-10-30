@@ -118,8 +118,10 @@ def _mismo_eje(a: dict, b: dict) -> bool:
 
 
 def _caja(feat):
+    from apolo.kernel.caja import caja
+
     try:
-        bb = feat.shape.bounding_box()
+        bb = caja(feat.shape)
     except Exception:  # noqa: BLE001
         return None
     return (bb.min.X, bb.min.Y, bb.min.Z), (bb.max.X, bb.max.Y, bb.max.Z)

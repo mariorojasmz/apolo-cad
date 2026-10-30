@@ -37,8 +37,10 @@ _RA = {"torneado": 3.2, "mecanizado": 6.3, "sierra": 12.5, "laser_pliegue": 12.5
 
 def _sorted_dims(feat) -> tuple[float, float, float] | None:
     """Dimensiones del bbox ordenadas (mm), (menor, media, mayor). None si no mide."""
+    from apolo.kernel.caja import caja
+
     try:
-        bb = feat.shape.bounding_box()
+        bb = caja(feat.shape)
         d = sorted((bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z))
         return (round(d[0], 1), round(d[1], 1), round(d[2], 1))
     except Exception:

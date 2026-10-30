@@ -57,6 +57,8 @@ def interference_report(
     Una candidata es una pareja que PUEDE interferir según el prefiltro exacto
     (`interferencias_filtro`): las que sólo comparten caja (la bandeja que abarca los rodillos)
     o se apoyan cara a cara no cuentan ni gastan booleana."""
+    from apolo.kernel.caja import caja as caja_optima
+
     from .interferencias_filtro import Filtro, caja, pares_por_caja
 
     feats = [f for f in scene.values()
@@ -69,7 +71,7 @@ def interference_report(
     def shape_of(f):
         return shapes_override.get(f.id, f.shape) if shapes_override else f.shape
 
-    cajas = [caja(shape_of(f).bounding_box()) for f in feats]
+    cajas = [caja(caja_optima(shape_of(f))) for f in feats]
     filtro = Filtro()
     candidates = []
     for i, j in pares_por_caja(cajas):

@@ -328,14 +328,18 @@ def _en_ciclo(aristas: list, i: int) -> bool:
 
 def _caja_comun(a, b, margen: float) -> tuple:
     """La intersección de las cajas de a y b, agrandada `margen` (la línea de contacto está ahí)."""
-    ba, bb = a.bounding_box(), b.bounding_box()
+    from .caja import caja
+
+    ba, bb = caja(a), caja(b)
     return (max(ba.min.X, bb.min.X) - margen, max(ba.min.Y, bb.min.Y) - margen,
             max(ba.min.Z, bb.min.Z) - margen, min(ba.max.X, bb.max.X) + margen,
             min(ba.max.Y, bb.max.Y) + margen, min(ba.max.Z, bb.max.Z) + margen)
 
 
 def _toca_caja(s, caja) -> bool:
-    c = s.bounding_box()
+    from .caja import caja as caja_optima
+
+    c = caja_optima(s)
     return not (c.max.X < caja[0] or c.min.X > caja[3] or c.max.Y < caja[1] or c.min.Y > caja[4]
                 or c.max.Z < caja[2] or c.min.Z > caja[5])
 

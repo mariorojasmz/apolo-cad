@@ -61,6 +61,11 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   lazos encerrados (el interior de un tubo) ni las costuras de cilindro que los unen; con un hueco
   ≤ tol, las aristas que corren a ≤ tol de la otra. Caché por par con `is`.
   [uniones-que-tocan](../../../docs/plans/uniones-que-tocan.md)
+- La caja de una pieza en un bucle sobre la escena va por `caja.caja(shape)` (la misma de
+  `bounding_box()`, UNA vez por forma: memo por `id` con `weakref`, validado por `wrapped`,
+  `TShape` y `Location`, porque `move`/`locate` mueven el mismo `wrapped`). Sólo para LEER: no ve
+  una geometría mutada dentro del mismo `TShape`. `tests/test_caja_memo.py` vigila los llamadores.
+  [maquinas-grandes](../../../docs/plans/maquinas-grandes.md) (D1)
 - La barra que se corta (`corte_barra.py`): eje = las rectas que más largo suman, validado con
   la sección de la ficha; corte = caras que no cruzan la mitad y tocan el contorno EXTERIOR de un
   costado (un agujero no es corte). Lo que no es uno o dos planos convexos es «especial».

@@ -143,7 +143,10 @@ def _medir_al_costado(h: dict, base, anadida, centro: list[float], d: float, otr
 
 
 def _en_camino(scene, excluir: set, h: dict, us, vs, u, v, alcance: float) -> list:
-    """Las piezas cuya caja toca la zona de la unión (candidatas a obstáculo detrás)."""
+    """Las piezas cuya caja toca la zona de la unión (candidatas a obstáculo detrás). La caja,
+    memoizada por forma (`kernel/caja.py`): las de la escena no cambian de una unión a otra."""
+    from apolo.kernel.caja import caja
+
     st = h["stack"]
     lo = [0.0, 0.0, 0.0]
     hi = [0.0, 0.0, 0.0]
@@ -156,7 +159,7 @@ def _en_camino(scene, excluir: set, h: dict, us, vs, u, v, alcance: float) -> li
         if fid in excluir or f.shape is None:
             continue
         try:
-            bb = f.shape.bounding_box()
+            bb = caja(f.shape)
         except Exception:  # noqa: BLE001
             continue
         mn, mx = (bb.min.X, bb.min.Y, bb.min.Z), (bb.max.X, bb.max.Y, bb.max.Z)

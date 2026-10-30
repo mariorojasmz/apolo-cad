@@ -94,7 +94,9 @@ def mesh_payload(shape, tolerance: float = 0.4, angular_tolerance: float = 0.3,
 
 
 def bbox_payload(shape) -> dict:
-    bb = shape.bounding_box()
+    from .caja import caja
+
+    bb = caja(shape)
     return {
         "min": [round(bb.min.X, 3), round(bb.min.Y, 3), round(bb.min.Z, 3)],
         "max": [round(bb.max.X, 3), round(bb.max.Y, 3), round(bb.max.Z, 3)],

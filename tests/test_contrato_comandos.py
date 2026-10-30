@@ -316,7 +316,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "delete_faces": (1, "1f3b55e6bf50bed4"),
     "delete_feature": (1, "131eec22d5b444b7"),
     "distribute": (1, "dbd8f19a2efade42"),
-    "drill_hole": (1, "f9fe72f8f410fa3f"),
+    # maquinas-grandes F1 (D1): la caja memoizada (`kernel/caja.py`) es la misma → sólo huella
+    "drill_hole": (1, "1b3944da8a50a07d"),
     "duplicate_feature": (1, "b360c74b26a2edd8"),
     # material_tornilleria (F6): sólo entra al dict si se declara; no hay geometría → huella
     "fasten": (1, "6d432ee113ee4f64"),

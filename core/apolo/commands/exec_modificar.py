@@ -166,8 +166,10 @@ def _drill_tool(diameter: float, length: float, entry, direction):
 
 
 def _exec_drill_hole(ctx: ExecContext, cmd_id: str, p: DrillHoleParams) -> None:
+    from apolo.kernel.caja import caja
+
     feat = _require(ctx.scene, p.feature)
-    bb = feat.shape.bounding_box()
+    bb = caja(feat.shape)
     through = (
         abs(bb.max.X - bb.min.X) + abs(bb.max.Y - bb.min.Y) + abs(bb.max.Z - bb.min.Z) + 10
     )

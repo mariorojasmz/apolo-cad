@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 medida (2026-10-30, bitácora). Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29 «tú toma las decisiones a partir de ahora»); D1–D6 siguen vetables por Mario. F1 (D1) en curso; F2–F4 sin lanzar
+nota: F0 medida (2026-10-30, bitácora). Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29 «tú toma las decisiones a partir de ahora»); D1–D6 siguen vetables por Mario. F1 (D1) implementada en su rama, sin mergear (lavadora: replay 348 → 80 s, editar c86 → 54 s, 723/723 piezas y 649 fijadores iguales); F2–F4 sin lanzar
 descripcion: En una máquina de ~700 piezas, editar el principio del log, delivery_check, check_interference, engineering_check y la puerta terminan en minutos y sin cortarse por tiempo, con los mismos resultados
 ---
 
@@ -293,3 +293,40 @@ no es cómputo de la edición. Es, por inferencia, la cola de `STATE_LOCK` detr�
 huérfanas (`/api/checks` ~160 s y `delivery_check` ~210–280 s, cortadas a los 120 s y
 reintentadas) y de la puerta (~30 min con el lock). No lo medí en la API: F3 lo verifica por
 E2E.
+
+### F1 (2026-10-30)
+
+`kernel/caja.py::caja(shape)`: la `BoundBox` de `bounding_box()` con memo por `id(shape)`,
+`weakref` con callback y acierto validado por `is` de la forma, `wrapped` y `TShape` más
+`Location.IsEqual` contra la copia guardada (`w.Location()` ya devuelve copia; `TopLoc_Location`
+no tiene constructor de copia en OCP). En el acierto llama a `BRepTools.Clean` y devuelve una
+`BoundBox` nueva (copia del `Bnd_Box`): quien la recibe no ensucia el memo. Sin lock propio: el
+dict es atómico bajo el GIL y toda carrera da un fallo, nunca una caja ajena. Migrados SÓLO los
+llamadores de D1 (`_en_camino`, `_exec_drill_hole`, `interference_report`, `mass._bbox`,
+`vigas_rules._caja`, `contacto._toca_caja` y `_caja_comun`, `calidad_agujeros._caja`,
+`process._sorted_dims`, `calidad_seguridad._caja`, `mesh.bbox_payload`);
+`tests/test_caja_memo.py` les impide volver a `.bounding_box()`. `drill_hole` cambió de huella y
+no de versión (misma geometría): sólo la huella en `test_contrato_comandos.py`. Sin
+`GEOM_CACHE_EPOCH`.
+
+Lavadora final, escritorio, misma sesión. Antes = `main` (ad8b1a6) en el checkout principal; las
+tres corridas en paralelo (cada una de un hilo), por eso manda el CPU:
+
+| etapa | antes pared / CPU s | F1 pared / CPU s | cajas que se calculan (n / s) |
+|---|---|---|---|
+| replay frío | 347,7 / 322,7 | 79,6–80,2 / 61,0–62,6 | 1167 / 19,6 (antes 22 669 / 304) |
+| editar `c86` (1259 re-ejecutados) | 326–349 (F0) | 53,8 / 59,1 | 1105 / 19,2 |
+| `scene_payload` tras editar | 23–35 (F0) | 15,6 / 21,9 | 7 / 0,0 |
+| interferencia global · acotada `c53,c88` | 23–27 · 7–9 (F0) | 15,9 · 0,27 | 6 · 0 |
+| `structure_rules` | 46–59 (F0) | 15,2 / 15,1 | 18 021 / 2,9 (caras y aristas de `contacto`, que no se repiten) |
+| lints (`agujeros_atribuidos`, F2) | 93–148 (F0) | 82,7 / 82,2 | 2304 / 0,2 |
+| `delivery_check` | 209–279 (F0) | 140,3 / 145,6 | 20 145 / 8,8; VERDE como antes |
+
+- **Igualdad** (método del prototipo, contra el replay de `main`): 723/723 piezas iguales (nombre,
+  comando, volumen a 1e-6, caja a 1e-6, n.º de caras), los 649 `fasteners` iguales y 0
+  suprimidos en los dos.
+- RSS tras el replay: 513 MB (F0: 510); 790 MB tras edición y payload, como en la F0.
+- Gate: replay ≤ 120 s ✔ (80), editar `c86` ≤ 120 s ✔ (54), `checks_estructura` ≤ 20 s ✔ (15).
+  `scripts/testigos.py --en-proceso`: los cuatro IGUAL, sin re-congelar.
+- Lo que queda del replay (~60 s de CPU): las cajas que sí cambian (19,6 s: la pieza recién
+  taladrada), `drill_hole`, `run_script` y las booleanas de `join_bolted`; fuera de este plan.

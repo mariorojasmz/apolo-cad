@@ -48,8 +48,10 @@ class _Viga:
 
 
 def _caja(f):
+    from apolo.kernel.caja import caja
+
     try:
-        b = f.shape.bounding_box()
+        b = caja(f.shape)
     except Exception:
         return None
     return (b.min.X, b.min.Y, b.min.Z), (b.max.X, b.max.Y, b.max.Z)
