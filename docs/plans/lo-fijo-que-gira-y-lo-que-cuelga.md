@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito y aprobado por Mario (2026-10-29: «si amerita su plan para mejorar… procede»); F0 sin lanzar
+nota: F0 medida (2026-10-30, bitácora) con ajustes vetables a D1–D4 y a las verificaciones de F1–F2; F1–F4 sin lanzar; D3 sólo tiene fuente de la comba, no del α térmico
 descripcion: La puerta frena una pieza atornillada al bastidor que gira con un eje, un peso colgado de un simple contacto y la banda modular tensada por catenaria, y join_bolted deja de poner una cabeza dentro de un tubo
 ---
 
@@ -164,3 +164,190 @@ F1, F2 y F4 pueden ir en paralelo (máx. 3 agentes por PC); F3 tras la F0.
 - **D3 sin fuente**: queda como hoy (SIN_EVALUAR justificable), sin inventar el criterio.
 
 ## Bitácora
+
+### F0 (2026-10-30)
+
+Sólo lectura. Prototipos en `scripts/medir_lo_fijo_que_gira.py` (D1 y D2, sin tocar el núcleo:
+carga cada `.apolo` con `Document.from_apolo_bytes`); reproductores de D5 y D6 en
+`tests/test_lo_fijo_reproductores.py` (sintéticos, `xfail(strict=True)` lo que la F4 debe dar).
+
+**Fuentes.** Los 4 testigos públicos y 32 `.apolo` de máquinas reales (fuera del árbol público):
+la lavadora de bandejas en sus 9 estados (`modelado`, `correccion1`…`8`), escalera de tijera,
+mesa plegable de madera, silla plegable, elevador de cajas, dos variantes de la mezcladora, tanque
+agitador, faja de motor central, rodillos por cadena y 14 sin juntas (mesas, estantería, rack,
+tolva, plataforma, carro, clasificadora…) para D2. **Faltó** la puerta plegable (id 28): no hay
+`.apolo` exportado fuera de la base de uso. La silla plegable no tiene juntas (el plegado no está
+modelado): sólo cuenta para D2. Las rondas de la lavadora del escritorio son las mismas (mismos
+bytes) que las del repo de producción.
+
+#### D1 — `movimiento.coherente`
+
+Candidatas = `fasten` perno/soldadura/pegado entre piezas que mueven juntas distintas
+(`uniones_entre_juntas` sin `_se_tocan`) más el par padre-hijo de una junta de movimiento con unión
+rígida. «Como está» = D1 tal cual (excepciones `_se_tocan`, eje de `calidad_ejes_giro` y par de
+junta). «Propuesto» = sin `_se_tocan`: excepción por eje o por **prueba de pose relativa** (cada
+junta distinta movida 3° o 3 mm: la distancia no crece más de 0,1 mm sobre la de diseño y el
+volumen común no crece más de 5 mm³).
+
+| máquina | candidatas | como está | propuesto | reales | falsos positivos del propuesto |
+|---|---|---|---|---|---|
+| lavadora `modelado` | 12 | 4 | 8 | 8 | 0 |
+| lavadora `correccion1` | 23 | 4 | 2 | 2 | 0 |
+| lavadora `correccion2` y `3` | 24 / 21 | 4 / 4 | 1 / 1 | 1 / 1 | 0 |
+| lavadora `correccion4`…`8` | 20 c/u | 4 c/u | 0 | 0 | 0 |
+| escalera de tijera | 6 | 2 | 0 | 0 | 0 |
+| mesa plegable | 16 | 0 | 6 | 0 | 6 |
+| elevador de cajas | 6 | 4 | 0 | 0 | 0 |
+| mezcladora (recipiente) | 1 | 0 | 1 | 0 | 1 |
+| tanque agitador | 2 | 0 | 2 | 0 (discutible) | 2 |
+| faja motor central, rodillos por cadena, mezcladora `final2` | 1 / 20 / 0 | 0 | 0 | 0 | 0 |
+| testigos y máquinas sin juntas | 0 | 0 | 0 | 0 | 0 |
+
+- **Reales (12 casos).** `modelado`: 8 resortes a gas modelados rígidos, quietos y empernados a
+  la puerta que gira (al abrir, la puerta entra 8–11 cm³ en ellos). `correccion1`: la **carcasa del
+  motorreductor** arrastrada por la junta del eje motriz (empernada a su brazo de reacción quieto;
+  626 mm³ al girar 3°) y la **chumacera −Y** hija `fija` del eje, empernada a su ménsula
+  (6 355 mm³). `correccion2` y `3`: la chumacera −Y. La carcasa arrastrada está en la
+  `correccion1`, no en la 3.
+- **D1 «como está» no ve NINGUNO de los 12**: todo par empernado o soldado se toca (lo exige
+  `union.contacto_real`), así que la excepción `_se_tocan` de `uniones_entre_juntas` los anula.
+  Sus 4 + 2 + 4 avisos son falsos positivos: puertas de la lavadora a 0,12 mm de su bisagra de una
+  pieza, el brazo trasero de la escalera a 10,8 mm del larguero (pasador de cierre de lazo) y los
+  pernos de amarre de las cadenas del elevador a 0,5 mm.
+- **La excepción por eje no aportó**: `calidad_ejes_giro` no halló eje en la lavadora (los
+  pasadores de puertas y resortes se declaran con `fasten` sin perno modelado); en la escalera los
+  2 que marca ya los cubría la pose.
+- **Falsos positivos del propuesto (9).** Mesa plegable: 2 pares de palas de la bisagra B (las
+  dos palas tienen cara cilíndrica coaxial con la junta; el solape de los nudillos crece 251 mm³
+  al girar) y 4 compases de rodilla (el perno cierra un lazo que la FK no representa: mover sólo
+  la junta del brazo lo separa 2,96 mm). Mezcladora: el aro del recipiente empernado a la caja de
+  compuerta, en una junta prismática de servicio (`retiro_recipiente`: el perno se quita antes).
+  Tanque: la tapa empernada a la bisagra de una pieza quieta (al abrir, la atraviesa 1 058 mm³).
+  Esto último es una incoherencia de modelo, pero no «algo fijo que gira».
+- **Firma que separa los reales**: en la chumacera y la carcasa, la pieza que se MUEVE tiene una
+  cara cilíndrica coaxial con la junta (un alojamiento arrastrado). En la bisagra de una pieza, la
+  coaxial es la QUIETA; en las palas, lo son las dos.
+- Hueco a sembrar en la F1: una brida (UCF) hija del eje y empernada cara a cara: girar en el
+  plano de su cara no separa ni solapa, así que la prueba de pose la deja pasar. No hay ningún
+  caso en el corpus; lo cierran los agujeros fuera del eje (los de `union.agujeros`).
+
+#### D2 — `union.contacto_no_cuelga`
+
+Grafo DECLARADO de la puerta; zona = la sección OCCT del par (`kernel/contacto._seccion`, por
+cercanía o el par de puntos más cercanos). En la columna «crudas», CM a > 5 mm bajo la zona. En el
+resto, la propuesta (`propuesta()` del script): sin tornillería (`lints._is_bolt`), lo colgado
+≥ 0,5 kg y tolerancia de 25 mm. «Apoya» pide el CM sobre la zona o una zona que lo ABRAZA (a su
+altura y sobre su vertical: una rueda en su eje, un resguardo en su boca). Lo demás es «costado».
+
+| máquina | contacto con carga | cuelgan (crudas, 5 mm) | juzgadas | cuelga | costado | reales |
+|---|---|---|---|---|---|---|
+| lavadora `modelado`…`2` | 7 / 7 / 91 | 0 / 0 / 48 | 7 | 0 | 0 | 0 |
+| lavadora `correccion3`…`5` | 127 / 118 / 118 | 61 | 30–34 | 7 | 11 | 6 |
+| lavadora `correccion6` | 121 | 63 | 33 | 9 | 12 | 6 |
+| lavadora `correccion7` y `8` | 114 | 60 | 26 | 6 | 12 | 3 |
+| mesa inox con poza | 3 | 3 | 1 | 1 | 0 | 0 |
+| tolva piramidal | 48 | 24 | 2 | 0 | 0 | 0 |
+| las otras 25 (testigos incluidos) | 0–156 | 0–12 | 0 | 0 | 0 | 0 |
+
+- **Ronda 6, el caso del plan**: las 2 cuchillas superiores (22,1 kg, CM 53 mm bajo la abrazadera
+  y 265 mm al costado) y 4 ductos (34–56 kg, hasta 815 mm bajo la boca del soplador) cuelgan de
+  un `contacto`. Ya estaban así desde la `correccion3`.
+- **La ronda 8 NO pasa**: el ducto exterior (2) (33,9 kg), el ducto superior (2) (12,2 kg) y el
+  ramal (2) (13,4 kg) cuelgan del soplador. La copia (2) no tiene unión cuchilla ↔ ducto:
+  `f_ab_cuch_sup` y `f_ab_cuch_inf` sólo unen la (1). Es real, aunque sea de modelo.
+- **Falso positivo físico: la unión ROSCADA declarada `contacto`.** Válvula de drenaje (6,8 kg),
+  rebose (13,9 kg) y línea de enjuague (5,1 kg) en la lavadora; válvula de desagüe (1,9 kg) en la
+  mesa con poza. Además van a «costado» 11 barras de rociado y el interruptor de nivel. `fasten`
+  no tiene un tipo que diga «roscada, aguanta tracción».
+- Lo que la propuesta quita: casi todo lo crudo es tornillería declarada `contacto` (89 de 127
+  en la ronda 3; 156 de 156 en la plataforma) y cosas de < 0,5 kg (silenciadores, aparatos en
+  riel DIN, insertos, anclajes de expansión de 0,14 kg).
+
+#### D3 — fuente de la catenaria
+
+- **En el repo no hay nada citable**: ni ficha de banda modular en el catálogo, ni cita en docs o
+  devlog. Sólo `rules_faja_estructura` (eje cuadrado) y la comba CEMA 2 % de `ruta_faja`.
+- **Fuente encontrada**: Intralox, *Installation, Maintenance, and Troubleshooting Guide —
+  Modular Plastic Conveyor Belts* (2024). En la p. 15, fig. 17, la comba de catenaria va justo
+  después de la rueda motriz y se ajusta entre 1″ y 6″ (25,4–152 mm) a la temperatura de
+  operación. En el rodaje la banda alarga del 0,5 % al 1 % de su largo total. En la p. 143, una
+  comba excesiva por dilatación térmica puede pedir tensor.
+- El α térmico y la fórmula de dilatación están en el *Engineering Manual* de Intralox (PDF
+  > 10 MB, no se pudo leer aquí): **se pide esa fuente** (o la guía de Habasit o Rexnord) para la
+  parte térmica.
+- La comba modelada de la lavadora baja ≈ 120 mm (sección: w de −208 a −326 mm): dentro del
+  rango.
+- **Banda modular sin nombre**: la medida que sirve es el motriz.
+  - Ruedas dentadas MÁS ANGOSTAS que la mitad del ancho, varias sobre un eje de sección CUADRADA
+    en su vano (caras planas paralelas al eje; hoy sólo se lee «cuadrado 60» del nombre).
+  - El material de la banda es un polímero (acetal, PP, PE).
+  - Hay una zona libre de retorno después del motriz.
+  - Sin ficha de catálogo (no hay familia de banda modular), ésa es la única detección no
+    nominal.
+
+#### D4 — por qué la cinta entra 50,8 mm en un larguero
+
+- **Reproducido** en las rondas 3 y 6: entra 50,8 mm en los largueros de lavado y secado (−Y) en
+  v = −566,1. Es la mitad del canto de 101,6 mm: el plano corta la pared del tubo. En la ronda 8
+  los cruces bajan a 2,0–6,3 mm (13 piezas), pero `sustitutos_fieles` sigue fallando.
+- Causa raíz, en cadena:
+  1. **La sección de la banda no es un lazo.** El sólido «Banda modular de acetal» corta en el
+     plano medio en 17 caras SIN hueco: una C abierta de 244 puntos y tramos de ≈ 52 mm de la
+     catenaria, que se tocan pero no se funden. `seccion_plano.lazo_de_banda` da None y
+     `ruta_modelo` no corre.
+  2. **El respaldo es el casco convexo** (`ruta_faja`), y su envolvente toma como «tambor» lo
+     redondo que cubre ≥ 50 % del ancho. Eso incluye la barra de enjuague de ½″ (c274): la cinta
+     la abraza en (527, −74), al lado del larguero. Las ruedas dentadas, más angostas, no cuentan.
+  3. **Comba CEMA 2 % en vez de la catenaria modelada** (≈ 120 mm de bajada).
+- **D4 así como está no alcanza**: «en el tramo de catenaria, la línea media del sólido» supone
+  una sección cerrada. Con la sección unida en un lazo, `ruta_modelo` ya sigue la catenaria (no es
+  un tramo recto, no recibe comba CEMA).
+
+#### D5 — `join_bolted`, reproducido
+
+- **Cabeza dentro de un tubo cerrado.** Ménsula maciza de 80 mm bajo un TUBO-2X2: la base es la
+  ménsula (la más gruesa) y el tubo la pieza agregada. `_medir` toma el par (pared de abajo del
+  tubo, ménsula) y asienta la cabeza en la cara INTERIOR de esa pared: el perno M10×100 llega a
+  z = 89,6 y la cabeza (k = 6,4) queda en z 83,2–89,6, dentro del hueco (83,2–127,6).
+  `exigir_asiento` la acepta porque la cara interior es plana.
+- **Chapa en Z.** Alma x ∈ [0, 3] y alas opuestas; placa contra la cara x = 0. El solape de cajas
+  pone el contacto en x = −37 (el canto del ala de arriba) y falla con «falta cara PLANA ⊥ al
+  eje X en el plano de contacto».
+
+#### D6 — `$k` en un conjunto, reproducido
+
+`fasten(a="$1+$2", b="$3")` en `execute_batch` da «'$1' (en '$1+$2') no es una pieza…».
+`batch._REF_RE` hace `fullmatch` del valor entero, así que «$1+$2» llega literal a
+`exec_uniones.resolver_conjunto`. El arreglo es resolver cada término del conjunto.
+
+#### Ajustes que piden los datos (vetables)
+
+- **D1a.** Quitar la excepción `_se_tocan`: anula el modo de falla entero (0 de 12). En su lugar,
+  la prueba de pose relativa: 12 de 12 reales y 0 falsos positivos en la lavadora, la escalera y
+  el elevador.
+- **D1b.** No falla el par en que las DOS piezas tienen cara cilíndrica coaxial (± 1 mm) con la
+  junta: las palas de una bisagra (quita 2 de la mesa).
+- **D1c.** El perno de una junta de SERVICIO (sin actuador ni escenario: `calidad_juntas`) en un
+  par que no gira coaxial es AVISO justificable («se quita para abrir o retirar»), no FALLA. Quita
+  como falla la mezcladora (1), el tanque (2) y los compases (4). Si Mario prefiere que el tanque
+  falle (bisagra en dos palas), D1c se limita a las prismáticas.
+- **D1d.** FALLA segura y con texto propio: la pieza que se mueve con la junta y es coaxial con
+  ella está empernada a algo quieto («alojamiento arrastrado»: chumacera, carcasa). Son 4 de los
+  12 reales.
+- **D2a.** No se juzga la tornillería (`lints._is_bolt`) ni lo colgado < 0,5 kg.
+- **D2b.** La tolerancia es 25 mm bajo la cota más baja de la zona. Apoya el CM sobre la zona o
+  una zona que lo abraza. Lo de costado es SIN_EVALUAR justificable.
+- **D2c.** Tipo nuevo `roscado` en `fasten`: rígido, transmite tracción y la BOM no compra
+  tornillería por él. Se suma al `Literal` y un log viejo regenera igual. Sin él, las uniones
+  roscadas (4 cuelga y 12 costado en la ronda 8) obligan a mentir el tipo. La alternativa es que
+  la evidencia diga «si es roscada, decláralo `pegado`».
+- **D3a.** Con la fuente de Intralox, la regla puede ser: zona libre tras el motriz con comba
+  modelada de 25,4 a 152 mm, que absorbe el alargamiento de rodaje (1 % de L). La parte térmica
+  (α·ΔT·L) queda SIN_EVALUAR hasta tener el Engineering Manual.
+- **D4a.** D4 pasa a ser «la sección de la banda se une en un lazo»: fundir las caras del corte
+  o los sólidos de la banda antes de cortar. El casco convexo sólo toma como tambor lo que tiene
+  junta o toca el sólido de la banda; una barra de enjuague no es tambor.
+- **Verificaciones.** La F1 usa la `correccion1` (carcasa y chumacera), la 3 (chumacera), el
+  `modelado` (resortes a gas) y la 8 (pasa). La F2 usa la ronda 6 (cuchillas y ductos); la 8 sólo
+  pasa con la unión cuchilla ↔ ducto de la copia (2) agregada. Si no, que la F2 la dé por buena
+  como FALLA real.
