@@ -175,9 +175,20 @@ def piece_role(name: str | None) -> str:
     return (name or "").split("·")[-1].strip()
 
 
+#: «… con …» / «… c/ …»: lo que sigue describe un ACCESORIO, no el material de la pieza
+#: («Tuerca 8x13x8 con anillo de nylon» es acero, no poliamida). «concreto» no casa (`\b`).
+_COMPLEMENTO = re.compile(r"\s(?:con\b|c/).*", re.DOTALL)
+
+
+def material_principal(texto: str | None) -> str:
+    """El texto sin sus complementos «con …» / «c/ …»: el material que NOMBRA es el de la
+    pieza, no el de su accesorio. Fuente única para `_norm` y el acabado (`apariencia`)."""
+    return _COMPLEMENTO.sub("", texto or "")
+
+
 def _norm(material: str | None) -> str:
     """Normaliza una cadena de material a una clave conocida ('' si no se reconoce)."""
-    m = (material or "").lower()
+    m = material_principal(material).lower()
     if "inox" in m:
         return "acero inoxidable"
     if "hormig" in m:  # «hormigón» / «hormigon»: el mismo concreto
@@ -253,7 +264,8 @@ def resolve_material(feat, catalog: dict | None = None, default: str | None = No
     palabra de carpintería decide como siempre y lo no reconocido es acero.
 
     Los matchers de polímero, caucho y vidrio miran el ROL (`piece_role`), no el nombre entero:
-    el prefijo de un super-comando o de un `insert_project` («Faja PVC · Tapa…») no decide."""
+    el prefijo de un super-comando o de un `insert_project` («Faja PVC · Tapa…») no decide. Ni
+    el accesorio: lo que sigue a «con» / «c/» se ignora (`material_principal`)."""
     override = getattr(feat, "material", None)
     if override:
         return override
@@ -266,6 +278,8 @@ def resolve_material(feat, catalog: dict | None = None, default: str | None = No
             return mat
     name = (getattr(feat, "name", "") or "").lower()
     rol = piece_role(name)
+    if not _LINING_ROLE.match(rol):  # «Recubrimiento del tambor con poliuretano» ES el poliuretano
+        rol = material_principal(rol)  # «Rueda con banda de PU» es la RUEDA
     if _CABLE_ROLE.match(rol) and not _CABLE_METAL.search(name):
         return CABLE
     if any(w in rol for w in _GLASS_WORDS):

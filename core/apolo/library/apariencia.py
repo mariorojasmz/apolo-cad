@@ -38,7 +38,7 @@ from types import SimpleNamespace
 from apolo.kernel.render import PALETTE
 from apolo.kernel.render_comun import OPACIDAD_VIDRIO
 
-from .materials import piece_role, resolve_material_vertical
+from .materials import material_principal, piece_role, resolve_material_vertical
 
 #: Tipos de relieve procedural que sabe dibujar el visor (`ui/src/viewport/relieve.ts`).
 TIPOS_RELIEVE = ("pintura", "cepillado", "moteado", "fundicion", "veta", "tejido")
@@ -230,7 +230,7 @@ def acabado_de(material: str | None, nombre: str = "", *, componente: str | None
     `categoria`): cadena → pavonado; eje, pasador, piñón, polea o pieza de transmisión/guía
     lineal → mecanizado; rodillo o tambor (y su tubo) → galvanizado; el resto (estructura) →
     pintado."""
-    m = _sin_tildes(material)
+    m = _sin_tildes(material_principal(material))
     for patron, clave in _POR_MATERIAL:
         if patron.search(m):
             return clave
