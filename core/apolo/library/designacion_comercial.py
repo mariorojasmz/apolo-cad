@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import re
 
-from .materials import piece_role
+from .materials import especificacion, piece_role
 
 #: ROL de COMPRA (herraje/consumible a medida): se COMPRA, no se corta ni se mecaniza. Anclado al
 #: inicio del rol: «Tensor de cola · Eje fijo (roscado p/ perno)» NO es compra (lo usa la lista de
@@ -79,11 +79,17 @@ _FABRICADO = re.compile(r"^(ejes?|placas?|soportes?|m[ée]nsulas?|chapas?|tapas?
 #: sufijos de UBICACIÓN al final del nombre: «Arandela cuña DIN 434 M8 (guarda cabeza +Y, 1)»
 _UBICACION_RE = re.compile(r"(?:\s*\([^()]*\))+\s*$")
 
-#: la marca de COMPRA DECLARADA: «compra» (o «comprada/o», «de compra») como un ítem entero de un
-#: paréntesis: «(compra)», «(pala 63 mm, compra)», «(compra; DN40)». «(compra local de 2 m)» no.
-_ITEM_COMPRA = re.compile(r"^(?:de\s+)?compra(?:d[oa]s?)?$", re.I)
+#: la marca de COMPRA DECLARADA: «compra» (o «comprada/o», «de compra», «pieza de compra») como
+#: un ítem entero de un paréntesis: «(compra)», «(pala 63 mm, compra)», «(compra; DN40)», «(pieza
+#: de compra)». «(compra local de 2 m)» no: es la barra que se compra para cortarla.
+_ITEM_COMPRA = re.compile(r"^(?:(?:pieza|art[íi]culo)\s+)?(?:de\s+)?compra(?:d[oa]s?)?$", re.I)
 _PARENTESIS = re.compile(r"\s*\(([^()]*)\)")
 _SEPARADOR = re.compile(r"\s*[,;]\s*")
+#: F8 de hallazgos-del-revisor: las otras formas naturales, fuera de paréntesis: «Zapata de goma
+#: 38x89 de compra (del. -Y)» (cierra el tramo: «… de compra local de 2 m» sigue sin serlo) y la
+#: especificación que empieza «compra: tope de caucho Ø40x30».
+_DE_COMPRA = re.compile(r"\s+(?:pieza\s+)?de\s+compra(?=\s*(?:$|[(),;·]))", re.I)
+_COMPRA_DOS_PUNTOS = re.compile(r"(?:^|·)\s*compra\s*:", re.I)
 
 
 def _sin_item_compra(m: re.Match) -> str:
@@ -94,17 +100,33 @@ def _sin_item_compra(m: re.Match) -> str:
     return f" ({', '.join(items)})" if items else ""
 
 
-def compra_declarada(nombre: str | None) -> bool:
-    """¿El modelador declaró que la pieza se COMPRA («… (compra)», «(…, compra)»)?"""
-    return any(_ITEM_COMPRA.match(i) for m in _PARENTESIS.finditer(nombre or "")
+def _en_parentesis(nombre: str) -> bool:
+    return any(_ITEM_COMPRA.match(i) for m in _PARENTESIS.finditer(nombre)
                for i in _SEPARADOR.split(m.group(1).strip()))
+
+
+def compra_declarada(nombre: str | None) -> bool:
+    """¿El modelador declaró que la pieza se COMPRA? «… (compra)», «(…, compra)», «(pieza de
+    compra)», «… de compra (ubicación)», «· compra: …» o el código del fabricante «tipo Marca
+    código» (`codigo_de_fabricante`: sólo se compra lo que tiene marca y código)."""
+    nombre = nombre or ""
+    return (_en_parentesis(nombre) or bool(_DE_COMPRA.search(nombre))
+            or bool(_COMPRA_DOS_PUNTOS.search(nombre)) or _tipo_marca(nombre) is not None)
 
 
 def sin_marca_de_compra(nombre: str | None) -> str:
     """El nombre sin la marca de compra declarada (lo demás del paréntesis se queda)."""
-    if not compra_declarada(nombre):
-        return (nombre or "").strip()
-    return _PARENTESIS.sub(_sin_item_compra, nombre or "").strip()
+    nombre = (nombre or "").strip()
+    if _en_parentesis(nombre):
+        nombre = _PARENTESIS.sub(_sin_item_compra, nombre).strip()
+    return _DE_COMPRA.sub("", nombre).strip()
+
+
+def _declaracion(nombre: str | None) -> str:
+    """El rol con su especificación («Pie nivelador (-X,-Y) · cuerpo AISI 304, … (pieza de
+    compra)»): donde el modelador DECLARA la compra, su norma y su código."""
+    rol, spec = piece_role(nombre or ""), especificacion(nombre)
+    return f"{rol} · {spec}" if spec else rol
 
 
 def cabeza(nombre: str | None) -> str:
@@ -118,12 +140,12 @@ def norma_del_nombre(nombre: str | None) -> str:
     """«DIN 933» si la CABEZA del nombre trae una norma comercial con designación o un rol de
     compra; '' si no (también en una pieza que se fabrica por su rol). Con la compra DECLARADA,
     la primera norma comercial de todo el nombre («Retén … (DIN 3760 25x40x7, compra)»)."""
-    rol = piece_role(nombre or "")
-    declarada = compra_declarada(rol)
+    rol, decl = piece_role(nombre or ""), _declaracion(nombre)
+    declarada = compra_declarada(decl)
     compra = declarada or bool(ROL_COMPRA.match(rol))
     if not compra and _FABRICADO.match(rol):
         return ""
-    nombre = sin_marca_de_compra(rol) if declarada else cabeza(nombre)
+    nombre = sin_marca_de_compra(decl) if declarada else cabeza(nombre)
     # designación: una rosca, o una medida «17x1», «8x7x40» junto a la norma en la cabeza
     designado_rosca = bool(_ROSCA_RE.search(nombre) or _MEDIDA_RE.search(nombre))
     for m in _NORMA_RE.finditer(nombre):
@@ -138,8 +160,8 @@ def norma_del_nombre(nombre: str | None) -> str:
 def es_comercial(nombre: str | None) -> bool:
     """¿La pieza modelada a mano se COMPRA? Rol de compra, compra declarada («(compra)») o norma
     comercial con designación."""
-    rol = piece_role(nombre)
-    return bool(ROL_COMPRA.match(rol)) or compra_declarada(rol) or bool(norma_del_nombre(nombre))
+    return (bool(ROL_COMPRA.match(piece_role(nombre))) or compra_declarada(_declaracion(nombre))
+            or bool(norma_del_nombre(nombre)))
 
 
 def categoria_de_compra(nombre: str | None) -> str:
@@ -167,8 +189,22 @@ _SIGLAS_NO_MARCA = frozenset({
     "DIN", "ISO", "EN", "ASTM", "AISI", "SAE", "ANSI", "ASME", "DN", "NPT", "BSP", "UNE", "NTP",
     "JIS", "IEC", "IP", "PN", "NEMA", "UNC", "UNF", "M", "AWG", "HP", "PE", "PP", "PVC", "HDPE"})
 _MARCA = r"(?P<marca>[A-ZÄÖÜÁÉÍÓÚÑ][\wäöüáéíóúñ&.\-]*)"
-_CODIGO = r"(?P<codigo>(?:[A-Z]{1,5}[\s-]?)?\d[\w./\-]*)"
+#: el código lleva un dígito; puede abrir con una familia de letras («GN 343.1», «LV.A-SST M12»: F8)
+_CODIGO = r"(?P<codigo>(?:[A-Z]{1,5}[\s-]?)?\d[\w./\-]*|[A-Z][\w.\-/]*\s[A-Z]{0,5}\d[\w./\-]*)"
 _TIPO_RE = re.compile(rf"\btipo\s+{_MARCA}\s+{_CODIGO}")
+#: los perfiles que se nombran «tipo IPE 100» no son una marca (para `compra_declarada`)
+_PERFILES = frozenset({"IPE", "IPN", "HEA", "HEB", "HEM", "UPN", "UPE", "HSS", "SHS", "RHS",
+                       "CHS", "PTR"})
+
+
+def _tipo_marca(nombre: str) -> re.Match | None:
+    """El «tipo Marca código» que declara una compra: marca de ≥ 3 letras que no es una sigla de
+    norma ni un perfil («tipo D», «tipo L 50x50» o «tipo IPE 100» no compran nada)."""
+    for m in _TIPO_RE.finditer(nombre):
+        marca = m.group("marca")
+        if len(marca) >= 3 and marca.upper() not in _SIGLAS_NO_MARCA | _PERFILES:
+            return m
+    return None
 _ITEM_MARCA_RE = re.compile(rf"^{_MARCA}\s+{_CODIGO}(?:\s+o\s+(?:eq\w*\.?|similar))?$")
 _REF_RE = re.compile(r"\b(?:ref\.?|c[óo]d(?:igo|\.))\s*:?\s*(?P<codigo>[A-Z0-9][\w./\-]*\d[\w./\-]*)")
 #: el rol de una compra que se pide POR LARGO (D4): la varilla roscada, la barra, el perfil

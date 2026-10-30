@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23), F3 (v24; el historial de versiones salió a calidad/historial_registro.py), F2 (v25, bom.comprable), F4 (v26, distancias en madera) y F6 (v27, higiene.limpiable). Sin lanzar - F7
+estado: implementado
+nota: sin pendientes. F0–F7 hechas (registro v22–v27; la F7 midió con 2 máquinas: 0 MEDIA del tipo que mide la puerta, las rondas no bajaron). F8 (v29) arregla los 4 defectos de la puerta que vio la F7; 4 límites conocidos quedan escritos en la Bitácora § F8, sin plan
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -211,6 +211,9 @@ unidad y de un `.apolo` real (se saltan sin `C:\t\maq`, como en `test_bom_compra
   - cuántas rondas hacen falta para converger, contra 3 y sin converger;
   - el costo y los minutos de cada uno;
   - cuántos MEDIA del revisor quedan del tipo que ahora mide la puerta (meta: 0).
+- **F8 (S, `library` + `services`): los defectos de la puerta que vio la F7.** Agregada tras la
+  F7: la compra por su nombre, el perno de coche, el pie leído como perno y la punta del tornillo
+  de madera. Verificación: las máquinas de la F7 y un test de regresión por defecto.
 
 Tamaño: 6 fases de agente (≈ 40–65 min cada una con sus suites) más revisión y merge por lote.
 F1→F2 y F0→F4 van en serie; F3, F5 y F6 pueden ir en paralelo (máx. 3 agentes por PC).
@@ -752,3 +755,114 @@ Cifras (mesa inox real con `higienico: true`, núcleo):
 - la medida tarda ≈ 3 s en la mesa inox (42 soldaduras re-medidas fuera de la puerta, 20 tubos con
   40 extremos); dentro de `reunir` reusa las uniones de la entrega;
 - testigos: sólo cambian la versión 24 → 25 y el ítem nuevo NO_APLICA, re-congelados a propósito.
+
+### F7 (2026-10-30)
+
+Se repitieron DESDE EL ENCARGO dos pilotos del lote de la laptop con la puerta en registro 27: la
+escalera de tijera (madera) y la mesa inox (la de más hallazgos del tipo que la puerta mide, según
+la F0). Misma receta (modelado → revisor a ciegas → puerta → hasta 3 correcciones con re-revisión
+a ciegas) y los mismos briefs; a la mesa se le sumó UNA línea al encargo: «es equipo higiénico»
+(D9 aplica sólo con el requisito). Modelo: claude-opus-5-5; USD a precio de lista de la API.
+
+| | escalera (lote) | escalera F7 | mesa inox (lote) | mesa inox F7 |
+|---|---|---|---|---|
+| rondas de corrección | 3, sin converger | 3, sin converger | 3, sin converger | 3, sin converger |
+| USD | 33,76 | 36,60 | 12,54 | 11,63 |
+| min de agente | 86,9 | 97,6 | 33,2 | 30,4 |
+| ALTA+MEDIA en las 4 revisiones | 14 (4 ALTA) | 17 (2 ALTA) | 11 (0 ALTA) | 6 (0 ALTA) |
+| … del tipo que la puerta MIDE hoy | 6 | **0** | 8 | **0** |
+| … del mismo modo de falla que la puerta NO ve | — | 7 | — | 5 |
+| MEDIA abiertos al cerrar | 3 (1 de tipo medido) | 3 (0 medidos) | 2 (los 2 de D9) | 1 (0 medidos) |
+| puerta al cerrar | APROBADA (v19) | APROBADA 22/0 | APROBADA (v19) | APROBADA 23/0 |
+
+Total de la F7: 48,23 USD y 128 min de agente.
+
+- **Lo que frenó la puerta**: en la mesa, `higiene.limpiable` marcó 12 soldaduras con rendija en el
+  modelado (pasaron a cordón continuo sin piezas nuevas) y `bom.comprable` + D3 sacaron los tubos
+  ASTM A554 y la chapa A240; en la escalera, el modelador evitó el tornillo en la testa del peldaño
+  (escuadra + pernos pasantes), `borde.testa` rechazó atornillar el taco al pie del larguero y
+  `union.agarre` le hizo alargar el perno que asomaba 1,8 mm. Ningún revisor volvió a marcar una
+  rendija soldada, un tubo abierto, el metal sin grado, testa o canto, la varilla sin largo ni la
+  tuerca simple en un eje con junta.
+- **Conclusión**: la meta de la F7 (0 MEDIA del tipo que la puerta mide) **se cumplió**: de 14 se
+  pasó a 0. Las rondas **no bajaron**: ninguna convergió y el tope de 3 sigue cortando, porque el
+  revisor encuentra OTROS modos (cálculo estructural y vuelco lateral de la madera ×4, el plegado
+  sin junta, la carrera del pie nivelador; la F0 ya los mandó a planes propios) y 12 de los 23
+  ALTA/MEDIA caen en el modo de falla de una D por un HUECO de la medida (abajo). El costo tampoco
+  bajó: la escalera +8 % (13 MEDIA nuevos de función y estructura alargaron las correcciones), la
+  mesa −7 %.
+- **Defectos de la puerta vistos** (los arregla la F8): la compra no se reconoce por el nombre
+  (`bom.comprable` y `apoyo.capacidad`); `union.retencion` no ve la tuerca de un perno de coche;
+  `union.largo_comercial` lee un espárrago de 22 mm como 32; el tornillo de madera que atraviesa la
+  pieza no falla. **Límites** que se anotan y no se arreglan: la unión «pegado» con 3,0 mm de
+  rendija en las puntas pasa (el umbral de D9 sólo mira soldaduras, y 3 mm es su borde); una tapa
+  soldada con rosca pasante cuenta como tubo cerrado (el límite que la F6 dejó escrito, ya visto en
+  una máquina); `borde.testa` frena también el tornillo que sólo sujeta un taco sin carga axial (a
+  45° también: llevó a un taco pegado antes del perno pasante); `diseno.sin_sobrantes` marca las
+  piezas re-creadas en una corrección (cambian de id; se justificaron).
+
+### F8 (2026-10-30)
+
+Los cuatro defectos de la puerta que vio la F7, cada uno reproducido antes de tocar. Registro
+**v29** (la F2 de lo-fijo-que-gira sube en paralelo: quien mergea renumera). Sin ítem nuevo.
+
+1. **La compra por su nombre** (falso negativo de `bom.comprable` y `apoyo.capacidad`). Dos
+   causas en la fuente única:
+   - `materials.piece_role` tomaba el último tramo « · » aunque fuera la ESPECIFICACIÓN («Pie
+     nivelador higiénico (-X,-Y) · cuerpo AISI 304, espárrago M12×80 A2, base Ø70 con hex SW19,
+     carga ≥ 300 kg (pieza de compra)» daba el rol «cuerpo AISI 304, …»). Ahora ese tramo es
+     especificación si es una lista («, » o «; » fuera de paréntesis; la coma decimal «e=1,5» no
+     cuenta) o empieza por el material, la norma o «compra:», y el rol es el tramo anterior
+     (`especificacion`, `sin_especificacion`). La convención de los super-comandos («Faja de banda
+     · Pata (1)») no cambia;
+   - `designacion_comercial.compra_declarada` sólo aceptaba «compra» como ítem de un paréntesis.
+     Ahora también «(pieza de compra)», «… de compra» cerrando el tramo («Zapata de goma
+     envolvente 38x89 de compra (del. -Y)»), «· compra: …» y «tipo Marca código» («tipo Elesa
+     LV.A-SST M12»; el código admite una familia de letras antes del número). Sin morder: «Soporte
+     de la compra…», «(compra local de 2 m)», «… de compra local de 2 m», «tipo L 50x50», «tipo
+     IPE 100», «tipo D». La compra se busca en el rol Y su especificación.
+
+   En la mesa F7 final los 4 pies salen COMPRA en `pies_niveladores` (antes A-MEDIDA con ASTM y
+   corte 70×70×95), `apoyo.capacidad` los juzga con los 300 kg de su designación (antes NO_APLICA)
+   y `bom.comprable` FALLA porque no traen código (en la ronda 2 sí: «Elesa LV.A-SST M12»). En la
+   escalera F7 las 4 zapatas salen COMPRA y `bom.comprable` FALLA sin referencia: lo que los
+   revisores marcaron en las 4 rondas.
+2. **`union.retencion` con `PERNO-COCHE-M6`**: real. Los rayos «afuera» de `calidad_pernos._medir`
+   van a la mitad entre el vástago y la cabeza; la cúpula del DIN 603 (Ø16,55 en M6) los ponía a
+   5,6 mm del eje, fuera de las caras de una tuerca de entrecaras 10 (5,0 mm): según cómo estuviera
+   girada la tuerca, ningún rayo la tocaba y salía «sin tuerca ni rosca». El `PERNO-HEX-M6` (cabeza
+   10) pasaba. Ahora la cabeza se acota a la entrecaras de la tuerca DIN 934 de su métrica: en hex
+   y Allen no cambia nada (cabeza ≤ tuerca en toda la tabla).
+3. **`union.largo_comercial` y el espárrago de 22 mm leído como 32**: real, pero no era el largo.
+   Lo que se medía era el PIE nivelador entero: su nombre trae «espárrago M12…» en la
+   especificación y `lints.es_nombre_de_tornilleria` buscaba en el nombre entero, así que el pie
+   entraba como perno; la base Ø70 era la «cabeza» y el hexágono una tuerca fundida, y el largo
+   corría desde la base (10 mm de hexágono de más). Con el rol bien leído, lo que la
+   especificación LISTA no dice qué es la pieza (`sin_especificacion`): el pie de compra deja de
+   ser tornillería, como el pie de catálogo.
+4. **La punta del tornillo de madera**: `borde.madera` pide además que la punta de todo tornillo de
+   madera (con hexágono o sin él) quede ≥ 2 mm antes de la cara de atrás, el criterio que ya usa
+   `join_bolted` en madera (`fijacion`). Se mide sobre los tramos que el eje ya cruzó, con las
+   piezas pegadas como un solo material, y sólo si acaba (o sale) por una pieza de madera
+   (`calidad_bordes._punta`). La escalera F7: los 8 tornillos de bisagra c88–c95 (TIRAFONDO-4x40
+   en el cabezal de 38 más la pala) FALLAN con la punta en la cara de atrás (0 mm).
+
+Cifras sobre los `.apolo` finales de los pilotos de madera del lote: 266 puntas medidas en la
+escalera (dos versiones), las dos estanterías y la mesa plegable, todas dentro; la silla plegable
+falla en sus 4 tirafondos
+4,5×50 del travesaño a la pata, con 1,75 mm de madera detrás (bajo los 2 mm de `join_bolted`).
+
+Decisiones vetables:
+
+- **La especificación se reconoce por su forma** (lista o material al inicio), no por una lista de
+  roles. Un nombre «Pata · tubo cuadrado 1½" e=1,5 AISI 304» sigue dando el rol «tubo cuadrado…»
+  (ni lista ni material al inicio); ampliarlo a «tubo/barra/platina…» cambiaría el rol de muchas
+  piezas sanas y no lo pidió ningún hallazgo.
+- **«tipo Marca código» declara compra** sólo con una marca de ≥ 3 letras que no sea sigla de
+  norma ni perfil.
+- **La punta, con los 2 mm de `join_bolted`**, no con «asoma» (0 mm): la punta que llega justo a la
+  cara la saca por el otro lado al apretar (la escalera estaba en 0 mm).
+
+Tests en `tests/test_puerta_f8.py` (los nombres reales de la F7; las máquinas de la F7 se saltan
+sin el archivo) y dos defectos sembrados: `pie_de_compra_especificado` (`apoyo.capacidad`) y
+`tornillo_que_asoma` (`union.distancia_al_borde`). Testigos: sólo `version_registro` 28 → 29.

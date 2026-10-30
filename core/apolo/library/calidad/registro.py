@@ -86,7 +86,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "28"  # 28: movimiento.coherente (historial en historial_registro.py)
+VERSION_REGISTRO = "29"  # 29: la compra por su nombre, la punta del tornillo (historial aparte)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -142,7 +142,7 @@ _MECANICA = {
     "union.distancia_al_borde": General(
         "Cada agujero de perno en chapa o ala a ≥ 1,2·d0 del canto libre (1,5·d0 en ranura) "
         "y a un paso ≥ 2,2·d0 del vecino; la barra roscada, con su rosca enganchada; en madera, "
-        "a ≥ 4·d de la testa y ≥ 3·d del canto, y ningún tornillo en la testa",
+        "a ≥ 4·d de la testa y ≥ 3·d del canto, ningún tornillo en la testa y su punta dentro",
         "estructura", ("borde.distancia", "borde.paso", "borde.madera", "borde.testa"),
         hay_alguno(("tornilleria", "tornilleria_madera"), "sin tornillería que medir"),
         "tornilleria",

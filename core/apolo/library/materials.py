@@ -169,10 +169,39 @@ _BELT_METAL = re.compile(r"acero|inox|met[aá]l|alambre")
 _METAL_HINT = re.compile(r"\b(a36|ss400|st37|sae\s*1045|1045)\b|inox|\d+\s*[x×]\s*\d+\s*[x×]\s*\d+")
 
 
+#: el último tramo « · » es una ESPECIFICACIÓN, no un rol (F8 de hallazgos-del-revisor): una lista
+#: («cuerpo AISI 304, espárrago M12×80 A2, … (pieza de compra)»: «, » o «; » fuera de paréntesis;
+#: la coma decimal «e=1,5» no cuenta) o empieza por el material, la norma o «compra:».
+_LISTA_SPEC = re.compile(r"[,;]\s")
+_INICIO_SPEC = re.compile(r"^(?:AISI|ASTM|SAE|acero|inox\w*|compra\s*:)", re.I)
+
+
+def _es_especificacion(tramo: str) -> bool:
+    plano = re.sub(r"\([^()]*\)", "", tramo)
+    return bool(_LISTA_SPEC.search(plano) or _INICIO_SPEC.match(tramo))
+
+
+def especificacion(name: str | None) -> str:
+    """El último tramo « · » si es una ESPECIFICACIÓN de la pieza («Pie nivelador (-X,-Y) · cuerpo
+    AISI 304, espárrago M12×80 A2, carga ≥ 300 kg (pieza de compra)»), o ''."""
+    tramos = (name or "").split("·")
+    return tramos[-1].strip() if len(tramos) > 1 and _es_especificacion(tramos[-1].strip()) else ""
+
+
 def piece_role(name: str | None) -> str:
     """ROL de una pieza: lo que sigue al último « · » (convención rol-primero; un
-    super-comando nombra «{comando} · {rol}» e `insert_project` antepone la instancia)."""
-    return (name or "").split("·")[-1].strip()
+    super-comando nombra «{comando} · {rol}» e `insert_project` antepone la instancia), salvo
+    que ese tramo sea la ESPECIFICACIÓN (`especificacion`): entonces el rol es el anterior."""
+    tramos = (name or "").split("·")
+    if len(tramos) > 1 and _es_especificacion(tramos[-1].strip()):
+        return tramos[-2].strip()
+    return tramos[-1].strip()
+
+
+def sin_especificacion(name: str | None) -> str:
+    """El nombre sin su especificación final: lo que DICE qué es la pieza."""
+    nombre = name or ""
+    return nombre[:nombre.rfind("·")].strip() if especificacion(nombre) else nombre
 
 
 #: «… con …» / «… c/ …»: lo que sigue describe un ACCESORIO, no el material de la pieza

@@ -320,10 +320,14 @@ class _Escena:
 
 def _medir(esc: _Escena, solid, g: dict, alcance: float) -> dict:
     """{fid: {"afuera": [[a, b]], "adentro": [[a, b]], "feat"}} a lo largo del eje."""
-    from apolo.library.engineering.bolts import CLEARANCE_HOLE_MM
+    from apolo.library.engineering.bolts import CLEARANCE_HOLE_MM, HEX_NUT_MM
 
     d, s = g["d"], g["s"]
     dn, paso = _metrica(d)
+    # los rayos «afuera» tienen que caer DENTRO de la tuerca (entrecaras/2): una cabeza más ancha
+    # que la tuerca (la cúpula del DIN 603: Ø16,55 en M6, tuerca de 10) los sacaba de la tuerca
+    # y salía «sin tuerca ni rosca» (F8 de hallazgos-del-revisor)
+    s = min(s, HEX_NUT_MM.get(f"M{dn:g}", (s, 0.0))[0])
     paso_libre = CLEARANCE_HOLE_MM.get(f"M{dn:g}", 1.1 * d) / 2.0
     r_afuera = max((d / 2.0 + s / 2.0) / 2.0, paso_libre + 0.4)
     r_adentro = d / 2.0 - 0.3 * paso

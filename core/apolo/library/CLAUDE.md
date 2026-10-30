@@ -43,8 +43,8 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   pieza de origen). Lo que una unión `perno` DECLARA y nadie modeló lo suma
   `tornilleria_declarada.py` (sin duplicar lo modelado, también la tuerca enhebrada tras una
   arandela; la que insertó el comando de OTRA unión no le cuenta). La arandela de catálogo es
-  categoría `arandelas`: no cubre un perno declarado y `_is_bolt` la cuenta como herraje. La compra la DECLARA el modelador con «compra» en un paréntesis
-  (`compra_declarada`), nunca se adivina por el rol. Una ref con OTRO material asignado
+  categoría `arandelas`: no cubre un perno declarado y `_is_bolt` la cuenta como herraje. La compra la DECLARA el modelador
+  (`compra_declarada`: «(compra)», «de compra», «tipo Marca código»), nunca se adivina por el rol. Una ref con OTRO material asignado
   (`set_material`, o `fasten.material_tornilleria`/la nota en lo declarado) se compra como la
   EQUIVALENTE en ese material (`material_compra.py`: BOM, costeo y cédula, una fuente).
   [defectos](../../../docs/defectos.md) (F6)
@@ -123,8 +123,9 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
 - La heurística por nombre muerde: «larguero» es palabra de madera (`_WOOD_WORDS`). Quien
   re-resuelve el material de una pieza ya resuelta le pasa el `material` que ya tiene.
   [V7.5](../../../docs/plans/V7.5-e22-datum-funcional.md)
-- Un matcher de ROL mira `piece_role(nombre)` (tras el último « · »), nunca el nombre entero: un
-  super-comando nombra «Faja de banda · Pata (1)» y toda la faja contiene «banda». Rol `banda` →
+- Un matcher de ROL mira `piece_role(nombre)` (tras el último « · », o el anterior si ese es una
+  especificación: lista o material), nunca el nombre entero: un super-comando nombra «Faja de
+  banda · Pata (1)» y toda la faja contiene «banda». Rol `banda` →
   PVC salvo metal explícito. [devlog § banda PVC](../../../docs/devlog.md)
 - En madera `YIELD_MPA` tabula el MOR (rotura), no un límite elástico: el «FS» es contra rotura
   y el criterio es FS ≥ 4 (σ_adm = MOR/4), no ≥ 1.5 como en acero.
@@ -211,8 +212,7 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
 
 - Motor PURO peor caso + RSS (√Σt²) de una cadena 1D. Cada eslabón con tolerancia de UNA fuente:
   `{pm}`, `{fit: "h7"}` (banda ISO 286 asimétrica vía `fit_limits`), `{iso2768: "m"}` o
-  `{lim: [lo, hi]}`; veredicto contra `{min_mm | max_mm | entre}`. `iso2768_linear` es la tabla
-  ISO 2768-1 (el número del «ISO 2768-mK» del cajetín).
+  `{lim: [lo, hi]}`; veredicto contra `{min_mm | max_mm | entre}`.
 - Las cadenas DECLARADAS son metadato (`Document.stackups`, raíz § Metadato ≠ comando). Un
   eslabón `{id, eje}` mide el bbox VIVO; `nominal_mm: "=expr"` sigue las variables. Evaluación y
   cadenas auto de pernos: [services](../services/CLAUDE.md); el rollback del PUT,

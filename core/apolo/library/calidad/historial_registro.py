@@ -62,5 +62,13 @@ distintas falla salvo que sea el eje de la junta, que las dos piezas sean coaxia
 unida a una quieta (alojamiento arrastrado) falla siempre, y el lazo cerrado o la junta de servicio
 prismática o con la bisagra en la pieza quieta son aviso justificable (`movimiento.py`; la lavadora
 con los resortes a gas quietos empernados a la puerta, la carcasa del motorreductor arrastrada y la
-chumacera −Y hija del eje ahora fallan).
+chumacera −Y hija del eje ahora fallan); v29 (hallazgos-del-revisor F8, tras las máquinas de la F7)
+`bom.comprable` y `apoyo.capacidad` reconocen la compra declarada en sus formas naturales («(pieza de
+compra)», «… de compra (ubicación)», «· compra: …», «tipo Marca código») y el rol no se pierde tras
+una ESPECIFICACIÓN « · » («Pie nivelador (-X,-Y) · cuerpo AISI 304, espárrago M12×80 A2, …»: el pie
+de compra salía a medida y sin apoyo; `materials.piece_role`); por lo mismo esa pieza deja de ser
+tornillería (su espárrago se leía como un perno de 32 donde mide 22); `union.retencion` ve la tuerca
+de un perno de cabeza más ancha que ella (el DIN 603 salía «sin tuerca»); y `borde.madera` pide la
+punta de todo tornillo de madera ≥ 2 mm antes de la cara de atrás (el tirafondo 4×40 que asomaba
+por el cabezal de 38).
 """

@@ -175,6 +175,23 @@ def pie_sin_capacidad(d):
     d.execute("ground", {"name": "gpie", "feature": p})
 
 
+def pie_de_compra_especificado(d):
+    """F8 de hallazgos-del-revisor: el pie de la mesa inox de la F7, con su especificación tras
+    « · » y «(pieza de compra)», anclado y sin carga nominal. Antes salía a medida y NO_APLICA."""
+    p = _caja(d, "Pie nivelador higiénico · cuerpo AISI 304, espárrago M12×80 A2, base Ø70 "
+                 "(pieza de compra)", 60, 60, 12, 0, 300, 6)
+    d.execute("ground", {"name": "gpie", "feature": p})
+
+
+def tornillo_que_asoma(d):
+    """F8 de hallazgos-del-revisor: un tornillo de madera 4×40 en un listón de 30 (el de la
+    bisagra de la escalera de la F7, que atravesaba el cabezal): la punta sale 11 mm."""
+    a = _caja(d, "Listón", 300, 45, 30, 400, 0, 15)
+    d.set_material(a, "madera")
+    d.execute("insert_component", {"component": "TIRAFONDO-4x40", "name": "Tornillo de bisagra",
+                                   "position": {"x": 400, "z": 10}})
+
+
 def tubo_abierto_higienico(d):
     """hallazgos-del-revisor D9: en equipo higiénico, un poste de tubo soldado a la placa base y
     abierto arriba (la pata de la mesa inox bajo su cubierta: el agua entra y no sale)."""
@@ -495,6 +512,10 @@ DEFECTOS = (
     Defecto("pata_esbelta", "mensula_atornillada", pata_esbelta, {"estructura.pandeo": FALLA}),
     Defecto("pie_sin_capacidad", "mensula_atornillada", pie_sin_capacidad,
             {"apoyo.capacidad": FALLA}),
+    Defecto("pie_de_compra_especificado", "mensula_atornillada", pie_de_compra_especificado,
+            {"apoyo.capacidad": FALLA}),
+    Defecto("tornillo_que_asoma", "mensula_atornillada", tornillo_que_asoma,
+            {"union.distancia_al_borde": FALLA}),
     Defecto("tubo_abierto_higienico", "mensula_atornillada", tubo_abierto_higienico,
             {"higiene.limpiable": FALLA}),
     Defecto("brazo_fijo_que_gira", "mensula_atornillada", brazo_fijo_que_gira,

@@ -46,9 +46,11 @@ _EJE_ROL_RE = re.compile(r"^\s*(eje|árbol|arbol|shaft|bujes?|casquillos?|mangui
 
 def es_nombre_de_tornilleria(nombre: str | None) -> bool:
     """¿El NOMBRE dice que la pieza ES tornillería (no que la menciona)?"""
-    from .materials import piece_role
+    from .materials import piece_role, sin_especificacion
 
-    nombre = nombre or ""
+    # lo que la ESPECIFICACIÓN lista no es lo que la pieza es: «Pie nivelador · AISI 304,
+    # espárrago M12x20 A2, …» es un pie, no un espárrago (F8 de hallazgos-del-revisor)
+    nombre = sin_especificacion(nombre)
     if _EJE_ROL_RE.match(piece_role(nombre)):
         return False
     return bool(_BOLT_NAME_RE.search(_MENCION_RE.sub(" ", nombre)))

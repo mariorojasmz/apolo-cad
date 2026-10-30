@@ -20,7 +20,8 @@ Una pieza de MADERA del taller (`materials.es_madera` sobre el material resuelto
 como la BOM) no se juzga con la tabla de chapas: su agujero sale con `madera: True` y la medida
 de `borde_agujero.medir_madera` (testa ≥ 4·d, canto ≥ 3·d, el tornillo en la testa; plan
 hallazgos-del-revisor-en-la-puerta, D7). Además de los pernos de `calidad_pernos` entran los
-tornillos de madera sin hexágono (`calidad_tornillos_madera`), sólo en la madera. El PASO de la
+tornillos de madera sin hexágono (`calidad_tornillos_madera`), sólo en la madera. De todo
+tornillo de madera se mide además su PUNTA (`_punta`, estado «punta»: F8). El PASO de la
 madera sigue siendo el de la tabla 3.3 sobre la medida de chapa de siempre (pendiente: los
 espaciamientos a1/a2 de EN 1995-1-1).
 """
@@ -80,6 +81,35 @@ def _medir_en_madera(esc, fid, p, punto, eje, tramo, otros, vetas: dict) -> dict
     return {**r, "madera": True, "perno_nombre": p.get("nombre")}
 
 
+def _punta(doc, p: dict, catalog) -> dict | None:
+    """La PUNTA de un tornillo de madera (F8 de hallazgos-del-revisor): cuánto material le queda
+    detrás, contando las piezas pegadas como una sola (`respaldo`, negativo = asoma). Sólo si
+    acaba (o sale) por una pieza de madera; si no, None. Criterio: el de `join_bolted` en madera
+    (`fijacion._RESPALDO_MADERA_MM`, ≥ 2 mm antes de la cara de atrás)."""
+    from apolo.library.fijacion import _RESPALDO_MADERA_MM
+    from apolo.library.materials import es_madera, resolve_material
+
+    from .calidad_pernos import _union
+
+    largo = float(p.get("largo") or 0.0)
+    piezas = [t for t in p.get("tramos") or [] if t["rol"] == "pieza" and t["fid"] != p["fid"]
+              and t["t0"] < largo - 0.05]
+    if not piezas:
+        return None
+    material = _union([[t["t0"], t["t1"]] for t in piezas])
+    tramo = next((m for m in material if m[0] < largo <= m[1] + 0.05), None)
+    fin = tramo[1] if tramo else max(m[1] for m in material if m[1] < largo)
+    ultima = max((t for t in piezas if t["t1"] <= fin + 0.05), key=lambda t: t["t1"])
+    feat = doc.scene.get(ultima["fid"])
+    if feat is None or not es_madera(resolve_material(feat, catalog, doc.default_material())):
+        return None
+    respaldo = round(fin - largo, 2)
+    return {"pieza": ultima["fid"], "nombre": getattr(feat, "name", ultima["fid"]),
+            "perno": p["fid"], "perno_nombre": p.get("nombre"), "madera": True,
+            "estado": "punta", "respaldo": respaldo, "requerido": _RESPALDO_MADERA_MM,
+            "d": p.get("d"), "cumple": respaldo >= _RESPALDO_MADERA_MM - 0.05}
+
+
 def _es_del_taller(feat, catalog) -> bool:
     comp = catalog.get(getattr(feat, "component", None) or "")
     return comp is None or bool(getattr(comp, "cuttable", False))
@@ -119,6 +149,9 @@ def insumos_bordes(doc, pernos: list[dict], esc) -> tuple[list[dict], list[dict]
             por_pieza.setdefault(t["fid"], []).append(
                 (p, punto, eje, radio, t["t0"], t["t1"], t))
     agujeros, pasos, vetas = [], [], {}
+    for p in [*pernos, *de_madera]:  # F8: la punta del tornillo de madera no asoma
+        if p.get("evaluable") and _es_tornillo(p) and (punta := _punta(doc, p, CATALOG)):
+            agujeros.append(punta)
     if sin_geometria:
         agujeros.append({"pieza": None, "nombre": None, "perno": None, "madera": True,
                          "estado": "sin_geometria", "n": sin_geometria,

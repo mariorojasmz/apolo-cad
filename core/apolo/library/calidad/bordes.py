@@ -30,7 +30,9 @@ entran en `borde.distancia`; los juzgan dos controles con la medida de
 `library/borde_agujero.medir_madera` (criterio y citas en su docstring):
 
 - **borde.madera**: testa ≥ 4·d y canto ≥ 3·d. FALLA nombra la pieza, el perno, el lado y la
-  distancia medida y la pedida;
+  distancia medida y la pedida. Además (F8 de hallazgos-del-revisor) la PUNTA de cada tornillo de
+  madera (estado «punta», `respaldo` = mm de material detrás, negativo = asoma) queda ≥ 2 mm
+  antes de la cara de atrás: el tirafondo 4×40 en un cabezal de 38 que salía por el otro lado;
 - **borde.testa**: ningún tornillo ni tirafondo rosca en la testa (eje a < 45° de la veta). Un
   perno pasante a lo largo de la veta (`a_lo_largo`) sólo se cuenta.
 
@@ -47,6 +49,9 @@ NORMA_MADERA = ("criterio de diseño: 4·d a la testa y 3·d al canto (mínimos 
                 "a4,c de EN 1995-1-1, tabla 8.4)")
 NORMA_TESTA = ("criterio de diseño (EN 1995-1-1 §8.3.2(4): un clavo en la testa no transmite "
                "carga axial)")
+#: el de `join_bolted` en madera (`fijacion`): la punta ≥ 2 mm antes de la cara de atrás
+NORMA_PUNTA = ("criterio de diseño (el de join_bolted en madera: la punta ≥ 2 mm antes de la cara "
+               "de atrás)")
 _CONTROLES = {
     "distancia": ("borde.distancia", "Cada agujero de perno en chapa o ala a ≥ 1,2·d0 del "
                   "canto libre (≥ 1,5·d0 si es ranura); en una barra roscada, rosca ≥ k·d",
@@ -55,8 +60,9 @@ _CONTROLES = {
     "paso": ("borde.paso", "Agujeros de perno de una misma pieza a un paso ≥ 2,2·d0",
              "dos agujeros tan juntos que el ligamento entre ellos se rompe", NORMA),
     "madera": ("borde.madera", "Cada perno o tornillo en madera a ≥ 4·d de la testa y ≥ 3·d "
-               "del canto", "la madera se raja a lo largo de la veta entre el agujero y la testa "
-               "o el canto", NORMA_MADERA),
+               "del canto, y la punta del tornillo ≥ 2 mm antes de la cara de atrás",
+               "la madera se raja a lo largo de la veta entre el agujero y la testa o el canto; "
+               "la punta que asoma por la otra cara corta a quien la toca", NORMA_MADERA),
     "testa": ("borde.testa", "Ningún tornillo ni tirafondo rosca en la testa de la madera",
               "la rosca metida a lo largo de la veta corta las fibras y el tornillo se arranca",
               NORMA_TESTA),
@@ -180,9 +186,31 @@ def _cuenta(agujeros: list[dict], estados: tuple) -> dict[str, int]:
     return out
 
 
+def _puntas(puntas: list[dict]) -> tuple[list[dict], dict, str]:
+    """(las que asoman, evidencia, texto) de las PUNTAS de tornillo de madera (F8)."""
+    if not puntas:
+        return [], {}, ""
+    malas = sorted((a for a in puntas if not a["cumple"]), key=lambda a: a["respaldo"])
+    ev = {"puntas": {"evaluadas": len(puntas), "fallan": len(malas), "criterio": NORMA_PUNTA,
+                     **recortar([{"perno": a["perno"], "perno_nombre": a.get("perno_nombre"),
+                                  "pieza": a["pieza"], "nombre": a.get("nombre"),
+                                  "respaldo_mm": a["respaldo"], "requerido_mm": a["requerido"]}
+                                 for a in malas])}}
+    if not malas:
+        return [], ev, ""
+    x = malas[0]
+    donde = (f"asoma {-x['respaldo']:g} mm" if x["respaldo"] < 0 else
+             f"queda a {x['respaldo']:g} mm de la cara de atrás")
+    return malas, ev, (f"{len(malas)} de {len(puntas)} tornillos de madera con la punta fuera; el "
+                       f"peor, «{x.get('perno_nombre')}» en «{x.get('nombre')}»: {donde} (pide ≥ "
+                       f"{x['requerido']:g} mm de madera detrás: un tornillo más corto)")
+
+
 def _madera(agujeros: list[dict]) -> Item:
     iid, titulo, modo, norma = _CONTROLES["madera"]
-    if not agujeros:
+    puntas = [a for a in agujeros if a["estado"] == "punta"]
+    agujeros = [a for a in agujeros if a["estado"] != "punta"]
+    if not agujeros and not puntas:
         return Item(iid, titulo, NO_APLICA, modo, norma, detalle="ningún perno ni tornillo en "
                     "una pieza de madera del taller")
     medidos = [a for a in agujeros if a["estado"] == "medido"]
@@ -190,17 +218,27 @@ def _madera(agujeros: list[dict]) -> Item:
                    key=lambda a: a["distancia"] / max(a["requerido"], 1e-9))
     otros = _cuenta(agujeros, ("en_testa", "a_lo_largo", "abertura", "sin_medida",
                                "sin_geometria"))
+    asoman, ev_puntas, txt_puntas = _puntas(puntas)
     evidencia = {"evaluados": len(medidos), "fallan": len(malos), "criterio": norma,
-                 "no_juzgados": otros, **recortar([_caso_madera(a) for a in malos])}
-    if malos:
-        x = malos[0]
-        mult = "4" if x["lado"] == "testa" else "3"
+                 "no_juzgados": otros, **recortar([_caso_madera(a) for a in malos]),
+                 **ev_puntas}
+    if malos or asoman:
+        textos = [txt_puntas] if txt_puntas else []
+        if malos:
+            x = malos[0]
+            mult = "4" if x["lado"] == "testa" else "3"
+            lado = "a la testa" if x["lado"] == "testa" else "al canto"
+            textos.insert(0, f"{len(malos)} de {len(medidos)} agujeros en madera bajo el mínimo; "
+                             f"el peor, en «{x.get('nombre')}» (de «{x.get('perno_nombre')}»): "
+                             f"{x['distancia']:g} mm {lado} < {x['requerido']:g} mm ({mult}·d, "
+                             f"d = {x['d']:g} mm)")
         return Item(iid, titulo, FALLA, modo, norma, evidencia=evidencia,
-                    piezas=list(dict.fromkeys(y for a in malos for y in (a["pieza"], a["perno"]))),
-                    detalle=f"{len(malos)} de {len(medidos)} agujeros en madera bajo el mínimo; "
-                            f"el peor, en «{x.get('nombre')}» (de «{x.get('perno_nombre')}»): "
-                            f"{x['distancia']:g} mm {'a la testa' if x['lado'] == 'testa' else 'al canto'}"
-                            f" < {x['requerido']:g} mm ({mult}·d, d = {x['d']:g} mm)")
+                    piezas=list(dict.fromkeys(y for a in malos + asoman
+                                              for y in (a["pieza"], a["perno"]))),
+                    detalle="; ".join(textos))
+    if not medidos and puntas:
+        return Item(iid, titulo, OK, modo, norma, evidencia=evidencia,
+                    detalle=f"las {len(puntas)} puntas de tornillo quedan dentro de la madera")
     if not medidos:
         vistos = otros.get("sin_medida", 0)
         if vistos and not set(otros) & {"en_testa", "a_lo_largo"}:
@@ -240,4 +278,5 @@ def _testa(agujeros: list[dict]) -> Item:
 def controlar_bordes(agujeros: list[dict], pasos: list[dict]) -> list[Item]:
     chapa = [a for a in agujeros if not a.get("madera")]
     madera = [a for a in agujeros if a.get("madera")]
-    return [_distancia(chapa), _paso(pasos), _madera(madera), _testa(madera)]
+    agujeros_madera = [a for a in madera if a["estado"] != "punta"]  # la punta es de borde.madera
+    return [_distancia(chapa), _paso(pasos), _madera(madera), _testa(agujeros_madera)]
