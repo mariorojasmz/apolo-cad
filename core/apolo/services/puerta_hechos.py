@@ -14,8 +14,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
   `calidad_tornillos_madera`), `tornilleria_llave`, `supercomandos`, `piezas` {catalogo, a_medida}, `sustitutos_animados`
   {banda}, `partes_moviles`, `resguardos`, `consumibles`, `operables` (mandos, pilotos y sensores
   que piden su nombre por función, por tipo), `juntas_de_movimiento` {giratoria, continua,
-  prismatica} (`calidad_movimiento`). **Una familia de máquinas nueva suma
-  aquí su clase** (p. ej. `transmisiones_flexibles["correa"]`), nunca un ítem al registro;
+  prismatica} (`calidad_movimiento`), `uniones_contacto` {contacto} (`calidad_cuelga`). **Una
+  familia de máquinas nueva suma aquí su clase** (p. ej. `transmisiones_flexibles["correa"]`), nunca un ítem al registro;
 - `familias_funcion`: {familia D15: [piezas]} (sólo las que el modelo tiene);
 - banderas: `pocos_solidos`, `sin_estudios`, `sin_poses`, `carril`, `escenarios`, `higienico`
   (el requisito, `requisitos.es_higienico`), `memoria_aplica`, `mueve_producto` (productos en los escenarios o bandas con tablero:
@@ -134,6 +134,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from . import marcha_ejemplo
     from .calidad_cadenas import cadenas_de_rodillos
     from .calidad_cadenas import elementos as elementos_cadenas
+    from .calidad_cuelga import uniones_contacto
     from .calidad_higiene import requiere as higienico
     from .calidad_juntas import clasificar
     from .calidad_movimiento import juntas_de_movimiento
@@ -215,6 +216,8 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "operables": elementos_operables(entrega_kwargs.get("nombres")),
         # lo-fijo-que-gira D1: las juntas que mueven piezas (`movimiento.coherente`)
         "juntas_de_movimiento": juntas_de_movimiento(doc),
+        # lo-fijo-que-gira D2: los contactos declarados (`union.contacto_no_cuelga`)
+        "uniones_contacto": uniones_contacto(doc),
     }
     return {
         "n_solidos": len(solidos),

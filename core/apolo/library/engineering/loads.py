@@ -49,13 +49,20 @@ def hanging_load_kg(graph: dict, masses: dict[str, float], a: str, b: str,
     pierde tierra → carga compartida no determinable) o si el lado ya flotaba.
     `before` = `alcanzables(graph)` si el llamador recorre muchas uniones del MISMO
     grafo sin cambiarlo (una vez por grafo, no por unión: plan puerta-rapida, D3)."""
-    adj, seeds = graph["adj"], graph["grounded_seed"]
-    if not seeds:
-        return None
-    if before is None:
-        before = alcanzables(graph)
-    after = _reachable_without(adj, seeds, a, b)
-    hanging = before - after
+    hanging = piezas_colgadas(graph, a, b, before)
     if not hanging:
         return None
     return sum(float(masses.get(fid, 0.0)) for fid in hanging)
+
+
+def piezas_colgadas(graph: dict, a: str, b: str, before: set | None = None) -> set:
+    """Las piezas que cuelgan de la unión a↔b (las que `hanging_load_kg` pesa): aterrizadas antes y
+    sin tierra al quitar la arista. Vacío si es redundante o no hay tierra. Quien necesita DÓNDE
+    está lo colgado (su centro de masa: `union.contacto_no_cuelga`, plan
+    lo-fijo-que-gira-y-lo-que-cuelga D2) parte de aquí."""
+    adj, seeds = graph["adj"], graph["grounded_seed"]
+    if not seeds:
+        return set()
+    if before is None:
+        before = alcanzables(graph)
+    return before - _reachable_without(adj, seeds, a, b)

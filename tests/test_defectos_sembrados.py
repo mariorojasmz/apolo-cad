@@ -236,6 +236,15 @@ def brida_cara_a_cara(d):
                          "size": "M10", "qty": 4})
 
 
+def caja_colgada_de_un_contacto(d):
+    """lo-fijo-que-gira D2: una caja de ~2,3 kg colgada BAJO la placa base de un simple `contacto`
+    (las cuchillas de aire de la lavadora, colgadas de una abrazadera rápida): su centro de masa
+    queda 40 mm bajo la zona de contacto. La sujeción declarada la da por sujeta."""
+    caja = _caja(d, "Caja colgada", 60, 60, 80, 100, 0, -40)
+    d.execute("fasten", {"name": "f_caja", "a": caja, "b": _id(d, "Placa base"),
+                         "kind": "contacto"})
+
+
 def contrapeso_en_voladizo(d):  # 212 kg atornillados fuera de la huella de apoyo
     c = _caja(d, "Contrapeso", 300, 300, 300, 600, 0, 150)
     d.execute("fasten", {"name": "fc", "a": c, "b": _id(d, "Placa base"), "kind": "perno",
@@ -522,6 +531,8 @@ DEFECTOS = (
             {"movimiento.coherente": FALLA}),
     Defecto("brida_cara_a_cara", "mensula_atornillada", brida_cara_a_cara,
             {"movimiento.coherente": FALLA}),
+    Defecto("caja_colgada_de_un_contacto", "mensula_atornillada", caja_colgada_de_un_contacto,
+            {"union.contacto_no_cuelga": FALLA}),
     Defecto("contrapeso_en_voladizo", "mensula_atornillada", contrapeso_en_voladizo,
             {"estructura.vuelco": FALLA}),
     Defecto("bloque_en_un_m6", "mensula_atornillada", bloque_en_un_m6,

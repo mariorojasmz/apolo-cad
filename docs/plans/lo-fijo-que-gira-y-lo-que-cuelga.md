@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 medida (2026-10-30, bitácora) con ajustes a D1–D4 y a las verificaciones de F1–F2. MERGEADAS F4 (D5 = join_bolted criterio 8, D6 = $k en conjuntos) y F1 (D1 movimiento.coherente, registro v28, D1c afinado y vetable). Sin lanzar - F2 (D2) y F3 (D3+D4; D3 sólo tiene fuente de la comba, no del α térmico)
+nota: F0 medida (2026-10-30, bitácora) con ajustes a D1–D4 y a las verificaciones de F1–F2. MERGEADAS F4 (D5 = join_bolted criterio 8, D6 = $k en conjuntos) y F1 (D1 movimiento.coherente, registro v28, D1c afinado y vetable). MERGEADA F2 (D2 union.contacto_no_cuelga, registro v30; D2c vetable = la nota del fasten declara la unión de tubería roscada o tri-clamp, sin tipo nuevo). En curso (agente) - F3 (D4 y D3a; la parte térmica de D3 sin fuente del α)
 descripcion: La puerta frena una pieza atornillada al bastidor que gira con un eje, un peso colgado de un simple contacto y la banda modular tensada por catenaria, y join_bolted deja de poner una cabeza dentro de un tubo
 ---
 
@@ -428,3 +428,56 @@ pase; la prueba de pose relativa (3° o 3 mm) pasa → OK; sin medida → SIN_EV
   arrastrado). Tests en `tests/test_movimiento_coherente.py`.
 - **Costo**: el insumo mide 1,5–27 s en la lavadora fuera de la puerta (sin el memo, con el eje
   medido aparte); en la puerta los pernos ya los midió la fuente mecánica.
+
+### F2 (2026-10-30)
+
+`union.contacto_no_cuelga` (familia estructura, registro v29): criterio puro en
+`library/calidad/cuelga.py`, insumo en `services/calidad_cuelga.py` (módulo propio: no mide lo que
+`calidad_contacto` ya mide, sólo pide la zona a `kernel/contacto.zona_de_contacto` y, con un toque
+en un punto, los dos puntos más cercanos), conectado en `puerta_publicacion.reunir` (cronómetro
+`cuelga`) y en `puerta_hechos` (`uniones_contacto`: sin contactos declarados, NO_APLICA).
+`library/engineering/loads.py` gana `piezas_colgadas` (CUÁLES cuelgan; `hanging_load_kg` las pesa
+con la misma cuenta). D2a y D2b tal como se aprobaron: sin tornillería, ≥ 0,5 kg, 25 mm, la zona
+que abraza el CM apoya, lo de costado es aviso justificable (regla «carga al costado de un
+contacto»). No se juzgan además el par con otra unión o una junta, la unión redundante y la de una
+cadena de su comando (`de_cadena`).
+
+- **D2c (decisión, vetable): sin tipo nuevo en `fasten`.** La unión de tubería que transmite
+  tracción se DECLARA en la nota del contacto, como el sellado sanitario de `higiene.limpiable`:
+  roscada («roscada», «se desenrosca», «NPT», «BSP») o con abrazadera sanitaria de férula
+  («tri-clamp», DIN 32676, ISO 2852: con presión nominal, aguanta la tracción del tubo). La
+  abrazadera de unión rápida de ducto (anillo con palanca, sin norma) NO cuenta: es el defecto de
+  las cuchillas. Motivos: un tipo `roscado` tocaba el `Literal`, `connectivity.FASTEN_KINDS`, el
+  dimensionado, la BOM, el montaje y el criterio de uniones por un caso que el modelador YA
+  escribe en la nota (las 14 notas de tubería de la lavadora dicen «roscada BSP», «NPT» o
+  «tri-clamp DIN 32676»); un log viejo regenera igual porque no cambia nada del comando. Por el
+  nombre de la pieza no se adivina: el catálogo no tiene tubería ni válvulas. La F0 pedía sólo la
+  rosca; el tri-clamp se suma porque el rebose y las barras de rociado de la lavadora (los
+  «falsos positivos físicos» de la F0) van con tri-clamp, no roscados.
+- **Ante la duda, SIN_EVALUAR**: sin zona medida (las piezas no se tocan) el caso sale sin medir
+  (lo juzga también `union.contacto_real`), y lo de costado, aviso; nunca FALLA.
+- **`diseno.sin_sobrantes` no cambia**: el apoyo que se agregue debajo para corregir sostiene a
+  una vecina más lejos que él del piso, y la sujeción de la voraz ya lo declara necesario.
+
+Corpus (`.apolo` de las máquinas de producción y del escritorio, cargados con
+`Document.from_apolo_bytes`; «juzgados» = contactos con carga que pasan los filtros):
+
+| máquina | juzgados | resultado | casos |
+|---|---|---|---|
+| lavadora `modelado`, `correccion1` y `2` | 7 | OK | — |
+| lavadora `correccion3`…`6` | 30–34 | FALLA | 2 cuchillas superiores (22,1 kg, CM 53 mm bajo la abrazadera) y 4 ductos (34,3 y 55,8 kg, hasta 815 mm bajo la boca del soplador) |
+| lavadora `correccion7` y `8` | 26 | FALLA | ducto exterior (2) 33,9 kg, ducto superior (2) 12,2 kg, ramal (2) 13,4 kg: a la copia (2) le falta la unión cuchilla ↔ ducto (falla real, la de la F0) |
+| mesa inox con poza 1200 (final, rondas 1–4, copias del escritorio) y 2000 | 1 | FALLA | válvula de desagüe 1,9–2,0 kg colgada de la poza: su contacto no tiene nota; declarada «roscada» pasa (probado) |
+| mesa inox con poza 1200 `modelado` | 1 | SIN_EVALUAR | desagüe al costado (aviso) |
+| elevador de cajas `modelado` y `revisor` | 1 | SIN_EVALUAR | la cadena de izaje a mano no toca su piñón (sin zona) |
+| tolva piramidal (6 rondas) | 1–2 | OK | apoya |
+| escalera de tijera, estanterías de madera, mesas plegable, inox, de soldadura y de trabajo, mesas de bolas, carros, clasificadora, elevador (resto), mezcladoras, tanque agitador, plataforma, rack, soporte de paneles, fajas y rodillos (≈ 230 `.apolo`) | 0 | OK | sólo tornillería, livianas (< 0,5 kg) o redundantes |
+| testigos | — | OK (faja 12 y rodillos 116 contactos) o NO_APLICA (ménsulas) | sólo versión + ítem |
+
+- Ninguna bandeja, tanque ni mesa apoyada falla. La válvula de drenaje, las 3 uniones americanas
+  y el interruptor de nivel de la lavadora ya tenían su rosca en la nota; el rebose y las 10 barras
+  de rociado, su tri-clamp DIN 32676.
+- **Defecto sembrado** `caja_colgada_de_un_contacto` (una caja de 2,3 kg bajo la placa de la
+  ménsula atornillada, CM 40 mm bajo el contacto). Tests en `tests/test_contacto_no_cuelga.py`.
+- **Costo**: 0,8–2,2 s en la lavadora (≈ 36 s la primera medida en frío de la `correccion3`), <
+  0,2 s en el resto.

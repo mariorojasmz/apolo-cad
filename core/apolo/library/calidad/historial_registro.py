@@ -70,5 +70,11 @@ de compra salía a medida y sin apoyo; `materials.piece_role`); por lo mismo esa
 tornillería (su espárrago se leía como un perno de 32 donde mide 22); `union.retencion` ve la tuerca
 de un perno de cabeza más ancha que ella (el DIN 603 salía «sin tuerca»); y `borde.madera` pide la
 punta de todo tornillo de madera ≥ 2 mm antes de la cara de atrás (el tirafondo 4×40 que asomaba
-por el cabezal de 38).
+por el cabezal de 38); v30 (lo-fijo-que-gira-y-lo-que-cuelga F2, D2)
+`union.contacto_no_cuelga`: un `contacto` del que cuelgan ≥ 0,5 kg (sin tornillería) falla si el
+centro de masa de lo colgado queda más de 25 mm bajo la zona de contacto; apoya si queda sobre ella
+o la zona lo abraza, lo de costado es aviso justificable y la unión de tubería roscada o tri-clamp
+(DIN 32676) declarada en la nota del fasten transmite tracción (`cuelga.py`; las cuchillas de aire
+y los ductos colgados del soplador de la lavadora, y la válvula de desagüe de la mesa con poza sin
+su rosca declarada, ahora fallan).
 """

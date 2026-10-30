@@ -150,7 +150,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `uniones_entre_juntas(tocan=False)` (todo par empernado se toca) con la prueba de pose relativa y
   la firma coaxial. Los pernos y sus ejes de giro se miden UNA vez por corrida (`pernos_y_ejes`,
   memo del `contexto` por `is` del doc): un control nuevo que los necesite los pide ahí.
-  [lo-fijo-que-gira](../../../docs/plans/lo-fijo-que-gira-y-lo-que-cuelga.md) (D1)
+  [lo-fijo-que-gira](../../../docs/plans/lo-fijo-que-gira-y-lo-que-cuelga.md) (D1) Lo colgado de
+  un `contacto` (`calidad_cuelga.py`) sale de `loads.piezas_colgadas` sobre el grafo DECLARADO; la
+  unión de tubería que tira (roscada, tri-clamp) se declara en la nota del `fasten`, nunca se
+  adivina por el nombre. (D2)
 - Un detector de `puerta_hechos` usa el criterio de SU control: `vigas` = lo que
   `vigas_rules.detectar_vigas` calcula como viga (un riel o las patas de un tanque no son vigas:
   NO_APLICA, no SIN_EVALUAR). (F3c)
