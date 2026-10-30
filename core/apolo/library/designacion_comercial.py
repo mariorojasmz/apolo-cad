@@ -1,7 +1,8 @@
 """Pieza COMERCIAL modelada a mano (F6 de la puerta de publicación): «Perno tensor de cola
 M12x150 DIN 933», «Arandela cuña DIN 434», «Seeger DIN 472-52» salían en la BOM como A-MEDIDA con
-la norma vacía y en la categoría de FABRICAR. Su nombre ya dice cómo se compra: la NORMA
-(DIN/ISO/ASME/ANSI + número) va a la columna de norma y la pieza va a la categoría de COMPRA que la
+la norma vacía y en la categoría de FABRICAR. Su nombre ya dice cómo se compra: la NORMA (sigla en
+mayúscula + número, `siglas_norma`: DIN, ISO, EN, ASTM, IEC, UNE, JIS, NTP…; nunca un grado de
+material AISI/SAE) va a la columna de norma y la pieza va a la categoría de COMPRA que la
 BOM usa para el catálogo («pernos», «tuercas», «tornilleria»…), en BOM, cotización y cédula. Puro:
 lee el nombre, nunca un `Document`.
 
@@ -30,7 +31,9 @@ from __future__ import annotations
 
 import re
 
+from . import siglas_norma
 from .materials import especificacion, piece_role
+from .siglas_norma import NORMA_RE, SIGLAS_NORMA
 
 #: ROL de COMPRA (herraje/consumible a medida): se COMPRA, no se corta ni se mecaniza. Anclado al
 #: inicio del rol: «Tensor de cola · Eje fijo (roscado p/ perno)» NO es compra (lo usa la lista de
@@ -40,8 +43,9 @@ ROL_COMPRA = re.compile(
     r"pies?\s+nivelador\w*|nivelador\w*|seegers?|circlips?|anillos?\s+(?:seeger|el[áa]stic\w*|de\s+retenci[óo]n)|"
     r"silent[\s-]?blocks?|remaches?|rodamientos?|bandas?|correas?)\b", re.I)
 
-_NORMA_RE = re.compile(r"\b(DIN|ISO|ASME|ANSI)\s*-?\s*(B?\d+(?:\.\d+)*)(-\d+(?:[.,]\d+)?)?\b",
-                       re.I)
+#: siglas cuyo número es el GRADO del material («AISI 304», «SAE 1045»): no designan lo que se
+#: compra («Bisagra (pala 63 mm AISI 304, compra)» se pide por su pala, no por su acero)
+_SIGLAS_DE_GRADO = frozenset({"AISI", "SAE"})
 _ROSCA_RE = re.compile(r"(?<![A-Za-z])M\s*\d+(?:[.,]\d+)?\b|Ø\s*\d+(?:[.,]\d+)?\s*[x×]\s*\d+")
 
 #: normas que un nombre cita sin que la pieza se compre: de PLANO (tolerancias, acabado, soldadura,
@@ -67,9 +71,10 @@ _CATEGORIAS = (
 COMERCIALES = "comerciales"
 
 _MEDIDA_RE = re.compile(r"\b\d+(?:[.,]\d+)?\s*[x×]\s*\d+")
-#: dónde empieza el COMPLEMENTO del rol: lo que sigue ya no designa a la pieza
+#: dónde empieza el COMPLEMENTO del rol: lo que sigue ya no designa a la pieza. «en» sólo en
+#: minúscula: «EN 10088-2» es la norma (`siglas_norma`), no la preposición
 _COMPLEMENTO_RE = re.compile(r"\s*\(|\s+(?:con|para|sin|y|e|del|al|por|sobre|bajo|entre|tras|"
-                             r"contra|en|de\s+(?:la|las|los|el|un|una))\b", re.I)
+                             r"contra|(?-i:en)|de\s+(?:la|las|los|el|un|una))\b", re.I)
 #: roles que se FABRICAN aunque nombren una norma (la de otra pieza o la de su plano)
 _FABRICADO = re.compile(r"^(ejes?|placas?|soportes?|m[ée]nsulas?|chapas?|tapas?|guardas?|"
                         r"bastidor\w*|largueros?|travesa[ñn]os?|perfil\w*|tubos?|barras?|bridas?|"
@@ -148,9 +153,9 @@ def norma_del_nombre(nombre: str | None) -> str:
     nombre = sin_marca_de_compra(decl) if declarada else cabeza(nombre)
     # designación: una rosca, o una medida «17x1», «8x7x40» junto a la norma en la cabeza
     designado_rosca = bool(_ROSCA_RE.search(nombre) or _MEDIDA_RE.search(nombre))
-    for m in _NORMA_RE.finditer(nombre):
-        norma = f"{m.group(1).upper()} {m.group(2).upper()}"
-        if norma in _NORMAS_NO_DE_COMPRA:
+    for m in NORMA_RE.finditer(nombre):
+        norma = siglas_norma.norma(m)
+        if norma in _NORMAS_NO_DE_COMPRA or siglas_norma.sigla(m) in _SIGLAS_DE_GRADO:
             continue
         if bool(m.group(3)) or designado_rosca or compra:
             return norma
@@ -185,9 +190,9 @@ def nombre_de_compra(nombre: str | None) -> str:
 #: hallazgos-del-revisor D4: el CÓDIGO DE FABRICANTE de una compra sin norma, declarado como
 #: «tipo Marca código» («tipo Ganter GN 343.1 o eq.») o «(compra, Marca código)», o tras «ref.» /
 #: «código». La marca va con mayúscula y no es una sigla de norma; el código lleva un dígito.
-_SIGLAS_NO_MARCA = frozenset({
-    "DIN", "ISO", "EN", "ASTM", "AISI", "SAE", "ANSI", "ASME", "DN", "NPT", "BSP", "UNE", "NTP",
-    "JIS", "IEC", "IP", "PN", "NEMA", "UNC", "UNF", "M", "AWG", "HP", "PE", "PP", "PVC", "HDPE"})
+_SIGLAS_NO_MARCA = frozenset({s.upper() for s in SIGLAS_NORMA} | {
+    "DN", "NPT", "BSP", "IP", "PN", "NEMA", "UNC", "UNF", "M", "AWG", "HP", "PE", "PP", "PVC",
+    "HDPE"})
 _MARCA = r"(?P<marca>[A-ZÄÖÜÁÉÍÓÚÑ][\wäöüáéíóúñ&.\-]*)"
 #: el código lleva un dígito; puede abrir con una familia de letras («GN 343.1», «LV.A-SST M12»: F8)
 _CODIGO = r"(?P<codigo>(?:[A-Z]{1,5}[\s-]?)?\d[\w./\-]*|[A-Z][\w.\-/]*\s[A-Z]{0,5}\d[\w./\-]*)"

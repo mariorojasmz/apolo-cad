@@ -84,5 +84,9 @@ tras ella con 25,4–152 mm de comba, Intralox 2024 p. 15): carrera OK si cuelga
 temperatura de operación fuera de 10–30 °C (falta el α); y `publicado.sustitutos_fieles` cierra la
 sección de una banda de tramos o de dos pieles (`seccion_plano.cerrar`), apoya la cinta en todo el
 largo de una zapata plana y no toma por tambor una pieza redonda sin junta que no toca la banda (la
-lavadora de bandejas, que caía al casco convexo a través de un larguero, ahora es fiel).
+lavadora de bandejas, que caía al casco convexo a través de un larguero, ahora es fiel); v32 (ronda
+9 de una máquina real) `bom.comprable` reconoce la norma de compra de toda sigla de
+`siglas_norma` en mayúscula con su número (EN, UNE, ASTM, JIS, IEC, NTP, BS…, además de DIN, ISO,
+ASME y ANSI: «Bomba centrífuga EN 733 … (compra)» salía compra sin norma); AISI y SAE son el grado
+del material y no designan la compra, y la «EN» mayúscula ya no corta la cabeza como preposición.
 """
