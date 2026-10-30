@@ -83,4 +83,6 @@ def test_el_eje_que_nombra_anillos_sale_a_medida_con_su_largo():
     eje = _F("Eje fijo del rodillo Ø17 h6 (topes axiales con anillos DIN 471…)", Box(17, 17, 571))
     (fila,) = bom_from_scene({"e": eje}, "acero")
     assert fila["ref"] == "A-MEDIDA" and fila["categoria"] == "a medida"
-    assert fila["longitud_mm"] == pytest.approx(571) and fila["norma"] == ""
+    # la norma es la de la pieza a medida de acero (D3 de hallazgos-del-revisor-en-la-puerta), no
+    # la DIN 471 que nombra
+    assert fila["longitud_mm"] == pytest.approx(571) and fila["norma"].startswith("ASTM A36")

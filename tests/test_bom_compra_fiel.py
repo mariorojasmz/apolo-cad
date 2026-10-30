@@ -65,7 +65,9 @@ def test_d1_la_norma_que_nombra_la_pieza_gana_y_sin_ficha_nada_cambia():
     b = d.execute("create_box", {"name": "Taco", "width": 50, "depth": 40, "height": 20})
     assert _filas(d, m)[0]["norma"] == "ASTM A1011"
     (taco,) = _filas(d, b)
-    assert taco["norma"] == "" and "espesor_mm" not in taco  # sin ficha: la fila de siempre
+    # sin ficha: sin espesor ni desarrollo; la norma del acero genérico (D3 de
+    # hallazgos-del-revisor-en-la-puerta: toda pieza a medida de metal lleva la suya)
+    assert taco["norma"].startswith("ASTM A36") and "espesor_mm" not in taco
 
 
 def test_d1_tolva_real_cada_chapa_con_ficha_tiene_espesor_material_y_norma():

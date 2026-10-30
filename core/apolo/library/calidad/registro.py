@@ -22,7 +22,8 @@ Ids estables (familia):
   `funcion.flujo_de_producto` (función);
 - `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
   (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado);
-- `fabricabilidad` y `memoria.veredicto` y `diseno.soluciones_por_funcion` (proceso);
+- `fabricabilidad`, `material.conocido`, `memoria.veredicto` y `diseno.soluciones_por_funcion`
+  (proceso);
 - `diseno.sin_sobrantes` (proceso: ninguna guarda ni pieza agregada por una ronda de corrección
   sobra; `sobrantes.py`, insumo de `services/calidad_sobrantes.py`, sólo en esta puerta);
 - `riesgos.electrico` e `interfaz.nombres_por_funcion` (seguridad: cada mando, piloto y sensor
@@ -100,7 +101,8 @@ JUSTIFICA por escrito; antes era FALLA sin salida (no es un modo de falla de cap
 pasador coaxial (± 1 mm) con una junta `giratoria`/`continua` que toca sus dos cuerpos va trabado
 (tuerca autoblocante DIN 985 / ISO 7040, contratuerca, pasador de aletas o anillo de retención) y
 no es un tirafondo ni un tornillo de madera (`ejes_giro.py`; los pivotes DIN 934 de una escalera
-de tijera aprobada en v21 ahora fallan).
+de tijera aprobada en v21 ahora fallan); v23 (hallazgos-del-revisor-en-la-puerta F1, D1)
+`material.conocido`: una pieza a medida con un material sin densidad tabulada falla (se pesaba como acero: la tijera de «haya» de 6,9 kg en vez de 0,62).
 """
 
 from __future__ import annotations
@@ -109,6 +111,7 @@ from dataclasses import dataclass, field
 
 from . import cadenas as ca
 from . import contacto as ct
+from . import material as mt
 from . import nombres as nb
 from . import puerta as p
 from . import resguardos as rg
@@ -116,7 +119,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "22"  # 22: el eje de una junta de giro va trabado (union.retencion)
+VERSION_REGISTRO = "23"  # 23: material.conocido (un material sin tabla no es acero)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -266,6 +269,7 @@ REGISTRO: tuple = (
             "una pieza a medida que no se puede cortar, mecanizar ni comprar",
             "criterio de diseño (DFM)", "proceso", hay("piezas", "el modelo no tiene piezas"),
             p.fabricabilidad, "piezas"),
+    mt.ENTRADA,  # material.conocido: la Entrada vive junto a su criterio (D1 de hallazgos)
     Entrada("memoria.veredicto", "La memoria de cálculo no sale NO CONFORME",
             "una verificación de ingeniería en error se publica con la memoria",
             "memoria de cálculo (cada regla cita su norma)", "proceso",

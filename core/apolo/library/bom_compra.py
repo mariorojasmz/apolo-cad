@@ -13,6 +13,9 @@ bom-de-compra-fiel). Puro sobre la escena: `bom.bom_from_scene` lo llama por pie
 - **D3. La pieza que se fabrica**: dos piezas de la misma ref, largo y corte que difieren en su
   volumen (taladros u otra operación) no comparten fila (`VOL_REL`); las filas que quedan con la
   misma descripción llevan su `marca` (la pieza representante: `marcar`).
+
+Y la norma de TODA pieza a medida de metal (D3 de hallazgos-del-revisor-en-la-puerta,
+`norma_de_material`): lo declarado gana; si no, la del genérico según la FORMA del producto.
 """
 
 from __future__ import annotations
@@ -33,18 +36,96 @@ NORMA_CHAPA = {
     "acero inoxidable": "ASTM A240 (AISI 304)",
     "aluminio": "ASTM B209 (6061-T6)",
 }
-_NORMA_RE = re.compile(r"\b(ASTM\s*A\d{2,4}|ASTM\s*B\d{2,4}|EN\s*10\d{3}(?:-\d)?|JIS\s*G\s*\d{4}|"
-                       r"AISI\s*\d{3}L?|SAE\s*\d{4})\b", re.I)
+#: D3 de hallazgos-del-revisor-en-la-puerta: la norma del producto según su FORMA, con el MISMO
+#: grado que usa el cálculo (`YIELD_MPA`): el tubo inox es ASTM A554, la barra ASTM A276; el tubo
+#: de acero al carbono ASTM A500 (Fy ≥ 250 MPa en todos sus grados, el cálculo usa 250); el
+#: aluminio extruido ASTM B221. Lo que no está aquí (plancha, placa, pletina) es `NORMA_CHAPA`.
+NORMA_FORMA = {
+    ("acero", "tubo"): "ASTM A500",
+    ("acero inoxidable", "tubo"): "ASTM A554",
+    ("acero inoxidable", "barra"): "ASTM A276",
+    ("aluminio", "tubo"): "ASTM B221",
+    ("aluminio", "barra"): "ASTM B221",
+}
+#: el grado del material genérico, el de su `YIELD_MPA`
+GRADO = {"acero inoxidable": "AISI 304", "aluminio": "6061-T6"}
+#: la norma de la plancha (y de la barra de acero al carbono: A36 cubre planchas, barras y
+#: perfiles) sin el grado; `NORMA_CHAPA` = ésta con el grado de `GRADO`
+_BASE_PLANCHA = {"acero": NORMA_CHAPA["acero"], "acero inoxidable": "ASTM A240",
+                 "aluminio": "ASTM B209"}
+#: los materiales que son el genérico sin calificar: «acero zincado» o «acero galvanizado» no
+#: dicen de qué acero base es (no se inventa)
+_GENERICOS = {"acero", "acero al carbono", "acero estructural", "acero inoxidable", "acero inox",
+              "inox", "aluminio"}
+_NORMA_RE = re.compile(r"\b(ASTM\s*[AB]\d{2,4}(?:\s+Gr\.?\s*[A-Z0-9]+\b)?|EN\s*10\d{3}(?:-\d)?|"
+                       r"JIS\s*G\s*\d{4})", re.I)
+_GRADO_RE = re.compile(r"\b(AISI\s*\d{3}L?|SAE\s*\d{4})\b", re.I)
+#: un grado de acero escrito pelado («A36», «A572 Gr.50», «S355J2»): su norma es implícita
+_GRADO_ASTM_RE = re.compile(r"\b(A(?:36|283|500|529|572|588|1011)(?:\s+Gr\.?\s*[A-Z0-9]+\b)?)",
+                            re.I)
+_GRADO_EN_RE = re.compile(r"\b(S(?:235|275|355)(?:JR|J0|J2)?)\b", re.I)
+#: la FORMA del producto por el ROL (anclada, o «tubo 40x40…» / «barra cuadrada…» descrita):
+#: «Placa de cierre del tubo» es una placa
+_TUBO_RE = re.compile(r"^(tubos?|tuber[ií]as?|ca[ñn]os?)\b|\btubos?\s+(\d|ø|cuadrad|redond|"
+                      r"rectangular|inox|de\s+acero|estructural|hss)", re.I)
+_BARRA_RE = re.compile(r"^(barras?|varillas?|ejes?|pasador(es)?|redondos?|bul[oó]n(es)?|"
+                       r"casquillos?|bujes?|espigas?|husillos?)\b|\bbarras?\s+(\d|ø|cuadrad|"
+                       r"redond|maciz|lisa|hexagonal|calibrad)", re.I)
+
+
+def _limpio(texto: str) -> str:
+    t = re.sub(r"\s+", " ", texto.strip())
+    t = re.sub(r"^(astm|en|jis)\b", lambda m: m.group(1).upper(), t, flags=re.I)
+    t = re.sub(r"\b([ab])(\d)", lambda m: m.group(1).upper() + m.group(2), t)
+    return re.sub(r"\bgr\.?\s*", "Gr.", t, flags=re.I)
+
+
+def forma_de(nombre: str | None) -> str:
+    """«tubo», «barra» o «plancha» (plancha, placa, pletina y el resto) por el ROL de la pieza."""
+    from .materials import piece_role
+
+    rol = piece_role(nombre or "")
+    if _TUBO_RE.search(rol):
+        return "tubo"
+    return "barra" if _BARRA_RE.search(rol) else "plancha"
+
+
+def norma_de_material(material: str | None, nombre: str | None, forma: str = "plancha") -> str:
+    """La norma de la pieza de METAL hecha a medida (D1 de bom-de-compra-fiel para la chapa y D3
+    de hallazgos-del-revisor para toda pieza), '' si no se sabe (nunca inventada):
+
+    1. la norma que nombra su material o su pieza («ASTM A572 Gr.50», «… tubo ASTM A554»), con el
+       grado declarado entre paréntesis si es otro dato («ASTM A554 (AISI 304)»);
+    2. un grado pelado declarado («A36» → «ASTM A36», «S355J2» → «EN 10025-2 S355J2»);
+    3. sin norma: la de la FORMA del producto (`NORMA_FORMA`, si no `NORMA_CHAPA`) para el material
+       genérico o con su grado AISI declarado («acero inoxidable AISI 304»)."""
+    from .materials import _norm
+
+    textos = [t for t in (material, nombre) if t]
+    norma = next((_limpio(m.group(1)) for t in textos if (m := _NORMA_RE.search(t))), "")
+    grado = next((re.sub(r"\s+", " ", m.group(1).upper()) for t in textos
+                  if (m := _GRADO_RE.search(t))), "")
+    if norma:
+        return f"{norma} ({grado})" if grado else norma
+    for t in textos:
+        if m := _GRADO_ASTM_RE.search(t):
+            return "ASTM " + _limpio(m.group(1))
+        if m := _GRADO_EN_RE.search(t):
+            return "EN 10025-2 " + m.group(1).upper()
+    clave = _norm(material)
+    if not grado and (material or "").strip().lower() not in _GENERICOS:
+        return ""
+    if grado and clave != "acero inoxidable":
+        return grado  # «SAE 1045», un AISI de un acero al carbono: el grado es la designación
+    base = NORMA_FORMA.get((clave, forma)) or _BASE_PLANCHA.get(clave)
+    if base is None:
+        return ""
+    return f"{base} ({grado or GRADO[clave]})" if clave in GRADO else base
 
 
 def norma_de_chapa(material: str | None, nombre: str | None) -> str:
-    """La norma de la chapa: la que nombra su material («acero S275JR» no, «acero ASTM A572»
-    sí) o su pieza («… chapa e2 ASTM A1011»); si no, la del material genérico; '' si no se
-    sabe (nunca inventada)."""
-    for texto in (material, nombre):
-        if texto and (m := _NORMA_RE.search(texto)):
-            return re.sub(r"\s+", " ", m.group(1).upper())
-    return NORMA_CHAPA.get((material or "").strip().lower(), "")
+    """La norma de la chapa con ficha (D1): `norma_de_material` con la forma «plancha»."""
+    return norma_de_material(material, nombre, "plancha")
 
 
 def campos_chapa(feat, material: str | None) -> dict | None:

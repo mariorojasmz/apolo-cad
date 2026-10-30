@@ -102,6 +102,10 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   BOM lee la MISMA medida (`bom_compra.py`): chapa con ficha → espesor, desarrollo y norma; perfil
   → largo y ∠ medidos (la copia de patrón agrupa con su original); misma ref con otro volumen
   (taladros) → otra fila con su `marca`. [bom-de-compra-fiel](../../../docs/plans/bom-de-compra-fiel.md)
+  Toda pieza a medida de metal lleva norma (`bom_compra.norma_de_material`, una fuente con la
+  chapa): la declarada en material o nombre gana; si no, la de su FORMA por el rol (tubo inox
+  A554, barra A276, plancha A240; acero A36, tubo A500) con el grado que usa el cálculo, y un
+  material calificado sin base («acero zincado») queda sin norma, nunca inventada. (D3)
 
 ## Materiales (`materials.py`)
 
@@ -113,6 +117,11 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   «Recubrimiento del tambor») y vidrio miran el ROL. [defectos](../../../docs/defectos.md) (F6)
 - `_norm` devuelve la primera clave que sea SUBCADENA: las especies van ANTES de `"madera"` en
   los dicts («madera copaiba» → copaiba).
+- Un material sin densidad tabulada se pesa como ACERO: fuera de la puerta sólo avisa
+  (`aviso_material`), en la puerta FALLA `material.conocido`. Una especie nueva entra con la cita
+  de cada cifra (densidad, E, MOR; costo de la genérica si no hay cotización) en los dicts,
+  `HATCH`, `lint_soldadura._NO_SOLDABLE` y el regex de `apariencia`; nunca por defecto.
+  [hallazgos-del-revisor](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D1, D2)
 - La heurística por nombre muerde: «larguero» es palabra de madera (`_WOOD_WORDS`). Quien
   re-resuelve el material de una pieza ya resuelta le pasa el `material` que ya tiene.
   [V7.5](../../../docs/plans/V7.5-e22-datum-funcional.md)

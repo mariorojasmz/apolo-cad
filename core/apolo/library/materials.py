@@ -23,6 +23,19 @@ DENSITY_KG_MM3 = {
     # las especies van ANTES de "madera": `_norm` devuelve la primera clave que sea
     # subcadena, así "madera copaiba" resuelve a copaiba y no al genérico.
     "copaiba": 6.5e-7,  # ~650 kg/m³ (Copaifera sp., IIAP Perú 0.61-0.65)
+    # Maderas de las familias (plan hallazgos-del-revisor-en-la-puerta, D2): madera LIMPIA al 12 %
+    # de humedad, la misma base que copaiba. Fuentes: Wood Handbook, USDA FPL-GTR-190 (2010),
+    # tablas 5-3a (EE.UU.) y 5-5a (importadas); Crespo et al. 2020, Materials 13(4):906.
+    # Haya: tabla 5-3a, «Beech, American» 12 %: G₁₂ = 0,64 (volumen al 12 %) → ec. 4-12 del
+    # cap. 4, ρ₁₂ = 1000·G₁₂·(1 + 0,12) ≈ 717 kg/m³ (la tabla no trae la haya europea).
+    "haya": 7.17e-7,
+    # Pino radiata: tabla 5-5a, «Pine, radiata (Pinus radiata)»: G básica 0,42 (volumen verde) →
+    # ec. 4-11, G₁₂ = Gb/(1 − 0,265·a·Gb) con a = (30 − 12)/30 = 0,450 → ec. 4-12,
+    # ρ₁₂ = 1000·0,450·1,12 ≈ 504 kg/m³ (el ejemplo del fresno del cap. 4 da igual: 0,55 → 0,605).
+    "radiata": 5.04e-7,
+    # Eucalipto (E. globulus, el de la sierra andina): Crespo et al. 2020, tabla 1, probetas
+    # limpias al 10,2 % de humedad media: ρ = 847 kg/m³.
+    "eucalipto": 8.47e-7,
     "madera": 5.0e-7,   # ~500 kg/m³ (pino/MDF aprox.)
     "vidrio": 2.5e-6,   # ~2500 kg/m³
     "pvc": 1.4e-6,      # ~1400 kg/m³ (banda transportadora PVC, perfil plástico)
@@ -47,6 +60,9 @@ DEFAULT_DENSITY = 7.85e-6  # acero
 # patrón de rayado de sección por material (lo consumen los exportadores)
 HATCH = {
     "copaiba": "madera",
+    "haya": "madera",
+    "radiata": "madera",
+    "eucalipto": "madera",
     "madera": "madera",      # veta/diagonal suave
     "vidrio": "vidrio",      # líneas finas muy juntas
     "acero": "ansi31",       # diagonal 45 estándar
@@ -65,6 +81,9 @@ YOUNG_MPA = {
     "laton": 100000.0,
     "zinc": 108000.0,
     "copaiba": 11000.0,  # MOE flexión medido 112 000 kg/cm² (IIAP Perú)
+    "haya": 11900.0,       # FPL-GTR-190 tabla 5-3a, Beech American 12 %: 11 900 MPa
+    "radiata": 10200.0,    # FPL-GTR-190 tabla 5-5a, Pinus radiata 12 %: 10 200 MPa
+    "eucalipto": 22270.0,  # Crespo et al. 2020 tabla 1, Em a flexión (EN 408): 22,27 GPa
     "madera": 11000.0,   # pino/MDF aprox. (flexión)
     "vidrio": 70000.0,
     "pvc": 3000.0,
@@ -80,6 +99,9 @@ YIELD_MPA = {
     # ROTURA en flexión), así que el "FS" que reportan los chequeos es contra
     # rotura y el criterio de aceptación es FS >= 4 (no >= 1.5 como en acero).
     "copaiba": 72.0,     # MOR flexión 736 kg/cm² (IIAP Perú) → σ_adm = MOR/4 ≈ 18 MPa
+    "haya": 103.0,       # MOR FPL-GTR-190 tabla 5-3a, Beech American 12 %: 103 000 kPa
+    "radiata": 80.7,     # MOR FPL-GTR-190 tabla 5-5a, Pinus radiata 12 %: 80 700 kPa
+    "eucalipto": 124.1,  # MOR Crespo et al. 2020 tabla 1, flexión EN 408: 124,1 MPa
     "madera": 40.0,
 }
 DEFAULT_YIELD = 250.0  # acero A36
@@ -94,6 +116,10 @@ COST_PER_KG_USD = {
     "laton": 8.0,
     "zinc": 3.0,
     "copaiba": 1.6,     # aserrada y seca, referencial LatAm
+    # sin cotización propia: el de la madera genérica (D2; nunca el del acero por defecto)
+    "haya": 1.2,
+    "radiata": 1.2,
+    "eucalipto": 1.2,
     "madera": 1.2,
     "vidrio": 2.0,
     "pvc": 2.5,
@@ -162,6 +188,10 @@ def _norm(material: str | None) -> str:
         return "polietileno"
     if re.search(r"\b(nylon|pa6|pa66)\b", m):
         return "poliamida"
+    if "eucalypt" in m:  # el nombre botánico («Eucalyptus globulus») no contiene «eucalipto»
+        return "eucalipto"
+    if re.search(r"\bfagus\b", m):
+        return "haya"
     for key in DENSITY_KG_MM3:
         if key in m:
             return key

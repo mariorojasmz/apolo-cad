@@ -207,13 +207,16 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
 
 
 def fabricacion(doc) -> dict:
-    """{piezas, catalogo, procesos {clave: n}, malas [{id, nombre, motivo}]}: cada pieza es de
-    catálogo o un sólido real (válido, con volumen) con material y proceso resueltos."""
+    """{piezas, catalogo, procesos {clave: n}, malas [{id, nombre, motivo}], desconocidos [{id,
+    nombre, material}]}: cada pieza es de catálogo o un sólido real (válido, con volumen) con
+    material y proceso resueltos; `desconocidos` = las a medida cuyo material (con el vertical,
+    como la BOM) no está tabulado (`material.conocido`, D1 de hallazgos-del-revisor)."""
     from apolo.drawing.process import infer_process
     from apolo.library.catalog import CATALOG
-    from apolo.library.materials import resolve_material
+    from apolo.library.materials import known_material, resolve_material
 
-    out = {"piezas": 0, "catalogo": 0, "procesos": {}, "malas": []}
+    vertical = doc.default_material()
+    out = {"piezas": 0, "catalogo": 0, "procesos": {}, "malas": [], "desconocidos": []}
     for fid, f in doc.scene.items():
         if getattr(f, "is_guide", False):
             continue
@@ -236,6 +239,9 @@ def fabricacion(doc) -> dict:
         if motivo:
             out["malas"].append({"id": fid, "nombre": f.name, "motivo": motivo})
             continue
+        conocido = resolve_material(f, CATALOG, vertical)
+        if not known_material(conocido):
+            out["desconocidos"].append({"id": fid, "nombre": f.name, "material": conocido})
         clave = infer_process(f)["key"]
         out["procesos"][clave] = out["procesos"].get(clave, 0) + 1
     return out

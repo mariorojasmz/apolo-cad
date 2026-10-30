@@ -189,6 +189,10 @@ def superficie_sin_espesor(d):  # geometría de construcción que quedó en el m
         {"points": [a, b]} for a, b in zip(pts, pts[1:] + pts[:1])]})
 
 
+def material_sin_tabla(d):  # hallazgos-del-revisor D1: un «cedro» se pesaba como acero
+    d.set_material(_id(d, "Ménsula"), "cedro")
+
+
 def cadena_subdimensionada(d):  # ASA 40 simple con 3 kW a 60 rpm
     a, b = (d.execute("insert_component", {"component": "PINON-ASA40-1-Z15", "rotation": {"x": 90},
                                            "position": {"x": x, "y": 300, "z": 600}})
@@ -427,6 +431,7 @@ DEFECTOS = (
             {"union.dimensionadas": FALLA}),
     Defecto("superficie_sin_espesor", "mensula", superficie_sin_espesor,
             {"fabricabilidad": FALLA}),
+    Defecto("material_sin_tabla", "mensula", material_sin_tabla, {"material.conocido": FALLA}),
     Defecto("cadena_subdimensionada", "mensula", cadena_subdimensionada,
             {"transmision.capacidad": FALLA}),
     Defecto("cadena_a_mano", "mensula", cadena_a_mano,

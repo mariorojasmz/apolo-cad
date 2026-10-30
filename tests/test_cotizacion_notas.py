@@ -259,8 +259,11 @@ def _firma(paginas) -> tuple[str, str]:
 #: Re-congelado sobre 87e9d38 (V8.9, pendiente 10: el cajetín común): cambia sólo la hoja de
 #: resumen; comparadas hoja por hoja, las primitivas difieren sólo en el divisor de la fila 2, el
 #: diedro y «Genix Apolo CAD». Costeo y texto del resto, iguales.
+#: Re-congelado (hallazgos-del-revisor-en-la-puerta F1, D3): la fila a medida de acero de la mesa
+#: lleva su norma («ASTM A36 (≈ EN 10025-2 S235JR)»); con ese campo vacío el costeo da el de antes
+#: (02d6203896ab7622, medido) y las cuatro firmas de hojas no cambian.
 CONGELADO = {
-    "mesa": ("02d6203896ab7622", "77c7697d27ae8052", "a3c506d759920e4b", "45e23b1c05f0a787",
+    "mesa": ("ccb97a8cbfa6d5d4", "77c7697d27ae8052", "a3c506d759920e4b", "45e23b1c05f0a787",
              "4f12f6d6e01da90f"),
     "directo": ("846066ca50189fba", "ca27642a0d1ed258", "8fb16ca271802f7c", "78b62346f5c1e8c5",
                 "a0525af72a30c84f"),

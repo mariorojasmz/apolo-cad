@@ -29,7 +29,15 @@ import re
 from apolo.kernel.shapes import is_surface
 
 from .banda_lazo import es_banda, largo_de_lazo
-from .bom_compra import campos_chapa, marcar, medida_perfil, variante, volumen
+from .bom_compra import (
+    campos_chapa,
+    forma_de,
+    marcar,
+    medida_perfil,
+    norma_de_material,
+    variante,
+    volumen,
+)
 from .catalog import CATALOG
 from .designacion_comercial import (
     categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
@@ -206,6 +214,8 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     fila["descripcion"] += chapa.pop("texto")
                     fila["longitud_mm"] = chapa["desarrollo_mm"][1]
                     fila.update(chapa)
+                elif not comercial and not rows[key]["norma"]:  # D3 de hallazgos-del-revisor
+                    rows[key]["norma"] = norma_de_material(mat, feat.name, forma_de(feat.name))
             rows[key]["cantidad"] += 1
             if desig:
                 rows[key]["_donde"][donde] = rows[key]["_donde"].get(donde, 0) + 1

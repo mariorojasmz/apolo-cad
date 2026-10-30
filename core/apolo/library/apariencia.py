@@ -192,7 +192,7 @@ _POR_MATERIAL: tuple[tuple[re.Pattern, str], ...] = tuple(
         (r"pvc|poliuretano|polimero", "pvc_banda"),
         (r"carton", "carton"),
         (r"concreto|hormig", "concreto"),
-        (r"madera|copaiba", "madera"),
+        (r"madera|copaiba|haya|fagus|radiata|eucalip|eucalypt", "madera"),
         (r"inox", "inox_cepillado"),
         (r"galvaniz", "galvanizado"),
         (r"zinc|\bgrado\b", "zincado"),   # tornillería de grado 8 / 8.8: zincada de fábrica

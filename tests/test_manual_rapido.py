@@ -50,7 +50,9 @@ TEXTOS_DE_MAIN = [
      "1x  Tornillo Allen DIN912-M6 · DIN 912", *_tb("3/4")],
     ["PASO 3 DE 3", "Tapa", "Monta y fija estas piezas sobre el",
      "conjunto, respetando las cotas del", "despiece. Se añaden 1 pieza(s); montadas 3",
-     "de 3.", "PIEZAS DE ESTE PASO", "1x  Tapa sup", *_tb("4/4")],
+     # la pieza a medida de acero nombra su norma (D3 de hallazgos-del-revisor-en-la-puerta)
+     "de 3.", "PIEZAS DE ESTE PASO", "1x  Tapa sup · ASTM A36 (≈ EN 10025-2 S235JR)",
+     *_tb("4/4")],
 ]
 
 

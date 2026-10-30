@@ -16,7 +16,8 @@ from .rules import _check
 #: familias que se sueldan por fusión, y con quién
 _FAMILIA = {"acero": "ferroso", "acero inoxidable": "ferroso", "aluminio": "aluminio"}
 #: lo que no se suelda (un metal sin tabla —latón, zinc— o un material desconocido no se acusa)
-_NO_SOLDABLE = ("madera", "copaiba", "caucho", "pvc", "vidrio", "carton", "cable")
+_NO_SOLDABLE = ("madera", "copaiba", "haya", "radiata", "eucalipto", "caucho", "pvc", "vidrio",
+                "carton", "cable")
 
 
 def motivo_no_soldable(mat_a: str, mat_b: str) -> str | None:

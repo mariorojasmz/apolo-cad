@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D, ninguna cae; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). F5 MERGEADA (registro v22). F1 en curso; F2–F4 y F6–F7 sin lanzar
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D, ninguna cae; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). F5 MERGEADA (registro v22) y F1 MERGEADA (registro v23). F3 en curso; F2, F4, F6 y F7 sin lanzar
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -423,3 +423,66 @@ Cifras:
   junta coaxial) atrapa `union.retencion`; sin la junta, la misma unión pasa.
 - **Suite completa** en el worktree (escritorio, sin `-n`): exit 0, sin FAILED. `ruff check` limpio y
   `test_negocio_fuera` en verde.
+
+### F1 (2026-10-29)
+
+D1, D2 y D3 con los ajustes de la F0. Registro **v22**.
+
+- **D1** `material.conocido` (familia proceso, `calidad/material.py`; su insumo es
+  `fabricacion.desconocidos` de `services/puerta_hechos.py`): toda pieza a medida cuyo material,
+  resuelto con el vertical como la BOM, no reconoce `known_material` FALLA con la lista. Sólo la
+  densidad, como propuso la F0. Fuera de la puerta nada cambia. El defecto sembrado es la ménsula
+  en «cedro».
+- **D2** maderas tabuladas antes de «madera», con la cita junto a cada cifra en `materials.py`.
+  Todas son madera limpia, la misma base que copaiba:
+
+  | clave (también casa) | ρ kg/m³ | E MPa | MOR MPa | fuente |
+  |---|---|---|---|---|
+  | `haya` («fagus») | 717 | 11 900 | 103 | Wood Handbook FPL-GTR-190 (2010), tabla 5-3a «Beech, American» 12 %: G₁₂ 0,64 → ec. 4-12 |
+  | `radiata` («pino radiata», «Pinus radiata») | 504 | 10 200 | 80,7 | FPL-GTR-190 tabla 5-5a: Gb 0,42 → ecs. 4-11 y 4-12 (el ejemplo del fresno del cap. 4 lo valida: 0,55 → 0,605) |
+  | `eucalipto` («eucalypt») | 847 | 22 270 | 124,1 | Crespo et al. 2020, *Materials* 13(4):906, tabla 1 (E. globulus, EN 408, 10,2 % de humedad) |
+
+  Lo que NO tiene fuente, dicho:
+  - **Costo**: ningún valor citable. Las tres llevan el de la madera genérica (1,2 USD/kg,
+    referencial) con esa nota, nunca el del acero por defecto.
+  - **Haya europea**: la tabla no trae *Fagus sylvatica*. Se usa la americana, del mismo género.
+  - **Eucalipto**: el Em de 22,3 GPa es de probetas limpias y queda muy por encima de una clase
+    estructural (D40 de EN 338: 13 GPa). Es la misma base limpia de las demás. Vetable: si la
+    flecha de una pieza de eucalipto decide, bajar a la clase.
+  - El pino sin especie («madera de pino», 16 piezas de la silla) sigue siendo la madera
+    genérica: no se asume radiata.
+- **D3** `bom_compra.norma_de_material`, la misma función que ya usaba la chapa con ficha
+  (`norma_de_chapa` la llama con forma «plancha»):
+  - lo declarado gana: la norma del material o del nombre, con el grado aparte («ASTM A554 (AISI
+    304)»), o un grado pelado («A36» → ASTM A36, «S355J2» → EN 10025-2 S355J2);
+  - si no, la FORMA por el rol: tubo, inox ASTM A554 / acero ASTM A500 / aluminio B221; barra,
+    inox ASTM A276; el resto, plancha A240 / A36 / B209;
+  - el grado es el que usa el cálculo (`GRADO`: AISI 304, 6061-T6; A36);
+  - un material calificado sin base («acero zincado») y lo no metálico quedan sin norma: la madera
+    y lo comercial son de la F2 (D4).
+
+Decisiones vetables:
+
+- La forma sale del ROL (anclado, o «tubo 40x40…» / «barra cuadrada…» descrito), no de la
+  geometría: un tubo a medida llamado «Pata» sale como plancha A36.
+- El tubo de acero al carbono es «ASTM A500» sin grado: todos sus grados tienen Fy ≥ 250 MPa, el
+  valor que usa el cálculo.
+
+**Cifras** (los 9 finales, núcleo):
+- `material.conocido` falla en 0 pilotos (la F0 contaba 4 tijeras de haya);
+- la tijera pesa 0,63 kg y no 6,9: la BOM de la silla pasa de 33,5 a 8,41 kg;
+- toda fila a medida de METAL sale con norma. Las mesas de bolas, inox, poza y soldadura quedan
+  con 0 filas a medida sin norma; las que quedan sin norma son madera, lona e insertos zincados;
+- en la Ø28, la plancha sale **ASTM A572 Gr.50**, el grado que declara su material, y faldones,
+  nervios y orejetas salen ASTM A36. El texto de F1 decía «la plancha sale A36»: era de las
+  rondas sin grado, y lo declarado gana (F0).
+
+Testigos públicos re-congelados: sólo la versión 21 → 22 y `material.conocido` OK (faja 38
+piezas a medida, rodillos 84, ménsulas 1 y 2). D3 movió a propósito tres congelados:
+- la fila del eje «con anillos DIN 471» ahora lleva ASTM A36 (`test_bom_designacion`);
+- la lámina 4 del manual chico nombra la norma de la tapa (`test_manual_rapido`);
+- el costeo de la mesa de `test_cotizacion_notas`: con el campo `norma` vacío da la firma de
+  antes (medido), y las cuatro firmas de hojas de la cotización no cambian. Los tests de la silla y de la Ø28 leen
+`APOLO_PILOTOS` o `C:\t\maq`; sin el archivo, se saltan. Visto de paso, fuera de alcance: un
+material «acero zincado … con anillo de nylon» (la DIN 985 de la silla) resuelve a poliamida
+por el `\bnylon\b` de `_norm`.
