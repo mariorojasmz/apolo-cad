@@ -128,7 +128,7 @@ def _item(doc) -> dict:
     ins = pp.reunir(doc, expand=lambda x: x, gravedad={"resultado": None, "motivo": ""},
                     sobrantes=False)
     r = evaluar(ins)
-    assert r["version_registro"] == VERSION_REGISTRO == "30"
+    assert r["version_registro"] == VERSION_REGISTRO == "31"
     return {i["id"]: i for i in r["items"]}["apoyo.capacidad"]
 
 

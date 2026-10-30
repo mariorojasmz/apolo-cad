@@ -11,7 +11,7 @@ eje de los tambores), en mm:
   cualquier número de tambores sale igual.
 - **Apoyos por afuera**: un rodillo de retorno (o un travesaño) bajo el ramal de retorno que toca
   su cara exterior (holgura ≤ `TOQUE_MM`) parte el tramo; si lo empuja hacia adentro, la banda
-  pasa por él.
+  pasa por él. Una zapata PLANA apoya en sus dos bordes (la banda va recta sobre ella).
 - **Comba**: entre apoyos del ramal de retorno la banda cuelga con la parábola de la catenaria,
   f = w·l²/(8·T) (w = peso por largo, T = tensión), con dos topes: el de CEMA para una banda bien
   tensada (2 % del vano: la tensión del tensor no se modela, el tensor la debe dar) y la holgura
@@ -35,6 +35,10 @@ from dataclasses import dataclass, field
 COMBA_CEMA = 0.02
 #: Holgura (mm) entre la cara exterior de la banda y una pieza de afuera para contarla APOYO.
 TOQUE_MM = 1.0
+#: Dos apoyos a menos de esto (mm) a lo largo del tramo son uno (las dos caras de un rodillo).
+APOYOS_PEGADOS_MM = 30.0
+#: Lo que (mm) puede subir la cara de un apoyo sobre su punto más bajo y seguir siendo su plano.
+PLANO_MM = 0.05
 #: Separación (mm) de los puntos de un vano que cuelga.
 PASO_COMBA_MM = 25.0
 #: Un vano más corto que esto no cuelga (mm).
@@ -50,7 +54,9 @@ ESPESOR_DEFECTO_MM = 3.0
 @dataclass(frozen=True)
 class PiezaPlano:
     """Encuadre de una pieza en el marco de la faja (mm): u a lo largo de la marcha, w normal, v a
-    lo largo del eje. `redonda`: su sección ⟂ al eje es un círculo (tambor, rodillo, eje)."""
+    lo largo del eje. `redonda`: su sección ⟂ al eje es un círculo (tambor, rodillo, eje).
+    `tambor`: puede ser un tambor que la banda abrace —tiene junta o toca el sólido de la banda—
+    (lo-fijo-que-gira D4a: una barra de enjuague que cruza el lazo sin tocarlo no lo es)."""
 
     pieza: str
     u0: float
@@ -60,6 +66,7 @@ class PiezaPlano:
     v0: float
     v1: float
     redonda: bool = False
+    tambor: bool = True
 
     @property
     def centro(self) -> tuple[float, float]:
@@ -155,9 +162,10 @@ def _espesor(banda: PiezaPlano, dentro: list[PiezaPlano], volumen_mm3: float | N
 
 
 def clasificar(banda: PiezaPlano, piezas: list[PiezaPlano]) -> tuple[list, list]:
-    """(dentro, afuera): las piezas redondas cuyo centro cae dentro del encuadre de la banda son
-    los tambores que abraza; el resto que cubre su ancho, obstáculos de afuera (o del interior,
-    que la comba ignora sola). Una pieza que no cubre `CUBRE_MIN` del ancho no cuenta."""
+    """(dentro, afuera): las piezas redondas que pueden ser tambor (`PiezaPlano.tambor`) cuyo
+    centro cae dentro del encuadre de la banda son los tambores que abraza; el resto que cubre su
+    ancho, obstáculos de afuera (o del interior, que la comba ignora sola). Una pieza que no
+    cubre `CUBRE_MIN` del ancho no cuenta."""
     ancho = banda.v1 - banda.v0
     dentro, afuera = [], []
     for p in piezas:
@@ -167,7 +175,7 @@ def clasificar(banda: PiezaPlano, piezas: list[PiezaPlano]) -> tuple[list, list]
         if ancho <= 0 or cubre < CUBRE_MIN * ancho:
             continue
         cu, cw = p.centro
-        if p.redonda and banda.u0 < cu < banda.u1 and banda.w0 < cw < banda.w1:
+        if p.redonda and p.tambor and banda.u0 < cu < banda.u1 and banda.w0 < cw < banda.w1:
             dentro.append(p)
         else:
             afuera.append(p)
@@ -205,11 +213,20 @@ def _vano(p0, p1, espesor, afuera, peso_n_mm, tension_n, puntos_obst):
         if cerca[1] < -(espesor + 5.0):   # del interior del lazo o que la atraviesa
             continue
         perfiles.append((p, loc, cerca))
-    apoyos = sorted(((c[0], min(c[1], TOQUE_MM), p) for p, _l, c in perfiles if c[1] <= TOQUE_MM),
-                    key=lambda a: a[0])
+    apoyos = []
+    for p, loc, c in perfiles:
+        if c[1] > TOQUE_MM:
+            continue
+        # una zapata PLANA (lo-fijo-que-gira D4a): la banda apoya en todo su largo, no sólo en
+        # un punto; sus dos bordes son apoyos (en un rodillo coinciden: el punto de siempre)
+        plano = [x for x, y in loc if y <= c[1] + PLANO_MM]
+        bordes = ((min(plano), max(plano)) if max(plano) - min(plano) > APOYOS_PEGADOS_MM
+                  else (c[0],))
+        apoyos += [(x, min(c[1], TOQUE_MM), p) for x in bordes]
+    apoyos.sort(key=lambda a: a[0])
     fusion: list = []
     for a in apoyos:                      # dos apoyos pegados (las dos caras de un rodillo) = uno
-        if fusion and a[0] - fusion[-1][0] < 30.0:
+        if fusion and a[0] - fusion[-1][0] < APOYOS_PEGADOS_MM:
             if a[1] < fusion[-1][1]:
                 fusion[-1] = a
             continue

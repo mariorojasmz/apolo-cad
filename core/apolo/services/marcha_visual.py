@@ -11,8 +11,9 @@ misma adquisición que `prepare_dynamics`) y devuelve datos puros; la cuenta la 
 - **Fajas**: por cada banda que simula la física, el encuadre de la banda y de las piezas que
   cruzan su ancho, medido en el marco de la faja (u = marcha, w = normal, v = eje), y si su
   sección es redonda (encuadre cuadrado que no crece girado 45°: un tambor sí, un tubo cuadrado
-  no). Además (fabrica-de-publicaciones, ajuste D13) la SECCIÓN del sólido de la banda en el
-  plano ⟂ a v por el centro del ancho (`seccion`: de ahí sale la forma de la cinta) y los cortes
+  no) y, la redonda dentro del encuadre de la banda, si puede ser su tambor (`tambor`: tiene junta
+  o toca el sólido de la banda; lo-fijo-que-gira D4a). Además (fabrica-de-publicaciones, ajuste
+  D13) la SECCIÓN del sólido de la banda en el plano ⟂ a v por el centro del ancho (`seccion`: de ahí sale la forma de la cinta) y los cortes
   de la banda y de cada pieza que podría cruzar la cinta en varios planos a lo ancho (`cortes`:
   con ellos `library/fidelidad_faja.py` prueba la cinta contra el modelo). OCCT en
   `seccion_plano.py`.
@@ -24,6 +25,8 @@ import math
 
 #: Margen (mm) alrededor del encuadre de la banda para buscar sus tambores y apoyos.
 MARGEN_MM = 150.0
+#: Una pieza redonda a ≤ esto (mm) del sólido de la banda la toca (puede ser su tambor; D4a).
+TOCA_MM = 1.0
 
 
 def _sub(a, b):
@@ -83,6 +86,14 @@ def _cortes(local_banda, candidatos: dict, planos: list[float]) -> list[dict]:
     return out
 
 
+def _toca(a, b, tol: float = TOCA_MM) -> bool:
+    """¿Las dos formas quedan a ≤ `tol` (mm)? Sin medida, sí (lo de siempre)."""
+    try:
+        return float(a.distance_to(b)) <= tol
+    except Exception:  # noqa: BLE001 — OCCT que no mide: no se descarta el tambor
+        return True
+
+
 def _girada_45(inv, cu: float, cw: float):
     """inv seguida de un giro de 45° alrededor de v por (cu, cw), en el plano (u, w)."""
     c = s = math.sqrt(0.5)
@@ -110,6 +121,8 @@ def _faja(doc, b: dict) -> dict | None:
     # D13b: lo que puede cruzar la cinta (en el ancho, y en el encuadre de la banda más la comba)
     holgura_w = COMBA_CEMA * (bu1 - bu0) + 10.0
     piezas, candidatos, nombres = [], {}, {}
+    con_junta = {p for j in (getattr(doc, "joints", None) or {}).values()
+                 for p in (j.get("parent"), j.get("child"))}
     for fid, f in doc.scene.items():
         if fid == feat.id or f.shape is None or getattr(f, "is_guide", False):
             continue
@@ -128,14 +141,16 @@ def _faja(doc, b: dict) -> dict | None:
             nombres[fid] = getattr(f, "name", None) or fid
         if ancho <= 0 or min(v1, bv1) - max(v0, bv0) < 0.5 * ancho:
             continue
-        redonda = False
+        redonda, tambor = False, True
         if encuadre_cuadrado(u1 - u0, w1 - w0):
             cu, cw = (u0 + u1) / 2.0, (w0 + w1) / 2.0
             g0, g1, h0, h1, _a, _b = _caja(f.shape, _girada_45(inv, cu, cw))
             lado = max(u1 - u0, w1 - w0)
             redonda = max(g1 - g0, h1 - h0) <= (1.0 + TOL_REDONDA) * lado
+            if redonda and bu0 < cu < bu1 and bw0 < cw < bw1:   # D4a: ¿puede ser un tambor?
+                tambor = fid in con_junta or _toca(f.shape, feat.shape)
         piezas.append({"pieza": fid, "u0": u0, "u1": u1, "w0": w0, "w1": w1, "v0": v0, "v1": v1,
-                       "redonda": redonda})
+                       "redonda": redonda, "tambor": tambor})
     try:
         volumen = float(feat.shape.volume)
     except Exception:  # noqa: BLE001

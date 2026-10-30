@@ -5,7 +5,7 @@ y devuelve ítems de la ficha de calidad.
 Un lazo (dict):
 
     {"id", "nombre", "tipo": "banda"|"cadena", "largo_mm": float|None, "motivo": str,
-     "tensores": [{"tipo": "take_up"|"catalogo"|"plantilla"|"declarado", "id", "nombre",
+     "tensores": [{"tipo": "take_up"|"catalogo"|"plantilla"|"declarado"|"catenaria", "id", "nombre",
                    "carrera_mm": float|None, "motivo": str,
                    "pernos": [{"insumo": <insumo de agarre>, "movil": fid,
                                "antes": mm, "despues": mm}],
@@ -42,6 +42,10 @@ Los requisitos:
 - **agarre en toda la carrera**: cada perno tensor de CADA tensor del lazo pasa el control de
   agarre con la pieza tensada en los DOS extremos de su carrera (`agarre.evaluar_perno` con la
   pieza corrida).
+
+La CATENARIA de una banda modular (D3a de lo-fijo-que-gira; tensor `catenaria` con su dict
+`catenaria`) se reconoce por su comba tras el motriz y su carrera la juzga `catenaria.py`; no
+tiene perno (agarre NO_APLICA).
 """
 
 from __future__ import annotations
@@ -220,6 +224,15 @@ def evaluar_lazo(lazo: dict) -> dict:
     nums = {**nums, "tensor": t["id"], "tensor_tipo": t["tipo"]}
     otros = f" (y {len(tensores) - 1} más)" if len(tensores) > 1 else ""
     out = {"reconocido": (OK, f"{t['tipo']}: {t['nombre']}{otros}", nums)}
+    if t["tipo"] == "catenaria":  # D3a de lo-fijo-que-gira: la banda modular se tensa colgando
+        from .catenaria import carrera_catenaria
+
+        c = t["catenaria"]
+        out["reconocido"] = (OK, f"catenaria: comba de {c['comba_mm']:g} mm tras la rueda motriz "
+                                 f"en {c['vano_mm']:g} mm (25,4–152 mm, Intralox)", nums)
+        out["carrera"] = carrera_catenaria(largo, c, nums)
+        out["agarre"] = (NO_APLICA, "catenaria: sin perno tensor", nums)
+        return out
     if largo is None:
         out["carrera"] = (SIN_EVALUAR, lazo.get("motivo") or "no se pudo medir el largo del lazo",
                           nums)

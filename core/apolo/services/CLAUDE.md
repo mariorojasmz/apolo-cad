@@ -127,6 +127,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   fuente; `firma_modelo` es la firma única que comparte con la fábrica de publicaciones (fuera del
   núcleo: la lee del `.apolo`). Las reglas de la
   memoria salen de `memoria_reglas.py` (también el PDF). (F1)
+- La catenaria de una banda modular es tensor reconocido sin mirar el nombre
+  (`calidad_catenaria.py`; criterio y fuente en `library/catenaria_banda.py`), sólo si no actúa
+  otro tensor. (D3a de lo-fijo-que-gira)
 - **¿Sobra una pieza?** (`calidad_sobrantes.py`, `diseno.sin_sobrantes`): candidatas = guardas +
   piezas posteriores a la PRIMERA corrida de la puerta (`doc.puerta_primera`, la anota el endpoint);
   prueba voraz sobre una copia SUPERFICIAL (`doc_sin`: sin regenerar, las formas compartidas) con
@@ -416,7 +419,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [visor-realista](../../../docs/plans/visor-realista.md) (F3)
 - Además corta con OCCT (`seccion_plano.py`) la banda y lo que podría cruzar su cinta en planos a
   lo ancho: la forma de la cinta y su prueba salen de esas secciones, y `marcha_ejemplo.fidelidad`
-  lanza `MarchaInfiel` (quien la usa PARA, nunca «sin marcha»; detalle fuera del núcleo).
+  lanza `MarchaInfiel` (quien la usa PARA, nunca «sin marcha»; detalle fuera del núcleo). Un corte
+  que no es UN lazo (tramos que se tocan en una esquina, dos pieles) se cierra antes de caer al
+  casco (`seccion_plano.cerrar`, ≤ 10 mm), y el casco sólo abraza lo redondo con junta o que toca
+  la banda. [lo-fijo-que-gira](../../../docs/plans/lo-fijo-que-gira-y-lo-que-cuelga.md) (D4a)
 
 ## Roles por nombre (`roles.py`)
 

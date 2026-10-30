@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 medida (2026-10-30, bitácora) con ajustes a D1–D4 y a las verificaciones de F1–F2. MERGEADAS F4 (D5 = join_bolted criterio 8, D6 = $k en conjuntos) y F1 (D1 movimiento.coherente, registro v28, D1c afinado y vetable). MERGEADA F2 (D2 union.contacto_no_cuelga, registro v30; D2c vetable = la nota del fasten declara la unión de tubería roscada o tri-clamp, sin tipo nuevo). En curso (agente) - F3 (D4 y D3a; la parte térmica de D3 sin fuente del α)
+nota: F0 medida (2026-10-30, bitácora) con ajustes a D1–D4 y a las verificaciones de F1–F2. MERGEADAS F4 (D5 = join_bolted criterio 8, D6 = $k en conjuntos), F1 (D1 movimiento.coherente, registro v28, D1c afinado y vetable), F2 (D2 union.contacto_no_cuelga, v30; D2c vetable = la nota del fasten declara la unión de tubería roscada o tri-clamp) y F3 (D4a la cinta sigue la banda modelada; D3a la catenaria de banda modular es tensado reconocido con Intralox, v31; la parte térmica queda SIN_EVALUAR justificable hasta tener la fuente del α)
 descripcion: La puerta frena una pieza atornillada al bastidor que gira con un eje, un peso colgado de un simple contacto y la banda modular tensada por catenaria, y join_bolted deja de poner una cabeza dentro de un tubo
 ---
 
@@ -481,3 +481,76 @@ Corpus (`.apolo` de las máquinas de producción y del escritorio, cargados con
   ménsula atornillada, CM 40 mm bajo el contacto). Tests en `tests/test_contacto_no_cuelga.py`.
 - **Costo**: 0,8–2,2 s en la lavadora (≈ 36 s la primera medida en frío de la `correccion3`), <
   0,2 s en el resto.
+
+### F3 (2026-10-30)
+
+D3a y D4a, registro v29. La fuente es la guía de instalación de Intralox (2024), p. 15, fig. 17
+y «Break-in period»: la comba va tras la rueda motriz, de 1″ a 6″ (25,4–152 mm) a la temperatura
+de operación; en el rodaje la banda alarga del 0,5 % al 1 %, y si alarga de más se retiran filas
+(URL en `library/catenaria_banda.FUENTE`). El α térmico no se buscó: queda pedido.
+
+**D4a, la cinta sigue la banda modelada.** Eran tres eslabones, no uno:
+
+1. **La sección no era un lazo.** En las rondas 3 a 5 la banda es HUECA por dentro: dos pieles de
+   ≈ 3 mm, a 9 mm una de otra, que sólo se cierran en los cantos (el corte de los cantos sí es un
+   lazo de 15 mm). En las 6 a 8, además, la catenaria son 16 tramos de ≈ 52 mm que se tocan en una
+   esquina. `seccion_plano.lazo_de_banda` ahora cierra el corte (`cerrar`: crecer δ, fundir y
+   encoger δ, con δ de 0,5, 2, 5 y 10 mm, el primero que deja TODO el corte en una cara con hueco)
+   cuando hay más de una cara o ninguna tiene hueco. Con una sola cara con hueco (la banda de
+   `create_belt_conveyor`) no cambia nada. La línea media sale del lazo de 15 mm. Con el lazo, la
+   catenaria no es un tramo recto y no recibe la comba CEMA: no hizo falta más código para eso.
+2. **Con el lazo, la cinta entraba 2,6 mm en las zapatas de retorno.** `_vano` tomaba el primer
+   punto de cada apoyo y la comba nacía ahí, aunque la zapata fuera plana y de 40 mm. Ahora, una
+   zapata cuya cara plana mide más que `APOYOS_PEGADOS_MM` (30 mm) apoya en sus dos bordes. En un
+   rodillo los bordes coinciden y todo queda igual.
+3. **En el casco convexo**, `PiezaPlano.tambor` deja fuera lo redondo que no tiene junta ni toca
+   la banda (`marcha_visual._toca`, ≤ 1 mm). La barra de enjuague ya no es tambor. Con el lazo
+   cerrado, la lavadora no llega al casco, pero el respaldo queda corregido.
+
+**D3a, la catenaria es tensado reconocido** (`services/calidad_catenaria.py`; lo puro en
+`library/catenaria_banda.py` y `library/calidad/catenaria.py`). Sólo se mide al correr la puerta y
+sólo en una banda sin otro tensor. Decisiones, vetables:
+
+- **Modular sin nombre**: el material es acetal, PE, PP o PA. La mueve una junta de giro accionada
+  (`calidad_juntas`) paralela al eje de la banda, cuyo cuerpo es un eje que la cruza con sección
+  cuadrada (16·A/P² = 1 ± 0,05, sin importar cómo esté girado). Lleva ≥ 2 ruedas coaxiales más
+  angostas que la mitad del ancho y que llegan a la cara de adentro del lazo: los anillos de
+  retención y la chaveta no cuentan. Si dos juntas lo cumplen, no se adivina.
+- **La zona tras la motriz**: desde cada punta del arco de contacto se sigue la línea media hasta
+  la primera pieza que la toca (el corte de lo que cruza el plano medio) o hasta un giro neto hacia
+  afuera de más de 5° en 100 mm (un desvío por encima). Los primeros 30 mm no cuentan: el modelo
+  quiebra al salir de la rueda. La comba es lo más que cae bajo la cuerda, y gana el lado que más
+  cuelga. Fuera de 25,4–152 mm, o sin zona, todo sigue como hoy.
+- **«Absorbe el 1 %»**: la comba sola no lo absorbe (de 141 a 152 mm sobre 626 mm guarda 13 mm de
+  los 185 del rodaje). Por eso la guía manda retirar filas. El criterio medible es que la banda
+  pueda colgar LIBRE hasta el tope de 152 mm, que es el punto en que se retiran filas. FALLA si
+  algo entra en la parábola de 152 mm más de lo que ya entra la banda modelada (+1 mm). La
+  evidencia dice cuánto guarda la comba y cuánto se retira por filas.
+- **Térmica**: con `temperatura_c` fuera de 10–30 °C, la carrera queda SIN_EVALUAR justificable
+  (falta el α para α·ΔT·L). Sin temperatura declarada, o a temperatura ambiente, no entra.
+- El rodaje se calcula con el largo de la LÍNEA MEDIA. `largo_de_banda` (área y volumen) cuenta
+  las dos pieles de una banda hueca: 37,3 m en vez de ≈ 18,7 m. Ese largo no se tocó: lo usa el
+  resto del control.
+
+| ronda de la lavadora | `sustitutos_fieles` (antes → ahora) | `transmision_flexible.tension` |
+|---|---|---|
+| `correccion3` | FALLA (50,8 mm en el larguero, casco) → OK (sección, desvío 34 mm ≤ comba) | SIN_EVALUAR, como antes (el retorno sale recto de la motriz: no hay comba) |
+| `correccion6` | FALLA (50,8 mm) → OK | SIN_EVALUAR → reconocido OK (comba de 141,4 mm en 626 mm, 5 ruedas); carrera SIN_EVALUAR justificable: libre hasta 152 mm (guarda 13 mm; 172 de los 185 mm del rodaje se retiran por filas), pero trabaja a 65 °C y falta el α |
+| `correccion8` | FALLA (2,0–6,3 mm, 13 piezas) → OK | igual que la 6 |
+
+La marcha completa (la de la puerta, con la simulación) tarda 40–43 s por ronda. Los insumos del
+tensor tardan 2–2,4 s con la catenaria.
+
+- **Testigos de faja, idénticos**: la faja de `create_belt_conveyor` (testigo público) y dos fajas
+  de paquetería hechas a mano (motor en cabeza y central) dan la MISMA cinta, los mismos vanos, la
+  misma fidelidad y los mismos ítems del tensor con el código de antes y el de ahora. La comparación
+  se hizo punto por punto contra un `git archive` del `main` de partida. La faja 38 no se pudo
+  correr: vive sólo en la base de uso.
+- **Defecto sembrado** en `tests/test_catenaria_banda.py`, sobre una banda modular sintética (eje
+  cuadrado, tres ruedas, dos anillos, desvío y conducida). Una bandeja de goteo 20 mm bajo la comba
+  hace FALLAR la carrera. También están ahí el OK, el SIN_EVALUAR en caliente y los «como antes»
+  (comba de más o de menos, eje redondo, una rueda con anillos). No va en
+  `test_defectos_sembrados`: ningún testigo lleva banda modular, y el ítem general ya tiene
+  defectos allí.
+- Sin `version` ni `GEOM_CACHE_EPOCH`: no cambia la geometría de ningún comando. La serie de la
+  marcha se cachea en memoria por firma del documento y se rehace al reiniciar.

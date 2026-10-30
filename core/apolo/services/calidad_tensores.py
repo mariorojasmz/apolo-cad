@@ -12,7 +12,9 @@ Un tensor se reconoce por lo que ES, nunca por el nombre de una pieza:
 - las ranuras del portamotor de la plantilla de rodillos (`tensado_mm` de su disposición) para
   la cadena motriz `{cmd}_cad_m`;
 - el metadato `doc.tensores` [{piezas, carrera_mm, eje}] (si entre sus piezas hay un perno, se
-  le mide el agarre en la carrera como al de un take-up).
+  le mide el agarre en la carrera como al de un take-up);
+- en una banda sin ninguno de los anteriores, la CATENARIA de una banda modular tras su rueda
+  motriz (`calidad_catenaria.py`, D3a de lo-fijo-que-gira; sólo al medir).
 
 Todo lazo de cadena (`create_chain`, lo cree quien lo cree: la plantilla de rodillos o el modelo a
 mano) lleva sus `centros_fijos` MEDIDOS (eslabones, centros, exactos, tolerancia
@@ -339,6 +341,11 @@ def lazos(doc, medir: bool = True, cadenas: bool = True) -> list[dict]:
             from .calidad_tensores_lazo import anotar
 
             anotar(doc, lz, actuan)
+        elif medir and lz["tipo"] == "banda":  # D3a de lo-fijo-que-gira: la banda modular
+            from .calidad_catenaria import catenaria
+
+            if (c := catenaria(doc, lz["id"])) is not None:
+                actuan = [c]
         lz["tensores"] = propios + [{k: v for k, v in t.items() if not k.startswith("_")}
                                     for t in actuan]
         if lz["tensores"]:  # con tensor, los centros no son fijos: D3b no aplica

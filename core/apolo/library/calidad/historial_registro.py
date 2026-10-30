@@ -76,5 +76,13 @@ centro de masa de lo colgado queda más de 25 mm bajo la zona de contacto; apoya
 o la zona lo abraza, lo de costado es aviso justificable y la unión de tubería roscada o tri-clamp
 (DIN 32676) declarada en la nota del fasten transmite tracción (`cuelga.py`; las cuchillas de aire
 y los ductos colgados del soplador de la lavadora, y la válvula de desagüe de la mesa con poza sin
-su rosca declarada, ahora fallan).
+su rosca declarada, ahora fallan); v31 (lo-fijo-que-gira-y-lo-que-cuelga F3, D3a y D4a)
+`transmision_flexible.tension` reconoce la CATENARIA de una banda modular sin mirar su nombre
+(polímero, rueda motriz accionada de eje cuadrado con ≥ 2 ruedas angostas, zona que cuelga libre
+tras ella con 25,4–152 mm de comba, Intralox 2024 p. 15): carrera OK si cuelga libre hasta 152 mm
+(el resto del rodaje del 1 % se retira por filas), FALLA si algo lo impide, SIN_EVALUAR con una
+temperatura de operación fuera de 10–30 °C (falta el α); y `publicado.sustitutos_fieles` cierra la
+sección de una banda de tramos o de dos pieles (`seccion_plano.cerrar`), apoya la cinta en todo el
+largo de una zapata plana y no toma por tambor una pieza redonda sin junta que no toca la banda (la
+lavadora de bandejas, que caía al casco convexo a través de un larguero, ahora es fiel).
 """

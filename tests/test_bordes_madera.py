@@ -199,7 +199,7 @@ def test_el_item_general_aplica_con_solo_tornillos_de_madera():
                                             if getattr(e, "clave", "") == "mecanica"])
     it = next(i for i in r["items"] if i["id"] == "union.distancia_al_borde")
     assert it["estado"] == FALLA and "borde.testa" in it["detalle"]
-    assert VERSION_REGISTRO == "30"
+    assert VERSION_REGISTRO == "31"
 
 
 # ── join_bolted criterio 7 ─────────────────────────────────────────────────────────────
