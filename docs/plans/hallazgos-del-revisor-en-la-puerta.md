@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D, ninguna cae; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). F5 MERGEADA (registro v22) y F1 MERGEADA (registro v23). F3 en curso; F2, F4, F6 y F7 sin lanzar
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23) y F3 (v24; el historial de versiones salió a calidad/historial_registro.py). Sin lanzar - F2 (D4–D5), F4 (D7), F6 (D9) y F7
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -426,7 +426,7 @@ Cifras:
 
 ### F1 (2026-10-29)
 
-D1, D2 y D3 con los ajustes de la F0. Registro **v22**.
+D1, D2 y D3 con los ajustes de la F0. Registro **v23** (la F5 entró antes con la v22: renumerado al mergear).
 
 - **D1** `material.conocido` (familia proceso, `calidad/material.py`; su insumo es
   `fabricacion.desconocidos` de `services/puerta_hechos.py`): toda pieza a medida cuyo material,
@@ -486,3 +486,53 @@ piezas a medida, rodillos 84, ménsulas 1 y 2). D3 movió a propósito tres cong
 `APOLO_PILOTOS` o `C:\t\maq`; sin el archivo, se saltan. Visto de paso, fuera de alcance: un
 material «acero zincado … con anillo de nylon» (la DIN 985 de la silla) resuelve a poliamida
 por el `\bnylon\b` de `_norm`.
+
+### F3 (2026-10-29)
+
+Entró `apoyo.capacidad` (familia estructura, registro **v24**: F5 y F1 entraron antes con la v22 y
+la v23; al mergear, el historial de versiones salió del docstring a `calidad/historial_registro.py`
+para que `registro.py` siga bajo 500 líneas), con los ajustes D6 de la F0:
+
+- criterio puro en `library/calidad/apoyos.py` (con su `ENTRADA`, como `contacto.py`); la medida
+  en `services/calidad_apoyos.py`, que es también el detector `apoyos_de_compra` de
+  `puerta_hechos` (el `aplica_si`) y el insumo `apoyos_compra` de `reunir`;
+- **qué es un apoyo de compra**: una ref de las categorías `pies_niveladores`, `garruchas`,
+  `patas` o `ruedas`, o una pieza a mano que se compra (`es_comercial`: «Pie nivelador»,
+  «Nivelador» o la marca «(compra)») cuyo rol, anclado al inicio, es pie, nivelador, pata,
+  garrucha, rueda o regatón. Guarda: «Pie de amigo», «Pata de cabra» y «Rueda dentada / de cadena /
+  motriz…» no son apoyos. Un perfil de catálogo que hace de «Pata» se fabrica y no entra (lo mide
+  `estructura.pandeo`). Sólo los ANCLADOS: la reacción es la de `anchor_loads`;
+- **reacción**: la de `installation_data` (masa de toda la máquina + `carga_kg` de los requisitos,
+  peso en el COG, sin la tornillería anclada) × FS 1,5, declarado como criterio de diseño. La masa
+  se calcula sólo si algún anclaje es un apoyo de compra;
+- **capacidad**: `capacidad_kg` o `carga_kg` de la ficha (en la garrucha, la de rodadura, la menor)
+  o, a mano, un «N kg» DENTRO del paréntesis de la compra («(compra, 1000 kg)») o detrás de
+  «carga», «capacidad», «admisible» o «nominal» («carga estática ≥1000 kg», el nombre final de la
+  Ø28). Acepta «1.000 kg»;
+- sin capacidad → FALLA, salvo justificación por escrito con la regla «apoyo de compra sin capacidad
+  declarada» (por pieza o para todos); una capacidad que no alcanza no se justifica; un apoyo a
+  tracción no pide capacidad (es de `estructura.vuelco`);
+- defecto sembrado `pie_sin_capacidad` (un pie «(compra)» anclado junto a la ménsula atornillada).
+  Tests en `tests/test_apoyo_capacidad.py` (la Ø28 real, buscada en los repos hermanos, se salta
+  sin el archivo).
+
+Decisiones vetables:
+
+- **Un «N kg» suelto en el nombre no es capacidad**: «Pie para la mesa de 500 kg (compra)» puede ser
+  la carga de la mesa. Sólo cuenta en el paréntesis de la compra o tras una palabra de capacidad.
+- **Sólo los apoyos anclados.** Los 4 pies de catálogo del testigo de rodillos se apoyan en la placa
+  de piso, que es la anclada: no se evalúan (pendiente: seguir el camino de carga hasta el anclaje).
+- **La carga excéntrica (#69) queda pendiente**: no hay requisito estructurado de carga de canto (la
+  Ø28 lo escribe en `notas`). La evidencia DECLARA la hipótesis («un canto cargado no se evalúa»).
+  Sumar `carga_canto_kg` a `requisitos.py` es otra fase (cambia también `estructura.vuelco`, #53).
+
+Cifras:
+
+- testigos: sólo cambian la versión y el ítem nuevo (faja OK con sus 4 PIE-M12-50, 224 kg pedidos
+  ≤ 350; ménsulas y rodillos NO_APLICA), re-congelados a propósito;
+- Ø28 real: con «(compra)» solo, 4 en FALLA (pide 296–297 kg); con «(compra, 1000 kg)», OK;
+- los 9 finales: OK la Ø28; FALLA la mesa de bolas (4 pies, TP de #29), la poza (4 pies «Pie
+  nivelador … inox» sin carga que nadie marcó) y la mesa plegable (4 regatones PE anclados: los
+  otros 2 de la F0 no están anclados). Los 2 tacos de pared de la F0 ya no cuentan (no son apoyos).
+  Esos 8 sin marcar se arreglan con la carga en el nombre o una justificación;
+- la puerta de la Ø28 tarda ≈ 2,2 s en `reunir` (sin gravedad ni sobrantes).

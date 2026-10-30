@@ -264,7 +264,7 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   un detector (`services/puerta_hechos.py`) o un evaluador, no un ítem. NO_APLICA sólo por
   `aplica_si`; los ids de F2/F3 entran por el `mapa` de su `Fuente` (servicio `(doc, contexto=)`,
   UNA vez por puerta; puede dar `riesgos`: la tabla ISO 12100 del resultado). Cambiar un
-  ítem, umbral o `aplica_si` sube `VERSION_REGISTRO`. Los controles de lo existente: `puerta.py`.
+  ítem, umbral o `aplica_si` sube `VERSION_REGISTRO` con su línea en `calidad/historial_registro.py`. Los controles de lo existente: `puerta.py`.
   Una extensión suma los suyos (`Extension.puerta`, ids «prefijo.x») en `DE_EXTENSION`: quien
   corre la puerta entera pasa `vigente()` a `reunir` y a `evaluar`, y `version(registro)` los
   firma («6+nombre.v»); `evaluar(registro=None)` sigue siendo sólo el núcleo (testigos).

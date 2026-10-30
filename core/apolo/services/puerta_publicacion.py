@@ -15,6 +15,8 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
 - `interna`: los choques DENTRO de cada super-comando, sin `same_command_pairs` (D13b);
 - `uniones`: cada `fasten` medido (distancia y cordón, `calidad_contacto.uniones_medidas`): lo
   mide la entrega y lo juzga `union.contacto_real` (plan uniones-que-tocan D1);
+- `apoyos_compra`: cada apoyo a tierra de compra con su reacción y su capacidad
+  (`calidad_apoyos`, el detector de `puerta_hechos`), lo juzga `apoyo.capacidad`;
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
   balance-de-producto D9);
@@ -293,7 +295,8 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "fuentes": fuentes, "fabricacion": fab, "flujo": flujo,
             "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos,
             "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or []),
-            "cadenas": h["cadenas_de_rodillos"], "resguardos": h["resguardos_con_interruptor"]}
+            "cadenas": h["cadenas_de_rodillos"], "resguardos": h["resguardos_con_interruptor"],
+            "apoyos_compra": h["apoyos_de_compra"]}
 
 
 # ------------------------------------------------------------------ la marcha (D13 de la fábrica)

@@ -154,6 +154,13 @@ def pata_esbelta(d):  # 8 × 8 mm y 1,5 m: pandea con su propio peso y el de la 
     d.execute("ground", {"name": "gp", "feature": p})
 
 
+def pie_sin_capacidad(d):
+    """hallazgos-del-revisor D6: un pie nivelador de compra, anclado, sin carga nominal (la mesa de
+    soldadura Ø28: nadie sabía si aguantaba 500 kg de carga y 291 kg de mesa)."""
+    p = _caja(d, "Pie nivelador M12 (compra)", 60, 60, 12, 0, 300, 6)
+    d.execute("ground", {"name": "gpie", "feature": p})
+
+
 def contrapeso_en_voladizo(d):  # 212 kg atornillados fuera de la huella de apoyo
     c = _caja(d, "Contrapeso", 300, 300, 300, 600, 0, 150)
     d.execute("fasten", {"name": "fc", "a": c, "b": _id(d, "Placa base"), "kind": "perno",
@@ -420,6 +427,8 @@ DEFECTOS = (
     Defecto("placa_sin_agujeros", "mensula_atornillada", placa_sin_agujeros,
             {"union.agujeros": FALLA}),
     Defecto("pata_esbelta", "mensula_atornillada", pata_esbelta, {"estructura.pandeo": FALLA}),
+    Defecto("pie_sin_capacidad", "mensula_atornillada", pie_sin_capacidad,
+            {"apoyo.capacidad": FALLA}),
     Defecto("contrapeso_en_voladizo", "mensula_atornillada", contrapeso_en_voladizo,
             {"estructura.vuelco": FALLA}),
     Defecto("bloque_en_un_m6", "mensula_atornillada", bloque_en_un_m6,
