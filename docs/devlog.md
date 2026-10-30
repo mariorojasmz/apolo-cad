@@ -4517,3 +4517,33 @@ proceso real que heredó el pid: no se toca).
 **Verificado.** Escritorio, carril C: `test_flota.py` 30/30 con el arreglo mientras corrían suites
 completas `-n auto` en otro carril (el código viejo dio 30/30 suelto: el fallo pide la suite), y la
 suite completa `-n auto` verde con carga (779 s). Laptop: `test_flota.py` y ruff verdes.
+
+## 2026-10-30 — Crónica que salió de los CLAUDE.md (segunda poda)
+
+La raíz, `core/apolo`, `library`, `services` y `ui` estaban al 90–100 % de su tope (plan
+`docs/plans/poda-claude-md.md`). Al podarlos salió historia que no tenía casa en un plan ni en este
+devlog; se guarda aquí. Las reglas que la originaron siguen, en una línea, en su CLAUDE.md.
+
+- **Doctrina de resultados** (raíz): la fijó el usuario el 2026-07-10. El 2026-10-20 agregó, sobre
+  reemplazar una librería corta por una propia: «no me importa si gastamos días de
+  implementación».
+- **Distribución**: el repo es público desde el 2026-08-08.
+- **Calidad visual «como lo haría Apple»** (`ui/`): pedido del usuario del 2026-10-23.
+- **El MCP es THIN** (raíz): los huecos auditados del MCP siempre fueron de LECTURA, nunca de
+  escritura; por eso no hay tool por comando.
+- **Modelar por MCP se delega** (raíz): modelar dentro de una sesión larga releyó todo el contexto
+  en cada llamada: 36 M tokens leídos en 14 min (medido en una piloto de modelado).
+- **Caché por `id(shape)` con `is`** (`core/apolo`): Python reciclaba el id de un shape recolectado
+  y otra pieza recibía la entrada ajena; fue un fallo real de la suite.
+- **`check_assembly`/`gravity_test` sin autodetect por defecto** (`core/apolo`): con autodetect el
+  agente veía verde lo que la puerta de entrega marcaba rojo.
+- **`doc` explícito en `services`**: `_piece_dim_tols` medía con el `DOC` activo aunque recibiera
+  su `doc`, y los tests lo tapaban con `api.DOC = doc`.
+- **`installation_data` sin tornillería**: los pernos de anclaje contados como grounds diluían la
+  carga por apoyo 5×.
+- **Una unión se agrupa por el par de patrones de sus piezas** (`services/conexiones.py`): agrupar
+  por nombre mezclaba 163 contactos `auto_f_*`.
+- **El título del paso de montaje va entero** (`services/montaje.py`): un tope en el servicio
+  igualaba pasos distintos.
+- **Sin tinte de «guardando»** (`ui/`): en modelos grandes prendía en cada edición y parecía un
+  spinner permanente.

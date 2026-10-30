@@ -1,19 +1,18 @@
 # UI de Apolo (React + three.js + Dockview)
 
-Las convenciones técnicas de la UI (viewport, store, sync, layout) están al final, en
-«Convenciones técnicas»; el lado servidor de lo que consume (deltas de escena, `merge` del PUT),
-en [core/apolo/api](../core/apolo/api/CLAUDE.md). Lo transversal (worktrees, flujo de trabajo)
-está en el [CLAUDE.md raíz](../CLAUDE.md).
+Las convenciones técnicas (viewport, store, sync, layout) están al final; el lado servidor de lo
+que consume (deltas, `merge` del PUT), en [api](../core/apolo/api/CLAUDE.md); lo transversal, en
+el [CLAUDE.md raíz](../CLAUDE.md).
 
 **Todo texto que lee un usuario va de TÚ, en español neutro latinoamericano**: sin voseo, sin
 usted, sin españolismos. Vale para los strings de la UI, los mensajes de error de la API que
 llegan a pantalla y los prompts de agentes que le hablan al usuario. Gate `src/tuteoNeutro.test.ts`:
 lo interno se declara en su `EXCEPCIONES` con la razón, o con `// voseo-interno` al final de la línea.
 
-## Calidad visual: sobria, clara, «como lo haría Apple» (Mario, 2026-10-23)
+## Calidad visual: sobria, clara, «como lo haría Apple»
 
-La persona pide por MCP o al agente y EVALÚA en el visor: cada resultado que el agente lee tiene
-que poder verse ahí. Un panel nuevo:
+La persona pide por MCP y EVALÚA en el visor: cada resultado que el agente lee tiene que poder
+verse ahí. Un panel nuevo:
 - responde UNA pregunta arriba (un veredicto), y el detalle se revela a pedido;
 - usa sólo los tokens del tema (claro y oscuro); jerarquía por peso y tamaño del texto, no por
   cajas, bordes ni colores nuevos;
@@ -22,25 +21,23 @@ que poder verse ahí. Un panel nuevo:
 - se cierra con una revisión de diseño A CIEGAS: capturas en claro y oscuro, ancho y angosto, que
   juzga un subagente sin contexto con la rúbrica del plan. [V8.5](../docs/plans/V8.5-tablero-3d.md) D13–D14
 
-Las piezas viven en `src/diseno/` (`<Veredicto>`, `<ItemsAtencion>`, `<EstadoVacio>`, `<Deslizador>`,
-`cifra()`, `movimiento.ts`) y los tokens en `styles.css` `:root` (`--fs-*`/`--fw-*` con nombre, `--sp-*`
-de 4 px, `--mov-*` y `--curva-suave`, a 0 con movimiento reducido); `diseno/tokens.test.ts` rebota un
-color, tamaño o duración suelto en su CSS. Las capturas salen del muestrario (`ui/muestrario.html`,
-sólo con `npm run dev`; `?ancho=420` para angosto). Hoy sólo hay tema oscuro (A12 de V8.5).
+Las piezas viven en `src/diseno/` y los tokens en `styles.css` `:root` (`--fs-*`/`--fw-*`,
+`--sp-*` de 4 px, `--mov-*` y `--curva-suave`, a 0 con movimiento reducido);
+`diseno/tokens.test.ts` rebota un color, tamaño o duración suelto en su CSS. Las capturas salen
+del muestrario (`ui/muestrario.html`, sólo con `npm run dev`; `?ancho=420` para angosto). Hoy
+sólo hay tema oscuro (V8.5 A12).
 El panel «Tablero» (`src/tablero/`) es el modelo: muestra lo que decide `services/tablero_panel.py`
-sin reglas propias (veredicto, ítems, cifras como `valor`+`unidad`); `VistaTablero` va por props
-(la montan el panel y el muestrario) y un conductor o un cable de campo elegido (comparten ids:
-son comandos) se dibuja con `recorrido3d.ts` (instalado en el visor, fuera de `group`). Una fila elegida abre lo suyo DEBAJO de ella
-(`ItemsAtencion` `elegida`/`debajo`), nunca al final de la lista. [V8.5](../docs/plans/V8.5-tablero-3d.md) F3b
-El panel «Neumática» (`src/neumatica/`) es el mismo patrón sobre `services/neumatica_panel.py`; su
-esquema ISO 1219 llega en PRIMITIVAS y se dibuja en línea con la tinta del tema (nunca el SVG de la
-lámina en un `<img>`: el clic elige y las líneas se tiñen en vivo). Un estado de la máquina (el
-manual ENCLAVADO de una válvula) se LEE de su señal (`<des>.manual`), nunca se guarda en la UI:
-otra pestaña o el agente verían otro. [V8.9](../docs/plans/V8.9-neumatica.md) F6
-
-El panel «Pruebas» (`src/pruebas/`) es el mismo patrón sobre `services/pruebas_panel.py` (el
-semáforo y el resumen salen de ahí); «Correr» encola la co-simulación como job del visor
-(`state/jobs.ts`) y «Verla en vivo» abre la sesión como «Mandos». [visor-para-evaluar](../docs/plans/visor-para-evaluar.md) D1–D5
+sin reglas propias (cifras como `valor`+`unidad`); `VistaTablero` va por props y un conductor o
+cable de campo elegido (comparten ids: son comandos) se dibuja con `recorrido3d.ts` (fuera de
+`group`). Una fila elegida abre lo suyo DEBAJO de ella (`ItemsAtencion` `elegida`/`debajo`).
+[V8.5](../docs/plans/V8.5-tablero-3d.md) F3b
+«Neumática» (`src/neumatica/`, sobre `services/neumatica_panel.py`): el esquema ISO 1219 llega en
+PRIMITIVAS y se dibuja en línea con la tinta del tema (nunca el SVG de la lámina en un `<img>`).
+Un estado de la máquina (el manual ENCLAVADO de una válvula) se LEE de su señal
+(`<des>.manual`), nunca se guarda en la UI. [V8.9](../docs/plans/V8.9-neumatica.md) F6
+«Pruebas» (`src/pruebas/`, sobre `services/pruebas_panel.py`): «Correr» encola la co-simulación
+como job del visor (`state/jobs.ts`) y «Verla en vivo» abre la sesión como «Mandos».
+[visor-para-evaluar](../docs/plans/visor-para-evaluar.md) D1–D5
 
 ## Texto y ayuda: la pantalla se explica sola
 
@@ -70,14 +67,12 @@ está en `src/diseno/`; `useConfirmar` todavía NO existe: se propone en un plan
 - **Presupuesto**: sin contar datos ni rótulos, el texto de ayuda visible por defecto de un
   panel o diálogo no pasa de ~40 palabras. **Una explicación, un lugar**: si el panel lo dice,
   el resto no lo repite.
-- **El texto de los schemas es para el AGENTE, no para la persona.** Las `description` de los
-  modelos pydantic de comandos son largas a propósito (el agente las necesita completas, con
-  nombres de parámetros). La UI pide la vista PERSONA (`GET /api/schemas?vista=persona`): cada
-  comando trae su `pista` (una frase escrita para la persona) y su `detalle` limpio, que va
-  plegado en «Detalle técnico»; los campos traen `x-unidad` y, donde uno anula a otro, `x-pista`.
-  La pista vive en `core/apolo/commands/pistas.py` (gate `tests/test_pistas.py`: 1 frase, ≤ 120
-  caracteres, vocabulario y tuteo); el servidor quita las versiones del roadmap («V6.8-E»). El
-  tipo `CommandSchema` no tiene `description`: `tsc` impide pintar el texto del agente.
+- **El texto de los schemas es para el AGENTE, no para la persona** (las `description` son largas
+  a propósito). La UI pide la vista PERSONA (`GET /api/schemas?vista=persona`): cada comando trae
+  su `pista` y su `detalle` limpio (plegado en «Detalle técnico»); los campos, `x-unidad` y, donde
+  uno anula a otro, `x-pista`. La pista vive en `core/apolo/commands/pistas.py` (gate
+  `tests/test_pistas.py`). `CommandSchema` no tiene `description`: `tsc` impide pintar el texto
+  del agente.
 - **Excepción de parámetros**: la ⓘ de un campo de comando lleva su texto operativo COMPLETO
   aunque pase el tope (es la documentación del parámetro); lo que se acorta es la pista.
 - La **ⓘ se abre en el flujo**, no flota (se cortaría en los paneles de Dockview con
@@ -189,14 +184,13 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 
 ### Desarrollo y verificación
 
-- Preview: configs `ui-dev`/`ui-preview` en `.claude/launch.json`; el build de producción lo
-  sirve la API en :8000. `npm run dev` + StrictMode remonta el viewport y lo rompe: usar
-  `vite preview` (`ui-preview`). Gates: `npm test` (vitest) y `npm run build` (tsc + vite).
-- El screenshot automatizado del viewport se agota por el rAF continuo: verificar por DOM o por el
-  hook `window.__apolo` (`meshIds`, `builds`, `sombraRecalculos`, `store`). El rAF se PAUSA en una pestaña de fondo
-  (lo que fija el animate loop, como `g.visible`, queda viejo) y un `await requestAnimationFrame`
-  desde la tool de JavaScript del navegador cuelga: para la lógica del overlay, leer estado
-  expuesto a `window` (`ctx.handles.children`, params), no la visibilidad.
+- Preview: configs `ui-dev`/`ui-preview` en `.claude/launch.json`; el build lo sirve la API en
+  :8000. `npm run dev` + StrictMode remonta el viewport y lo rompe: usar `vite preview`
+  (`ui-preview`).
+- El screenshot automatizado del viewport se agota por el rAF continuo: verificar por DOM o por
+  `window.__apolo`. El rAF se PAUSA en una pestaña de fondo (lo que fija el bucle queda viejo) y
+  un `await requestAnimationFrame` desde la tool de JavaScript cuelga: para el overlay, leer
+  estado expuesto a `window` (`ctx.handles.children`, params), no la visibilidad.
 
 ### Shell y paneles
 
@@ -217,14 +211,12 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   `src/extensiones/<nombre>/` (ignorado por git) con un `index.ts` cuyo `export default` es una
   `Extension` (`extensiones/tipos.ts`; paneles con id `<nombre>.<panel>`). `extensiones/registro.ts`
   la recoge con `import.meta.glob` y la valida: no se edita ningún archivo del núcleo y los gates la
-  recorren. Lo que crezca entra como campo OPCIONAL de `Extension` (hoy, `ancho: "lamina"` de un
-  panel: el cajón del visor abre al ancho de una lámina; el muestrario lo arma con
-  `visor/MarcoCajon.tsx`). La sesión viva le da `chipsVivo` (en la barra tras el factor; sin chips,
-  la barra idéntica) y `pantallas3d` (`{id, tipo, dibujar, tocar?}`: un `CanvasTexture` sobre la
-  cara frontal de la pieza de cada dispositivo de ese `tipo`; la cara y uv → px, puros en
-  `vivo/pantallas.ts`; el toque, por `capturarToques` de `mandos3d.ts`). Una extensión lee y manda
-  a la sesión SÓLO por `extensiones/vivo.ts` (nunca `vivo/` por ruta relativa; se agrega, no se
-  cambia), nunca un control; un PLC de afuera entra por `abrirSesionViva(esc, {plcExterno})`.
+  recorren. Lo que crezca entra como campo OPCIONAL de `Extension` (`ancho`, `chipsVivo`,
+  `pantallas3d`: un `CanvasTexture` sobre la cara frontal de la pieza de cada dispositivo de su
+  `tipo`; cara y uv → px, puros en `vivo/pantallas.ts`; el toque, por `capturarToques` de
+  `mandos3d.ts`). Una extensión lee y manda a la sesión SÓLO por `extensiones/vivo.ts` (nunca
+  `vivo/` por ruta relativa; se agrega, no se cambia), nunca un control; un PLC de afuera entra
+  por `abrirSesionViva(esc, {plcExterno})`.
   [plc-en-el-lazo](../docs/plans/plc-en-el-lazo.md) D13. Un proyecto en sólo lectura
   (falta una extensión) se lee con `state/soloLectura.ts`.
   [plan](../docs/plans/nucleo-abierto-extensiones-privadas.md) (D4, D5)
@@ -322,52 +314,43 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   la escena y sólo dibuja `group` sin aristas: algo nuevo que deba oscurecerse va en `group`.
   [video-realista](../docs/plans/video-realista.md)
 - `near`/`far` de la cámara se ajustan EN CADA CUADRO a la esfera de la máquina y al piso
-  (`recorte.ts`, en el bucle de `pipeline.ts`): con un `near` fijo de 1 mm, a 6 m el buffer de
-  profundidad sólo separa ~2 mm y la cama asomaba en manchas a través de una banda de 3–4 mm.
-  Una cámara nueva que dibuje la escena (grabación, foto) pasa por el mismo ajuste.
+  (`recorte.ts`, en el bucle de `pipeline.ts`; un `near` fijo deja ver la cama a través de una
+  banda delgada). Una cámara nueva que dibuje la escena (grabación, foto) pasa por el mismo ajuste.
 - Grabación (`viewport/grabacion/`, `window.__apolo.grabar`): reloj VIRTUAL, el cuadro n vale
-  n/fps. Por eso toda tarea de `antesDeComponer` usa el `ahora` que recibe, nunca
-  `performance.now()`/`Date.now()`: si no, al grabar se mueve con el reloj real. El modo grabación
-  para el bucle, fija 1920×1080, apaga contorno, destello, SMAA y ayudas (`pipe.ayudantes` + lo que
-  pase Viewport) y acumula N muestras con jitter en vez del `RenderPass`. La foto se toma con
+  n/fps: toda tarea de `antesDeComponer` usa el `ahora` que recibe, nunca
+  `performance.now()`/`Date.now()`. El modo grabación para el bucle, apaga contorno, destello,
+  SMAA y ayudas (`pipe.ayudantes` + lo que pase Viewport) y acumula muestras con jitter. La foto se toma con
   `drawImage` en el MISMO hilo que el render (sin `preserveDrawingBuffer`).
   [video-realista](../docs/plans/video-realista.md) (F2)
-- El guion del video (`grabacion/guionVista.ts`; «Grabar video» y `?grabar=<sesion>`, que abre
-  la fábrica de publicaciones —fuera del núcleo— para grabar en un navegador sin ventana, vía
-  `grabacion/registro.ts`) REPRODUCE el plan que manda
-  la API (`planGuion.ts`): ninguna regla del guion (tiempos, fundidos, órbita, quién entra) se
-  calcula aquí, se agrega en `services/plan_navegador.py`. Tarjetas y rótulos son PNG de la
-  API. El montaje toca sólo lo visible y clona materiales; la marcha se carga al EMPEZAR su parte
-  (`transmision.ts` sólo arma lo visible). [video-realista](../docs/plans/video-realista.md) (F3)
-- Nivel MÁXIMO y «Foto realista» (`grabacion/trazado/`, carga con `import()`): `three-gpu-pathtracer`
-  0.0.23 + `three-mesh-bvh` 0.7.8, versiones EXACTAS (`trazador.ts` usa su interior). Esa versión
-  no sabe de instancias, arreglos de materiales (zonas), `bumpMap`, anisotropía ni recorte:
-  algo nuevo en `group` con eso pasa por `sustitutos.ts` o se declara en el plan.
+- El guion del video (`grabacion/guionVista.ts`; «Grabar video» y `?grabar=<sesion>` para un
+  navegador sin ventana, vía `grabacion/registro.ts`) REPRODUCE el plan de la API
+  (`planGuion.ts`): ninguna regla del guion (tiempos, fundidos, órbita, quién entra) se calcula
+  aquí, va en `services/plan_navegador.py`. Tarjetas y rótulos son PNG de la API. El montaje toca
+  sólo lo visible y clona materiales; la marcha se carga al EMPEZAR su parte. [video-realista](../docs/plans/video-realista.md) (F3)
+- Nivel MÁXIMO y «Foto realista» (`grabacion/trazado/`, con `import()`): `three-gpu-pathtracer` +
+  `three-mesh-bvh` en versiones EXACTAS de `package.json` (`trazador.ts` usa su interior). No
+  saben de instancias, arreglos de materiales (zonas), `bumpMap`, anisotropía ni recorte: algo
+  nuevo en `group` con eso pasa por `sustitutos.ts` o se declara en el plan.
   [video-realista](../docs/plans/video-realista.md) (F4)
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
-  para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
-  «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).
-- **Excepción acotada de color**: el color FÍSICO de un mando o un piloto (`vivo/mandos.ts::colorFisico`:
-  el albedo del acabado de su `specs.color`, `acabados.json` → `acabado_de_color`, nunca una tabla de
-  tonos propia; el piloto con pieza emite ese tono sólo en su zona `de_color`, la lente) y el color por dato con su
-  leyenda (el osciloscopio, `vivo/paleta.ts`; la presión del esquema vivo, `neumatica/esquema.ts`,
-  una rampa de UN tono validada con `--ordinal`). Nunca un rojizo ni un verde de ESTADO. [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) D9
-- La máquina viva (`ui/src/vivo/`, nunca en `Viewport.tsx`): `sesion.ts` lee el `WS /api/cosim/vivo`
-  y carga en `useMarcha` una serie `vivo: true` que CRECE EN SITIO (`serieViva.ts`, anillo de 60 s;
-  jamás `cargar` por fotograma: rehace el reproductor); `enVista.ts` la arma con
-  `reproductorVivo.ts` (el mismo reproductor siguiendo `reloj.ts`, más etiquetas `CSS2DRenderer` y
-  mandos 3D). El clic en un mando 3D se toma en CAPTURA sobre el contenedor del canvas (antes que
-  selección y órbita). Un pulsador se mantiene ≥ 150 ms (`PULSO_MIN_MS`): un clic más corto entra y
-  sale en la misma ventana de 33 ms y el PLC no lo ve. Zustand: selectores PRIMITIVOS en el panel.
+  para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de «guardando».
+- **Excepción acotada de color**: el color FÍSICO de un mando o un piloto
+  (`vivo/mandos.ts::colorFisico`: el albedo del acabado de su `specs.color`, nunca una tabla de
+  tonos propia; el piloto emite sólo en su zona `de_color`) y el color por dato con su leyenda
+  (`vivo/paleta.ts`; la presión del esquema vivo, `neumatica/esquema.ts`, rampa de UN tono
+  validada con `--ordinal`). Nunca un rojizo ni un verde de ESTADO. [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) D9
+- La máquina viva (`ui/src/vivo/`, nunca en `Viewport.tsx`): `sesion.ts` lee el
+  `WS /api/cosim/vivo` y carga en `useMarcha` una serie `vivo: true` que CRECE EN SITIO
+  (`serieViva.ts`; jamás `cargar` por fotograma: rehace el reproductor); `enVista.ts` la arma con
+  `reproductorVivo.ts`. El clic en un mando 3D se toma en CAPTURA sobre el contenedor del canvas
+  (antes que selección y órbita). Un pulsador se mantiene ≥ `PULSO_MIN_MS` (más corto, el PLC no
+  lo ve). Zustand: selectores PRIMITIVOS en el panel.
   [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F2)
-- Medir en vivo (F3): la historia de TODAS las señales vive fuera de React (`vivo/medicion.ts`, anillo
-  `historia.ts`; `sesion.ts` le pasa cada fotograma y ahí avanza el disparo) y el osciloscopio la
-  dibuja con su propio rAF a ≤ 30 fps (`dibujoOsciloscopio.ts`): nunca por un `set` de zustand por
-  fotograma. UN CARRIL POR SEÑAL con su escala (sin ejes dobles), ≤ 8 señales, color de
-  `vivo/paleta.ts` (la paleta categórica de datos, validada contra `--panel`) que sigue a la señal,
-  no a su orden. Multímetro y osciloscopio van sobre el 3D (`Instrumentos.tsx`, montado por
-  `BarraVivo`); el árbol en el panel «Señales» y el ST con valores en «PLC» (el texto sale del log,
-  `add_program.fuente`; global `-K1.v`, local `-K1.Main.v`).
+- Medir en vivo: la historia de TODAS las señales vive fuera de React (`vivo/medicion.ts`,
+  `historia.ts`; ahí avanza el disparo) y el osciloscopio la dibuja con su propio rAF
+  (`dibujoOsciloscopio.ts`), nunca por un `set` de zustand por fotograma. UN CARRIL POR SEÑAL con
+  su escala (sin ejes dobles), ≤ 8 señales, color de `vivo/paleta.ts` que sigue a la señal, no a
+  su orden. El ST con valores en «PLC» sale del log (`add_program.fuente`).
 - «Simular falla» (`vivo/FallasVivas.tsx`, `FallasActivas.tsx` en la barra): lo que se ofrece sale
   SIEMPRE de `inicio.fallas`/`inicio.ramas`; `fallas.ts` sólo nombra la FALLA (el aparato y el cable, el
   servidor: `rotulo`, `nombre`). «Mandos» se lee en `vivo/nombresMandos.ts` (grupos, segmentos con el
@@ -377,10 +360,9 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 - Agarrar y mover: el pointerdown selecciona y arma un `movePick` pendiente; el arrastre real
   empieza al superar `DRAG_THRESHOLD_PX = 5` (= umbral de `onClick`). Bajo el umbral es un clic:
   no mueve ni commitea.
-  En una POSE (una junta fuera de cero: la puerta del tablero abierta) apretar sobre una pieza la
-  SELECCIONA (`interaccion/alApretar.ts`), nunca va al recuadro: su `preventDefault` suprime el
-  mousedown y el clic no elegía nada en toda la máquina. Todo pick pasa por `piezasBajo` (pone al
-  día la matriz de mundo: lo que la UI movió se elige donde se ve). [visor-para-evaluar](../docs/plans/visor-para-evaluar.md) D16
+  En una POSE (una junta fuera de cero) apretar sobre una pieza la SELECCIONA
+  (`interaccion/alApretar.ts`), nunca va al recuadro (su `preventDefault` suprime el mousedown).
+  Todo pick pasa por `piezasBajo` (pone al día la matriz de mundo: lo movido se elige donde se ve). [visor-para-evaluar](../docs/plans/visor-para-evaluar.md) D16
 - Tiradores de caja (`handles.ts::boxDimsFromBbox`): dims desde el BBOX, sanando cotas borradas
   (la caja se auto-sana al primer estirón vía `merge`). Excluye cajas ROTADAS (cota numérica que
   no cuadra con su eje → OBB pendiente) y PARAMÉTRICAS (cota `"=expr"`: no romper el vínculo).
@@ -389,20 +371,16 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 
 ### Croquis (`panels/SketcherDialog.tsx`)
 
-- Herramientas Arco (centro → inicio → fin), Spline (clics = puntos de control; cerrar como
-  perfil o dejar abierta) y Elipse (centro + semiejes/rotación); panel DOF/redundantes/conflictivas.
-- Arrastre de puntos con Seleccionar: dead-zone de 5 px + cola el-último-gana contra
-  `POST /api/sketch/drag` (patrón `pumpEdit`, no una llamada por píxel); preview en verde mientras
-  se arrastra y COMMIT de las posiciones resueltas al soltar. Motor:
-  [kernel](../core/apolo/kernel/CLAUDE.md). [V6.6](../docs/plans/V6.6-croquis-vivo.md)
+- Arrastre de puntos: dead-zone de 5 px + cola el-último-gana contra `POST /api/sketch/drag`
+  (patrón `pumpEdit`, no una llamada por píxel); COMMIT de las posiciones resueltas al soltar.
+  Motor: [kernel](../core/apolo/kernel/CLAUDE.md). [V6.6](../docs/plans/V6.6-croquis-vivo.md)
 
 ### Chat (`chat/`)
 
 - El panel «Asistente IA» y su botón en la barra de paneles del visor existen sólo si
   `GET /api/health` → `chat` es true (`chat/activo.ts`, una store). `dock/dockApi.ts::aplicarChat`
   lo agrega o lo cierra, también de un layout guardado, y va AL FINAL de `onReady` (después del
-  listener del layout; si no, el cierre no se guarda). Hoy viene apagado: Apolo se usa por MCP
-  ([plan](../docs/plans/chat-cliente-igual.md), D19).
+  listener del layout; si no, el cierre no se guarda).
 - El SSE de `/api/agent/chat` se lee SÓLO en `chat/sse.ts` (puro) y `chat/turno.ts` aplica cada
   evento al mensaje; el store sólo los encadena. Un evento nuevo del backend se agrega en `sse.ts`
   (tipo + `validar()`) con su caso en `sse.test.ts`; un `type` desconocido se ignora y uno roto se
