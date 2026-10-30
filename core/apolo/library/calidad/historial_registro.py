@@ -50,5 +50,10 @@ norma) y un grupo «(compra)» sale en UNA fila y no admite taladros de `join_bo
 canto ≥ 3·d, criterio de diseño con los mínimos descargados a3,c y a4,c de EN 1995-1-1 tabla 8.4;
 `borde.testa`: ningún tornillo ni tirafondo rosca a lo largo de la veta), también con los
 tornillos de madera sin hexágono, y aplica con sólo esos tornillos (`tornilleria_madera`); la
-madera sale de la tabla 3.3 de chapas.
+madera sale de la tabla 3.3 de chapas; v27 (hallazgos-del-revisor F6, D9)
+`higiene.limpiable`, sólo con el requisito `higienico`: cada soldadura con contacto lineal medido
+es continua (sin largo, ISO 2553, o con un largo ≥ su línea de contacto) o declara su sellado
+sanitario, y cada extremo hueco de un tubo que se fabrica queda a < 3 mm de una pieza soldada a él
+en todo el borde de su hueco (`higiene.py`; la mesa inox con la repisa soldada 240 mm en 1 100 y la
+pata abierta bajo la cubierta ahora falla).
 """

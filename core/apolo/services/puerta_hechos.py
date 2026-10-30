@@ -16,8 +16,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
   que piden su nombre por función, por tipo). **Una familia de máquinas nueva suma
   aquí su clase** (p. ej. `transmisiones_flexibles["correa"]`), nunca un ítem al registro;
 - `familias_funcion`: {familia D15: [piezas]} (sólo las que el modelo tiene);
-- banderas: `pocos_solidos`, `sin_estudios`, `sin_poses`, `carril`, `escenarios`,
-  `memoria_aplica`, `mueve_producto` (productos en los escenarios o bandas con tablero:
+- banderas: `pocos_solidos`, `sin_estudios`, `sin_poses`, `carril`, `escenarios`, `higienico`
+  (el requisito, `requisitos.es_higienico`), `memoria_aplica`, `mueve_producto` (productos en los escenarios o bandas con tablero:
   `flujo_producto.mueve_producto`, plan balance-de-producto D9).
 
 Cada detector usa el MISMO criterio que el control que lo evalúa (la tornillería:
@@ -133,6 +133,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from . import marcha_ejemplo
     from .calidad_cadenas import cadenas_de_rodillos
     from .calidad_cadenas import elementos as elementos_cadenas
+    from .calidad_higiene import requiere as higienico
     from .calidad_juntas import clasificar
     from .calidad_pernos import tipo_de_tornilleria
     from .calidad_tensores import lazos_banda
@@ -218,6 +219,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "sin_poses": entrega_kwargs.get("poses") == [],
         "carril": tiene_carril(doc),
         "escenarios": bool(doc.escenarios),
+        "higienico": higienico(doc),  # hallazgos-del-revisor D9: el requisito, no un detector
         "mueve_producto": mueve_producto(doc, len(bandas)),
         "memoria_aplica": bool(mecanismo or elementos["uniones"] or doc.requirements
                                or doc.grounds),

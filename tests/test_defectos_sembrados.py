@@ -175,6 +175,17 @@ def pie_sin_capacidad(d):
     d.execute("ground", {"name": "gpie", "feature": p})
 
 
+def tubo_abierto_higienico(d):
+    """hallazgos-del-revisor D9: en equipo higiénico, un poste de tubo soldado a la placa base y
+    abierto arriba (la pata de la mesa inox bajo su cubierta: el agua entra y no sale)."""
+    afuera = _caja(d, "Poste", 40, 40, 200, 110, 0, 112)
+    luz = _caja(d, "luz", 36, 36, 202, 110, 0, 112)
+    d.execute("boolean_op", {"name": "Poste", "operation": "cut", "target": afuera, "tools": [luz]})
+    d.execute("fasten", {"name": "w_poste", "a": _id(d, "Poste"), "b": _id(d, "Placa base"),
+                         "kind": "soldadura", "throat_mm": 2})
+    d.set_requirements({**(d.requirements or {}), "higienico": True})
+
+
 def contrapeso_en_voladizo(d):  # 212 kg atornillados fuera de la huella de apoyo
     c = _caja(d, "Contrapeso", 300, 300, 300, 600, 0, 150)
     d.execute("fasten", {"name": "fc", "a": c, "b": _id(d, "Placa base"), "kind": "perno",
@@ -451,6 +462,8 @@ DEFECTOS = (
     Defecto("pata_esbelta", "mensula_atornillada", pata_esbelta, {"estructura.pandeo": FALLA}),
     Defecto("pie_sin_capacidad", "mensula_atornillada", pie_sin_capacidad,
             {"apoyo.capacidad": FALLA}),
+    Defecto("tubo_abierto_higienico", "mensula_atornillada", tubo_abierto_higienico,
+            {"higiene.limpiable": FALLA}),
     Defecto("contrapeso_en_voladizo", "mensula_atornillada", contrapeso_en_voladizo,
             {"estructura.vuelco": FALLA}),
     Defecto("bloque_en_un_m6", "mensula_atornillada", bloque_en_un_m6,

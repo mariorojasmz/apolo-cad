@@ -19,6 +19,8 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
   (`calidad_apoyos`, el detector de `puerta_hechos`), lo juzga `apoyo.capacidad`;
 - `bom`: las filas de la BOM que no alcanzan para comprar o cortar y los grupos «(compra)» que no
   se compran enteros (`calidad_bom.insumo_bom`), lo juzga `bom.comprable`;
+- `higiene`: las soldaduras y los tubos abiertos de un equipo higiénico (`calidad_higiene`, sobre
+  las mismas `uniones` medidas; None sin el requisito), lo juzga `higiene.limpiable`;
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
   balance-de-producto D9);
@@ -286,6 +288,13 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             bom = insumo_bom(doc)
         except Exception as exc:  # noqa: BLE001 — sin BOM: SIN_EVALUAR
             bom = {"error": f"{type(exc).__name__}: {exc}"}
+    with _cronometro(tiempos, "higiene"):  # hallazgos-del-revisor D9: sólo con el requisito
+        from .calidad_higiene import higiene
+
+        try:
+            limpieza = higiene(doc, kw.get("uniones")) if h["higienico"] else None
+        except Exception as exc:  # noqa: BLE001 — aplica igual: SIN_EVALUAR con el porqué
+            limpieza = {"error": f"{type(exc).__name__}: {exc}"[:200]}
     with _cronometro(tiempos, "sobrantes"):  # D7: sólo en esta puerta, tras las fuentes
         from .calidad_sobrantes import sobrantes as probar_sobrantes
 
@@ -305,7 +314,7 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos,
             "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or []),
             "cadenas": h["cadenas_de_rodillos"], "resguardos": h["resguardos_con_interruptor"],
-            "apoyos_compra": h["apoyos_de_compra"]}
+            "apoyos_compra": h["apoyos_de_compra"], "higiene": limpieza}
 
 
 # ------------------------------------------------------------------ la marcha (D13 de la fábrica)

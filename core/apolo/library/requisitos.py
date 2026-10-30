@@ -63,6 +63,11 @@ _COMO_CARGA_SOBRE = ("El requisito 'carga_sobre' es una lista de ids de pieza, c
                      "que reciben la carga útil (p. ej. [\"Vigas\"] o [\"c46\", \"c47\"]); cada "
                      "nivel de esas vigas recibe la carga_kg entera")
 
+#: Equipo HIGIÉNICO (alimentos, farma): sí/no, por defecto no (ausente). Con él la puerta de
+#: publicación exige soldaduras continuas y tubos cerrados (`calidad/higiene.py`, plan
+#: hallazgos-del-revisor-en-la-puerta D9); sin él, ese ítem no aplica.
+HIGIENICO = "higienico"
+
 ASUMIDOS = "asumidos"
 #: La solución por función (D15 de la puerta de publicación) es un metadato propio, no un requisito.
 FUNCIONES = "funciones"
@@ -176,7 +181,7 @@ def _valor(key: str, value):
         return _numero(key, value)
     if key == SENTIDO:
         return vector_sentido(value)
-    if key == REVERSIBLE:
+    if key in (REVERSIBLE, HIGIENICO):
         return _si_no(key, value)
     if key == "desarmable":
         return _si_no(key, value)
@@ -245,6 +250,15 @@ def normalizar_requisitos(fields) -> dict:
     if marcados:
         clean[ASUMIDOS] = marcados
     return clean
+
+
+def es_higienico(requirements: dict | None) -> bool:
+    """¿El encargo pide equipo higiénico? Tolerante como la carga (un manifest viejo no valida):
+    True o un «sí» escrito; cualquier otra cosa, o ausente, no."""
+    valor = (requirements or {}).get(HIGIENICO)
+    if isinstance(valor, bool):
+        return valor
+    return str(valor).strip().lower() in _SI if valor is not None else False
 
 
 def estado_ficha(requirements: dict | None) -> dict:

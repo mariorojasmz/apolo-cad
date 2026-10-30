@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23), F3 (v24; el historial de versiones salió a calidad/historial_registro.py), F2 (v25, bom.comprable) y F4 (v26, distancias en madera). En curso (agente) - F6 (D9); sin lanzar - F7
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23), F3 (v24; el historial de versiones salió a calidad/historial_registro.py), F2 (v25, bom.comprable), F4 (v26, distancias en madera) y F6 (v27, higiene.limpiable). Sin lanzar - F7
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -695,3 +695,60 @@ ahora entran los tornillos sin hexágono.
 - **Suite completa** en el worktree (laptop, sin `-n`, ≈ 65 min): exit 0, sin FAILED. `ruff check`
   limpio; `test_negocio_fuera` y `test_claude_md` en verde (`library/CLAUDE.md` quedó a 35 815 de
   35 840 bytes: se podaron frases para que entre la regla de la madera).
+
+### F6 (2026-10-29)
+
+Entró `higiene.limpiable` (familia función, registro **v25**; F2 y F4 corren en paralelo: quien
+mergea renumera), sólo con el requisito nuevo `higienico` (sí/no, validado en `requisitos.py`;
+ausente = NO_APLICA y no se mide nada; un manifest viejo abre igual):
+
+- criterio puro en `library/calidad/higiene.py` (con su `ENTRADA`); la medida en
+  `services/calidad_higiene.py` sobre las MISMAS filas de `uniones_medidas` que ya midió la entrega
+  (no re-mide); el hecho `higienico` en `puerta_hechos` y el insumo `higiene` en `reunir`;
+- **soldadura**: cada `fasten` soldadura con contacto lineal medido («linea» o «perimetro»; lo que
+  no se toca en una línea es de `union.contacto_real`) es continuo si NO declara largo (ISO 2553:
+  sin largo, el cordón corre toda la junta) o si su `length_mm` ≥ la línea medida − 1 mm. Si no, se
+  acepta sólo con el sellado sanitario DECLARADO en la nota del `fasten` («sellado sanitario con
+  silicona FDA»); si no, FALLA con los mm de rendija;
+- **tubo abierto**: cada pieza que se fabrica (sin tornillería ni compra declarada; de catálogo,
+  sólo un perfil `cuttable`) con un extremo hueco: cara plana con un hueco ≥ 30 % de su sección,
+  más larga que ancha y vacía a los dos lados de la cara y hasta la mitad del largo (el roscado
+  ciego de un casquillo y el agujero de una placa no son tubos). El extremo está cerrado si cada
+  punto del borde del hueco queda a < 3 mm de una pieza SOLDADA al tubo: tapa, cara a tope u otro
+  tubo (inglete o tope: las luces se comunican y cada extremo libre se juzga aparte);
+- lo que OCCT no mide sale SIN_EVALUAR y se justifica por escrito (regla «higiene sin medir»);
+- defecto sembrado `tubo_abierto_higienico` (poste de tubo soldado a la placa base de la ménsula
+  atornillada, abierto arriba). Tests en `tests/test_higiene_limpiable.py` (la mesa inox y la Ø16
+  reales, buscadas en los repos hermanos, se saltan sin el archivo). `set_requirements` nombra el
+  requisito (golden MCP re-congelado: sólo ese docstring).
+
+Decisiones vetables:
+
+- **El largo declarado decide, sin tolerancia de forma.** Lo que el plano rotula es lo que el
+  soldador deposita. La línea medida cuenta los dos bordes de una zona de contacto angosta (la pared
+  de un tubo a tope con radios que no coinciden: 2 × 71 mm donde el perímetro es 115), así que un
+  largo «casi perimetral» puede fallar por exceso de medida; el arreglo es declarar el cordón SIN
+  largo. No se usó una fracción (½ o 90 %) porque deja pasar rendijas reales de decenas de mm.
+- **El sellado se declara en la nota del `fasten`**, no como justificación: es una especificación
+  de fabricación que viaja con la unión, no una excepción a la regla.
+- **Cerrar = pieza soldada a < 3 mm de todo el borde del hueco.** Una pieza apoyada sin soldar no
+  cierra (el agua entra por la junta). Límite: una placa SOLDADA con un agujero del tamaño de la luz
+  daría «cerrado» (no se vio en ninguna máquina).
+- **El umbral de 3 mm es criterio de diseño** (D9), no una cita: EN 1672-2 / EN ISO 14159 piden
+  uniones continuas y sin cavidades, no una cifra de holgura. La ranura de 8 mm (#37) sigue
+  pasando.
+- El acceso de limpieza (tanque o túnel que no se abre, R3) sigue siendo del revisor.
+
+Cifras (mesa inox real con `higienico: true`, núcleo):
+
+- FALLA. 30 de 42 soldaduras con rendija: la repisa (240 mm en 4 549 mm medidos por larguero: los
+  cuatro bordes de las dos franjas de 1 101 mm), la cubierta (240 en 4 613 y 120 en 2 213), los 20
+  refuerzos (110 en 142) y los 4 casquillos (150 en 154,8). Las 4 patas abiertas arriba (la cubierta,
+  sin soldar, a 3 mm); los largueros, travesaños y refuerzos salen cerrados (a tope contra la pata o
+  el larguero, soldados). El revisor dio por «perimetrales» las de los refuerzos y los casquillos:
+  por la decisión de arriba, aquí fallan por 5 mm y por la sobremedida;
+- corregida (todas las soldaduras sin largo, la pata a tope contra la cubierta y soldada a ella):
+  OK. La mesa de soldadura Ø16 (sin el requisito): NO_APLICA;
+- la medida tarda ≈ 3 s en la mesa inox (42 soldaduras re-medidas fuera de la puerta, 20 tubos con
+  40 extremos); dentro de `reunir` reusa las uniones de la entrega;
+- testigos: sólo cambian la versión 24 → 25 y el ítem nuevo NO_APLICA, re-congelados a propósito.
