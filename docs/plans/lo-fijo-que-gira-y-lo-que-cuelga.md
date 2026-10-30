@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 medida (2026-10-30, bitácora) con ajustes vetables a D1–D4 y a las verificaciones de F1–F2; F1–F4 sin lanzar; D3 sólo tiene fuente de la comba, no del α térmico
+nota: F0 medida (2026-10-30, bitácora) con ajustes vetables a D1–D4 y a las verificaciones de F1–F2; F4 implementada (D5 = join_bolted criterio 8, D6 = $k en conjuntos), sin mergear; F1–F3 sin lanzar; D3 sólo tiene fuente de la comba, no del α térmico
 descripcion: La puerta frena una pieza atornillada al bastidor que gira con un eje, un peso colgado de un simple contacto y la banda modular tensada por catenaria, y join_bolted deja de poner una cabeza dentro de un tubo
 ---
 
@@ -351,3 +351,37 @@ altura y sobre su vertical: una rueda en su eje, un resguardo en su boca). Lo de
   `modelado` (resortes a gas) y la 8 (pasa). La F2 usa la ronda 6 (cuchillas y ductos); la 8 sólo
   pasa con la unión cuchilla ↔ ducto de la copia (2) agregada. Si no, que la F2 la dé por buena
   como FALLA real.
+
+### F4 (2026-10-30)
+
+D5 y D6. Sin `VERSION_REGISTRO` (no toca la puerta) ni testigos.
+
+- **D5 es el criterio 8, no el 7** (decisión, vetable): el 7 lo tomó la madera de
+  hallazgos-del-revisor F4 (D7) antes que esta fase. El sello pone 8 a todo `join_bolted` nuevo; los
+  logs con 1–7 regeneran idénticos (el criterio viaja en los params). Vive en
+  `commands/union_montable.py`, enchufado en `union_taller.criterio_taller` sólo con `criterio ≥ 8`:
+  - `asiento_real`: primero el asiento por las cajas, como el 7. Sólo si ahí falta la cara plana,
+    la huella sale de `kernel/contacto.zona_de_contacto` (función nueva: la caja de los tramos de la
+    sección OCCT, o de la cercanía con un hueco ≤ tol), si esa zona es un plano ⊥ a un eje del
+    mundo (≤ 0,6 mm de espesor). Una pieza girada en ángulo sigue con el error de siempre: la
+    tornillería de `join_bolted` sólo se orienta por ejes del mundo.
+  - `exigir_herraje_fuera`, ya medido el eje y antes de taladrar: la cabeza (alto `cabeza_k` hacia
+    afuera de la pieza agregada) dentro del sólido de la agregada, la base o una vecina; la cabeza
+    en un hueco CERRADO de la agregada (el rayo vuelve a entrar en ella más allá de la cabeza, salvo
+    que el hueco se abra a un costado, el `_abierto_al_costado` del criterio 4), y la arandela o la
+    tuerca dentro de la agregada. Lo de detrás de la base ya lo cubría el acceso (remache ciego).
+    Los agujeros previos del criterio 6 (pies MS1, brida) no se juzgan: el rayo pasaría por el
+    agujero.
+- **Sin `version` de `join_bolted`** (decisión): la regla «misma geometría con los MISMOS params»
+  no aplica. El criterio 8 es un valor nuevo de los params (otra clave de caché) y los 1–7 dan la
+  misma geometría; `_exec_join_bolted` no cambió, así que su huella D11 tampoco.
+  `test_d5_placa_sobre_placa_queda_igual_que_el_criterio_7` verifica que, donde el 7 ya
+  atornillaba, el 8 inserta lo mismo.
+- **D6** en `apolo/batch.py`: un valor con forma de conjunto (`+` o paréntesis, la sintaxis de
+  `exec_uniones.resolver_conjunto`) resuelve cada término `$k`/`$k_sufijo`, y `check_refs` los
+  revisa antes de tocar el documento. No toca una expresión (`=…`), un texto con espacios dentro
+  de un término ni la referencia de siempre a un id con `+` (`$1_+A1-K1`: es conjunto sólo con
+  dos o más `$k`). `exec_uniones.py` no cambió: el conjunto llega ya resuelto.
+- Tests: `tests/test_lo_fijo_reproductores.py` sin los «hoy» ni los `xfail`, más la regresión del
+  6 y el 7 en los dos casos de D5 (la cabeza sigue en el tubo y regenera igual; el perfil Z sigue
+  con «falta cara PLANA»). Seis tests que fijaban el vigente en 7 pasan a 8.

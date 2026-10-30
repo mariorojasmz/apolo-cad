@@ -88,6 +88,24 @@ def _medir(a, b, tol: float, cordon: bool) -> dict:
             "total_mm": round(total, 1), "forma": "perimetro"}
 
 
+def zona_de_contacto(shape_a, shape_b, tol_mm: float = 0.5) -> tuple | None:
+    """La CAJA (x0, y0, z0, x1, y1, z1) de la zona donde a y b se tocan (la de los tramos de su
+    sección, o de las aristas a ≤ tol con un hueco), o None si no se tocan. La usa `join_bolted`
+    (criterio 8, plan lo-fijo-que-gira-y-lo-que-cuelga D5) para hallar la cara de contacto de un
+    perfil en Z o una pieza girada, donde el solape de las cajas cae en un canto."""
+    r = medir_contacto(shape_a, shape_b, tol_mm, cordon=False)
+    if r["forma"] in ("separadas", "contenida"):
+        return None
+    tramos = _seccion(shape_a, shape_b)
+    if not tramos:
+        tramos = _por_cercania(shape_a, shape_b, float(tol_mm))
+    if not tramos:
+        return None
+    cajas = [t["caja"] for t in tramos]
+    return tuple(min(c[i] for c in cajas) if i < 3 else max(c[i] for c in cajas)
+                 for i in range(6))
+
+
 def _contenida(a, b) -> bool:
     """¿Una de las dos está ENTERA dentro de la otra? (caja dentro de caja y un vértice adentro)."""
     from OCP.BRepClass3d import BRepClass3d_SolidClassifier

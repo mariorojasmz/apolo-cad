@@ -251,7 +251,7 @@ def test_join_bolted_en_madera_lejos_de_la_testa_pasa():
                                      "position": {"x": 240, "z": 55}})
     cid = doc.execute("join_bolted", {"a": zap, "b": pata, "size": "M6", "count": 1})
     params = next(c for c in doc.commands if c["id"] == cid)["params"]
-    assert params["criterio"] == 7 and set(params["madera"]) == {pata, zap}
+    assert params["criterio"] == 8 and set(params["madera"]) == {pata, zap}
 
 
 def test_join_bolted_rechaza_el_tornillo_en_la_testa():

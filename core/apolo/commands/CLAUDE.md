@@ -133,7 +133,8 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   (a = 0.707·cateto). `a`/`b` aceptan CONJUNTOS (`exec_uniones.py`): raíz de patrón = sus
   copias `{raíz}_{n}` (sin la fuente), `+` y corte `(…)[i:j:k]`; una unión `{name}[k]` por
   instancia, re-expandida en cada regenerate. Dos piezas sueltas = el dict de siempre (un log
-  viejo regenera igual). [plan](../../../docs/plans/uniones-en-lote.md)
+  viejo regenera igual). En un lote, cada término `$k` se resuelve (`$1+$2`: `apolo/batch.py`).
+  [plan](../../../docs/plans/uniones-en-lote.md)
 - `join_bolted` (`exec_union.py`) taladra AMBAS piezas EN SITIO, inserta la fijación de catálogo
   y declara el `fasten` `jb_{cmd_id}`. Contacto y patrón por solape de cajas (borde ≥ 1.5·d, paso
   ≥ 2.5·d, n·m ≤ 100, asientos planos ≥ 50 % de la huella). Campo OCULTO `criterio`: 1 (log
@@ -148,7 +149,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   «*agujero*»: pies y brida del cilindro), atornilla por ellos (`union_agujeros.py`); 7 (todo
   comando nuevo, D7 de hallazgos-del-revisor) = el 6 que en las piezas de `madera` aleja el patrón
   4·d de la testa y 3·d del canto y rechaza el agujero bajo ese mínimo o el tornillo en la testa
-  (`union_madera.py`, la medida de la puerta) en vez de la tabla de chapas. Un criterio
+  (`union_madera.py`, la medida de la puerta) en vez de la tabla de chapas; 8 (todo comando nuevo,
+  D5 de [lo-fijo-que-gira](../../../docs/plans/lo-fijo-que-gira-y-lo-que-cuelga.md)) = el 7 que se
+  MONTA: si las cajas no dan la cara (perfil en Z), el asiento sale del contacto real
+  (`kernel/contacto.zona_de_contacto`), y ninguna cabeza, arandela ni tuerca cae dentro del material
+  o del hueco cerrado de un tubo (`union_montable.py`). Un criterio
   nuevo, no un cambio del viejo: el que cambia qué inserta `join_bolted` es un número más. Lo pone el SELLO de entrada (`CommandSpec.al_crear`,
   `doc/sello.py`), con `madera` = las piezas de madera al crear: el replay y los edits no sellan,
   por eso no hubo `version` ni epoch. Cambiar el criterio 1 rompe logs guardados. `arandela`

@@ -10,7 +10,10 @@ el canto de una muesca, una ranura o el extremo de una pieza más corta que su c
 F7b) es el 5 que, si una pieza YA trae sus agujeros en la huella (anclas «*agujero*»: los pies
 y la brida del cilindro), atornilla por ellos (`union_agujeros.py`). El 7 (hallazgos-del-revisor
 F4, D7) es el 6 que en las piezas de MADERA mide testa ≥ 4·d y canto ≥ 3·d, y el tornillo que
-roscaría en la testa, en vez de la tabla de chapas (`union_madera.py`).
+roscaría en la testa, en vez de la tabla de chapas (`union_madera.py`). El 8 (lo-fijo-que-gira
+D5) es el 7 que se puede MONTAR: asiento por el contacto real cuando las cajas no dan la cara
+(perfil en Z) y ninguna cabeza, arandela ni tuerca dentro del material o del hueco cerrado de un
+tubo (`union_montable.py`).
 
 Por cada punto del patrón se tira un RAYO por el eje del taladro (`kernel/rayo.py`) y se mide
 lo que el perno atraviesa de verdad:
@@ -44,6 +47,7 @@ from .models_union import JoinBoltedParams
 from .state import ExecContext
 from .union_agujeros import agujeros_previos, exigir_compatibles, puntos_de_medida
 from .union_madera import bordes_del_patron, exigir_madera
+from .union_montable import asiento_real, exigir_herraje_fuera
 
 _TOL_CONTACTO = 0.6  # mm: la pared de la base empieza donde termina la pieza agregada
 _MARGEN = 5.0        # mm: el taladro arranca fuera de la cara de la cabeza
@@ -241,7 +245,7 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
     from .registry import Feature
 
     h = huella(a.shape, b.shape, p.size)
-    st, size = h["stack"], h["size"]
+    size = h["size"]
     try:
         nut_m = hex_nut_mm(size)[1]
     except KeyError as exc:
@@ -251,10 +255,16 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
     nut_m = TUERCAS_DIN985.get(size, nut_m) if p.tuerca == "din985" else nut_m
     nut_m += ARANDELAS_DIN125.get(size, (0.0, 0.0, 0.0))[2] if p.arandela else 0.0
     # contacto cara a cara en el plano donde se tocan las cajas (V6.5c Fix 2): una pieza rotada
-    # o curva se rechaza pidiendo mates antes de tirar rayos
-    a_abajo = (h["amin"][st] + h["amax"][st]) <= (h["bmin"][st] + h["bmax"][st])
-    exigir_asiento(a.shape, h, h["amax"][st] if a_abajo else h["amin"][st], "contacto")
-    exigir_asiento(b.shape, h, h["bmin"][st] if a_abajo else h["bmax"][st], "contacto")
+    # o curva se rechaza pidiendo mates antes de tirar rayos; desde el criterio 8, si las cajas no
+    # dan la cara (perfil en Z), la del contacto real (`union_montable.asiento_real`)
+    if p.criterio >= 8:
+        h = asiento_real(h, a, b)
+    else:
+        st = h["stack"]
+        a_abajo = (h["amin"][st] + h["amax"][st]) <= (h["bmin"][st] + h["bmax"][st])
+        exigir_asiento(a.shape, h, h["amax"][st] if a_abajo else h["amin"][st], "contacto")
+        exigir_asiento(b.shape, h, h["bmin"][st] if a_abajo else h["bmax"][st], "contacto")
+    st = h["stack"]
     grueso = {f.id: f.shape.bounding_box().size.to_tuple()[st] for f in (a, b)}
     base, anadida = (b, a) if grueso[b.id] > grueso[a.id] + 1e-6 else (a, b)
     acceso = nut_m + 3.0 * paso_grueso(size) + LARGO_LIBRE_COPA_MM
@@ -284,6 +294,9 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
     for ref in (fij.ref, fij.tuerca, fij.arandela):
         if ref is not None and ref not in CATALOG:
             raise CommandError(f"Sin ficha de catálogo '{ref}' para {size}.")
+    rol = {"perno": "perno", "remache": "remache", "tornillo_madera": "tornillo"}[fij.tipo]
+    if p.criterio >= 8 and previos is None:  # D5: herraje fuera del material (`union_montable`)
+        exigir_herraje_fuera(h, base, anadida, puntos, medidas, fij, otros, rol)
     vistos = set()  # asientos planos (V6.5c Fix 2) en las cotas REALES de cada cara
     for m in medidas:
         clave = tuple(round(m[k], 2) for k in ("cabeza", "contacto", "atras"))
@@ -299,7 +312,6 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
     tuerca = hex_nut(fij.d, fij.tuerca_s, fij.tuerca_m)() if fij.tuerca else None
     arandela = (flat_washer(fij.arandela_d1, fij.arandela_d2, fij.arandela_h)()
                 if fij.arandela else None)
-    rol = {"perno": "perno", "remache": "remache", "tornillo_madera": "tornillo"}[fij.tipo]
     for n, (pt, m) in enumerate(zip(puntos, medidas, strict=True), start=1):
         _taladrar(base, anadida, fij, m, h, pt)
         rot = rotacion_hacia(st, -m["s"])  # la cabeza mira hacia afuera de la pieza agregada

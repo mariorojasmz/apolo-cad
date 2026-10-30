@@ -23,6 +23,10 @@ Dos criterios por el campo oculto `criterio` (`models_union.py`):
   MADERA (`madera`, del sello) juzga testa ≥ 4·d y canto ≥ 3·d y el tornillo que roscaría en la
   testa, con la medida de la puerta (`union_madera.py`), en vez de la tabla de chapas. Sólo
   rechaza: los 1–6 guardados regeneran igual (sin `version`).
+- **8** (el de todo comando nuevo, lo-fijo-que-gira-y-lo-que-cuelga F4, D5): el 7 que se puede
+  MONTAR (`union_montable.py`): asiento por la cara de contacto REAL cuando las cajas no la dan
+  (perfil en Z) y ninguna cabeza, arandela ni tuerca dentro del material o del hueco cerrado de un
+  tubo (error accionable). Los 1–7 guardados regeneran igual (sin `version`).
 
 `sellar` es el sello de entrada (`CommandSpec.al_crear`): un comando NUEVO nace con el criterio
 vigente, con las piezas que eran de madera al crearlo y con `arandela=True` (plan
@@ -39,7 +43,7 @@ from .errors import CommandError
 from .models_union import JoinBoltedParams
 from .state import ExecContext
 
-CRITERIO_VIGENTE = 7
+CRITERIO_VIGENTE = 8
 _AXNAME = {0: "X", 1: "Y", 2: "Z"}
 
 

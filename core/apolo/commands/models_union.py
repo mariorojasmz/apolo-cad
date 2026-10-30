@@ -10,7 +10,8 @@ de entrada (`exec_union.sellar`) a cada comando NUEVO:
   4 = el 3 con acceso por detrás en el ala de un perfil ABIERTO (perno + tuerca en un UPN);
   5 = el 4 que rechaza un agujero a menos de 1,2·d0 del canto real (EN 1993-1-8); 6 = el 5 por
   los agujeros que una pieza ya trae; 7 = el 6 que en MADERA pide testa ≥ 4·d y canto ≥ 3·d y
-  rechaza el tornillo que roscaría en la testa.
+  rechaza el tornillo que roscaría en la testa; 8 = el 7 con el asiento por el contacto real y
+  ninguna cabeza, arandela ni tuerca dentro del material o del hueco cerrado de un tubo.
   Un log viejo no lo trae → 1 → regenera con la MISMA tornillería y la misma firma.
 - `madera`: las piezas (a/b) que eran de madera al crear la unión (`set_material` o el vertical
   carpintería: metadatos del manifest que el regenerate no ve).
@@ -91,7 +92,7 @@ class JoinBoltedParams(BaseModel):
                     "o recibe golpes: no se afloja)",
     )
     # Fuera del schema: los pone el sello de entrada (docstring del módulo).
-    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=7)
+    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=8)
     madera: SkipJsonSchema[list[str]] = Field(default_factory=list, max_length=2)
 
     @field_validator("patron")

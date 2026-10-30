@@ -5,6 +5,7 @@ Compartido por la API HTTP, el agente en modo autónomo y el servidor MCP:
 creado por la k-ésima acción del mismo lote. '$k_<sufijo>' referencia a su hijo
 '{id del comando k}_<sufijo>': las piezas de un compuesto (`layout_tablero` crea
 `{cmd}_gabinete`, `{cmd}_d_<designación>`… y ninguna `{cmd}`; `insert_project`, `{cmd}_{orig}`).
+Dentro de un conjunto de `fasten` ('$1+$2', '($1+c57)[::2]') cada término '$k' se resuelve.
 """
 
 from __future__ import annotations
@@ -18,6 +19,15 @@ from apolo.doc import Document
 # decirles desde dónde se numera.
 DESDE_1 = "los resultados se numeran desde $1 (el primer comando del lote)"
 _REF_RE = re.compile(r"\$(\d+)(?:_(.+))?")
+# D6 de lo-fijo-que-gira-y-lo-que-cuelga: un CONJUNTO de `fasten` ('$1+$2', '($1+c57)[::2]',
+# sintaxis de `exec_uniones.resolver_conjunto`) lleva '$k' como TÉRMINO; cada término se resuelve
+# por separado. Sólo en un valor con forma de conjunto (con '+' o entre paréntesis), nunca en una
+# expresión ('=…') ni en texto libre (con espacios dentro de un término).
+_TERMINO = r"[^\s+()\[\]]+"
+_CONJUNTO_RE = re.compile(
+    rf"\(?\s*{_TERMINO}(?:\s*\+\s*{_TERMINO})*\s*\)?(?:\[[-\d:\s]*\])?"
+)
+_REF_EN_CONJUNTO = re.compile(rf"(?<![^\s+(])\$\d+(?:_{_TERMINO})?(?![^\s+)\[])")
 
 
 def _partes(value) -> tuple[int, str | None] | None:
@@ -30,7 +40,23 @@ def es_ref(value) -> bool:
     return _partes(value) is not None
 
 
+def _refs_en_conjunto(value) -> list[str]:
+    """Los '$k' que son términos de un conjunto ('$1+$2'); [] si `value` no es un conjunto.
+
+    '$1_perno1+$3' también calza ENTERO en `_REF_RE` (sufijo «perno1+$3»): es conjunto sólo si
+    trae más de un '$k'; si no, sigue siendo la referencia de siempre (un id con '+')."""
+    if not isinstance(value, str) or value.startswith("="):
+        return []
+    s = value.strip()
+    if ("+" not in s and not s.startswith("(")) or not _CONJUNTO_RE.fullmatch(s):
+        return []
+    refs = _REF_EN_CONJUNTO.findall(s)
+    return refs if len(refs) > 1 or not es_ref(value) else []
+
+
 def resolve_refs(value, created: list[str | None]):
+    if _refs_en_conjunto(value):
+        return _REF_EN_CONJUNTO.sub(lambda m: resolve_refs(m[0], created), value)
     if (partes := _partes(value)) is not None:
         idx = partes[0] - 1
         if idx < 0:
@@ -51,6 +77,8 @@ def resolve_refs(value, created: list[str | None]):
 def _refs(value):
     if es_ref(value):
         yield value
+    elif terminos := _refs_en_conjunto(value):
+        yield from terminos
     elif isinstance(value, list):
         for v in value:
             yield from _refs(v)

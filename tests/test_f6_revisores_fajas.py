@@ -115,7 +115,7 @@ def test_ala_de_upn_lleva_perno_y_tuerca():
     doc = Document("f6-upn")
     u, p = _upn_con_resguardo(doc)
     cid = doc.execute("join_bolted", {"a": u, "b": p, "size": "M8", "count": 2})
-    assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == 7  # vigente (hallazgos-del-revisor F4: madera)
+    assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == 8  # vigente (lo-fijo-que-gira F4: montable)
     piezas = _de(doc, cid)
     assert sorted(piezas) == [f"{cid}_arandela1", f"{cid}_arandela2", f"{cid}_perno1",
                               f"{cid}_perno2", f"{cid}_tuerca1", f"{cid}_tuerca2"]
