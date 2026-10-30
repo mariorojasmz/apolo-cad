@@ -19,7 +19,8 @@ Ids estables (familia):
   tensado reconocido y carrera suficiente); `transmision_flexible.de_su_comando` (función: toda
   cadena de rodillos sale de `create_chain`/`create_hoist_chain`, `cadenas.py`); `transmision.capacidad`, `elementos_rodantes.l10`,
   `accionamiento.factor_servicio`, `ingenieria.reglas`, `funcion.escenarios` y
-  `funcion.flujo_de_producto` y `higiene.limpiable` (función; sólo con el requisito `higienico`);
+  `funcion.flujo_de_producto`, `higiene.limpiable` (función; sólo con el requisito `higienico`) y
+  `movimiento.coherente` (función: ninguna unión rígida entre piezas que se mueven distinto);
 - `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
   (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado), `apoyo.capacidad`;
 - `fabricabilidad`, `material.conocido`, `bom.comprable`, `memoria.veredicto` y `diseno.soluciones_por_funcion`
@@ -77,6 +78,7 @@ from . import comprable as cp
 from . import contacto as ct
 from . import higiene as hg
 from . import material as mt
+from . import movimiento as mv
 from . import nombres as nb
 from . import puerta as p
 from . import resguardos as rg
@@ -84,7 +86,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "27"  # 27: higiene.limpiable (historial en historial_registro.py)
+VERSION_REGISTRO = "28"  # 28: movimiento.coherente (historial en historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -234,6 +236,7 @@ REGISTRO: tuple = (
     Fuente("mecanica", "apolo.services.calidad_mecanica:items_funcion_mecanica", _MECANICA),
     ca.ENTRADA,  # transmision_flexible.de_su_comando: la Entrada vive junto a su criterio
     hg.ENTRADA,  # higiene.limpiable: ídem (hallazgos-del-revisor-en-la-puerta D9)
+    mv.ENTRADA,  # movimiento.coherente: ídem (lo-fijo-que-gira-y-lo-que-cuelga D1)
     Entrada("fabricabilidad", "Cada pieza es de catálogo o un sólido con material y proceso",
             "una pieza a medida que no se puede cortar, mecanizar ni comprar",
             "criterio de diseño (DFM)", "proceso", hay("piezas", "el modelo no tiene piezas"),

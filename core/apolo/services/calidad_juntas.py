@@ -65,8 +65,10 @@ def _cuerpo_hijo(child: str, joints: dict) -> set[str]:
     return cuerpo
 
 
-def clasificar(doc) -> dict[str, dict]:
-    """{nombre de junta de giro: {accionada: bool, motivo, cuerpo: [ids]}}."""
+def clasificar(doc, tipos: tuple = GIRO) -> dict[str, dict]:
+    """{nombre de junta de giro: {accionada: bool, motivo, cuerpo: [ids]}}. `tipos` suma otras
+    juntas con el MISMO criterio (la `prismatica` de `movimiento.coherente`: el cilindro de un
+    escenario, un actuador padre o unido a su cuerpo)."""
     joints = doc.joints or {}
     escenarios = _escenarios(doc)
     actuadores = _actuadores(doc)
@@ -81,7 +83,7 @@ def clasificar(doc) -> dict[str, dict]:
             unidas.setdefault(j.get("child"), set()).add(j.get("parent"))
     out: dict[str, dict] = {}
     for nombre, j in joints.items():
-        if j.get("type") not in GIRO:
+        if j.get("type") not in tipos:
             continue
         cuerpo = _cuerpo_hijo(j.get("child"), joints)
         motivo = None

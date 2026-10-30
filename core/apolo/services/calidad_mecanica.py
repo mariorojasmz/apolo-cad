@@ -54,7 +54,8 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
     """Los ítems (`library/calidad/item.Item`) de agarre, distancia al borde y paso de los
     agujeros (F6), agujeros de las uniones declaradas (F3c), tensor y vida útil del documento.
     `reglas` = las de `engineering_check` si el llamador ya las tiene; `contexto` (el memo de la
-    corrida de la puerta, protocolo de las fuentes del registro) no lo usa."""
+    corrida de la puerta, protocolo de las fuentes del registro) guarda los pernos y sus ejes de
+    giro medidos (`calidad_movimiento.pernos_y_ejes`)."""
     from apolo.library.calidad.agarre import controlar_agarre
     from apolo.library.calidad.agujeros import controlar_agujeros
     from apolo.library.calidad.bordes import controlar_bordes
@@ -64,8 +65,7 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
 
     from .calidad_agujeros import insumos_agujeros
     from .calidad_bordes import insumos_bordes
-    from .calidad_ejes_giro import marcar_ejes
-    from .calidad_pernos import _Escena, insumos_pernos
+    from .calidad_movimiento import pernos_y_ejes
     from .calidad_tensores import lazos
     from .engineering_rules import servicio_declarado
 
@@ -75,9 +75,9 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
                     and c.category in _MOTORES for f in doc.scene.values())
     hay_uniones = any(f.get("kind", "perno") in ("perno", "soldadura")
                       for f in doc.fasteners.values())
-    esc = _Escena(doc.scene)
-    pernos = insumos_pernos(doc, escena=esc)
-    pasadores = marcar_ejes(doc, pernos, esc)  # D8 de hallazgos-del-revisor: el eje de giro
+    # D8 de hallazgos-del-revisor: el eje de giro; medido UNA vez en la corrida (también lo lee
+    # `movimiento.coherente`, lo-fijo-que-gira D1)
+    esc, pernos, pasadores = pernos_y_ejes(doc, contexto)
     return (controlar_agarre(pernos, pasadores)
             + controlar_bordes(*insumos_bordes(doc, pernos, esc))
             + controlar_agujeros(insumos_agujeros(doc))

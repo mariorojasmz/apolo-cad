@@ -46,7 +46,21 @@ def _juntas_que_mueven(doc, fid: str) -> tuple[str, ...]:
     return tuple(out)
 
 
-def uniones_entre_juntas(doc, pares: set | None = None) -> dict[frozenset, dict]:
+def de_cadena(doc):
+    """El predicado `fasten → bool` de las uniones que puso un super-comando de cadena (ver
+    `uniones_entre_juntas`): la cadena sigue a su pieza, no es una unión rígida."""
+    from apolo.library.calidad.cadenas import COMANDOS
+
+    from .calidad_cadenas import PREFIJOS_MESH
+
+    tipo = {c["id"]: c.get("type") for c in doc.commands}
+    mesh = {getattr(f, "command_id", None) for f in doc.scene.values()
+            if str(getattr(f, "mesh_key", None) or "").startswith(PREFIJOS_MESH)}
+    return lambda f: f.get("command_id") in mesh or tipo.get(f.get("command_id")) in COMANDOS
+
+
+def uniones_entre_juntas(doc, pares: set | None = None, *,
+                         tocan: bool = True) -> dict[frozenset, dict]:
     """{par de un `fasten`: {union, juntas: (de a, de b)}} de las uniones cuyas dos piezas mueve una
     junta DISTINTA (plan lo-que-se-mueve, D2): en una pose que las mueve distinto, ese `fasten` no
     excluye su choque. Sólo los pares de `pares` (None: todos). No entran los `fasten` de un
@@ -58,29 +72,26 @@ def uniones_entre_juntas(doc, pares: set | None = None) -> dict[frozenset, dict]
     interpenetración se mide contra la de diseño). Ni el par que ya se TOCA en la pose de diseño
     (`_se_tocan`): las dos mitades de una bisagra, un eje en su buje giran una contra otra y se
     tocan en todo el recorrido (la tapa de la mezcladora daba un choque falso a 95°); la unión
-    «artefacto» tapa un choque que en diseño no existe, y ésa sigue contando."""
-    from apolo.library.calidad.cadenas import COMANDOS
+    «artefacto» tapa un choque que en diseño no existe, y ésa sigue contando. Con `tocan=False`
+    tampoco se quita el par que se toca: `movimiento.coherente` (plan lo-fijo-que-gira D1a) juzga
+    justo ésos, porque todo par empernado se toca."""
     from apolo.library.checks import joint_pairs
 
-    from .calidad_cadenas import PREFIJOS_MESH
-
-    tipo = {c["id"]: c.get("type") for c in doc.commands}
-    de_cadena = {getattr(f, "command_id", None) for f in doc.scene.values()
-                 if str(getattr(f, "mesh_key", None) or "").startswith(PREFIJOS_MESH)}
+    es_de_cadena = de_cadena(doc)
     de_junta = joint_pairs(doc)
     excluidos, out = set(), {}
     for nombre, f in sorted(doc.fasteners.items()):
         par = frozenset((f["a"], f["b"]))
         if (pares is not None and par not in pares) or par in de_junta:
             continue
-        cid = f.get("command_id")
-        if cid in de_cadena or tipo.get(cid) in COMANDOS:
+        if es_de_cadena(f):
             excluidos.add(par)  # otra unión del mismo par no la destapa
             continue
         ja, jb = _juntas_que_mueven(doc, f["a"]), _juntas_que_mueven(doc, f["b"])
         if ja[:1] != jb[:1] and par not in out:  # distinta junta móvil: alguna no es `fija`
             out[par] = {"union": nombre, "juntas": (ja, jb)}
-    return {p: v for p, v in out.items() if p not in excluidos and not _se_tocan(doc, p)}
+    return {p: v for p, v in out.items()
+            if p not in excluidos and not (tocan and _se_tocan(doc, p))}
 
 
 #: Hasta esta distancia (mm) dos piezas se TOCAN en la pose de diseño (contacto o solape).

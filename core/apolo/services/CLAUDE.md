@@ -146,6 +146,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   la ingeniería repite va a los memos de la corrida (`engineering/memo_corrida.py`, abiertos con
   el de geometría: sólo lo puro e inmutable, la forma por `is`). Todo, IGUAL al recalculado: un
   atajo nuevo entra con su test de igualdad. [puerta-rapida](../../../docs/plans/puerta-rapida.md)
+- `movimiento.coherente` (`calidad_movimiento.py`) juzga los pares rígidos de
+  `uniones_entre_juntas(tocan=False)` (todo par empernado se toca) con la prueba de pose relativa y
+  la firma coaxial. Los pernos y sus ejes de giro se miden UNA vez por corrida (`pernos_y_ejes`,
+  memo del `contexto` por `is` del doc): un control nuevo que los necesite los pide ahí.
+  [lo-fijo-que-gira](../../../docs/plans/lo-fijo-que-gira-y-lo-que-cuelga.md) (D1)
 - Un detector de `puerta_hechos` usa el criterio de SU control: `vigas` = lo que
   `vigas_rules.detectar_vigas` calcula como viga (un riel o las patas de un tanque no son vigas:
   NO_APLICA, no SIN_EVALUAR). (F3c)

@@ -21,6 +21,8 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
   se compran enteros (`calidad_bom.insumo_bom`), lo juzga `bom.comprable`;
 - `higiene`: las soldaduras y los tubos abiertos de un equipo higiénico (`calidad_higiene`, sobre
   las mismas `uniones` medidas; None sin el requisito), lo juzga `higiene.limpiable`;
+- `movimiento`: cada unión rígida entre piezas que mueven juntas distintas, con su prueba de pose
+  (`calidad_movimiento`; None sin juntas de movimiento), lo juzga `movimiento.coherente`;
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
   balance-de-producto D9);
@@ -295,6 +297,13 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             limpieza = higiene(doc, kw.get("uniones")) if h["higienico"] else None
         except Exception as exc:  # noqa: BLE001 — aplica igual: SIN_EVALUAR con el porqué
             limpieza = {"error": f"{type(exc).__name__}: {exc}"[:200]}
+    with _cronometro(tiempos, "movimiento"):  # lo-fijo-que-gira D1: tras la fuente mecánica
+        from .calidad_movimiento import movimiento
+
+        try:  # sin juntas de movimiento no aplica: no se mide
+            mov = movimiento(doc, contexto) if h["elementos"]["juntas_de_movimiento"] else None
+        except Exception as exc:  # noqa: BLE001 — aplica igual: SIN_EVALUAR con el porqué
+            mov = {"error": f"{type(exc).__name__}: {exc}"[:200]}
     with _cronometro(tiempos, "sobrantes"):  # D7: sólo en esta puerta, tras las fuentes
         from .calidad_sobrantes import sobrantes as probar_sobrantes
 
@@ -314,7 +323,7 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos,
             "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or []),
             "cadenas": h["cadenas_de_rodillos"], "resguardos": h["resguardos_con_interruptor"],
-            "apoyos_compra": h["apoyos_de_compra"], "higiene": limpieza}
+            "apoyos_compra": h["apoyos_de_compra"], "higiene": limpieza, "movimiento": mov}
 
 
 # ------------------------------------------------------------------ la marcha (D13 de la fábrica)

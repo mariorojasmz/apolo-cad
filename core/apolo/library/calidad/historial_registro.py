@@ -55,5 +55,12 @@ madera sale de la tabla 3.3 de chapas; v27 (hallazgos-del-revisor F6, D9)
 es continua (sin largo, ISO 2553, o con un largo ≥ su línea de contacto) o declara su sellado
 sanitario, y cada extremo hueco de un tubo que se fabrica queda a < 3 mm de una pieza soldada a él
 en todo el borde de su hueco (`higiene.py`; la mesa inox con la repisa soldada 240 mm en 1 100 y la
-pata abierta bajo la cubierta ahora falla).
+pata abierta bajo la cubierta ahora falla); v28 (lo-fijo-que-gira-y-lo-que-cuelga F1, D1)
+`movimiento.coherente`: un perno, soldadura o pegado entre dos piezas que mueven juntas de movimiento
+distintas falla salvo que sea el eje de la junta, que las dos piezas sean coaxiales con ella
+(bisagra) o que la prueba de pose (3° o 3 mm) no las separe ni las solape; la pieza coaxial que gira
+unida a una quieta (alojamiento arrastrado) falla siempre, y el lazo cerrado o la junta de servicio
+prismática o con la bisagra en la pieza quieta son aviso justificable (`movimiento.py`; la lavadora
+con los resortes a gas quietos empernados a la puerta, la carcasa del motorreductor arrastrada y la
+chumacera −Y hija del eje ahora fallan).
 """

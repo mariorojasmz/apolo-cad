@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 medida (2026-10-30, bitácora) con ajustes vetables a D1–D4 y a las verificaciones de F1–F2; F4 implementada (D5 = join_bolted criterio 8, D6 = $k en conjuntos), sin mergear; F1–F3 sin lanzar; D3 sólo tiene fuente de la comba, no del α térmico
+nota: F0 medida (2026-10-30, bitácora) con ajustes a D1–D4 y a las verificaciones de F1–F2. MERGEADAS F4 (D5 = join_bolted criterio 8, D6 = $k en conjuntos) y F1 (D1 movimiento.coherente, registro v28, D1c afinado y vetable). Sin lanzar - F2 (D2) y F3 (D3+D4; D3 sólo tiene fuente de la comba, no del α térmico)
 descripcion: La puerta frena una pieza atornillada al bastidor que gira con un eje, un peso colgado de un simple contacto y la banda modular tensada por catenaria, y join_bolted deja de poner una cabeza dentro de un tubo
 ---
 
@@ -385,3 +385,46 @@ D5 y D6. Sin `VERSION_REGISTRO` (no toca la puerta) ni testigos.
 - Tests: `tests/test_lo_fijo_reproductores.py` sin los «hoy» ni los `xfail`, más la regresión del
   6 y el 7 en los dos casos de D5 (la cabeza sigue en el tubo y regenera igual; el perfil Z sigue
   con «falta cara PLANA»). Seis tests que fijaban el vigente en 7 pasan a 8.
+
+### F1 (2026-10-30)
+
+`movimiento.coherente` (familia función, registro v28): criterio puro en
+`library/calidad/movimiento.py`, insumo en `services/calidad_movimiento.py`, conectado en
+`puerta_publicacion.reunir` (tras las fuentes) y en `puerta_hechos` (`juntas_de_movimiento`: sin
+juntas giratoria, continua ni prismática, NO_APLICA). `uniones_entre_juntas` gana `tocan=False`
+(por defecto, la entrega sigue igual) y `calidad_juntas.clasificar` acepta la prismática. Los pernos
+y sus ejes de giro se miden UNA vez por corrida (`pernos_y_ejes`, memo del `contexto` compartido con
+la fuente mecánica): el eje sólo se mira si alguna candidata no sale OK por geometría.
+
+Orden de la regla (D1a, D1b y D1d tal como se aprobaron): eje → OK; las dos coaxiales (bisagra) →
+OK; la que se mueve es coaxial y la otra está quieta (alojamiento arrastrado) → FALLA aunque la pose
+pase; la prueba de pose relativa (3° o 3 mm) pasa → OK; sin medida → SIN_EVALUAR; si no pasa, D1c.
+
+- **D1c afinado (vetable).** Tal como estaba («perno de una junta de servicio en un par que no gira
+  coaxial → aviso») soltaba los 8 resortes a gas del `modelado`: las puertas de la lavadora son
+  juntas de servicio (los resortes son piezas a medida, no actuadores de catálogo). Los datos
+  separan los dos grupos: en el `modelado` la pose METE la puerta en el resorte (8–11 cm³); en los
+  compases de la mesa y el aro del recipiente de la mezcladora, la pose sólo las SEPARA (2,96 y
+  3 mm, volumen común 0). Queda: en una junta de servicio es AVISO justificable si la pose sólo
+  separa (el perno se quita para mover o cierra un lazo) o si la pieza QUIETA es la coaxial (la
+  bisagra de una pieza del tanque, que sí solapa 1 058 mm³); lo demás FALLA. Una junta accionada
+  FALLA siempre. Regla de la justificación: «unión rígida entre piezas que se mueven distinto».
+
+| máquina | resultado | casos |
+|---|---|---|
+| lavadora `modelado` | FALLA | 8 resortes a gas (servicio, solapan 8–11 cm³) |
+| lavadora `correccion1` | FALLA | carcasa del motorreductor y chumacera −Y (alojamiento arrastrado) |
+| lavadora `correccion2` y `3` | FALLA | chumacera −Y (alojamiento arrastrado) |
+| lavadora `correccion4`…`8` | OK | 20 candidatas c/u, todas coherentes |
+| mesa plegable (final y rondas 1–3) | SIN_EVALUAR | 4 palas OK (bisagra); 4 compases aviso (sólo separan) |
+| mezcladora (recipiente) | SIN_EVALUAR | aro ↔ caja de compuerta, aviso (prismática de servicio, separa) |
+| tanque agitador (final y v14) | SIN_EVALUAR | tapa ↔ bisagra de una pieza ×2, aviso (bisagra en la quieta) |
+| escalera de tijera (final y rondas), elevador, mezcladora `final2`, faja de motor central, rodillos por cadena, silla plegable | OK | — |
+| testigos | NO_APLICA | sin juntas de movimiento: sólo versión + ítem |
+
+- **Defectos sembrados**: `brazo_fijo_que_gira` (caso básico: un brazo hijo `fija` de un eje que
+  gira, empernado a la placa base: la pose lo separa o lo mete) y `brida_cara_a_cara` (el hueco de
+  la F0: la brida coaxial hija del eje, empernada cara a cara, pasa la pose y falla como alojamiento
+  arrastrado). Tests en `tests/test_movimiento_coherente.py`.
+- **Costo**: el insumo mide 1,5–27 s en la lavadora fuera de la puerta (sin el memo, con el eje
+  medido aparte); en la puerta los pernos ya los midió la fuente mecánica.

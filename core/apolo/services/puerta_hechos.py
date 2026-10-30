@@ -13,7 +13,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
   `tornilleria_madera` {tornillo} (el de madera sin hexágono que sólo mide la madera,
   `calidad_tornillos_madera`), `tornilleria_llave`, `supercomandos`, `piezas` {catalogo, a_medida}, `sustitutos_animados`
   {banda}, `partes_moviles`, `resguardos`, `consumibles`, `operables` (mandos, pilotos y sensores
-  que piden su nombre por función, por tipo). **Una familia de máquinas nueva suma
+  que piden su nombre por función, por tipo), `juntas_de_movimiento` {giratoria, continua,
+  prismatica} (`calidad_movimiento`). **Una familia de máquinas nueva suma
   aquí su clase** (p. ej. `transmisiones_flexibles["correa"]`), nunca un ítem al registro;
 - `familias_funcion`: {familia D15: [piezas]} (sólo las que el modelo tiene);
 - banderas: `pocos_solidos`, `sin_estudios`, `sin_poses`, `carril`, `escenarios`, `higienico`
@@ -135,6 +136,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from .calidad_cadenas import elementos as elementos_cadenas
     from .calidad_higiene import requiere as higienico
     from .calidad_juntas import clasificar
+    from .calidad_movimiento import juntas_de_movimiento
     from .calidad_pernos import tipo_de_tornilleria
     from .calidad_tensores import lazos_banda
     from .calidad_tornillos_madera import es_tornillo_de_madera
@@ -211,6 +213,8 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         # nombres-por-funcion D4: los mandos, pilotos y sensores que el ítem juzga, por tipo, con
         # el criterio de su control (`calidad/nombres.en_alcance`) sobre el insumo de la entrega
         "operables": elementos_operables(entrega_kwargs.get("nombres")),
+        # lo-fijo-que-gira D1: las juntas que mueven piezas (`movimiento.coherente`)
+        "juntas_de_movimiento": juntas_de_movimiento(doc),
     }
     return {
         "n_solidos": len(solidos),

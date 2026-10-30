@@ -186,6 +186,39 @@ def tubo_abierto_higienico(d):
     d.set_requirements({**(d.requirements or {}), "higienico": True})
 
 
+def brazo_fijo_que_gira(d):
+    """lo-fijo-que-gira D1: un brazo hijo `fija` del eje que gira (junta continua) y empernado a la
+    placa base quieta (la chumacera −Y de la lavadora, hija del eje motriz y empernada a su
+    ménsula): al girar 3° el brazo se separa o entra en la placa."""
+    eje = _caja(d, "Eje motriz", 20, 100, 20, 40, 60, 40)
+    brazo = _caja(d, "Brazo", 100, 30, 10, 100, 60, 17)
+    d.execute("add_joint", {"name": "giro_eje", "type": "continua", "parent": _id(d, "Placa base"),
+                            "child": eje, "origin": {"x": 40, "y": 60, "z": 40},
+                            "axis": {"x": 0, "y": 1, "z": 0}})
+    d.execute("add_joint", {"name": "brazo_en_eje", "type": "fija", "parent": eje, "child": brazo,
+                            "origin": {"x": 40, "y": 60, "z": 40}, "axis": {"x": 0, "y": 1, "z": 0}})
+    d.execute("fasten", {"name": "f_brazo", "a": brazo, "b": _id(d, "Placa base"), "kind": "perno",
+                         "size": "M8", "qty": 2})
+
+
+def brida_cara_a_cara(d):
+    """lo-fijo-que-gira D1d, el hueco de la F0: una chumacera de brida hija del eje que gira y
+    empernada CARA A CARA a la placa: girar en el plano de su cara no la separa ni la solapa (la
+    prueba de pose pasa), pero es coaxial con la junta y la placa no se mueve: alojamiento
+    arrastrado."""
+    eje = d.execute("create_cylinder", {"name": "Eje motriz", "radius": 12.5, "height": 80,
+                                        "position": {"x": 100, "y": -60, "z": 80}})
+    brida = d.execute("create_cylinder", {"name": "Chumacera de brida", "radius": 40,
+                                          "height": 15, "position": {"x": 100, "y": -60, "z": 19.5}})
+    eje_z = {"origin": {"x": 100, "y": -60, "z": 0}, "axis": {"x": 0, "y": 0, "z": 1}}
+    d.execute("add_joint", {"name": "giro_eje", "type": "continua", "parent": _id(d, "Placa base"),
+                            "child": eje, **eje_z})
+    d.execute("add_joint", {"name": "brida_en_eje", "type": "fija", "parent": eje, "child": brida,
+                            **eje_z})
+    d.execute("fasten", {"name": "f_brida", "a": brida, "b": _id(d, "Placa base"), "kind": "perno",
+                         "size": "M10", "qty": 4})
+
+
 def contrapeso_en_voladizo(d):  # 212 kg atornillados fuera de la huella de apoyo
     c = _caja(d, "Contrapeso", 300, 300, 300, 600, 0, 150)
     d.execute("fasten", {"name": "fc", "a": c, "b": _id(d, "Placa base"), "kind": "perno",
@@ -464,6 +497,10 @@ DEFECTOS = (
             {"apoyo.capacidad": FALLA}),
     Defecto("tubo_abierto_higienico", "mensula_atornillada", tubo_abierto_higienico,
             {"higiene.limpiable": FALLA}),
+    Defecto("brazo_fijo_que_gira", "mensula_atornillada", brazo_fijo_que_gira,
+            {"movimiento.coherente": FALLA}),
+    Defecto("brida_cara_a_cara", "mensula_atornillada", brida_cara_a_cara,
+            {"movimiento.coherente": FALLA}),
     Defecto("contrapeso_en_voladizo", "mensula_atornillada", contrapeso_en_voladizo,
             {"estructura.vuelco": FALLA}),
     Defecto("bloque_en_un_m6", "mensula_atornillada", bloque_en_un_m6,
