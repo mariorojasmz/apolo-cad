@@ -38,14 +38,15 @@ import math
 import re
 from dataclasses import dataclass, field
 
+from apolo.library.siglas_norma import SIGLAS_NORMA
+
 #: Separador de las piezas de un super-comando: «{comando} · {pieza}».
 SEPARADOR = " · "
 _INSTANCIA = re.compile(
     r"\s*\((?:\d+(?:\s*,\s*\d+)*|espejo|copia|[+\-−±]?\s*[XYZxyz])\)\s*$")
 _NUMERO_FINAL = re.compile(r"(\S*)\s+#?\d+$")
 #: Siglas de norma: el número que las sigue es la norma, no la instancia («DIN 933»).
-_NORMAS = {"DIN", "ISO", "EN", "ASTM", "AISI", "SAE", "ANSI", "ASME", "UNE", "JIS", "IEC",
-           "NTP", "BS", "GB", "NFPA", "AWS", "API", "IRAM", "ABNT", "NCh", "NOM"}
+_NORMAS = SIGLAS_NORMA
 _PARENTESIS_FINAL = re.compile(r"\s*\([^()]*\)\s*$")
 _TILDES = str.maketrans("áéíóúÁÉÍÓÚ", "aeiouAEIOU")
 NBSP = chr(0xA0)
