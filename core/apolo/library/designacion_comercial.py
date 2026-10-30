@@ -160,6 +160,46 @@ def nombre_de_compra(nombre: str | None) -> str:
     return _UBICACION_RE.sub("", nombre).strip() or nombre
 
 
+#: hallazgos-del-revisor D4: el CÓDIGO DE FABRICANTE de una compra sin norma, declarado como
+#: «tipo Marca código» («tipo Ganter GN 343.1 o eq.») o «(compra, Marca código)», o tras «ref.» /
+#: «código». La marca va con mayúscula y no es una sigla de norma; el código lleva un dígito.
+_SIGLAS_NO_MARCA = frozenset({
+    "DIN", "ISO", "EN", "ASTM", "AISI", "SAE", "ANSI", "ASME", "DN", "NPT", "BSP", "UNE", "NTP",
+    "JIS", "IEC", "IP", "PN", "NEMA", "UNC", "UNF", "M", "AWG", "HP", "PE", "PP", "PVC", "HDPE"})
+_MARCA = r"(?P<marca>[A-ZÄÖÜÁÉÍÓÚÑ][\wäöüáéíóúñ&.\-]*)"
+_CODIGO = r"(?P<codigo>(?:[A-Z]{1,5}[\s-]?)?\d[\w./\-]*)"
+_TIPO_RE = re.compile(rf"\btipo\s+{_MARCA}\s+{_CODIGO}")
+_ITEM_MARCA_RE = re.compile(rf"^{_MARCA}\s+{_CODIGO}(?:\s+o\s+(?:eq\w*\.?|similar))?$")
+_REF_RE = re.compile(r"\b(?:ref\.?|c[óo]d(?:igo|\.))\s*:?\s*(?P<codigo>[A-Z0-9][\w./\-]*\d[\w./\-]*)")
+#: el rol de una compra que se pide POR LARGO (D4): la varilla roscada, la barra, el perfil
+ROL_POR_LARGO = re.compile(r"^(varillas?|barras?|perfil\w*|tubos?|pletinas?|platinas?|cables?|"
+                           r"cadenas?|listones?)\b", re.I)
+
+
+def codigo_de_fabricante(nombre: str | None) -> str:
+    """«Ganter GN 343.1» si el nombre declara la marca y el código de lo que se compra (D4 de
+    hallazgos-del-revisor), '' si no. Nunca de una sigla de norma («AISI 304», «DN 40»)."""
+    texto = nombre or ""
+    for m in _TIPO_RE.finditer(texto):
+        if m.group("marca").upper() not in _SIGLAS_NO_MARCA:
+            return f"{m.group('marca')} {m.group('codigo')}"
+    for p in _PARENTESIS.finditer(texto):  # sólo junto a la marca: «(Tornillo 4x40)» no es código
+        items = _SEPARADOR.split(p.group(1).strip())
+        if not any(_ITEM_COMPRA.match(i) for i in items):
+            continue
+        for item in items:
+            m = _ITEM_MARCA_RE.match(item)
+            if m and m.group("marca").upper() not in _SIGLAS_NO_MARCA:
+                return f"{m.group('marca')} {m.group('codigo')}"
+    m = _REF_RE.search(texto)
+    return m.group("codigo") if m else ""
+
+
+def se_pide_por_largo(nombre: str | None) -> bool:
+    """¿La compra se pide por su largo (varilla, barra, perfil…)? Su fila lleva el largo (D4)."""
+    return bool(ROL_POR_LARGO.match(piece_role(nombre or "")))
+
+
 def designacion(nombre: str | None) -> str | None:
     """Lo que se pide en el mostrador: la cabeza hasta su última medida o número de norma
     («Perno M10x25 DIN 933 del tensado» → «Perno M10x25 DIN 933»; «Tornillo M6x16 DIN 933 tapa

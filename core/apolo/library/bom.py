@@ -18,6 +18,12 @@ Plan bom-de-compra-fiel (`bom_compra.py`): la chapa con ficha sale con espesor, 
 norma (D1); un perfil de catálogo, con su largo y su corte MEDIDOS, y la copia de un patrón
 agrupa con su original (D2); lo cortado de la misma ref con otros taladros no comparte fila y
 las filas que se describen igual llevan su `marca` (D3).
+
+Plan hallazgos-del-revisor-en-la-puerta (D4, D5): la compra que se pide por largo (varilla, barra:
+`se_pide_por_largo`) lleva el suyo (el nominal o, sin él, el MEDIDO); la compra con «tipo Marca
+código» lleva su `codigo`; la banda sin fin, su designación medida (`banda_lazo.campos_banda`); la
+madera, la norma que escribe su material; y un grupo «(compra)» es UNA fila (`compra_grupos`). Si
+cada fila alcanza para comprar o cortar lo juzga la puerta (`bom_comprable.motivo`).
 """
 
 from __future__ import annotations
@@ -28,7 +34,7 @@ import re
 
 from apolo.kernel.shapes import is_surface
 
-from .banda_lazo import es_banda, largo_de_lazo
+from .banda_lazo import campos_banda, es_banda, largo_de_lazo
 from .bom_compra import (
     campos_chapa,
     forma_de,
@@ -39,8 +45,11 @@ from .bom_compra import (
     volumen,
 )
 from .catalog import CATALOG
+from .compra_grupos import compras as compras_de_grupos
+from .compra_grupos import miembros as miembros_de_compra
 from .designacion_comercial import (
-    categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
+    categoria_de_compra, codigo_de_fabricante, designacion, es_comercial, nombre_de_compra,
+    norma_del_nombre, se_pide_por_largo,
 )
 from .incluidas import vastagos_incluidos
 from .largo_tornilleria import largo_de_compra_con_aviso, largo_nominal_a_medida
@@ -81,6 +90,19 @@ def _eslabones(comp, cut) -> str:
     return f" ({round(cut / paso)} eslabones)"
 
 
+def fila_de_grupo(c: dict, by_group: bool = False) -> dict:
+    """La fila de BOM de un grupo de compra (`compra_grupos.compras`, D5 de hallazgos-del-revisor):
+    ref `COMPRA`, su designación y los sólidos que trae en `incluye`."""
+    return {
+        "ref": COMPRA, "descripcion": c["designacion"], "categoria": c["categoria"],
+        "material": c["material"], "norma": c["norma"], "cantidad": c["cantidad"],
+        "longitud_mm": None, "peso_unitario_kg": c["peso_ud_kg"], "peso_total_kg": None,
+        "_rep": c["_rep"], "grupos_compra": list(c["grupos"]), "incluye": list(c["incluye"]),
+        **({"codigo": c["codigo"]} if c["codigo"] else {}),
+        **({"grupo": c["grupos"][0]} if by_group else {}),
+    }
+
+
 def bom_from_scene(scene: dict, default_material: str | None = None,
                    by_group: bool = False, incluidas: dict | None = None) -> list[dict]:
     """BOM agrupado por referencia+corte (catálogo) o firma geométrica (a medida).
@@ -99,11 +121,12 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
     for sid, quien in incluidas.items():
         if sid in scene:
             traen.setdefault(quien, []).append(scene[sid].name or sid)
+    de_grupo = miembros_de_compra(scene)  # D5: la compra en varios sólidos, una fila por grupo
     for sid, feat in scene.items():
         if is_surface(feat.shape) or getattr(feat, "is_guide", False):
             continue  # superficie desnuda o boceto-guía = geometría de construcción, no es pieza
-        if sid in incluidas:
-            continue  # viene con otra pieza de compra (su fila la nombra)
+        if sid in incluidas or sid in de_grupo:
+            continue  # viene con otra pieza de compra o en su grupo de compra (su fila la nombra)
         grp = getattr(feat, "group", None) if by_group else None
         component = getattr(feat, "component", None)
         if component and component in CATALOG:
@@ -178,8 +201,11 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             # material + volumen + bbox): patrones, espejos y copias idénticos colapsan
             # en una fila con su cantidad, sin confundir piezas DISTINTAS.
             key = ("__custom__", base, mat, round(vol, 1) if vol is not None else None, dims)
+            por_largo = comercial and se_pide_por_largo(base)  # D4: la varilla, por su largo
+            nominal = largo_nominal_a_medida(feat)
             if desig:  # la misma compra, venga de donde venga (F6)
-                key = ("__compra__", desig.lower(), mat, largo_nominal_a_medida(feat))
+                key = ("__compra__", desig.lower(), mat, nominal if nominal is not None or
+                       not por_largo else (dims[-1] if dims else None))
             if by_group:
                 key = key + (grp,)
             if key not in rows:
@@ -188,9 +214,10 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     largo = recorrido_mm(feat.shape) or largo
                 elif es_banda(feat.name) and (lazo := largo_de_lazo(feat.shape)):
                     largo = round(lazo, 1)  # la banda se compra por su LAZO, no por su caja
-                elif (nominal := largo_nominal_a_medida(feat)) is not None:
+                elif nominal is not None:
                     largo = nominal  # «Perno … M12x150»: se compra por 150, no por 157,5 medido
-                elif comercial and categoria_de_compra(base) not in ("pernos", "bandas"):
+                elif comercial and not por_largo and categoria_de_compra(base) not in (
+                        "pernos", "bandas"):
                     largo = None  # arandela, seeger, rodamiento: se piden por designación, sin corte
                 rows[key] = {
                     "ref": COMPRA if comercial else "A-MEDIDA",
@@ -208,6 +235,10 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     **({"grupo": grp} if by_group else {}),
                     **({"_donde": {}} if desig else {}),
                 }
+                if comercial and (codigo := codigo_de_fabricante(donde)):  # D4: «tipo Marca …»
+                    rows[key]["codigo"] = codigo
+                if comercial and es_banda(feat.name) and (b := campos_banda(feat.shape, mat)):
+                    rows[key].update(b)  # D4: la banda sin fin, por lo que mide (su lazo)
                 chapa = None if comercial else campos_chapa(feat, mat)
                 if chapa is not None:  # D1: espesor, desarrollo y norma de su ficha
                     fila = rows[key]
@@ -219,6 +250,8 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             rows[key]["cantidad"] += 1
             if desig:
                 rows[key]["_donde"][donde] = rows[key]["_donde"].get(donde, 0) + 1
+    for c in compras_de_grupos(scene, default_material):  # D5: un grupo «(compra)», una fila
+        rows[("__grupo_compra__",) + c["clave"]] = fila_de_grupo(c, by_group)
 
     out = []
     for row in rows.values():

@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23) y F3 (v24; el historial de versiones salió a calidad/historial_registro.py). En curso (agentes) - F2 (D4–D5) y F4 (D7); sin lanzar - F6 (D9) y F7
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23), F3 (v24; el historial de versiones salió a calidad/historial_registro.py) y F2 (v25, bom.comprable). En curso (agente) - F4 (D7); sin lanzar - F6 (D9) y F7
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -536,3 +536,69 @@ Cifras:
   otros 2 de la F0 no están anclados). Los 2 tacos de pared de la F0 ya no cuentan (no son apoyos).
   Esos 8 sin marcar se arreglan con la carga en el nombre o una justificación;
 - la puerta de la Ø28 tarda ≈ 2,2 s en `reunir` (sin gravedad ni sobrantes).
+
+### F2 (2026-10-29)
+
+D4 y D5 con los ajustes de la F0. Registro **v25** (F4 sube en paralelo: quien mergee renumera).
+
+- **D4** `bom.comprable` (familia proceso, `calidad/comprable.py`; el criterio por fila es
+  `library/bom_comprable.motivo`, puro; el insumo, `services/calidad_bom.insumo_bom` sobre la MISMA
+  BOM de `/api/bom` y del costeo):
+  - compra: norma o designación (`norma_del_nombre`), la designación MEDIDA de la banda sin fin o el
+    código de fabricante (`designacion_comercial.codigo_de_fabricante`: «tipo Marca código»,
+    «(compra, Marca código)» —sólo junto a la marca— o «ref. código»; una sigla de norma no es
+    marca). La que se pide por largo (`se_pide_por_largo`: varilla, barra, perfil, tubo, pletina,
+    cable, cadena, listón), además su largo;
+  - ref de catálogo: la ref es el código; la cortable, con su largo;
+  - chapa con ficha: espesor y desarrollo;
+  - a medida de METAL o MADERA (por la cabeza del material, antes del primer paréntesis: «lona …
+    (densidad asimilada a madera)» es lona): su norma. Caucho, lona, plástico y cable no la piden.
+- Lo que la BOM ahora lee (BOM, costeo y cédula: la misma fila):
+  - la compra por largo lleva el nominal o, sin él, el MEDIDO (la clave de la fila lo incluye):
+    la varilla M8 DIN 976-1 de la escalera sale con **482 mm** (antes, sin largo);
+  - la madera, la norma que ESCRIBE su material (`bom_compra.norma_de_madera`, desde
+    `norma_de_material`): «clase C16 (EN 338)» → «EN 338 C16», «EN 636-2», «EN 622-5»; una clase
+    pelada es EN 338 (C/D) o EN 14080 (GL). Sólo el material, en mayúsculas y con clases reales: «seca
+    en 12 %» o el «D10» de un tarugo no son norma;
+  - la banda sin fin lleva `designacion`, `ancho_mm` y `espesor_mm` medidos de su lazo
+    (`banda_lazo.campos_banda`: «Banda sin fin de PVC, ancho 600 mm × e=4 mm, lazo 8350.6 mm»),
+    sin tocar la descripción ni la geometría de `create_belt_conveyor` (sin bump);
+  - la compra con código lo lleva en `codigo`.
+- **D5** `library/compra_grupos.py`: un grupo cuyo nombre (último tramo) lleva «compra» en un
+  paréntesis se compra ENTERO. Sus miembros DIRECTOS no salen sueltos en BOM, costeo, cédula ni
+  lista de corte; una fila por grupo igual (misma designación —el nombre sin la marca ni el sufijo
+  «(n)»— y las mismas piezas por ref y volumen), con `grupos_compra` e `incluye`. Norma: la del
+  nombre o, si todos sus sólidos son de catálogo con la misma norma, ésa (las medias bisagras: EN
+  1935). Un grupo con un sólido taladrado por un `join_bolted` hacia una pieza de fuera falla
+  `bom.comprable` con el motivo (se lee de los `fasten` de cada `join_bolted`); la BOM igual lo
+  fusiona (la declaración manda; la puerta frena).
+- Defecto sembrado `compra_sin_designacion` (una bola «(compra)» en la ménsula). Tests en
+  `tests/test_bom_comprable.py` (escalera, mesa plegable y mesa de bolas reales: se saltan sin el
+  archivo).
+
+Decisiones vetables:
+
+- **El nombre de un grupo no admite comas** (`create_group`): «(compra, Marca código)» no se puede
+  escribir ahí; el código de un grupo va «tipo Marca código (compra)».
+- **Un metal sin base es FALLA** («acero zincado»: los 4 insertos roscados de la silla). La F0 los
+  contaba con lo no metálico; son piezas que se compran y piden «(compra)» con su código.
+- **El costo de un grupo** se estima como el de toda compra a mano (peso total × material × 3), no
+  como la suma de las fichas de sus sólidos: el precio es del kit, a cotizar.
+- La banda: tipo = su material; las capas no se inventan (el sólido no las dice).
+- La BOM fusiona un grupo «(compra)» aunque `join_bolted` lo taladre: la falla la da la puerta.
+
+Cifras (`bom.comprable` sobre los 9 finales, núcleo):
+
+- **70 filas en FALLA en 7 de 9** (pasan las dos mesas de soldadura; la Ø28 por «tipo Ganter GN
+  343.1»):
+  - 48 de madera sin norma ni clase (escalera 8, estantería 16, silla 24 con las tijeras y los
+    tarugos de haya): el modo de #21/#52;
+  - 4 de metal sin base (los insertos de la silla);
+  - 18 compras sin norma ni código: la bola y el pie de la mesa de bolas (#25/#29), la tuerca de
+    barril, los tacos S6, los 4 pies higiénicos, el sifón, los 5 del compás y 3 de regatones y
+    deslizadores PE. Los del compás y la bisagra se arreglan con D5.
+- Las 18 filas con la norma escrita en el material (mesa plegable 16, estantería 2) ya la leen.
+- La bisagra de la mesa plegable, con 4 grupos «Bisagra de pala 100 (compra)»: UNA fila de 4 (EN
+  1935) en vez de 4 + 4 medias bisagras.
+- **Testigos**: sólo la versión 24 → 25 y `bom.comprable` OK (faja 46 filas, rodillos 45, ménsulas
+  1 y 4), re-congelados a propósito.

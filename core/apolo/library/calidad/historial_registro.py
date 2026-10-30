@@ -41,5 +41,9 @@ anillo de retención) y no es un tirafondo ni un tornillo de madera (`ejes_giro.
 puerta F1, D1) `material.conocido`: una pieza a medida con un material sin densidad tabulada falla
 (se pesaba como acero: la tijera de «haya» de 6,9 kg en vez de 0,62); v24 (hallazgos-del-revisor
 F3, D6) `apoyo.capacidad`: cada pie, pata, garrucha, rueda o regatón anclado que se compra resiste
-su reacción × 1,5 con la carga de los requisitos (`apoyos.py`).
+su reacción × 1,5 con la carga de los requisitos (`apoyos.py`); v25 (hallazgos-del-revisor F2, D4 y
+D5) `bom.comprable`: cada fila de la BOM alcanza para comprar o cortar (compra con norma, designación
+o código de fabricante; varilla y perfil con largo; chapa con desarrollo; metal y madera a medida con
+norma) y un grupo «(compra)» sale en UNA fila y no admite taladros de `join_bolted` hacia fuera
+(`comprable.py`, `bom_comprable.py`, `compra_grupos.py`).
 """

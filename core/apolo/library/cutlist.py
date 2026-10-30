@@ -17,6 +17,8 @@ from collections import defaultdict
 
 from .bom import _base_name
 from .catalog import CATALOG
+from .compra_grupos import compras as compras_de_grupos
+from .compra_grupos import miembros as miembros_de_compra
 from .cutlist_medida import (
     dims_ordenadas, medidas, seccion_catalogo, texto_angulos, texto_corte,
 )
@@ -82,8 +84,9 @@ def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:
     groups: dict[tuple, dict] = {}
     memo: dict = {}
     con_su_ref = vastagos_incluidos(scene)  # V8.9 F2: el vástago se compra con su cilindro
+    de_grupo = miembros_de_compra(scene)  # D5 de hallazgos-del-revisor: se compra con su grupo
     for sid, f in scene.items():
-        if not getattr(f, "visible", True) or sid in con_su_ref:
+        if not getattr(f, "visible", True) or sid in con_su_ref or sid in de_grupo:
             continue
         comp = CATALOG.get(getattr(f, "component", None) or "")
         if comp is not None and not comp.cuttable:
@@ -145,8 +148,9 @@ def hardware_schedule(scene: dict) -> list[dict]:
     from .materials import density
 
     groups: dict[str, dict] = {}
+    de_grupo = miembros_de_compra(scene)  # D5: un grupo «(compra)» es una fila, como en la BOM
     for sid, f in scene.items():
-        if not getattr(f, "visible", True):
+        if not getattr(f, "visible", True) or sid in de_grupo:
             continue
         ref = getattr(f, "component", None)
         comp = CATALOG.get(ref or "")
@@ -193,6 +197,11 @@ def hardware_schedule(scene: dict) -> list[dict]:
                     "cantidad": 0, "peso_ud_kg": w_ud, "_rep": sid,
                 }
             g["cantidad"] += 1
+    for c in compras_de_grupos(scene, visibles=True):  # la misma fila que la BOM (D5)
+        groups["grupo:" + c["designacion"].lower() + repr(c["clave"][1])] = {
+            "ref": "COMPRA", "nombre": c["designacion"], "categoria": c["categoria"],
+            "material": c["material"], "norma": c["norma"], "cantidad": c["cantidad"],
+            "peso_ud_kg": c["peso_ud_kg"], "_rep": c["_rep"], "incluye": list(c["incluye"])}
     rows = list(groups.values())
     for r in rows:
         r["peso_total_kg"] = round(r["peso_ud_kg"] * r["cantidad"], 3)

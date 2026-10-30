@@ -200,6 +200,12 @@ def material_sin_tabla(d):  # hallazgos-del-revisor D1: un «cedro» se pesaba c
     d.set_material(_id(d, "Ménsula"), "cedro")
 
 
+def compra_sin_designacion(d):
+    """hallazgos-del-revisor D4: la bola de transferencia de la mesa de bolas, «(compra)» sin norma,
+    fabricante ni código: nadie sabe qué pedir."""
+    _caja(d, "Bola de transferencia Ø25 (compra)", 30, 30, 30, 0, 0, 37)
+
+
 def cadena_subdimensionada(d):  # ASA 40 simple con 3 kW a 60 rpm
     a, b = (d.execute("insert_component", {"component": "PINON-ASA40-1-Z15", "rotation": {"x": 90},
                                            "position": {"x": x, "y": 300, "z": 600}})
@@ -441,6 +447,8 @@ DEFECTOS = (
     Defecto("superficie_sin_espesor", "mensula", superficie_sin_espesor,
             {"fabricabilidad": FALLA}),
     Defecto("material_sin_tabla", "mensula", material_sin_tabla, {"material.conocido": FALLA}),
+    Defecto("compra_sin_designacion", "mensula", compra_sin_designacion,
+            {"bom.comprable": FALLA}),
     Defecto("cadena_subdimensionada", "mensula", cadena_subdimensionada,
             {"transmision.capacidad": FALLA}),
     Defecto("cadena_a_mano", "mensula", cadena_a_mano,

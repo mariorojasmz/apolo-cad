@@ -95,15 +95,16 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   bisectriz sólo en nodos de grado 2 (colineal → recto; α > 75° o grado ≠ 2 → tope).
   `Feature.miter` → BOM «∠45°/45°» y `cut_length` = longitud EXTERIOR.
   [devlog § V5.8](../../../docs/devlog.md)
-- **La lista de corte MIDE** (`cutlist_medida.py`): perfil de catálogo → largo exterior y corte
-  por extremo de `kernel/corte_barra.py` (lo declarado sólo se contrasta: `aviso`); chapa →
-  `Feature.chapa` + `chapa_ficha.desarrollo`, el mismo de `export_flat_pattern`. Sus textos de
-  corte son los del CSV y los planos. [plan](../../../docs/plans/lista-de-corte-medida.md) La
-  BOM lee la MISMA medida (`bom_compra.py`): chapa con ficha → espesor, desarrollo y norma; perfil
-  → largo y ∠ medidos (la copia de patrón agrupa con su original); misma ref con otro volumen
-  (taladros) → otra fila con su `marca`. [bom-de-compra-fiel](../../../docs/plans/bom-de-compra-fiel.md)
-  Pieza a medida de metal: la norma declarada gana; si no, la de su FORMA por el rol
-  (`bom_compra.norma_de_material`, también la chapa); sin base («acero zincado»), ninguna. (D3)
+- **La lista de corte MIDE** (`cutlist_medida.py`): perfil → largo exterior y corte por extremo
+  (`kernel/corte_barra.py`; lo declarado sólo se contrasta: `aviso`); chapa →
+  `chapa_ficha.desarrollo`, el de `export_flat_pattern`, del CSV y los planos.
+  [plan](../../../docs/plans/lista-de-corte-medida.md) La BOM lee la MISMA medida
+  (`bom_compra.py`; misma ref con otros taladros → otra fila con su `marca`).
+  [bom-de-compra-fiel](../../../docs/plans/bom-de-compra-fiel.md) A medida: la norma declarada
+  gana; si no, la de su FORMA (`norma_de_material`); la madera, la que escribe su material; sin
+  base («acero zincado»), ninguna. Cada fila alcanza para comprar o cortar (`bom_comprable.py`,
+  ítem `bom.comprable`) y un grupo «(compra)» es UNA fila en BOM, costeo y cédula
+  (`compra_grupos.py`; su nombre no admite comas: el código, «tipo Marca código»). (D3–D5)
 
 ## Materiales (`materials.py`)
 

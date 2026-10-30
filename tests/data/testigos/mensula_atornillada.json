@@ -3,7 +3,7 @@
  "descripcion": "ménsula unida a una placa base anclada con join_bolted M10: se aprueba",
  "tortura": false,
  "aprobado": true,
- "version_registro": "24",
+ "version_registro": "25",
  "firma": "689bff0ea93efa99e842",
  "items": {
   "entrega.semaforo": "OK",
@@ -32,6 +32,7 @@
   "transmision_flexible.de_su_comando": "NO_APLICA",
   "fabricabilidad": "OK",
   "material.conocido": "OK",
+  "bom.comprable": "OK",
   "memoria.veredicto": "OK",
   "diseno.soluciones_por_funcion": "NO_APLICA",
   "riesgos.electrico": "NO_APLICA",

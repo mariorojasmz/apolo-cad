@@ -17,6 +17,8 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
   mide la entrega y lo juzga `union.contacto_real` (plan uniones-que-tocan D1);
 - `apoyos_compra`: cada apoyo a tierra de compra con su reacción y su capacidad
   (`calidad_apoyos`, el detector de `puerta_hechos`), lo juzga `apoyo.capacidad`;
+- `bom`: las filas de la BOM que no alcanzan para comprar o cortar y los grupos «(compra)» que no
+  se compran enteros (`calidad_bom.insumo_bom`), lo juzga `bom.comprable`;
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
   balance-de-producto D9);
@@ -277,6 +279,13 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
         fuentes = items_de_fuentes(doc, registro, contexto, tiempos)
     with _cronometro(tiempos, "fabricabilidad"):
         fab = fabricacion(doc)
+    with _cronometro(tiempos, "bom"):  # hallazgos-del-revisor D4/D5: `bom.comprable`
+        from .calidad_bom import insumo_bom
+
+        try:
+            bom = insumo_bom(doc)
+        except Exception as exc:  # noqa: BLE001 — sin BOM: SIN_EVALUAR
+            bom = {"error": f"{type(exc).__name__}: {exc}"}
     with _cronometro(tiempos, "sobrantes"):  # D7: sólo en esta puerta, tras las fuentes
         from .calidad_sobrantes import sobrantes as probar_sobrantes
 
@@ -292,7 +301,7 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "acceso": kw.get("acceso_herramienta"), "electrico": kw.get("electrico"),
             "escenarios": kw.get("escenarios"), "nombres": kw.get("nombres"),
             "interna": interna, "memoria": memoria,
-            "fuentes": fuentes, "fabricacion": fab, "flujo": flujo,
+            "fuentes": fuentes, "fabricacion": fab, "bom": bom, "flujo": flujo,
             "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos,
             "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or []),
             "cadenas": h["cadenas_de_rodillos"], "resguardos": h["resguardos_con_interruptor"],

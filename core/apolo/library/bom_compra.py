@@ -68,6 +68,15 @@ _GRADO_EN_RE = re.compile(r"\b(S(?:235|275|355)(?:JR|J0|J2)?)\b", re.I)
 #: «Placa de cierre del tubo» es una placa
 _TUBO_RE = re.compile(r"^(tubos?|tuber[ií]as?|ca[ñn]os?)\b|\btubos?\s+(\d|ø|cuadrad|redond|"
                       r"rectangular|inox|de\s+acero|estructural|hss)", re.I)
+#: los metales de `materials.DENSITY_KG_MM3` (lo que pide norma o grado, D4)
+_METALES = {"acero", "acero inoxidable", "aluminio", "laton", "zinc"}
+#: la norma de un producto de madera escrita en su material: «EN 338», «EN 636-2», «DIN 68150»
+#: (en mayúsculas: «seca en 12 %» no es una norma)
+_NORMA_MADERA_RE = re.compile(r"\b(EN|ISO|DIN|UNE|NTP|NCh|JAS)\s*-?\s*(\d{2,6}(?:[-.]\d+)*)")
+#: la clase resistente de EN 338 (C14–C50, D18–D80) o EN 14080 (GL20–GL32): «D10» no es clase
+_CLASE_MADERA_RE = re.compile(r"\b(C(?:14|16|18|20|22|24|27|30|35|40|45|50)|"
+                              r"D(?:18|24|27|30|35|40|45|50|55|60|65|70|80)|"
+                              r"GL\s?(?:20|22|24|26|28|30|32)[hc]?)\b")
 _BARRA_RE = re.compile(r"^(barras?|varillas?|ejes?|pasador(es)?|redondos?|bul[oó]n(es)?|"
                        r"casquillos?|bujes?|espigas?|husillos?)\b|\bbarras?\s+(\d|ø|cuadrad|"
                        r"redond|maciz|lisa|hexagonal|calibrad)", re.I)
@@ -98,9 +107,13 @@ def norma_de_material(material: str | None, nombre: str | None, forma: str = "pl
        grado declarado entre paréntesis si es otro dato («ASTM A554 (AISI 304)»);
     2. un grado pelado declarado («A36» → «ASTM A36», «S355J2» → «EN 10025-2 S355J2»);
     3. sin norma: la de la FORMA del producto (`NORMA_FORMA`, si no `NORMA_CHAPA`) para el material
-       genérico o con su grado AISI declarado («acero inoxidable AISI 304»)."""
+       genérico o con su grado AISI declarado («acero inoxidable AISI 304»).
+
+    La madera, la norma que escribe su material (`norma_de_madera`, D4 de hallazgos-del-revisor)."""
     from .materials import _norm
 
+    if es_de_madera(material):
+        return norma_de_madera(material)
     textos = [t for t in (material, nombre) if t]
     norma = next((_limpio(m.group(1)) for t in textos if (m := _NORMA_RE.search(t))), "")
     grado = next((re.sub(r"\s+", " ", m.group(1).upper()) for t in textos
@@ -121,6 +134,41 @@ def norma_de_material(material: str | None, nombre: str | None, forma: str = "pl
     if base is None:
         return ""
     return f"{base} ({grado or GRADO[clave]})" if clave in GRADO else base
+
+
+def _cabeza_material(material: str | None) -> str:
+    """El material antes de su primer paréntesis: «lona poliéster (densidad asimilada a madera)»
+    es lona, no madera."""
+    return (material or "").split("(", 1)[0]
+
+
+def es_de_madera(material: str | None) -> bool:
+    """¿El material (por su cabeza) es una madera? La que pide norma o clase en la BOM (D4)."""
+    from .materials import es_madera
+
+    return es_madera(_cabeza_material(material))
+
+
+def es_de_metal(material: str | None) -> bool:
+    """¿El material (por su cabeza) es un metal? El que pide norma o grado en la BOM (D3, D4)."""
+    from .materials import _norm
+
+    return _norm(_cabeza_material(material)) in _METALES
+
+
+def norma_de_madera(material: str | None) -> str:
+    """La norma de la madera que ESCRIBE su material (D4 de hallazgos-del-revisor), '' si no la
+    escribe: la norma del producto («EN 636-2», «EN 622-5», «DIN 68150») con su clase resistente
+    («clase C16 (EN 338)» → «EN 338 C16»); una clase pelada es de EN 338 (C, D) o EN 14080 (GL).
+    Sólo el material: el nombre de una pieza de madera nombra la tornillería que la cruza."""
+    texto = material or ""
+    m = _NORMA_MADERA_RE.search(texto)
+    norma = f"{m.group(1).upper()} {m.group(2)}" if m else ""
+    c = _CLASE_MADERA_RE.search(texto)
+    clase = re.sub(r"\s+", "", c.group(1)) if c else ""
+    if not norma and clase:
+        norma = "EN 14080" if clase.startswith("GL") else "EN 338"
+    return f"{norma} {clase}".strip()
 
 
 def norma_de_chapa(material: str | None, nombre: str | None) -> str:

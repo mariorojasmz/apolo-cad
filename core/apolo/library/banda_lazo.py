@@ -65,6 +65,25 @@ def largo_de_lazo(shape) -> float | None:
     return largo if largo > 0 else None
 
 
+def campos_banda(shape, material: str | None) -> dict | None:
+    """{designacion, ancho_mm, espesor_mm} de una banda SIN FIN por lo que mide su lazo (D4 de
+    hallazgos-del-revisor-en-la-puerta: la fila de la BOM alcanza para pedirla), o None si no es
+    un lazo cerrado. Tipo = su material; las capas no se inventan (el sólido no las dice)."""
+    w = _ancho_lazo(caras_laterales(shape))
+    largo = largo_de_lazo(shape)
+    if w is None or largo is None:
+        return None
+    try:
+        t = float(shape.volume) / (largo * w)
+    except Exception:  # noqa: BLE001
+        return None
+    w, t, largo = round(w, 1), round(t, 1), round(largo, 1)
+    tipo = (material or "").strip()
+    tipo = tipo.upper() if len(tipo) <= 4 else tipo
+    return {"designacion": f"Banda sin fin de {tipo}, ancho {w:g} mm × e={t:g} mm, lazo {largo:g} mm",
+            "ancho_mm": w, "espesor_mm": t}
+
+
 def ancho_de_banda(shape) -> float | None:
     """Ancho (mm) de la banda: entre las caras laterales del lazo o, sin lazo, la menor cota
     horizontal de su caja."""
