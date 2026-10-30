@@ -19,9 +19,7 @@ import math
 from apolo.library import rodillos_cadena as rc
 from apolo.library import rodillos_cadena_bastidor as rb
 from apolo.library.catalog import CATALOG
-from apolo.library.rodillos_cadena_motriz import (
-    OREJA_T, OREJA_W, PERNO_OREJA, RANURA_OREJA, _a_xz,
-)
+from apolo.library.rodillos_cadena_motriz import OREJA_T, PERNO_OREJA, RANURA_OREJA, _a_xz
 
 from .receta_rodillos_bastidor import bujes, tornillo
 from .receta_rodillos_guardas import placa_xz
@@ -46,6 +44,21 @@ def _con_agujero(r, suf: str, rol: str, puntos: list, y0: float, y1: float, cent
                                                     "tools": [broca]})
 
 
+def _oreja(r, suf: str, rol: str, puntos: list, y0: float, y1: float, o: dict, pm: dict,
+           ang: float) -> str:
+    """Oreja con sus dos ranuras CERRADAS (v6): la placa y una caja por ranura, a lo largo de la
+    línea de centros (inclinadas `ang`°), se restan con `boolean_op`, cuyo resultado es la pieza
+    `suf`. La ranura abierta hasta el canto (v5) dejaba e < 1,5·d0 junto a su boca."""
+    bruto = placa_xz(r, f"{suf}_bruto", None, rol, puntos, y0, y1)
+    cajas = [r.pieza("create_box", f"{suf}_ranura{j}", None, "Ranura", {
+        "width": round(x["ancho"], 4), "depth": round(4.0 * (y1 - y0), 4),
+        "height": round(x["largo"], 4),
+        "position": r.pos(pm["x"] + x["centro"][0], (y0 + y1) / 2.0, pm["z"] + x["centro"][1]),
+        "rotation": {"x": 0, "y": round(ang, 4), "z": 0}}) for j, x in enumerate(o["ranuras"])]
+    return r.pieza("boolean_op", suf, "Patas", rol, {"operation": "cut", "target": bruto,
+                                                    "tools": cajas})
+
+
 def _tensor(r, d: rc.Disposicion, s: str, donde: str, oreja: str, pata: str, y_cara: float,
             lado: float) -> None:
     """E15: talón roscado bajo la oreja + tope en la pata + M10 que tira de la oreja hacia abajo
@@ -56,7 +69,7 @@ def _tensor(r, d: rc.Disposicion, s: str, donde: str, oreja: str, pata: str, y_c
     y_in = y_cara - lado * ot                   # cara interior de la oreja
     lejos = y_in - lado * TALON_Y               # cara del talón (y del tope) hacia la máquina
     ya, yb = sorted((y_in, lejos))
-    w0 = -OREJA_W                               # canto inferior de la oreja
+    w0 = -o["w_inf"]                            # canto inferior de la oreja
     nut = float(CATALOG["TUERCA-M10"].specs["thickness"])
     # tope + recorrido de tensado (con 2 de más) + contratuerca + rosca del talón
     largo = rb.largo_minimo("M10", TOPE_W + m.tensado_mm + 2.0 + nut + TALON_W)
@@ -113,7 +126,8 @@ def portamotor(r, d: rc.Disposicion, k: int, donde: str, patas: dict) -> str:
     puntos = [[pm["x"] + x, pm["z"] + z] for x, z in o["puntos"]]
     for s, rot, y0, y1, eje in (("m", "-Y", d.y_in_m, d.y_in_m + ot, "-y"),
                                 ("p", "+Y", d.y_in_p - ot, d.y_in_p, "y")):
-        oreja = placa_xz(r, f"oreja_{s}", "Patas", f"Oreja del portamotor ({rot})", puntos, y0, y1)
+        oreja = _oreja(r, f"oreja_{s}", f"Oreja del portamotor ({rot})", puntos, y0, y1, o, pm,
+                       m.angulo_deg)
         r.union(f"oreja_trav_{s}", oreja, trav, "soldadura", "oreja soldada al extremo del portamotor",
                 throat_mm=4, length_mm=4 * w)
         cara = y0 if s == "m" else y1

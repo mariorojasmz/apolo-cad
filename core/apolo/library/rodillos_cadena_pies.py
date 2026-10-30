@@ -282,7 +282,7 @@ def masa_estimada(d, pie: Pies) -> float:
         base = d.guardas["carter"]["base"]
         total += (_kg(m.motor) + _kg(m.pinon)
                   + RHO * (base["x1"] - base["x0"]) * (base["y1"] - base["y0"]) * BASE_MOTOR_T
-                  + 2.0 * RHO * _area(m.oreja["puntos"]) * OREJA_T + _guardas_kg(d))
+                  + 2.0 * RHO * m.oreja["area"] * OREJA_T + _guardas_kg(d))
     return total * MARGEN_MASA
 
 

@@ -7,8 +7,9 @@ portamotor se atornilla a las caras interiores de las patas con orejas soldadas 
 extremos, de ranuras paralelas a esa línea, y base, motor y cárter corren juntos. Recorrido:
 `+tensado_mm` (aleja el motor) ≥ la mitad del estirado de reemplazo (3 % del largo de la
 cadena → 1.5 % en centros; criterio de diseño de los fabricantes de cadena de rodillos,
-Tsubaki/Renold) y `−montaje_mm` (acerca) para montar el eslabón de unión. Una ranura de cada
-oreja abre arriba y la otra abajo: cada sentido lo frena el fondo de una.
+Tsubaki/Renold) y `−montaje_mm` (acerca) para montar el eslabón de unión. Las dos ranuras de
+cada oreja son CERRADAS (v6) y cada sentido lo frena el fondo de una: la de arriba, el
+acercamiento; la de abajo, el tensado. La oreja crece con el recorrido: cada canto a ≥ 1,5·d0.
 
 Con `velocidad_m_s` (D6) el piñón del motor sale de los ASA 40 SIMPLES del catálogo: el de
 la velocidad más cercana dentro de ±10 % que entre en el eje del motor y arme la motriz.
@@ -23,6 +24,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from .borde_agujero import E_RANURA
 from .catalog import CATALOG
 from .transmision import diametro_primitivo, eslabones_pares
 
@@ -45,10 +47,15 @@ MONTAJE_MM = 3.0           # acercar el motor para montar el eslabón de unión
 OREJA_T = 6.0              # chapa de la oreja del portamotor
 #: F9 (E15, `mantenimiento`): el cuello cuadrado del perno DIN 603 M10 (6,6) queda en la oreja
 OREJA_T_SERVICIO = 7.0
-OREJA_U = 35.0             # media anchura de la oreja (según û)
-OREJA_W = 75.0             # medio largo de la oreja (según ŵ)
+OREJA_U = 35.0             # media anchura MÍNIMA de la oreja (según û)
+OREJA_W = 75.0             # medio largo MÍNIMO de la oreja (según ŵ)
 PERNO_OREJA = "M10"
 RANURA_OREJA = 11.0        # paso de un M10
+#: El extremo de cada ranura que NO frena queda 1 mm más allá del recorrido: el tope es el
+#: fondo de la otra (la A frena el acercamiento de montaje; la B, el tensado).
+RANURA_LIBRE = 1.0
+#: Margen sobre e ≥ 1,5·d0 (ranura, EN 1993-1-8 tabla 3.3) con que la oreja dimensiona sus cantos.
+MARGEN_BORDE = 0.25
 W_PERNO = 50.0             # pernos de la oreja a ±50 mm del centro del tubo, según ŵ
 HOLGURA_GIRA = 3.0         # nada que no gire a menos de esto de lo que gira
 
@@ -187,25 +194,45 @@ def _a_xz(u: float, w: float, a: float) -> tuple[float, float]:
 
 
 def _oreja(tensado: float, a: float) -> dict:
-    """Oreja del portamotor en (û, ŵ) alrededor del centro del tubo, pasada a XZ. El perno A
-    (arriba) entra por una ranura que ABRE arriba y la cierra abajo el fondo que frena el
-    acercamiento de montaje; el B (abajo), por una que abre abajo y cuyo fondo frena el tensado.
-    Los dos caen sobre la vertical del centro de la pata (û = −ŵ·tan a)."""
+    """Oreja del portamotor en (û, ŵ) alrededor del centro del tubo, pasada a XZ. Los pernos caen
+    sobre la vertical del centro de la pata (û = −ŵ·tan a), cada uno en una ranura CERRADA a lo
+    largo de ŵ: el fondo inferior de la A frena el acercamiento de montaje y el superior de la B
+    el tensado (el otro extremo de cada una queda `RANURA_LIBRE` más allá).
+
+    Las ranuras son cerradas y la oreja se dimensiona con ellas: cada canto a e ≥ 1,5·d0 del eje
+    de su ranura (e3) y del extremo (e4; EN 1993-1-8 tabla 3.3, la medida de
+    `borde_agujero.medir_borde`). Abiertas hasta el canto (hasta la v5) el ligamento entre la
+    pared de la ranura y el canto, junto a la boca, tiende a cero: la puerta midió e = 16,02 <
+    16,5 mm en el rayo de 70°, y con más rayos habría medido menos."""
     r = RANURA_OREJA / 2.0
+    e = E_RANURA * RANURA_OREJA + MARGEN_BORDE  # e3, e4 ≥ 1,5·d0 (d0 = ancho de la ranura)
     ua, ub = -W_PERNO * math.tan(a), W_PERNO * math.tan(a)
-    wa_fondo = W_PERNO - MONTAJE_MM - r - 0.5  # 0.5 mm de más: el fondo no es el tope exacto
-    wb_fondo = -W_PERNO + tensado + r + 0.5
-    if wb_fondo >= wa_fondo - 10.0:
+    # 0.5 mm de más: el fondo que frena no es el tope exacto
+    wa0, wa1 = W_PERNO - MONTAJE_MM - r - 0.5, W_PERNO + tensado + r + 0.5 + RANURA_LIBRE
+    wb0, wb1 = -W_PERNO - MONTAJE_MM - r - 0.5 - RANURA_LIBRE, -W_PERNO + tensado + r + 0.5
+    if wb1 >= wa0 - 10.0:
         raise ValueError("el recorrido de tensado no cabe en las orejas del portamotor")
-    uw = [(-OREJA_U, -OREJA_W), (ub - r, -OREJA_W), (ub - r, wb_fondo), (ub + r, wb_fondo),
-          (ub + r, -OREJA_W), (OREJA_U, -OREJA_W), (OREJA_U, OREJA_W), (ua + r, OREJA_W),
-          (ua + r, wa_fondo), (ua - r, wa_fondo), (ua - r, OREJA_W), (-OREJA_U, OREJA_W)]
+    # el canto, a e del eje y de los extremos de las ranuras (e = ligamento + d0/2)
+    u_ext = max(OREJA_U, ub + e)
+    w_sup = max(OREJA_W, wa1 + e - r)
+    w_inf = max(OREJA_W, -wb0 + e - r)
+    uw = [(-u_ext, -w_inf), (u_ext, -w_inf), (u_ext, w_sup), (-u_ext, w_sup)]
+
+    def ranura(u, w0, w1, perno_w, frena):
+        esquinas = [(u - r, w0), (u + r, w0), (u + r, w1), (u - r, w1)]
+        return {"perno": _a_xz(u, perno_w, a), "frena": frena,
+                "centro": _a_xz(u, (w0 + w1) / 2.0, a), "largo": w1 - w0, "ancho": 2.0 * r,
+                "puntos": [[round(v, 4) for v in _a_xz(x, y, a)] for x, y in esquinas]}
+
+    ranuras = [ranura(ua, wa0, wa1, W_PERNO, "montaje"),
+               ranura(ub, wb0, wb1, -W_PERNO, "tensado")]
     return {
         "puntos": [[round(v, 4) for v in _a_xz(u, w, a)] for u, w in uw],
         "pernos": [_a_xz(ua, W_PERNO, a), _a_xz(ub, -W_PERNO, a)],
-        "ranuras": [{"perno": _a_xz(ua, W_PERNO, a), "abre": "arriba"},
-                    {"perno": _a_xz(ub, -W_PERNO, a), "abre": "abajo"}],
-        "medio_alto": OREJA_W * math.cos(a) + OREJA_U * math.sin(a),
+        "ranuras": ranuras,
+        "area": 2.0 * u_ext * (w_sup + w_inf) - sum(x["largo"] * x["ancho"] for x in ranuras),
+        "w_sup": w_sup, "w_inf": w_inf, "u_ext": u_ext,
+        "medio_alto": w_inf * math.cos(a) + u_ext * math.sin(a),
     }
 
 

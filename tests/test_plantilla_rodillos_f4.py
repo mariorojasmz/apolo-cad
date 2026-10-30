@@ -106,7 +106,7 @@ def test_el_recorrido_de_tensado_es_el_del_estirado_de_reemplazo():
         0.015 * m.eslabones * 12.7)
     assert m.montaje_mm == 3.0
     ranuras = m.oreja["ranuras"]
-    assert [r["abre"] for r in ranuras] == ["arriba", "abajo"]  # cada sentido lo frena una
+    assert [r["frena"] for r in ranuras] == ["montaje", "tensado"]  # cada sentido lo frena una
     for r in ranuras:  # los dos pernos caen sobre el eje de la pata
         assert r["perno"][0] == pytest.approx(0.0, abs=1e-6)
 

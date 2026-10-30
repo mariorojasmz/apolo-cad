@@ -103,7 +103,7 @@ def test_el_comando_nuevo_nace_con_taller_y_el_campo_no_se_publica(libre):
     assert libre.commands[0]["params"]["taller"] is True  # el sello de entrada
     spec = REGISTRY["create_roller_conveyor"]
     assert "taller" not in spec.model.model_json_schema()["properties"]  # criterio de Apolo
-    assert spec.version == 5  # entra por los params; v5 = F9 (v4: uniones-que-tocan)
+    assert spec.version == 6  # entra por los params; v6 = oreja cerrada (v5: F9)
     viejo = _doc({**LIBRE, "taller": False})  # lo que el cliente trae se respeta
     assert viejo.commands[0]["params"]["taller"] is False
 

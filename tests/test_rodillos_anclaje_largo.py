@@ -119,7 +119,7 @@ def test_sin_los_campos_la_plantilla_de_siempre(pie):
     assert v == pytest.approx(HUELLA[pie][1][0], rel=1e-6)
     assert c == pytest.approx(HUELLA[pie][1][1:], abs=0.5)
     spec = REGISTRY["create_roller_conveyor"]
-    assert spec.version == 5  # misma geometría con los mismos params: sin bump
+    assert spec.version == 6  # el anclaje no la sube (v6 = la oreja del portamotor)
     props = spec.model.model_json_schema()["properties"]
     assert props["anclaje_ref"]["enum"] == ["auto", *anclajes()]
 

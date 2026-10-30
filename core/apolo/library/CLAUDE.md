@@ -350,7 +350,8 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   roscada, se juzga su rosca. MADERA (`medir_madera`): testa ≥ 4·d y canto ≥ 3·d por la veta,
   criterio de diseño con los mínimos DESCARGADOS de EN 1995-1-1 tabla 8.4 (nunca citado como el
   extremo cargado); el tornillo que rosca en la testa falla aparte. Se mide la geometría, no la
-  huella. [hallazgos-del-revisor](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D7)
+  huella. Una ranura de perno ABIERTA al canto no cumple (junto a la boca el ligamento → 0): va
+  cerrada, a ≥ 1,5·d0 (oreja de `rodillos_cadena_motriz.py`). [hallazgos-del-revisor](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D7)
 - **El eje de una junta de giro va trabado** (`ejes_giro.py`, en `agarre.retencion`; medido en
   `services/calidad_ejes_giro.py`): eje = coaxial ± 1 mm Y toca sus dos cuerpos. Sin junta
   declarada no se juzga. [plan](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D8)

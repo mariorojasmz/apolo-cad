@@ -37,9 +37,10 @@ F8 = {"taller": True, "eje": "hexagonal", "pie": "base"}
 #: un log v4 (F8 sellado, sin `mantenimiento` ni `motor`): huella con el código de e7ab995
 HUELLA_V4 = {"libre": ((176, 212, "2e25259503a588a5"),
                        [10469859.28, 127349.36, -9527.6, 103850.38, 136650.64, 9527.6, 112421.42]),
+             # v6: la oreja del portamotor con ranuras CERRADAS y e ≥ 1,5·d0 (mismas piezas)
              "cadena": ((402, 502, "9b9dcc343ef4582c"),
-                        [32241799.25, 603614.6, 10836.29, 250111.19, 638891.95, 55159.12,
-                         271473.52])}
+                        [32246689.41, 603614.6, 10836.29, 250111.19, 638893.33, 55159.12,
+                         271477.3])}
 LOGS_V4 = {"libre": {"largo": 1500, "ancho_util": 400, "paso": 75, "motriz": "libre", **F8},
            "cadena": {"largo": 3000, "velocidad_m_s": 0.25, "carga_kg": 200, **F8}}
 
@@ -90,7 +91,7 @@ def test_el_comando_nuevo_nace_con_motor_auto_y_mantenimiento(piloto):
     p = piloto.commands[0]["params"]
     assert (p["motor"], p["mantenimiento"], p["union"]) == ("auto", True, "empernado")
     spec = REGISTRY["create_roller_conveyor"]
-    assert spec.version == 5
+    assert spec.version == 6  # v6: la oreja con ranuras cerradas
     props = spec.model.model_json_schema()["properties"]
     assert "mantenimiento" not in props and {"red_v", "union"} <= set(props)
     assert "auto" in props["motor"]["enum"]

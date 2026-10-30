@@ -132,6 +132,10 @@ SPECS_RODILLOS_CADENA = [
         # el checkpoint guarda los fasteners: todo log la corrige y la caché vieja vence.
         # v5 (F9): el executor pasa los campos nuevos (`red_v`, `union`, `mantenimiento`, `motor`
         # «auto») a la disposición; un log v4 (sin ellos) regenera idéntico (huella congelada).
-        version=5, al_crear=sellar,
+        # v6 (fix oreja): las ranuras de la oreja del portamotor son CERRADAS y la oreja se
+        # dimensiona con e ≥ 1,5·d0 (EN 1993-1-8 t. 3.3): abiertas, la puerta medía e = 16,02 <
+        # 16,5 mm junto a la boca. Cambia la geometría de todo log con motriz (sin rama nueva:
+        # la oreja vieja era un defecto); el executor no cambió, la huella sigue.
+        version=6, al_crear=sellar,
     ),
 ]

@@ -34,8 +34,9 @@ CADENA_3M = {"largo": 3000, "velocidad_m_s": 0.25, "carga_kg": 200}
 #: de F8: piezas, uniones y anclajes y la huella geométrica (volumen y caja de cada pieza)
 HUELLA_F7 = {"libre": ((180, 216, "8ed34ff4fd67ae75"),
               [12154585.4, 129949.36, -9927.6, 104060.38, 140050.64, 9927.6, 112631.42]),
-             "cadena": ((408, 508, "9efb703d6a2a41c7"),  # +1 unión: v4 de uniones-que-tocan
-              [34768888.5, 612014.6, 10370.99, 250411.19, 648491.95, 55893.82, 271773.52])}
+             # +1 unión: v4 de uniones-que-tocan; v6: la oreja del portamotor con ranuras CERRADAS
+             "cadena": ((408, 508, "9efb703d6a2a41c7"),
+              [34773778.61, 612014.6, 10370.99, 250411.19, 648493.33, 55893.82, 271777.3])}
 
 
 def _doc(params: dict) -> Document:
@@ -110,7 +111,7 @@ def test_el_comando_nuevo_nace_con_el_pie_de_base_y_el_campo_no_se_publica(libre
     assert (p["pie"], p["eje"], p["taller"]) == ("base", "hexagonal", True)
     spec = REGISTRY["create_roller_conveyor"]
     assert "pie" not in spec.model.model_json_schema()["properties"]
-    assert spec.version == 5  # entra por los params; v5 = F9 (v4: uniones-que-tocan)
+    assert spec.version == 6  # entra por los params; v6 = oreja cerrada (v5: F9)
     # un log F7 (con `taller` y `eje`, sin `pie`) lee «disco»; lo explícito se respeta
     assert spec.model.model_validate({**LIBRE, "taller": True, "eje": "hexagonal"}).pie == "disco"
     assert "pie" not in _doc({**LIBRE, "taller": False}).commands[0]["params"]

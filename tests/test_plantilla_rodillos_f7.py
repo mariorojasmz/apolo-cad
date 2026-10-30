@@ -37,8 +37,10 @@ CADENA_3M = {"largo": 3000, "velocidad_m_s": 0.25, "carga_kg": 200}
 #: uniones y anclajes (como `HUELLA_V3` de F6) y la huella geométrica (volumen y caja de cada pieza)
 HUELLA_F6 = {"libre": ((252, 288, "58f80d95432486cd"),
               [12351006.8, 183267.71, -10233.6, 155665.5, 194732.29, 10233.6, 165368.7]),
-             "cadena": ((528, 628, "2f1d7b28eebd7993"),  # +1 unión: v4 de uniones-que-tocan
-              [35212280.0, 790878.53, 12554.99, 336419.71, 829628.03, 59097.82, 359668.99])}
+             # +1 unión: v4 de uniones-que-tocan; v6: la oreja del portamotor con ranuras
+             # CERRADAS y crecida a e ≥ 1,5·d0 (mismas piezas y uniones, +4890 mm³, caja +1,9 en Z)
+             "cadena": ((528, 628, "2f1d7b28eebd7993"),
+              [35217170.2, 790878.53, 12554.99, 336419.71, 829629.41, 59097.82, 359672.77])}
 #: lo que forma el rodillo que se saca (el primero: la fuente de cada patrón)
 RODILLO = ("c1_eje", "c1_tubo", "c1_tapa_m", "c1_tapa_p", "c1_rod_m", "c1_rod_p", "c1_sep_m",
            "c1_sep_p")
@@ -126,7 +128,7 @@ def test_el_comando_nuevo_nace_con_el_eje_hexagonal_y_el_campo_no_se_publica(lib
     assert libre.commands[0]["params"]["taller"] is True
     spec = REGISTRY["create_roller_conveyor"]
     assert "eje" not in spec.model.model_json_schema()["properties"]
-    assert spec.version == 5  # entra por los params; v5 = F9 (v4: uniones-que-tocan)
+    assert spec.version == 6  # entra por los params; v6 = oreja cerrada (v5: F9)
     # un log F6 (con `taller`, sin `eje`) lee «roscado»; lo explícito se respeta
     assert spec.model.model_validate({**LIBRE, "taller": True}).eje == "roscado"
     assert _doc({**LIBRE, "eje": "roscado"}).commands[0]["params"]["eje"] == "roscado"
