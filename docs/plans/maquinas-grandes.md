@@ -1,6 +1,6 @@
 ---
-estado: borrador
-nota: F0 medida (2026-10-30, bitácora) y contrato por aprobar; sin fases lanzadas
+estado: en curso
+nota: F0 medida (2026-10-30, bitácora). Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29 «tú toma las decisiones a partir de ahora»); D1–D6 siguen vetables por Mario. F1 (D1) en curso; F2–F4 sin lanzar
 descripcion: En una máquina de ~700 piezas, editar el principio del log, delivery_check, check_interference, engineering_check y la puerta terminan en minutos y sin cortarse por tiempo, con los mismos resultados
 ---
 
