@@ -107,6 +107,25 @@ def agujeros_de(shape, colisos: bool = True) -> list[dict]:
     return [a for a in out if not any(absorbe(c, a) for c in cs)] + cs
 
 
+def agujeros_de_corrida(shape) -> list[dict]:
+    """`agujeros_de(shape)`, medido UNA vez por forma en la corrida de la puerta (plan
+    maquinas-grandes, D3: la entrega, las reglas de ingeniería y `union.agujeros` piden las mismas
+    piezas): memo por `is` de `engineering/memo_corrida`; fuera de una corrida, se mide siempre.
+    El acierto exige además el mismo `wrapped` y su `Location` (`move`/`locate` mueven en sitio:
+    `kernel/caja.py`). Cada llamada recibe sus propios dicts (nadie ensucia el memo)."""
+    from apolo.library.engineering.memo_corrida import por_forma
+
+    w = getattr(shape, "wrapped", None)
+
+    def medir():
+        return w, (None if w is None else w.Location()), tuple(agujeros_de(shape))
+
+    hecho = por_forma("agujeros", shape, medir)
+    if w is not None and (hecho[0] is not w or not hecho[1].IsEqual(w.Location())):
+        hecho = medir()  # movida en sitio tras medirla: lo de ahora, sin el memo
+    return [dict(a) for a in hecho[2]]
+
+
 def _mismo_eje(a: dict, b: dict) -> bool:
     if abs(a["d"] - b["d"]) > 0.3:
         return False
@@ -164,7 +183,7 @@ class _Medidor:
 
         if fid not in self._ag:
             try:
-                self._ag[fid] = agujeros_de(self.doc.scene[fid].shape)
+                self._ag[fid] = agujeros_de_corrida(self.doc.scene[fid].shape)
             except Exception:  # noqa: BLE001
                 self._ag[fid] = []
         return [a for a in self._ag[fid] if compatible(a["d"], d) and _en_zona(a, zona)]

@@ -83,10 +83,14 @@ class Filtro:
         except Exception:  # noqa: BLE001 — sin caras legibles: no se descarta nada
             caras = None
         try:
-            solidos = list(forma.solids())
+            from apolo.kernel.rayo import Rayos
+
+            # un `Rayos` por sólido: «¿está dentro?» por paridad, el clasificador sólo si duda
+            # (plan maquinas-grandes, D2), cargados una vez por forma y reporte
+            solidos = [Rayos(s) for s in forma.solids()]
             puntos = []
             for sol in solidos:
-                v = sol.vertices()
+                v = sol.solid.vertices()
                 if not v:
                     raise ValueError("sólido sin vértices")
                 puntos.append((v[0].X, v[0].Y, v[0].Z))
@@ -99,14 +103,13 @@ class Filtro:
 
     @staticmethod
     def _alguno_dentro(solidos, puntos) -> bool:
-        """¿Algún punto está dentro (o sobre) de algún sólido? (un sólido entero de la otra)."""
-        from OCP.BRepClass3d import BRepClass3d_SolidClassifier
-        from OCP.gp import gp_Pnt
+        """¿Algún punto está dentro (o sobre) de algún sólido (`kernel.rayo.Rayos`)? (un sólido
+        entero de la otra). Lanza lo que lance el clasificador: la pareja sigue."""
         from OCP.TopAbs import TopAbs_OUT
 
         for sol in solidos:
             for p in puntos:
-                if BRepClass3d_SolidClassifier(sol.wrapped, gp_Pnt(*p), 1e-6).State() != TopAbs_OUT:
+                if sol.estado(p) != TopAbs_OUT:
                     return True
         return False
 

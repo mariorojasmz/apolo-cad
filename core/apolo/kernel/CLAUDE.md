@@ -66,6 +66,11 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   `TShape` y `Location`, porque `move`/`locate` mueven el mismo `wrapped`). Sólo para LEER: no ve
   una geometría mutada dentro del mismo `TShape`. `tests/test_caja_memo.py` vigila los llamadores.
   [maquinas-grandes](../../../docs/plans/maquinas-grandes.md) (D1)
+- «¿Este punto está dentro?» en un bucle va por `rayo.Rayos(solid).estado/dentro`, un `Rayos` por
+  sólido: paridad de dos rectas oblicuas y, ante la menor duda (rasante, arista, tangente, sin
+  alternar entrar/salir, sólido al revés), el `BRepClass3d_SolidClassifier` cargado UNA vez; da
+  su mismo estado (`tests/test_rayo_paridad.py`). Armar el clasificador por consulta costaba
+  ~0,1 s en una pieza de 250 caras. (D2)
 - La barra que se corta (`corte_barra.py`): eje = las rectas que más largo suman, validado con
   la sección de la ficha; corte = caras que no cruzan la mitad y tocan el contorno EXTERIOR de un
   costado (un agujero no es corte). Lo que no es uno o dos planos convexos es «especial».

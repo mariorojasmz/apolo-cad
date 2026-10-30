@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 medida (2026-10-30, bitácora). Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29 «tú toma las decisiones a partir de ahora»); D1–D6 siguen vetables por Mario. F1 (D1) implementada en su rama, sin mergear (lavadora: replay 348 → 80 s, editar c86 → 54 s, 723/723 piezas y 649 fijadores iguales); F2–F4 sin lanzar
+nota: F0 medida (2026-10-30, bitácora). Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29 «tú toma las decisiones a partir de ahora»); D1–D6 siguen vetables por Mario. F1 (D1) implementada en su rama, sin mergear (lavadora: replay 348 → 80 s, editar c86 → 54 s, 723/723 piezas y 649 fijadores iguales). F2 (D2+D3) implementada en su rama sobre la F1, sin mergear (lavadora, CPU: barreno sin perno 103 → 3,4 s, delivery_check 172 → 66 s, puerta sin sobrantes 595 → 261 s, completa 1221 → 889 s; salida IGUAL); F3–F4 sin lanzar
 descripcion: En una máquina de ~700 piezas, editar el principio del log, delivery_check, check_interference, engineering_check y la puerta terminan en minutos y sin cortarse por tiempo, con los mismos resultados
 ---
 
@@ -330,3 +330,47 @@ tres corridas en paralelo (cada una de un hilo), por eso manda el CPU:
   `scripts/testigos.py --en-proceso`: los cuatro IGUAL, sin re-congelar.
 - Lo que queda del replay (~60 s de CPU): las cajas que sí cambian (19,6 s: la pieza recién
   taladrada), `drill_hole`, `run_script` y las booleanas de `join_bolted`; fuera de este plan.
+
+### F2 (2026-10-30)
+
+- **D2** (`kernel/rayo.py`): `Rayos.estado(p)` cuenta los cortes de dos rectas oblicuas enteras
+  (t ∈ [−L, L], L desde una caja holgada) con el `IntCurvesFace` ya cargado. Una recta es limpia
+  si ningún corte está sobre la frontera de su cara (`State` ≠ IN: arista o vértice), ninguno es
+  tangente, ninguno cae a < 1e-4 del punto ni de otro corte y las transiciones de OCCT alternan
+  entrar/salir empezando por entrar (un corte perdido o doble, o un sólido al revés, no alternan).
+  Dos rectas limpias que coinciden deciden; una recta sin cortes sólo da «fuera» si el sólido está
+  bien orientado (una recta por el centro de su caja empieza entrando). Si no, el
+  `BRepClass3d_SolidClassifier` cargado una vez (`Load` + `Perform`, tolerancia 1e-6). Lo usan
+  `dentro`, `tramos` y `Filtro._alguno_dentro` (un `Rayos` por sólido en el `_datos` de cada forma);
+  `calidad_extremos._dentro_de` guarda su `Rayos` por sólido entre las consultas de un extremo (antes
+  armaba uno por punto). Una regla en `kernel/CLAUDE.md`.
+- **D3** (`services/calidad_agujeros.agujeros_de_corrida`): `agujeros_de` por `memo_corrida.por_forma`
+  (`is`), con el mismo `wrapped` y su `Location` (`move`/`locate` en sitio miden de nuevo); cada
+  llamada recibe copias de los dicts. Fuera de una corrida, como siempre.
+- Tests: `tests/test_rayo_paridad.py` (estado igual al clasificador por consulta en caja, caja
+  girada, tubos redondo y rectangular, chapa con ventanas, hueco cerrado, esfera, pieza taladrada y
+  los sólidos de `mensula_atornillada`: 300 puntos al azar + vértices, medios de arista, centros de
+  cara y a ±1e-7, ±1e-5 y ±0,3 de cada cara; frontera, sólido al revés, rectas que difieren,
+  intersector que falla; el memo por `is`, movida en sitio, copia que se ensucia y el documento con
+  una pieza cambiada). Sin versión de executor ni `GEOM_CACHE_EPOCH` (misma salida), sin
+  `VERSION_REGISTRO`.
+
+Lavadora final, escritorio, abierta en caliente (`final.geom` de la F0), en la misma sesión. Antes
+= el árbol de la F1 (5154d65) exportado aparte; las corridas en paralelo (de a 4, cada una de un
+hilo): manda el CPU.
+
+| etapa | antes (F1) CPU s | F2 CPU s | igualdad |
+|---|---|---|---|
+| `agujeros_atribuidos` (lint «barreno sin perno») | 108,4 (con la carga del catálogo) · 103,2 dentro de los lints | 3,4 (`medir_maquinas_grandes.py`) | 57 KB de salida IGUAL |
+| `/api/checks` lints | 103,2 | 3,3 | IGUAL |
+| interferencia global | 19,8 | 17,8 | IGUAL |
+| `delivery_check` (sin gravedad) | 171,6 (lints 107,4) | 65,6–69,2 (lints 3,7) | IGUAL, VERDE |
+| puerta sin gravedad, marcha ni sobrantes | 595,4 (`entrega` 210 · `fuentes.mecanica` 266) | 260,8 (`entrega` 90 · `fuentes.mecanica` 23) | 42 ítems IGUALES |
+| puerta completa sin gravedad ni marcha | 1220,7 (`sobrantes` 692 · `fuentes.mecanica` 256 · `entrega` 206) | 889,2 (`sobrantes` 714 · `fuentes.mecanica` 22 · `entrega` 84) | 42 ítems IGUALES |
+
+La igualdad compara la salida entera (`delivery_report`, los lints, `interference_report`, los
+insumos de `agujeros_atribuidos` y `evaluar` de la puerta con su evidencia), sin los campos de
+tiempo (`ms`, `ms_*`). Gate: `lint_agujeros_atribuidos` ≤ 10 s ✔ (3,4), `entrega` ≤ 90 s ✔ (66–69),
+puerta sin sobrantes ≤ 300 s ✔ (261). `scripts/testigos.py --en-proceso`: los cuatro IGUAL, sin
+re-congelar. Lo que queda de la puerta es `sobrantes` (~700 s, intacto: codo y apoyo, F4 y la F2
+de puerta-rapida) y `fuentes.seguridad` (~100 s).

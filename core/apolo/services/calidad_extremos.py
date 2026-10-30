@@ -68,16 +68,22 @@ def _solapa(caja, lo, hi) -> bool:
     return all(caja[0][i] <= hi[i] and lo[i] <= caja[1][i] for i in range(3))
 
 
-def _dentro_de(vecinas: dict, piezas: dict, q) -> str | None:
-    """La pieza (de `vecinas`) en cuyo material cae el punto `q`, o None."""
+def _dentro_de(vecinas: dict, piezas: dict, q, rayos: dict | None = None) -> str | None:
+    """La pieza (de `vecinas`) en cuyo material cae el punto `q`, o None. `rayos` guarda el
+    `Rayos` de cada sólido entre consultas (por `id` con `is`: core/apolo/CLAUDE.md)."""
     from apolo.kernel.rayo import Rayos
 
+    rayos = {} if rayos is None else rayos
     for i, sols in sorted(vecinas.items()):
         lo, hi = piezas[i].caja
         if not all(lo[a] <= q[a] <= hi[a] for a in range(3)):
             continue
-        if any(Rayos(sol).dentro(q) for sol in sols):
-            return i
+        for sol in sols:
+            hit = rayos.get(id(sol))
+            if hit is None or hit[0] is not sol:
+                hit = rayos[id(sol)] = (sol, Rayos(sol))
+            if hit[1].dentro(q):
+                return i
     return None
 
 
@@ -116,9 +122,10 @@ def medir_extremo(dc: dict, ext: dict, gira: set[str]) -> dict:
         return i in gira or es_tornilleria(piezas[i])
 
     # la punta metida DENTRO de un apoyo (el collar del inserto la rodea): no sobresale
+    rayos: dict = {}
     for n in range(N_AXIAL):
         q = _punto(centro, k, e + s * _FUERA_MM, r + _A_R, 2.0 * math.pi * n / N_AXIAL)
-        dueno = _dentro_de({i: v for i, v in vecinas.items() if not mueve(i)}, piezas, q)
+        dueno = _dentro_de({i: v for i, v in vecinas.items() if not mueve(i)}, piezas, q, rayos)
         if dueno is not None:
             hits[n] = (_FUERA_MM, dueno)
     en_saliente = sorted({piezas[h[1]].nombre for h in hits if h is not None and mueve(h[1])})
