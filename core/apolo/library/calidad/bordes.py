@@ -24,6 +24,18 @@ perno. La barra ROSCADA (el perno enrosca en ella) sí se juzga, por su rosca en
 contratuerca sólo mira la tuerca); poco hilo es FALLA del mismo ítem. Un perno modelado sin su
 agujero (`sin_agujero`) o una pared que no se reconoce (`sin_medida`) es «no se pudo ver»: si
 nada se midió, el ítem sale SIN_EVALUAR; si otros sí, cuenta y se publica con el número.
+
+**Madera** (plan hallazgos-del-revisor-en-la-puerta, D7): los agujeros con `madera: True` no
+entran en `borde.distancia`; los juzgan dos controles con la medida de
+`library/borde_agujero.medir_madera` (criterio y citas en su docstring):
+
+- **borde.madera**: testa ≥ 4·d y canto ≥ 3·d. FALLA nombra la pieza, el perno, el lado y la
+  distancia medida y la pedida;
+- **borde.testa**: ningún tornillo ni tirafondo rosca en la testa (eje a < 45° de la veta). Un
+  perno pasante a lo largo de la veta (`a_lo_largo`) sólo se cuenta.
+
+Un tornillo de madera sin geometría reconocible (`sin_geometria`, con su `n`) se cuenta y nunca
+bloquea: la madera ya la midió lo que sí se reconoce.
 """
 
 from __future__ import annotations
@@ -31,6 +43,10 @@ from __future__ import annotations
 from .item import FALLA, MAX_CASOS, NO_APLICA, OK, SIN_EVALUAR, Item, recortar
 
 NORMA = "EN 1993-1-8, tabla 3.3"
+NORMA_MADERA = ("criterio de diseño: 4·d a la testa y 3·d al canto (mínimos descargados a3,c y "
+                "a4,c de EN 1995-1-1, tabla 8.4)")
+NORMA_TESTA = ("criterio de diseño (EN 1995-1-1 §8.3.2(4): un clavo en la testa no transmite "
+               "carga axial)")
 _CONTROLES = {
     "distancia": ("borde.distancia", "Cada agujero de perno en chapa o ala a ≥ 1,2·d0 del "
                   "canto libre (≥ 1,5·d0 si es ranura); en una barra roscada, rosca ≥ k·d",
@@ -38,6 +54,12 @@ _CONTROLES = {
                   "con la carga", NORMA),
     "paso": ("borde.paso", "Agujeros de perno de una misma pieza a un paso ≥ 2,2·d0",
              "dos agujeros tan juntos que el ligamento entre ellos se rompe", NORMA),
+    "madera": ("borde.madera", "Cada perno o tornillo en madera a ≥ 4·d de la testa y ≥ 3·d "
+               "del canto", "la madera se raja a lo largo de la veta entre el agujero y la testa "
+               "o el canto", NORMA_MADERA),
+    "testa": ("borde.testa", "Ningún tornillo ni tirafondo rosca en la testa de la madera",
+              "la rosca metida a lo largo de la veta corta las fibras y el tornillo se arranca",
+              NORMA_TESTA),
 }
 _NO_JUZGADOS = ("anillo", "barra", "de_catalogo", "abertura")
 _NO_VISTOS = ("sin_agujero", "sin_medida")
@@ -142,5 +164,80 @@ def _paso(pasos: list[dict]) -> Item:
                 detalle=f"los {len(pasos)} pares de agujeros cumplen")
 
 
+def _caso_madera(a: dict) -> dict:
+    return {"perno": a.get("perno"), "perno_nombre": a.get("perno_nombre"),
+            "pieza": a.get("pieza"), "nombre": a.get("nombre"), "lado": a.get("lado"),
+            "distancia_mm": a.get("distancia"), "requerido_mm": a.get("requerido"),
+            "d_mm": a.get("d"), "testa_mm": a.get("testa"), "canto_mm": a.get("canto"),
+            "sin_veta": a.get("sin_veta"), "centro": a.get("centro")}
+
+
+def _cuenta(agujeros: list[dict], estados: tuple) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for a in agujeros:
+        if a["estado"] in estados:
+            out[a["estado"]] = out.get(a["estado"], 0) + int(a.get("n") or 1)
+    return out
+
+
+def _madera(agujeros: list[dict]) -> Item:
+    iid, titulo, modo, norma = _CONTROLES["madera"]
+    if not agujeros:
+        return Item(iid, titulo, NO_APLICA, modo, norma, detalle="ningún perno ni tornillo en "
+                    "una pieza de madera del taller")
+    medidos = [a for a in agujeros if a["estado"] == "medido"]
+    malos = sorted((a for a in medidos if not a.get("cumple", True)),
+                   key=lambda a: a["distancia"] / max(a["requerido"], 1e-9))
+    otros = _cuenta(agujeros, ("en_testa", "a_lo_largo", "abertura", "sin_medida",
+                               "sin_geometria"))
+    evidencia = {"evaluados": len(medidos), "fallan": len(malos), "criterio": norma,
+                 "no_juzgados": otros, **recortar([_caso_madera(a) for a in malos])}
+    if malos:
+        x = malos[0]
+        mult = "4" if x["lado"] == "testa" else "3"
+        return Item(iid, titulo, FALLA, modo, norma, evidencia=evidencia,
+                    piezas=list(dict.fromkeys(y for a in malos for y in (a["pieza"], a["perno"]))),
+                    detalle=f"{len(malos)} de {len(medidos)} agujeros en madera bajo el mínimo; "
+                            f"el peor, en «{x.get('nombre')}» (de «{x.get('perno_nombre')}»): "
+                            f"{x['distancia']:g} mm {'a la testa' if x['lado'] == 'testa' else 'al canto'}"
+                            f" < {x['requerido']:g} mm ({mult}·d, d = {x['d']:g} mm)")
+    if not medidos:
+        vistos = otros.get("sin_medida", 0)
+        if vistos and not set(otros) & {"en_testa", "a_lo_largo"}:
+            return Item(iid, titulo, SIN_EVALUAR, modo, norma, evidencia=evidencia,
+                        detalle="ningún agujero en madera se pudo medir")
+        return Item(iid, titulo, NO_APLICA, modo, norma, evidencia=evidencia,
+                    detalle="ningún agujero en madera de través a la veta")
+    return Item(iid, titulo, OK, modo, norma, evidencia=evidencia,
+                detalle=f"los {len(medidos)} agujeros en madera cumplen")
+
+
+def _testa(agujeros: list[dict]) -> Item:
+    iid, titulo, modo, norma = _CONTROLES["testa"]
+    if not any(a["estado"] != "sin_geometria" for a in agujeros):
+        return Item(iid, titulo, NO_APLICA, modo, norma, detalle="ningún perno ni tornillo en "
+                    "una pieza de madera del taller")
+    malos = [a for a in agujeros if a["estado"] == "en_testa"]
+    casos = [{"perno": a.get("perno"), "perno_nombre": a.get("perno_nombre"),
+              "pieza": a.get("pieza"), "nombre": a.get("nombre"), "d_mm": a.get("d"),
+              "centro": a.get("centro")} for a in malos]
+    evidencia = {"evaluados": sum(1 for a in agujeros if a["estado"] != "sin_geometria"),
+                 "fallan": len(malos), "a_lo_largo": len([a for a in agujeros
+                                                          if a["estado"] == "a_lo_largo"]),
+                 **recortar(casos)}
+    if malos:
+        x = malos[0]
+        return Item(iid, titulo, FALLA, modo, norma, evidencia=evidencia,
+                    piezas=list(dict.fromkeys(y for a in malos for y in (a["pieza"], a["perno"]))),
+                    detalle=f"{len(malos)} tornillos roscan en la testa; el primero, "
+                            f"«{x.get('perno_nombre')}» en «{x.get('nombre')}»: el eje va a lo "
+                            "largo de la veta (atorníllalo de través, o une con un perno pasante "
+                            "o una escuadra)")
+    return Item(iid, titulo, OK, modo, norma, evidencia=evidencia,
+                detalle="ningún tornillo rosca en la testa")
+
+
 def controlar_bordes(agujeros: list[dict], pasos: list[dict]) -> list[Item]:
-    return [_distancia(agujeros), _paso(pasos)]
+    chapa = [a for a in agujeros if not a.get("madera")]
+    madera = [a for a in agujeros if a.get("madera")]
+    return [_distancia(chapa), _paso(pasos), _madera(madera), _testa(madera)]

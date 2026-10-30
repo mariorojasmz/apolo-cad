@@ -83,7 +83,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "25"  # 25: bom.comprable (historial en historial_registro.py)
+VERSION_REGISTRO = "26"  # 26: distancias en madera (historial en historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -138,10 +138,12 @@ _MECANICA = {
         "uniones_apernadas", vacio_ok=("agujeros.union", "agujeros.anclaje")),
     "union.distancia_al_borde": General(
         "Cada agujero de perno en chapa o ala a ≥ 1,2·d0 del canto libre (1,5·d0 en ranura) "
-        "y a un paso ≥ 2,2·d0 del vecino; la barra roscada, con su rosca enganchada",
-        "estructura", ("borde.distancia", "borde.paso"),
-        hay("tornilleria", "sin tornillería que medir"), "tornilleria",
-        vacio_ok=("borde.distancia", "borde.paso")),
+        "y a un paso ≥ 2,2·d0 del vecino; la barra roscada, con su rosca enganchada; en madera, "
+        "a ≥ 4·d de la testa y ≥ 3·d del canto, y ningún tornillo en la testa",
+        "estructura", ("borde.distancia", "borde.paso", "borde.madera", "borde.testa"),
+        hay_alguno(("tornilleria", "tornilleria_madera"), "sin tornillería que medir"),
+        "tornilleria",
+        vacio_ok=("borde.distancia", "borde.paso", "borde.madera", "borde.testa")),
     "transmision_flexible.tension": General(
         "Cada transmisión flexible (banda, cadena, correa, cable) se puede tensar en servicio",
         "función", ("tensor.reconocido", "tensor.carrera", "tensor.agarre"),

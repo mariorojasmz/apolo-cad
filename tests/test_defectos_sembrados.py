@@ -140,6 +140,20 @@ def agujero_al_canto(d):  # F6: el revisor halló agujeros a 1,5 mm del canto de
     d.execute("insert_component", {"component": "TUERCA-M10", "position": {"x": 346, "z": -4}})
 
 
+def perno_en_la_testa_de_madera(d):
+    """hallazgos-del-revisor D7: dos listones de madera con un M6 a 2,5·d de su testa (la zapata
+    de la mesa plegable: «la testa se raja»). Con la tabla de chapas pasaba (e ≥ 1,2·d0)."""
+    a = _caja(d, "Listón A", 300, 45, 20, 400, 0, 10)
+    b = _caja(d, "Listón B", 300, 45, 20, 400, 0, 30)
+    for f in (a, b):
+        d.set_material(f, "madera")
+        d.execute("drill_hole", {"feature": f, "position": {"x": 535, "z": 40}, "axis": "-z",
+                                 "diameter": 6.6})
+    d.execute("insert_component", {"component": "PERNO-HEX-M6", "length": 60,
+                                   "position": {"x": 535, "z": 40}})
+    d.execute("insert_component", {"component": "TUERCA-M6", "position": {"x": 535, "z": -2.5}})
+
+
 def placa_sin_agujeros(d):
     """F3c de puerta-sin-sobrediseno: un `fasten` perno declara dos M8 entre una placa y la base,
     pero ninguna tiene los agujeros (la chumacera sobre el puente del tanque: pasaba las dos
@@ -429,6 +443,8 @@ DEFECTOS = (
     Defecto("perno_a_medida", "mensula_atornillada", perno_a_medida,
             {"union.largo_comercial": FALLA}),
     Defecto("agujero_al_canto", "mensula_atornillada", agujero_al_canto,
+            {"union.distancia_al_borde": FALLA}),
+    Defecto("perno_en_la_testa_de_madera", "mensula_atornillada", perno_en_la_testa_de_madera,
             {"union.distancia_al_borde": FALLA}),
     Defecto("placa_sin_agujeros", "mensula_atornillada", placa_sin_agujeros,
             {"union.agujeros": FALLA}),

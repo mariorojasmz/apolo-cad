@@ -41,7 +41,7 @@ def test_join_bolted_atornilla_el_pie_ms1_por_sus_agujeros():
     pie = d.scene[f"{cid}_pie_delantero"]
     agujeros = sorted(v["origin"][:2] for k, v in pie.anchors.items() if "agujero" in k)
     jb = d.execute("join_bolted", {"a": f"{cid}_pie_delantero", "b": placa, "size": "M8"})
-    assert d.commands[-1]["params"]["criterio"] == 6
+    assert d.commands[-1]["params"]["criterio"] == 7
     f = d.fasteners[f"jb_{jb}"]
     assert (f["size"], f["qty"]) == ("M8", 2)
     pernos = sorted(k for k in d.scene if k.startswith(f"{jb}_perno"))

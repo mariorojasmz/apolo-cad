@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23), F3 (v24; el historial de versiones salió a calidad/historial_registro.py) y F2 (v25, bom.comprable). En curso (agente) - F4 (D7); sin lanzar - F6 (D9) y F7
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23), F3 (v24; el historial de versiones salió a calidad/historial_registro.py), F2 (v25, bom.comprable) y F4 (v26, distancias en madera). En curso (agente) - F6 (D9); sin lanzar - F7
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -602,3 +602,96 @@ Cifras (`bom.comprable` sobre los 9 finales, núcleo):
   1935) en vez de 4 + 4 medias bisagras.
 - **Testigos**: sólo la versión 24 → 25 y `bom.comprable` OK (faja 46 filas, rodillos 45, ménsulas
   1 y 4), re-congelados a propósito.
+
+### F4 (2026-10-29)
+
+Entró D7 con el criterio que eligió la F0. Registro **v25**: F2 sube en paralelo, quien mergea
+renumera. No hay ítem general nuevo: `union.distancia_al_borde` suma dos orígenes.
+
+- **Una medida** (`library/borde_agujero.py`: `veta` y `medir_madera`) para la puerta y para
+  `join_bolted`. Mide desde el eje, en el plano medio del tramo, hasta donde se acaba la madera:
+  - **testa ≥ 4·d** y **canto ≥ 3·d**, con d el Ø del perno o del tornillo. Es un criterio de
+    diseño con los mínimos DESCARGADOS de EN 1995-1-1 tabla 8.4 (a3,c = 4·d, a4,c = 3·d) aplicados
+    a todo extremo. Nunca se cita como el mínimo del extremo cargado;
+  - **tornillo en la testa**: eje a < 45° de la veta. Es criterio de diseño, apoyado en EN 1995-1-1
+    §8.3.2(4), que niega carga axial a un clavo en la testa. No tengo la cláusula exacta de los
+    tornillos, así que no se cita.
+- **Puerta.** `services/calidad_bordes.py` saca la madera de la tabla 3.3 de chapas (antes se
+  juzgaba con 1,2·d0). Dos controles en `calidad/bordes.py`, `borde.madera` y `borde.testa`. Cada
+  falla nombra la pieza, el perno, el lado y la distancia medida y la pedida.
+- **Tornillos de madera sin hexágono** (`services/calidad_tornillos_madera.py`): los 128 que la
+  F0 dejó sin medir. Eje = su vástago; cabeza = el extremo más ancho (la avellanada). Sólo los
+  mide la madera: ni agarre ni paso. El detector `tornilleria_madera` hace aplicar el ítem
+  cuando el modelo sólo tiene esos tornillos (`hay_alguno`).
+- **`join_bolted` criterio 7** (`commands/union_madera.py`, sello de todo comando nuevo):
+  - el patrón automático en madera se aleja 4·d según la veta y 3·d de través, menos lo que la
+    pieza sigue más allá de la huella;
+  - si no cabe, el error de la huella dice «en madera (4·d según la veta, 3·d de través…)»;
+  - después del taladro se mide como la puerta: un agujero bajo el mínimo (una muesca que la caja
+    no ve) o el tornillo DIN 571 que roscaría en la testa es un error accionable.
+
+  Los criterios 1–6 guardados regeneran igual. No hubo `version`: el criterio viaja en los params.
+- **Defecto sembrado** `perno_en_la_testa_de_madera`: dos listones con un M6 a 2,5·d de su testa.
+  Con la tabla de chapas pasaba.
+
+Decisiones vetables:
+
+- **Veta** = el eje de menor momento de inercia de la pieza. Si I_min > 0,8·I_medio (un tablero
+  cuadrado, un taco) no hay veta reconocible y se pide 4·d hacia todo lado.
+- **Testa y canto por dirección**: los rayos a ≤ 20° de la veta miden la testa y los de ≥ 70°, el
+  canto. Las diagonales no cuentan.
+- **Cuándo rosca en la testa**: con rosca medida, o con la punta en esa pieza y siendo tornillo o
+  perno sin tuerca. Un perno con tuerca a lo largo de la veta sólo aprieta: sale `a_lo_largo`, se
+  cuenta y no se juzga. Así queda el cabezal de la escalera, con tuerca de barril. El perno en un
+  inserto roscado en la testa (silla, corrección 1, ALTA del revisor) sí falla.
+- **El paso en madera** sigue siendo el 2,2·d0 de la chapa. Pendiente: a1/a2 de EN 1995-1-1.
+- **El tornillo sin geometría reconocible** (`sin_geometria`) se cuenta y nunca bloquea.
+- **La arandela sobre madera (§10.4.3) no entró**: no salió barata. Pide saber de qué lado está
+  cada arandela, su Ø y su espesor frente a d, por pieza. Va con el cálculo de madera.
+
+**Cifras** (núcleo, `.apolo` finales de los 4 pilotos de madera de los repos hermanos):
+
+| piloto | agujeros en madera | fallan | en la testa | en nudos que marcó el revisor | sin marcar |
+|---|---|---|---|---|---|
+| escalera | 80 | 68 | 24 | 32 | 36 |
+| estantería | 232 | 68 | 0 | 40 | 28 |
+| mesa plegable | 88 | 30 | 0 | 22 | 8 |
+| silla | 22 | 18 | 0 | 8 | 10 |
+| **total** | **422** | **184** | **24** | **102** | **82** |
+
+«Agujero» = un perno o tornillo en una pieza de madera. La F0 contaba 158 (sólo los de hexágono);
+ahora entran los tornillos sin hexágono.
+
+- **Marcados** (en alguna ronda):
+  - escalera: los 24 tornillos del peldaño en la testa (#1, #5) y los 8 pernos del cabezal a 2·d
+    de su testa (#3);
+  - estantería: los pernos larguero-montante a 3,33–3,75·d (36, #18) y el tornillo de la escuadra
+    a 2,38·d del canto (4, #23). El revisor midió 7,5 mm a la superficie del tornillo; el eje está
+    a 9,5 mm;
+  - mesa plegable: los travesaños a 3,5·d (16, #58) y la zapata a 2,5·d (6, #59);
+  - silla: las tijeras (8, el nudo de #85, hoy a 2,75·d del canto).
+- **Sin marcar**, todos bajo el mínimo de verdad, entre 2,25 y 3,56·d:
+  - escalera: tornillos del peldaño a 2,65·d del canto del larguero (24), los de bisagra Ø6 a
+    2,25·d (8) y los M6 de zapata a 2,54·d de la testa (4);
+  - estantería: tornillos entrepaño-larguero a 2,38·d del canto (28);
+  - mesa plegable: tornillos de las placas del compás, a 2,25–3·d (8);
+  - silla: M10 a 2,25·d del canto de patas y separador (6) y tirafondos del travesaño a 3,56·d de
+    la testa (4).
+
+  Se arreglan con menor Ø, el agujero más adentro o un listón más ancho, como anticipó la F0.
+- **Rondas**:
+  - silla, modelado: `borde.testa` FALLA con 18 tornillos en la testa, entre ellos los 4
+    tirafondos pivote (ALTA de la ronda 1);
+  - silla, corrección 1: los 4 pernos en insertos de la testa del larguero (ALTA);
+  - mesa plegable final: los M6 de la zapata a 2,5·d de la testa fallan;
+  - estantería, modelado: sin tornillería, NO_APLICA.
+
+  Tests en `tests/test_bordes_madera.py`; los de los pilotos se saltan sin el archivo.
+- **Costo.** En la estantería (128 tornillos más), `insumos_bordes` pasa de 0,2 s a 5,0 s de CPU
+  (`process_time`, con los hilos de OCCT); con cProfile mide ≈ 0,7 s.
+- **Testigos**: sólo `version_registro` 24 → 25. Ninguno es de madera.
+- **Puerta plegable 28**: no se re-midió. Está en la copia de uso, que esta fase no toca. Queda
+  para quien mergee, como pidió la F0.
+- **Suite completa** en el worktree (laptop, sin `-n`, ≈ 65 min): exit 0, sin FAILED. `ruff check`
+  limpio; `test_negocio_fuera` y `test_claude_md` en verde (`library/CLAUDE.md` quedó a 35 815 de
+  35 840 bytes: se podaron frases para que entre la regla de la madera).

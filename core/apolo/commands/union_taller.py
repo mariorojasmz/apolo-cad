@@ -8,7 +8,9 @@ REAL de las dos piezas (`library/borde_agujero.py`, la misma medida de la puerta
 e ≥ 1,2·d0) y rechaza el que queda bajo el mínimo. El patrón por la huella de las cajas no ve
 el canto de una muesca, una ranura o el extremo de una pieza más corta que su caja. El 6 (V8.9
 F7b) es el 5 que, si una pieza YA trae sus agujeros en la huella (anclas «*agujero*»: los pies
-y la brida del cilindro), atornilla por ellos (`union_agujeros.py`).
+y la brida del cilindro), atornilla por ellos (`union_agujeros.py`). El 7 (hallazgos-del-revisor
+F4, D7) es el 6 que en las piezas de MADERA mide testa ≥ 4·d y canto ≥ 3·d, y el tornillo que
+roscaría en la testa, en vez de la tabla de chapas (`union_madera.py`).
 
 Por cada punto del patrón se tira un RAYO por el eje del taladro (`kernel/rayo.py`) y se mide
 lo que el perno atraviesa de verdad:
@@ -41,6 +43,7 @@ from .exec_union import exigir_asiento, huella, patron, rotacion_hacia, terminar
 from .models_union import JoinBoltedParams
 from .state import ExecContext
 from .union_agujeros import agujeros_previos, exigir_compatibles, puntos_de_medida
+from .union_madera import bordes_del_patron, exigir_madera
 
 _TOL_CONTACTO = 0.6  # mm: la pared de la base empieza donde termina la pieza agregada
 _MARGEN = 5.0        # mm: el taladro arranca fuera de la cara de la cabeza
@@ -267,7 +270,8 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
         medidas = [_medir_al_costado(h, base, anadida, pt, d, otros, acceso, p.criterio)
                    for pt, (_o, d) in zip(puntos, agujeros, strict=True)]
     else:
-        u, v, us, vs = patron(h, p)
+        bordes = bordes_del_patron(h, a, b, p.madera) if p.criterio >= 7 else None
+        u, v, us, vs = patron(h, p, bordes)
         otros = _en_camino(ctx.scene, {a.id, b.id}, h, us, vs, u, v, acceso)
         puntos = []
         for pu in us:
@@ -319,7 +323,10 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
                 cmd_id, component=fij.tuerca,
             )
     if p.criterio >= 5 and fij.tipo != "tornillo_madera":
-        _exigir_bordes(h, base, anadida, puntos, medidas, fij.d)
+        _exigir_bordes(h, base, anadida, puntos, medidas, fij.d,
+                       saltar=set(p.madera) if p.criterio >= 7 else set())
+    if p.criterio >= 7:  # la madera, con su criterio (`union_madera.py`)
+        exigir_madera(h, base, anadida, puntos, medidas, fij, p.madera)
     # el remache ciego declara su Ø de cuerpo (DIN 7337, «Ø4.8»): se dimensiona como unión
     # remachada (F3f de puerta-sin-sobrediseno); el tornillo para madera aún no tiene cálculo
     fijador = {"kind": "perno", "size": (size if fij.tipo == "perno" else designacion(fij.d)
@@ -330,9 +337,11 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
     terminar(ctx, cmd_id, p, a, b, fijador, ConnectivityError, register_fastener)
 
 
-def _exigir_bordes(h: dict, base, anadida, puntos: list, medidas: list, d: float) -> None:
-    """Criterio 5: cada agujero ya taladrado a ≥ e_min del canto libre de su pieza (la madera
-    tiene su propia regla: no entra). CommandError accionable con e medido y requerido."""
+def _exigir_bordes(h: dict, base, anadida, puntos: list, medidas: list, d: float,
+                   saltar: set | frozenset = frozenset()) -> None:
+    """Criterio 5: cada agujero ya taladrado a ≥ e_min del canto libre de su pieza (la base de
+    madera tiene su propia regla: no entra; desde el criterio 7, ninguna pieza de madera, que
+    llega en `saltar`). CommandError accionable con e medido y requerido."""
     from apolo.kernel.rayo import Rayos
     from apolo.library.borde_agujero import medir_borde
 
@@ -340,6 +349,8 @@ def _exigir_bordes(h: dict, base, anadida, puntos: list, medidas: list, d: float
     eje = [0.0, 0.0, 0.0]
     eje[st] = 1.0
     for pieza, ext in ((anadida, ("cabeza", "contacto")), (base, ("contacto", "atras"))):
+        if pieza.id in saltar:
+            continue
         solidos = list(pieza.shape.solids())
         for n, (pt, m) in enumerate(zip(puntos, medidas, strict=True), start=1):
             t0, t1 = sorted((m[ext[0]], m[ext[1]]))

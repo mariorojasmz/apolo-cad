@@ -145,7 +145,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   pero el hueco se abre al costado → perno + tuerca, no remache); 5 (todo comando nuevo) = el 4
   que, ya taladrado, rechaza un agujero a < 1,2·d0 del canto REAL (`library/borde_agujero.py`); 6 (todo
   comando nuevo, V8.9 F7b) = el 5 que, si una pieza YA trae sus agujeros en la huella (anclas
-  «*agujero*»: pies y brida del cilindro), atornilla por ellos (`union_agujeros.py`). Un criterio
+  «*agujero*»: pies y brida del cilindro), atornilla por ellos (`union_agujeros.py`); 7 (todo
+  comando nuevo, D7 de hallazgos-del-revisor) = el 6 que en las piezas de `madera` aleja el patrón
+  4·d de la testa y 3·d del canto y rechaza el agujero bajo ese mínimo o el tornillo en la testa
+  (`union_madera.py`, la medida de la puerta) en vez de la tabla de chapas. Un criterio
   nuevo, no un cambio del viejo: el que cambia qué inserta `join_bolted` es un número más. Lo pone el SELLO de entrada (`CommandSpec.al_crear`,
   `doc/sello.py`), con `madera` = las piezas de madera al crear: el replay y los edits no sellan,
   por eso no hubo `version` ni epoch. Cambiar el criterio 1 rompe logs guardados. `arandela`

@@ -367,14 +367,17 @@ def _sin_geometria(tipo: str, solid) -> str:
 
 
 def insumo_perno(esc: _Escena, fid: str, feat, solid, tipo: str, esperadas: list[str],
-                 catalog) -> dict:
-    """El insumo de agarre de UN sólido-perno (formato en `library/calidad/agarre.py`)."""
+                 catalog, geometria: dict | None = None) -> dict:
+    """El insumo de agarre de UN sólido-perno (formato en `library/calidad/agarre.py`).
+    `geometria` (formato de `geometria_perno`) la da quien ya la midió (el tornillo de madera
+    avellanado de `calidad_tornillos_madera`)."""
     from apolo.library.materials import resolve_material
 
     base = {"fid": fid, "nombre": getattr(feat, "name", fid), "ref": feat.component,
             "madera_screw": tipo == "madera", "esperadas": esperadas}
     try:
-        g = (geometria_esparrago(esc, solid, catalog) if tipo == "esparrago"
+        g = (geometria if geometria is not None else
+             geometria_esparrago(esc, solid, catalog) if tipo == "esparrago"
              else geometria_perno(solid))
     except Exception:  # noqa: BLE001 — geometría rara: no evaluable, nunca rompe la puerta
         g = None

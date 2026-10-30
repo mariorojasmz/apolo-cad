@@ -90,8 +90,8 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   FAMILIA (`loader.ANCLAS` → `Component.anchors`); `_CATEGORY_ANCHORS` es sólo para las fijas
   por categoría. ASA (ANSI) 40 y BS 08B son de 1/2″ pero NO intercambiables: la serie va en
   `specs.serie` y quien combina piezas la compara. [plan](../../../docs/plans/cadenas-pinones.md)
-- Ingletes (`miter.py`, `weldment.py`, `frame.py`): corte por el plano BISECTOR del nodo (V
-  exacto = A·span, ancla de tests). Weldment = marcos sup/inf a 45° + postes a tope; frame =
+- Ingletes (`miter.py`, `weldment.py`, `frame.py`): corte por el plano BISECTOR del nodo.
+  Weldment = marcos sup/inf a 45° + postes a tope; frame =
   bisectriz sólo en nodos de grado 2 (colineal → recto; α > 75° o grado ≠ 2 → tope).
   `Feature.miter` → BOM «∠45°/45°» y `cut_length` = longitud EXTERIOR.
   [devlog § V5.8](../../../docs/devlog.md)
@@ -146,8 +146,8 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   el BORDE LIBRE: la métrica en que 3D y desplegado coinciden sin conocer el radio. Una feature
   que invade la zona de pliegue se rechaza con el dominio válido. Al flat: offset padre =
   `BA_p + (altura − OSSB_p) − v`, hijo = `strip_total − v`.
-- La vía simple (lados/altura) se NORMALIZA a `flaps`: un solo camino, flat byte-idéntico (test
-  de igualdad exacta). `child` de un nivel; el pliegue hijo queda vivo (sin fillet).
+- La vía simple (lados/altura) se NORMALIZA a `flaps`: un solo camino, flat byte-idéntico.
+  `child` de un nivel; el pliegue hijo queda vivo (sin fillet).
   [devlog § V5.5](../../../docs/devlog.md)
 
 ## Ingeniería (`engineering/`)
@@ -314,10 +314,8 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
 - `check_interference` (booleanas OCCT) excluye pares de junta, `same_command_pairs` y el herraje
   `HARDWARE_CATS`; `interpenetration_report` mide el EXCESO sobre la pose de diseño en pares con
   junta. `HARDWARE_CATS` NO se amplía (semántica de interferencia, lista de corte y lints): el FEA
-  usa `FEA_HARDWARE_CATS`. Revisa ≤ `MAX_PAIRS` parejas candidatas por página (`desde`, en el
-  orden estable de la escena); si recorta, declara `parejas_candidatas`, `parejas_sin_revisar` y
-  `desde_siguiente` (sin recorte ni `desde`, el dict de siempre) y la puerta dice cuántas
-  quedaron sin revisar.
+  usa `FEA_HARDWARE_CATS`. Revisa ≤ `MAX_PAIRS` parejas por página (`desde`, orden estable); si
+  recorta lo declara (`parejas_sin_revisar`, `desde_siguiente`) y la puerta lo dice.
 - `lints.predelivery_lints`: «barreno de paso Ø7-22 sin perno en su eje» y «pieza sin grupo NI
   unión declarada» (excluye guías, superficies y herraje). Reconoce tornillería a medida por
   NOMBRE (`_is_bolt`) y, por la MISMA medida de `union.agujeros` (inyectada:
@@ -403,12 +401,15 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   cabeza) se mide desde su base con su tuerca; un «Perno…» sin cabeza modelada sigue sin evaluar.
   El factor de servicio fuera de un transportador sale de `potencia_absorbida_kw`/`par_salida_nm`
   contra el FS de su servicio (`engineering/servicio.py`: tabla AGMA por `tipo_carga` y `horas_dia`).
-- **Distancia al borde de un agujero de perno** (`borde_agujero.py`, EN 1993-1-8 tabla 3.3): la
-  MISMA medida para la puerta (`calidad/bordes.py`) y `join_bolted` criterio 5. Canto = donde la
-  pieza tiene el espesor de la chapa (no la esquina de un tubo, el talón de un ángulo ni un eje);
-  el agujero de otro perno es paso. La tabla es de CHAPAS: una barra maciza (eje, barra cuadrada:
-  t ≥ 1,5·d0 y W ≤ 1,25·t) sale como `barra` y, roscada, se juzga por su rosca enganchada. Medir
-  sobre la geometría, nunca sobre la huella de cajas. § F6.
+- **Distancia al borde de un agujero de perno** (`borde_agujero.py`): la MISMA medida para la
+  puerta (`calidad/bordes.py`) y `join_bolted` (criterio 5; la madera, 7). Chapa (EN 1993-1-8
+  tabla 3.3): canto = donde la pieza tiene el espesor de la chapa (no la esquina de un tubo, el
+  talón de un ángulo ni un eje); el agujero de otro perno es paso; una barra maciza (t ≥ 1,5·d0,
+  W ≤ 1,25·t) es `barra` y, roscada, se juzga su rosca. MADERA (`medir_madera`): testa ≥ 4·d
+  y canto ≥ 3·d por la veta (eje de menor inercia), criterio de diseño con los mínimos
+  DESCARGADOS de EN 1995-1-1 tabla 8.4 (nunca citado como el extremo cargado), y el tornillo que
+  rosca en la testa falla aparte. Se mide la geometría, no la huella (F6; D7 de
+  hallazgos-del-revisor).
 - **El eje de una junta de giro va trabado** (`ejes_giro.py`, en `agarre.retencion`; medido en
   `services/calidad_ejes_giro.py`): eje = coaxial ± 1 mm Y toca sus dos cuerpos. Sin junta
   declarada no hay eje que juzgar. [plan](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D8)

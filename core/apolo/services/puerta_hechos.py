@@ -10,7 +10,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
   `apoyos_de_compra` {pie, pata, garrucha, rueda, regaton} (los anclados que se compran,
   `calidad_apoyos`),
   `vigas`, `columnas`, `uniones` / `uniones_apernadas` / `soldaduras`, `tornilleria`,
-  `tornilleria_llave`, `supercomandos`, `piezas` {catalogo, a_medida}, `sustitutos_animados`
+  `tornilleria_madera` {tornillo} (el de madera sin hexágono que sólo mide la madera,
+  `calidad_tornillos_madera`), `tornilleria_llave`, `supercomandos`, `piezas` {catalogo, a_medida}, `sustitutos_animados`
   {banda}, `partes_moviles`, `resguardos`, `consumibles`, `operables` (mandos, pilotos y sensores
   que piden su nombre por función, por tipo). **Una familia de máquinas nueva suma
   aquí su clase** (p. ej. `transmisiones_flexibles["correa"]`), nunca un ítem al registro;
@@ -135,6 +136,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from .calidad_juntas import clasificar
     from .calidad_pernos import tipo_de_tornilleria
     from .calidad_tensores import lazos_banda
+    from .calidad_tornillos_madera import es_tornillo_de_madera
     from .electrico import tiene_carril
     from .flujo_producto import mueve_producto
 
@@ -155,10 +157,13 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     except Exception:  # noqa: BLE001 — sin la detección, se evalúa igual y dirá por qué
         animadas = len(bandas)
     tornilleria: dict[str, int] = {}
+    de_madera = 0  # hallazgos-del-revisor D7: el tornillo de madera sin hexágono (sólo bordes)
     for x in solidos.values():
         t = tipo_de_tornilleria(x, CATALOG)
         if t:
             tornilleria[t] = tornilleria.get(t, 0) + 1
+        elif es_tornillo_de_madera(x, CATALOG):
+            de_madera += 1
     rodantes = {f: _RODANTES[c.category] for f, c in comps.items()
                 if c is not None and c.category in _RODANTES}
     motores = [f for f, c in comps.items() if c is not None and c.category in _MOTORES]
@@ -193,6 +198,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "uniones_apernadas": _n({"perno": kinds.count("perno")}),
         "soldaduras": _n({"soldadura": kinds.count("soldadura")}),
         "tornilleria": _n(tornilleria),
+        "tornilleria_madera": _n({"tornillo": de_madera}),
         "tornilleria_llave": _n({"fijador": int("acceso_herramienta" in entrega_kwargs)}),
         "supercomandos": _n({"super-comando": sum(1 for n in por_cmd.values() if n >= 2)}),
         "piezas": _n({"catalogo": sum(1 for c in comps.values() if c is not None),

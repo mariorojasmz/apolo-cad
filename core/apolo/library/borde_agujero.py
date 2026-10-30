@@ -38,6 +38,26 @@ o la pared del tubo):
 Sin dato no se inventa: el eje DENTRO del material (perno modelado sin su agujero) devuelve
 `sin_agujero`; una abertura mucho mayor que el perno (> 2·d + 2 mm), `abertura`. El llamador
 decide qué hace con eso (la puerta lo cuenta; `join_bolted` sólo mira lo medido).
+
+**En MADERA** (`medir_madera`; plan hallazgos-del-revisor-en-la-puerta, D7 y F4) la tabla de
+chapas no vale: la madera se raja a lo largo de la veta. Se mide en el mismo plano medio, desde
+el eje, hasta donde se acaba la madera (saltando el agujero de otro perno de la pieza):
+
+- **veta** = el eje de MENOR momento de inercia de la pieza (`veta`: su eje largo). Una pieza que
+  no es más larga que ancha (I_min > 0,8·I_medio: un tablero cuadrado, un taco) no tiene veta
+  reconocible y se juzga con el mínimo de la testa hacia todo lado (el lado seguro);
+- **testa** = la distancia según la veta (rayos a ≤ 20° de ella); **canto** = la de través
+  (rayos a ≥ 70°). Pide testa ≥ 4·d y canto ≥ 3·d, con d el Ø del perno o del tornillo: es un
+  CRITERIO DE DISEÑO que toma los mínimos de extremo y de borde DESCARGADOS de EN 1995-1-1, tabla
+  8.4 (a3,c = 4·d, a4,c = 3·d) y los aplica a todo extremo. No es el mínimo del extremo CARGADO
+  (a3,t = máx(7·d, 80 mm)), que la F0 midió: rechaza todo nudo de mueble, también los buenos;
+- **en la testa**: el eje a < 45° de la veta (|cos| > 0,7). Un TORNILLO o tirafondo así trabaja a
+  extracción en la testa, donde la rosca corta las fibras a lo largo: falla como modo propio
+  (criterio de diseño; EN 1995-1-1 §8.3.2(4) ya niega carga axial a un clavo en la testa). Un
+  perno pasante a lo largo de la veta sólo aprieta: no se juzga.
+
+La usan la puerta (`services/calidad_bordes.py`, ítem `borde.madera`/`borde.testa`) y
+`join_bolted` criterio 7 (`commands/union_madera.py`) con la MISMA medida.
 """
 
 from __future__ import annotations
@@ -216,3 +236,104 @@ def _barra(canto: list, t: float, d0: float, roscado: bool) -> dict | None:
 def paso_entre(c1, eje, c2) -> float:
     """Distancia entre dos ejes paralelos (el paso), medida en el plano ⊥ al eje."""
     return distancia_a_eje(c2, c1, eje)
+
+
+# ------------------------------------------------------------------ madera (D7)
+TESTA_MADERA = 4.0   # testa ≥ 4·d (a3,c de EN 1995-1-1 tabla 8.4: criterio de diseño)
+CANTO_MADERA = 3.0   # canto ≥ 3·d (a4,c)
+CRITERIO_MADERA = ("criterio de diseño: 4·d a la testa y 3·d al canto, los mínimos de extremo y "
+                   "de borde descargados de EN 1995-1-1, tabla 8.4 (a3,c y a4,c), aplicados a "
+                   "todo extremo")
+EN_TESTA_COS = 0.7   # eje a < 45° de la veta: el tornillo trabaja en la testa
+VETA_CLARA = 0.8     # I_min ≤ 0,8·I_medio: la pieza es larga y la veta va a lo largo
+_COS_TESTA = 0.94    # rayos a ≤ 20° de la veta miden la testa
+_COS_CANTO = 0.35    # rayos a ≥ 70° de la veta miden el canto
+
+
+def veta(solid) -> tuple | None:
+    """La dirección de la veta: el eje de MENOR momento de inercia del sólido (su eje largo),
+    unitario. None si la pieza no es más larga que ancha (I_min > `VETA_CLARA`·I_medio)."""
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    props = GProp_GProps()
+    BRepGProp.VolumeProperties_s(solid.wrapped, props)
+    pp = props.PrincipalProperties()
+    ejes = (pp.FirstAxisOfInertia(), pp.SecondAxisOfInertia(), pp.ThirdAxisOfInertia())
+    orden = sorted(zip(pp.Moments(), range(3), strict=True))
+    (i_min, k), (i_med, _k) = orden[0], orden[1]
+    if i_med <= 0 or i_min > VETA_CLARA * i_med:
+        return None
+    a = ejes[k]
+    return _unit((a.X(), a.Y(), a.Z()))
+
+
+def _fin_de_madera(rayos, cs: list, dentro: bool, centro, w, otros) -> float | None:
+    """Distancia del eje a donde se acaba la madera según `w`: en el hueco del taladro el primer
+    corte es su pared; el agujero de OTRO perno de la pieza se cruza y se sigue. None si la
+    madera sigue más allá del alcance."""
+    i = 0 if dentro else 1
+    while i < len(cs):
+        q = _add(centro, w, cs[i])
+        if any(distancia_a_eje(q, p, e) <= r + 1.0 for p, e, r in otros):
+            i += 2
+            continue
+        return cs[i]
+    return None
+
+
+def medir_madera(rayos, punto, eje, t0: float, t1: float, d: float, veta_dir,
+                 otros=(), tornillo: bool = False) -> dict:
+    """Distancias a la TESTA y al CANTO del agujero que el eje `punto + t·eje` (unitario) abre
+    en la pieza de MADERA de `rayos`, en el plano medio de [t0, t1]. `veta_dir` = `veta(sólido)`
+    (None: sin veta reconocible); `otros` = [(punto, eje, radio)] de los otros pernos de la
+    pieza; `tornillo` = tornillo o tirafondo (no perno pasante). Devuelve {estado: "medido" |
+    "en_testa" | "abertura" | "sin_medida", motivo, d, tornillo, centro, testa_min, canto_min};
+    medido → {testa, canto (None = la madera sigue más allá), sin_veta, cumple, lado,
+    distancia, requerido (el lado peor frente a su mínimo)}."""
+    centro = _add(punto, eje, (t0 + t1) / 2.0)
+    base = {"d": round(d, 2), "tornillo": bool(tornillo),
+            "centro": [round(x, 2) for x in centro],
+            "testa_min": round(TESTA_MADERA * d, 2), "canto_min": round(CANTO_MADERA * d, 2)}
+    if veta_dir is not None and abs(_dot(eje, veta_dir)) > EN_TESTA_COS:
+        return {**base, "estado": "en_testa", "motivo": "el eje va a lo largo de la veta"}
+    if veta_dir is None:
+        u, v = base_perp(eje)
+    else:
+        u = _unit(_add(veta_dir, eje, -_dot(veta_dir, eje)))
+        v = _cross(eje, u)
+    alcance = max(10.0 * d, 150.0)
+    dentro = rayos.dentro(centro)
+    pared, testa, canto = [], None, None
+    for k in range(N_RAYOS):
+        ang = 2.0 * math.pi * k / N_RAYOS
+        w = _add(_add((0.0, 0.0, 0.0), u, math.cos(ang)), v, math.sin(ang))
+        cs = rayos.cortes(centro, w, 0.0, alcance)
+        pared.append(None if dentro else (cs[0] if cs else None))
+        b = _fin_de_madera(rayos, cs, dentro, centro, w, otros)
+        if b is None:
+            continue
+        c = abs(math.cos(ang))
+        if veta_dir is None or c >= _COS_TESTA:
+            testa = b if testa is None else min(testa, b)
+        elif c <= _COS_CANTO:
+            canto = b if canto is None else min(canto, b)
+    if not dentro:
+        anchos = anchos_opuestos(pared)
+        if not anchos:
+            return {**base, "estado": "sin_medida", "motivo": "no se reconoce la pared del "
+                    "agujero"}
+        if min(anchos) > 2.0 * d + 2.0:
+            return {**base, "estado": "abertura", "motivo": f"el perno pasa por una abertura "
+                    f"de {min(anchos):.1f} mm, no por su agujero"}
+    lados = [(x / m, lado, x, m) for x, lado, m in ((testa, "testa", TESTA_MADERA * d),
+                                                    (canto, "canto", CANTO_MADERA * d))
+             if x is not None]
+    peor = min(lados) if lados else None
+    return {**base, "estado": "medido", "motivo": "",
+            "testa": None if testa is None else round(testa, 2),
+            "canto": None if canto is None else round(canto, 2),
+            "sin_veta": veta_dir is None,
+            "cumple": peor is None or peor[2] >= peor[3] - _TOL,
+            **({"lado": peor[1], "distancia": round(peor[2], 2), "requerido": round(peor[3], 2)}
+               if peor else {})}

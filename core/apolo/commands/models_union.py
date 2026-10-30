@@ -8,7 +8,9 @@ de entrada (`exec_union.sellar`) a cada comando NUEVO:
 - `criterio`: 1 = el de V6.5b/c (largo por la caja, cabeza arriba); 2 = el de taller; 3 = el
   de taller con el largo de catálogo y sin respaldo a 200 mm (plan puerta-de-publicacion D3);
   4 = el 3 con acceso por detrás en el ala de un perfil ABIERTO (perno + tuerca en un UPN);
-  5 = el 4 que rechaza un agujero a menos de 1,2·d0 del canto real (EN 1993-1-8).
+  5 = el 4 que rechaza un agujero a menos de 1,2·d0 del canto real (EN 1993-1-8); 6 = el 5 por
+  los agujeros que una pieza ya trae; 7 = el 6 que en MADERA pide testa ≥ 4·d y canto ≥ 3·d y
+  rechaza el tornillo que roscaría en la testa.
   Un log viejo no lo trae → 1 → regenera con la MISMA tornillería y la misma firma.
 - `madera`: las piezas (a/b) que eran de madera al crear la unión (`set_material` o el vertical
   carpintería: metadatos del manifest que el regenerate no ve).
@@ -42,7 +44,9 @@ class JoinBoltedParams(BaseModel):
     - base de MADERA (set_material o vertical carpintería al crear la unión) → tornillo para
       madera DIN 571 sin tuerca, ≥ 2/3 de su largo dentro de la madera sin asomar por detrás.
     Broca de paso ISO 273, distancia al borde ≥1.5·d en la huella y ≥ 1,2·d0 del canto REAL de
-    cada pieza (EN 1993-1-8: una muesca o un extremo que la huella no ve es error), patrón centrado en la HUELLA de solape
+    cada pieza (EN 1993-1-8: una muesca o un extremo que la huella no ve es error); en MADERA,
+    ≥ 4·d de la testa y ≥ 3·d del canto (criterio de diseño con los mínimos de EN 1995-1-1
+    tabla 8.4) y ningún tornillo que rosque en la testa. Patrón centrado en la HUELLA de solape
     (paramétrico: si una pieza crece, el patrón se recentra al regenerar). La tornillería es
     herraje (fuera de interferencias y lista de corte).
     AGUJEROS DE FÁBRICA: si una de las piezas YA trae sus agujeros en la huella (los pies MS1 y
@@ -87,7 +91,7 @@ class JoinBoltedParams(BaseModel):
                     "o recibe golpes: no se afloja)",
     )
     # Fuera del schema: los pone el sello de entrada (docstring del módulo).
-    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=6)
+    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=7)
     madera: SkipJsonSchema[list[str]] = Field(default_factory=list, max_length=2)
 
     @field_validator("patron")

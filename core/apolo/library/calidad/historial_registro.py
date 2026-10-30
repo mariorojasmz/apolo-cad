@@ -45,5 +45,10 @@ su reacción × 1,5 con la carga de los requisitos (`apoyos.py`); v25 (hallazgos
 D5) `bom.comprable`: cada fila de la BOM alcanza para comprar o cortar (compra con norma, designación
 o código de fabricante; varilla y perfil con largo; chapa con desarrollo; metal y madera a medida con
 norma) y un grupo «(compra)» sale en UNA fila y no admite taladros de `join_bolted` hacia fuera
-(`comprable.py`, `bom_comprable.py`, `compra_grupos.py`).
+(`comprable.py`, `bom_comprable.py`, `compra_grupos.py`). v26 (hallazgos-del-revisor F4, D7)
+`union.distancia_al_borde` mide la MADERA con su propio criterio (`borde.madera`: testa ≥ 4·d y
+canto ≥ 3·d, criterio de diseño con los mínimos descargados a3,c y a4,c de EN 1995-1-1 tabla 8.4;
+`borde.testa`: ningún tornillo ni tirafondo rosca a lo largo de la veta), también con los
+tornillos de madera sin hexágono, y aplica con sólo esos tornillos (`tornilleria_madera`); la
+madera sale de la tabla 3.3 de chapas.
 """

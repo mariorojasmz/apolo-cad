@@ -176,7 +176,7 @@ def test_control_falla_con_la_evidencia():
            "d0": 11.0, "forma": "redondo", "e": 20.0, "e_min": 13.2, "cumple": True}]
     pasos = [{"pieza": "a", "nombre": "Placa del tensor", "pernos": ["p1", "p2"], "p": 20.0,
               "p_min": 24.2, "d0": 11.0, "cumple": False}]
-    dist, paso = controlar_bordes(ag, pasos)
+    dist, paso, *_madera = controlar_bordes(ag, pasos)
     assert dist.estado == FALLA and "e = 7.0 mm < 13.2 mm" in dist.detalle
     assert dist.evidencia["casos"][0]["e_requerido_mm"] == 13.2 and dist.piezas == ["a", "p1"]
     assert paso.estado == FALLA and paso.evidencia["casos"][0]["p_mm"] == 20.0
@@ -217,7 +217,7 @@ def test_join_bolted_criterio_5_no_taladra_bajo_el_minimo():
     a2 = ok.execute("create_box", {"width": 120, "depth": 80, "height": 8, "position": {"z": 4}})
     b2 = ok.execute("create_box", {"width": 120, "depth": 80, "height": 6, "position": {"z": 11}})
     cid = ok.execute("join_bolted", {"a": a2, "b": b2, "size": "M10", "count": 2})
-    assert next(c for c in ok.commands if c["id"] == cid)["params"]["criterio"] == 6  # V8.9 F7b
+    assert next(c for c in ok.commands if c["id"] == cid)["params"]["criterio"] == 7  # hallazgos-del-revisor F4
 
 
 def test_la_puerta_ve_el_agujero_de_un_log_viejo():
@@ -228,7 +228,7 @@ def test_la_puerta_ve_el_agujero_de_un_log_viejo():
     esc = _Escena(doc.scene)
     pernos = insumos_pernos(doc, escena=esc)
     agujeros, pasos = insumos_bordes(doc, pernos, esc)
-    dist, paso = controlar_bordes(agujeros, pasos)
+    dist, paso, *_madera = controlar_bordes(agujeros, pasos)
     assert dist.estado == FALLA and dist.evidencia["fallan"] == 1
     caso = dist.evidencia["casos"][0]
     assert caso["pieza"] == b and caso["e_mm"] == pytest.approx(6.0, abs=0.1)

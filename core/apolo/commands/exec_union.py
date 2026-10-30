@@ -19,6 +19,10 @@ Dos criterios por el campo oculto `criterio` (`models_union.py`):
 - **6** (el de todo comando nuevo, V8.9 F7b): el 5 que atornilla por los agujeros que una pieza
   YA trae en la huella (`union_agujeros.py`: los pies MS1 y la brida del cilindro neumático);
   sin agujeros previos es el 5 tal cual. Los 1–5 guardados regeneran igual (sin `version`).
+- **7** (el de todo comando nuevo, hallazgos-del-revisor F4, D7): el 6 que en las piezas de
+  MADERA (`madera`, del sello) juzga testa ≥ 4·d y canto ≥ 3·d y el tornillo que roscaría en la
+  testa, con la medida de la puerta (`union_madera.py`), en vez de la tabla de chapas. Sólo
+  rechaza: los 1–6 guardados regeneran igual (sin `version`).
 
 `sellar` es el sello de entrada (`CommandSpec.al_crear`): un comando NUEVO nace con el criterio
 vigente, con las piezas que eran de madera al crearlo y con `arandela=True` (plan
@@ -35,7 +39,7 @@ from .errors import CommandError
 from .models_union import JoinBoltedParams
 from .state import ExecContext
 
-CRITERIO_VIGENTE = 6
+CRITERIO_VIGENTE = 7
 _AXNAME = {0: "X", 1: "Y", 2: "Z"}
 
 
@@ -129,8 +133,10 @@ def exigir_asiento(shape, h: dict, coord: float, que: str) -> None:
         )
 
 
-def patron(h: dict, p: JoinBoltedParams) -> tuple[int, int, list[float], list[float]]:
-    """(u, v, us, vs): el patrón centrado en la huella con borde ≥1.5·d y paso ≥2.5·d."""
+def patron(h: dict, p: JoinBoltedParams,
+           bordes: dict[int, float] | None = None) -> tuple[int, int, list[float], list[float]]:
+    """(u, v, us, vs): el patrón centrado en la huella con borde ≥1.5·d y paso ≥2.5·d.
+    `bordes` = {eje: borde} mayor en la madera (criterio 7, `union_madera.bordes_del_patron`)."""
     foot_min, foot_max, size, tol = h["foot_min"], h["foot_max"], h["size"], 1e-6
     if p.patron:
         nu, nv = int(p.patron[0]), int(p.patron[1])
@@ -138,16 +144,19 @@ def patron(h: dict, p: JoinBoltedParams) -> tuple[int, int, list[float], list[fl
         nu, nv = max(1, int(p.count)), 1
     # u = eje in-plane más largo (la fila corre por ahí); v = el corto
     u, v = sorted(h["inplane"], key=lambda k: foot_max[k] - foot_min[k], reverse=True)
-    edge, min_pitch = 1.5 * h["d"], 2.5 * h["d"]
+    min_pitch = 2.5 * h["d"]
 
     def positions(ax: int, n: int) -> list[float]:
+        edge = max(1.5 * h["d"], (bordes or {}).get(ax, 0.0))
+        madera = (" en madera (4·d según la veta, 3·d de través: criterio de diseño con "
+                  "EN 1995-1-1, tabla 8.4)") if edge > 1.5 * h["d"] + tol else ""
         lo, hi = foot_min[ax] + edge, foot_max[ax] - edge
         center = (foot_min[ax] + foot_max[ax]) / 2.0
         ancho = foot_max[ax] - foot_min[ax]
         if hi < lo - tol:  # V6.5c (4a): también con n=1 debe caber el borde ≥1.5·d
             raise CommandError(
                 f"La huella de solape ({ancho:.0f} mm en {_AXNAME[ax]}) no "
-                f"admite ni un perno {size} con distancia al borde ≥{edge:g} mm: usa un perno menor."
+                f"admite ni un perno {size} con distancia al borde ≥{edge:g} mm{madera}: usa un perno menor."
             )
         if n <= 1:
             return [center]
@@ -156,13 +165,13 @@ def patron(h: dict, p: JoinBoltedParams) -> tuple[int, int, list[float], list[fl
             if min(pts) < lo - tol or max(pts) > hi + tol:
                 raise CommandError(
                     f"El patrón {nu}×{nv} con paso {p.spacing:g} mm no cabe en la huella "
-                    f"({ancho:.0f} mm en {_AXNAME[ax]}) respetando el borde ≥{edge:g} mm."
+                    f"({ancho:.0f} mm en {_AXNAME[ax]}) respetando el borde ≥{edge:g} mm{madera}."
                 )
             return pts
         if hi - lo < (n - 1) * min_pitch - tol:  # no cabe el borde + el paso mínimo
             raise CommandError(
                 f"La huella de solape ({ancho:.0f} mm en {_AXNAME[ax]}) es muy pequeña "
-                f"para {n} pernos {size} con distancia al borde ≥{edge:g} mm y paso ≥{min_pitch:g} mm: "
+                f"para {n} pernos {size} con distancia al borde ≥{edge:g} mm{madera} y paso ≥{min_pitch:g} mm: "
                 "reduce count/patrón o el perno."
             )
         return [lo + (hi - lo) * i / (n - 1) for i in range(n)]
