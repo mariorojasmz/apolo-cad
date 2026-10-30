@@ -64,6 +64,7 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
 
     from .calidad_agujeros import insumos_agujeros
     from .calidad_bordes import insumos_bordes
+    from .calidad_ejes_giro import marcar_ejes
     from .calidad_pernos import _Escena, insumos_pernos
     from .calidad_tensores import lazos
     from .engineering_rules import servicio_declarado
@@ -76,7 +77,9 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
                       for f in doc.fasteners.values())
     esc = _Escena(doc.scene)
     pernos = insumos_pernos(doc, escena=esc)
-    return (controlar_agarre(pernos) + controlar_bordes(*insumos_bordes(doc, pernos, esc))
+    pasadores = marcar_ejes(doc, pernos, esc)  # D8 de hallazgos-del-revisor: el eje de giro
+    return (controlar_agarre(pernos, pasadores)
+            + controlar_bordes(*insumos_bordes(doc, pernos, esc))
             + controlar_agujeros(insumos_agujeros(doc))
             + controlar_tensores(lazos(doc))
             + controlar_vida_util(reglas, hay_motor=hay_motor, hay_uniones=hay_uniones,

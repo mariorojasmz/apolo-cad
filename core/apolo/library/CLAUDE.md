@@ -402,3 +402,6 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   el agujero de otro perno es paso. La tabla es de CHAPAS: una barra maciza (eje, barra cuadrada:
   t ≥ 1,5·d0 y W ≤ 1,25·t) sale como `barra` y, roscada, se juzga por su rosca enganchada. Medir
   sobre la geometría, nunca sobre la huella de cajas. § F6.
+- **El eje de una junta de giro va trabado** (`ejes_giro.py`, en `agarre.retencion`; medido en
+  `services/calidad_ejes_giro.py`): eje = coaxial ± 1 mm Y toca sus dos cuerpos. Sin junta
+  declarada no hay eje que juzgar. [plan](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D8)

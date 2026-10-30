@@ -102,6 +102,18 @@ def perno_corto(d):  # M10×50 a mano por 46 mm de chapa: la tuerca no tiene hil
     d.execute("insert_component", {"component": "TUERCA-M10", "position": {"x": 400, "z": -4}})
 
 
+def pivote_sin_traba(d):  # hallazgos-del-revisor D8: el pivote de la escalera, DIN 934 simple
+    a = _caja(d, "Brazo fijo", 120, 80, 10, 400, 0, 5)
+    b = _caja(d, "Brazo que gira", 120, 80, 8, 400, 0, 14)
+    jb = d.execute("join_bolted", {"a": a, "b": b, "size": "M10", "count": 1})
+    bb = d.scene[next(f for f, x in d.scene.items() if x.command_id == jb
+                      and x.component == "PERNO-HEX-M10")].shape.bounding_box()
+    d.execute("add_joint", {"name": "pivote", "type": "giratoria", "parent": a, "child": b,
+                            "origin": {"x": (bb.min.X + bb.max.X) / 2,
+                                       "y": (bb.min.Y + bb.max.Y) / 2, "z": 0},
+                            "axis": {"x": 0, "y": 0, "z": 1}})
+
+
 def perno_a_medida(d):  # un perno M10×47 modelado a mano: ese largo no se compra
     _caja(d, "Placa A", 120, 80, 20, 400, 0, 10)
     _caja(d, "Placa B", 120, 80, 10, 400, 0, 25)
@@ -395,6 +407,8 @@ DEFECTOS = (
     Defecto("perno_por_una_aleta", "mensula_atornillada", perno_por_una_aleta,
             {"union.agarre": FALLA}),
     Defecto("perno_corto", "mensula_atornillada", perno_corto, {"union.retencion": FALLA}),
+    Defecto("pivote_sin_traba", "mensula_atornillada", pivote_sin_traba,
+            {"union.retencion": FALLA}),
     Defecto("perno_a_medida", "mensula_atornillada", perno_a_medida,
             {"union.largo_comercial": FALLA}),
     Defecto("agujero_al_canto", "mensula_atornillada", agujero_al_canto,
@@ -510,6 +524,18 @@ def test_la_puerta_atrapa_el_defecto_sembrado(defecto):
     obtenido = {iid: it[iid]["estado"] for iid in defecto.atrapa}
     assert obtenido == defecto.atrapa, {iid: it[iid]["detalle"] for iid in defecto.atrapa}
     assert r["aprobado"] is False
+
+
+def test_el_pivote_sin_traba_falla_por_ser_eje_de_giro():
+    """`pivote_sin_traba` falla POR la junta (D8 de hallazgos-del-revisor): la misma unión DIN 934
+    sin la junta pasa, y la falla nombra la junta."""
+    doc = _base("mensula_atornillada")
+    pivote_sin_traba(doc)
+    it = _item(_puerta(doc, False), "union.retencion")
+    assert it["estado"] == FALLA
+    assert [c["eje_de_giro"] for c in it["evidencia"]["casos"]] == ["pivote"], it["evidencia"]
+    doc.remove_commands([doc.commands[-1]["id"]])  # sin la junta
+    assert _item(_puerta(doc, False), "union.retencion")["estado"] == OK
 
 
 def test_el_hilo_pe_suelto_bloquea_la_puerta_por_su_regla_y_no_se_justifica():

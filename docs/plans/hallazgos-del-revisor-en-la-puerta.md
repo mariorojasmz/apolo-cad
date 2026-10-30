@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4 en la Bitácora). F0 medida (Bitácora § F0) - 90 hallazgos, 27 los gana una D, 2 ya cubiertos, ninguna D cae; ajustes vetables a D1, D3, D4, D6 y D7 (criterio 4d/3d) antes de su fase. F5 lanzada; F1–F4 y F6–F7 sin lanzar
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D, ninguna cae; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). F5 MERGEADA (registro v22). F1 en curso; F2–F4 y F6–F7 sin lanzar
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
@@ -372,3 +372,54 @@ fase:
 - Fuera de este plan, por tamaño: el cálculo de piezas de madera y la rigidez de pórticos (8
   hallazgos en 5 máquinas, el bloque repetido más grande) y el pie nivelador (5 en 3) piden su
   propio plan. La arandela sobre madera (EN 1995-1-1 §10.4.3) cabe en F4 si sale barata.
+
+### F5 (2026-10-29)
+
+Entró D8 ampliando `union.retencion` (registro **v22**), sin ítem nuevo:
+
+- `library/ejes_giro.py` (puro): las reglas de nombre, la recta y qué traba.
+- `services/calidad_ejes_giro.py`: qué perno o pasador es eje de una junta.
+- `calidad/agarre.py`: la retención de ese eje (`_con_giro`, `_pasador`).
+- `calidad_pernos.py`: cada tramo «tuerca» del insumo lleva `autoblocante`.
+
+Cómo se reconoce, medido donde se puede:
+
+- **Eje de la junta.** Perno de `calidad_pernos` (eje de la geometría) paralelo y a ≤ 1 mm de la
+  recta de una junta `giratoria`/`continua`, que toca su cuerpo padre Y su cuerpo hijo (pieza +
+  juntas `fija`). Tocar = lo cruza, es del cuerpo, o el cuerpo tiene material a 1,2·d del eje
+  dentro del largo del perno (anillo de 8 rayos). Así entra el brazo que gira sobre un BUJE (el
+  codo de la escalera) y no el perno coaxial en la punta del eje fijo de un rodillo.
+- **Traba.** Tuerca autoblocante por la ficha (`specs.tipo`/`norma`: `TUERCA-AB-*` de
+  `join_bolted(tuerca="din985")`) o por el ROL anclado de una tuerca a medida (DIN 985 / 982 /
+  980, ISO 7040 / 7042 / 10511…). Contratuerca = dos tuercas en el eje a ≤ 1 mm, por geometría.
+  Pasador de aletas o anillo de retención por el rol anclado, tocando la caja del perno.
+- **Tirafondo.** Ficha `tornilleria_madera` o rol «Tirafondo…», «Tornillo para madera…», DIN 571:
+  FALLA siempre como eje.
+- **Pasador o bulón sin cabeza** (rol anclado) y tornillo de madera sin llave: los que
+  `calidad_pernos` no mide entran por sus caras cilíndricas coaxiales y tocan los cuerpos por caja.
+
+Decisiones, vetables:
+
+- La altura de la tuerca NO decide que sea autoblocante: una DIN 985 mide ≈ 1·d y una tuerca alta
+  DIN 6330 también. Decide la ficha o el nombre.
+- Una tuerca fundida en el sólido del perno es autoblocante sólo si lo dice el nombre del perno.
+  Si no, es una tuerca simple y FALLA (no SIN_EVALUAR): se ve y nada dice que trabe.
+- Un pasador o bulón con retén y sin tuerca ni rosca deja de ser «nada lo retiene», pero sólo si
+  es eje de una junta. Fuera de una junta, el veredicto no cambia.
+- Sin junta declarada no hay eje. Un pivote que cierra un lazo (el tirante trasero de la escalera,
+  fijo con `fija` porque la FK es un árbol) o un modelo sin juntas (la silla final) no se juzga.
+
+Cifras:
+
+- **Escalera de tijera real** (repo de máquinas): 5 juntas de giro, 50 pernos, 4 ejes (pivotes
+  delanteros y codos). Pasan por su «Tuerca autoblocante DIN 985» a medida. Con la tuerca renombrada
+  a DIN 934, falla el pivote que la lleva (`tests/test_puerta_eje_giro.py`, se salta sin el
+  archivo).
+- **Falsos positivos.** Barrido de los 19 `.apolo` de `C:\t\maq` (hasta 21 juntas de giro, como
+  los rodillos con cadena y la lavadora) y de los 9 pilotos: 0 ejes fuera de la escalera.
+- **Costo.** Marcar los ejes de la escalera: 0,09 s; sin juntas, 0.
+- **Testigos.** Sólo cambió `version_registro` 21 → 22, ningún ítem.
+- **Defecto sembrado.** `pivote_sin_traba` (ménsula atornillada + `join_bolted` DIN 934 +
+  junta coaxial) atrapa `union.retencion`; sin la junta, la misma unión pasa.
+- **Suite completa** en el worktree (escritorio, sin `-n`): exit 0, sin FAILED. `ruff check` limpio y
+  `test_negocio_fuera` en verde.

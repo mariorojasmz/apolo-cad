@@ -95,7 +95,12 @@ soportes, un travesaño) no se cambia sin desarmarlas y falla salvo con su empal
 de catálogo `empalmes_banda` unida a la banda) o el empalme mecánico en su nombre; v21
 (plantilla-rodillos-cadena F9-e) `transmision.capacidad`: una cadena con FS ≥ 1,2 cuya regla AVISA
 por una recomendación de desgaste (piñón < 17 dientes, centros < 30 pasos) se corrige o se
-JUSTIFICA por escrito; antes era FALLA sin salida (no es un modo de falla de capacidad).
+JUSTIFICA por escrito; antes era FALLA sin salida (no es un modo de falla de capacidad); v22
+(hallazgos-del-revisor-en-la-puerta F5, D8) `union.retencion` cubre el EJE QUE GIRA: el perno o
+pasador coaxial (± 1 mm) con una junta `giratoria`/`continua` que toca sus dos cuerpos va trabado
+(tuerca autoblocante DIN 985 / ISO 7040, contratuerca, pasador de aletas o anillo de retención) y
+no es un tirafondo ni un tornillo de madera (`ejes_giro.py`; los pivotes DIN 934 de una escalera
+de tijera aprobada en v21 ahora fallan).
 """
 
 from __future__ import annotations
@@ -111,7 +116,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "21"  # 21: el aviso de desgaste de una cadena que da su FS se justifica
+VERSION_REGISTRO = "22"  # 22: el eje de una junta de giro va trabado (union.retencion)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -151,7 +156,8 @@ _MECANICA = {
     "union.agarre": General("Cada unión atornillada atraviesa todo lo que une", "montaje",
                             ("agarre.cruza",), hay("tornilleria", "sin tornillería que medir"),
                             "tornilleria"),
-    "union.retencion": General("Tuerca con hilo fuera o rosca con enganche suficiente", "montaje",
+    "union.retencion": General("Tuerca con hilo fuera o rosca con enganche suficiente, y el eje "
+                               "de cada junta de giro trabado", "montaje",
                                ("agarre.retencion",),
                                hay("tornilleria", "sin tornillería que medir"), "tornilleria"),
     "union.largo_comercial": General("Cada perno tiene un largo comercial y de catálogo",

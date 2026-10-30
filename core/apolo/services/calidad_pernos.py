@@ -85,6 +85,20 @@ def _es_tuerca(feat, catalog) -> bool:
             or bool(_TUERCA_RE.search(getattr(feat, "name", "") or "")))
 
 
+def es_autoblocante(feat, catalog) -> bool:
+    """¿La tuerca es AUTOBLOCANTE (DIN 985 / ISO 7040 / ISO 10511, anillo de nylon o
+    todo-metal)? Por su ficha (`specs.tipo`/`norma`) o, a medida, por el ROL de su nombre
+    (hallazgos-del-revisor-en-la-puerta D8; la regla, en `ejes_giro.ES_AUTOBLOCANTE`)."""
+    from apolo.library.ejes_giro import ES_AUTOBLOCANTE
+    from apolo.library.materials import piece_role
+
+    comp = catalog.get(getattr(feat, "component", None) or "")
+    if comp is not None:
+        specs = comp.specs or {}
+        return bool(ES_AUTOBLOCANTE.search(f"{specs.get('tipo', '')} {specs.get('norma', '')}"))
+    return bool(ES_AUTOBLOCANTE.search(piece_role(getattr(feat, "name", "") or "")))
+
+
 def geometria_esparrago(esc, solid, catalog) -> dict | None:
     """La geometría de UN espárrago (`library/esparrago.py`) con su sentido: `t` = 0 en la BASE
     (el extremo soldado o el que entra en la pieza) y hacia la punta, donde va la TUERCA. El
@@ -390,10 +404,12 @@ def insumo_perno(esc: _Escena, fid: str, feat, solid, tipo: str, esperadas: list
                 "t1": round(b, 2), "rol": "tuerca" if es_tuerca else "pieza",
                 "material": resolve_material(ofeat, catalog),
                 "rosca": [(round(x, 2), round(y, 2)) for x, y in rosca],
+                **({"autoblocante": es_autoblocante(ofeat, catalog)} if es_tuerca else {}),
             })
     for a, b in g["tuercas"]:  # tuerca fundida en el mismo sólido del perno
         tramos.append({"fid": fid, "nombre": base["nombre"], "t0": round(a, 2),
-                       "t1": round(b, 2), "rol": "tuerca", "material": "acero", "rosca": []})
+                       "t1": round(b, 2), "rol": "tuerca", "material": "acero", "rosca": [],
+                       "autoblocante": es_autoblocante(feat, catalog)})  # lo dice su nombre
     tramos.sort(key=lambda t: t["t0"])
     mas_alla.sort(key=lambda m: m["t0"])
     return {**base, "evaluable": True, "motivo": "", "cabeza": g["cabeza"], "d": dn,
