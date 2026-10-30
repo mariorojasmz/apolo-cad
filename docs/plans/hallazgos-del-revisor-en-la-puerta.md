@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23) y F3 (v24; el historial de versiones salió a calidad/historial_registro.py). Sin lanzar - F2 (D4–D5), F4 (D7), F6 (D9) y F7
+nota: contrato APROBADO por Mario (2026-10-29) y revisado por el escritorio (R1–R4). F0 medida (90 hallazgos, 27 los gana una D; ajustes vetables a D1, D3, D4, D6 y D7 con criterio 4d/3d). MERGEADAS F5 (registro v22), F1 (v23) y F3 (v24; el historial de versiones salió a calidad/historial_registro.py). En curso (agentes) - F2 (D4–D5) y F4 (D7); sin lanzar - F6 (D9) y F7
 descripcion: Lo que el revisor a ciegas encuentra máquina tras máquina lo frena la puerta en el primer modelado, en vez de pagarlo ronda por ronda
 ---
 
