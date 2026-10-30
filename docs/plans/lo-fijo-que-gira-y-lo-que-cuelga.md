@@ -1,5 +1,5 @@
 ---
-estado: en curso
+estado: implementado
 nota: F0 medida (2026-10-30, bitácora) con ajustes a D1–D4 y a las verificaciones de F1–F2. MERGEADAS F4 (D5 = join_bolted criterio 8, D6 = $k en conjuntos), F1 (D1 movimiento.coherente, registro v28, D1c afinado y vetable), F2 (D2 union.contacto_no_cuelga, v30; D2c vetable = la nota del fasten declara la unión de tubería roscada o tri-clamp) y F3 (D4a la cinta sigue la banda modelada; D3a la catenaria de banda modular es tensado reconocido con Intralox, v31; la parte térmica queda SIN_EVALUAR justificable hasta tener la fuente del α)
 descripcion: La puerta frena una pieza atornillada al bastidor que gira con un eje, un peso colgado de un simple contacto y la banda modular tensada por catenaria, y join_bolted deja de poner una cabeza dentro de un tubo
 ---
