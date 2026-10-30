@@ -199,6 +199,9 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   VISIBLE: tocar las ramas `mantenimiento=False`/helicoidal cambia los logs v4 guardados; un
   agujero inclinado (sobre la línea de centros) es `boolean_op` de una broca, no `drill_hole`. Una
   regla que busque un tipo en el log recorre `comandos_efectivos` (lo hace la de cadenas).
+  `anclaje_ref`/`calza_mm` VISIBLES (sin bump: «auto»/0 da el ANCLA-EXP-M12 de siempre): el
+  anclaje fija base + calza (la ETA cuenta la calza en tfix); un M12 más corto en el catálogo
+  cambiaría el «auto» de los logs guardados (`tests/test_rodillos_anclaje_largo.py`).
   `create_extrude_poly` extruye hacia la normal del polígono: la receta lo pasa ANTIHORARIO
   (`receta_rodillos_guardas._antihorario`), si no la chapa sale corrida un espesor.
   [plan](../../../docs/plans/plantilla-rodillos-cadena.md)

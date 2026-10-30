@@ -143,7 +143,8 @@ CAMPOS: dict[str, str] = {
     "create_robot_arm": "name alcance position position.x position.y position.z",
     "create_roller_conveyor": (
         "name largo ancho_util paso rodillo altura carga_kg motriz motor velocidad_m_s anclaje taller eje "
-        "pie position position.x position.y position.z red_v union mantenimiento"
+        "pie position position.x position.y position.z red_v union mantenimiento anclaje_ref "
+        "calza_mm"
     ),
     "create_sheet_metal": (
         "name ancho fondo espesor lados altura_pestana angulo radio k_factor holes holes[].x "

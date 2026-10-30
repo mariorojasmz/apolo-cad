@@ -274,14 +274,20 @@ def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, 
                 f"contratuerca M{p.rosca:g} del vástago apretada contra la tuerca soldada: traba "
                 "la altura nivelada")
     apoyo, nota = pie, "disco del pie nivelador apoyado en el piso, sin anclar"
+    # lo que fija cada anclaje, sólo si no es el de siempre (la nota de un log viejo no cambia)
+    fija = ""
+    if p.calza > 0.0 or p.anclaje_ref != ANCLAJE_REF:
+        fija = (f"; fija {p.espesor_fijado:g} mm (con {p.calza:g} mm de calza debajo, en obra) ≤ "
+                f"tfix {float(CATALOG[p.anclaje_ref].specs['tfix_max']):g} de {p.anclaje_ref}")
     if p.base:  # F8: la base del pie, anclada directo al concreto por sus 2 agujeros
         for j, (dx, dy) in enumerate(p.anclajes):
             anc = r.pieza("insert_component", f"ancla_{s}{j}", "Patas",
                           f"Anclaje de expansión ({donde}, {j + 1})",
-                          {"component": ANCLAJE_REF, "position": r.pos(x + dx, y + dy, p.disco_t)})
+                          {"component": p.anclaje_ref,
+                           "position": r.pos(x + dx, y + dy, p.disco_t)})
             r.union(f"ancla_{s}{j}", anc, pie, "contacto",
                     "anclaje de expansión M12 por el agujero de la base del pie, apretado sobre "
-                    "ella (espárrago, camisa, arandela y tuerca incluidos)")
+                    "ella (espárrago, camisa, arandela y tuerca incluidos)" + fija)
         nota = ("base del pie nivelador con 2 anclajes de expansión M12 al concreto, sin soldar: "
                 "se re-nivela con la contratuerca suelta, sin tocar el anclaje")
     elif p.anclaje:
@@ -300,17 +306,18 @@ def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, 
             for j, (dx, dy) in enumerate(p.anclajes):
                 anc = r.pieza("insert_component", f"ancla_{s}{j}", "Patas",
                               f"Anclaje de expansión ({donde}, {j + 1})",
-                              {"component": ANCLAJE_REF,
+                              {"component": p.anclaje_ref,
                                "position": r.pos(x + dx, y + dy, PLACA_PISO_T)})
                 # el perno en la pieza que atraviesa va en contacto (criterio de taller): lo que
                 # ancla la placa al concreto es el `ground`, con los anclajes en su nota
                 r.union(f"ancla_{s}{j}", anc, apoyo, "contacto",
                         f"anclaje de expansión M12 por el agujero Ø{ANCLAJE_D:g} de la placa, "
-                        "apretado sobre ella (espárrago, camisa, arandela y tuerca incluidos)")
+                        "apretado sobre ella (espárrago, camisa, arandela y tuerca incluidos)"
+                        + fija)
             nota = ("placa de piso con 2 anclajes de expansión M12, por fuera de la placa de la "
                     "pata (entran el taladro y el dado)")
     r.pasos.append(("ground", f"piso_{s}", {"name": r.id(f"piso_{s}"), "feature": apoyo,
-                                            "nota": nota}))
+                                            "nota": nota + fija}))
 
 
 def _estaciones(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str) -> dict:

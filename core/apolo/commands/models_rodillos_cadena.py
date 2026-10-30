@@ -24,6 +24,12 @@ def _motores() -> list[str]:
     return [MOTOR_AUTO, *MOTORES]
 
 
+def _anclajes() -> list[str]:
+    from apolo.library.rodillos_cadena_pies import ANCLAJE_AUTO, anclajes
+
+    return [ANCLAJE_AUTO, *anclajes()]
+
+
 class CreateRollerConveyorParams(BaseModel):
     """Transportador de rodillos MOTORIZADO POR CADENA rodillo a rodillo, completo, fabricable y
     sostenido, en UNA orden (super-comando): 2 largueros de ángulo L 75x6 (ala horizontal ABAJO y
@@ -43,7 +49,8 @@ class CreateRollerConveyorParams(BaseModel):
     - `altura` = cara superior de los rodillos, con los pies a la mitad de su recorrido.
     - Pies: la familia sale de (masa + carga_kg) / patas × 1.5; cada vástago con contratuerca.
       `anclaje: true` = la base del pie atornillada al concreto con 2 anclajes M12, sin soldar;
-      `false` = disco directo al piso.
+      `false` = disco directo al piso. Con calza o mortero bajo la base en obra, dalo en
+      `calza_mm`: `anclaje_ref: auto` elige el M12 cuyo tfix fija base + calza.
     - `paso`: con cadena sólo 95.25, 107.95 o 120.65 mm (1:1 sin sobrante); libre, de Ø + 20 a
       300 mm. Los rodillos (par) salen de `largo` y quedan centrados.
     - `ancho_util` = largo del tubo. `motor: auto` (el de todo comando nuevo) = sinfín NMRV con el
@@ -109,6 +116,20 @@ class CreateRollerConveyorParams(BaseModel):
         description="true = cada pie nivelador anclado al concreto con 2 anclajes de expansión; "
                     "false = el disco del pie apoya directo en el piso",
     )
+    # Default «auto» / 0 = el anclaje de siempre (ANCLA-EXP-M12): un log sin estos campos
+    # regenera idéntico (`rodillos_cadena_pies.elegir_anclaje`).
+    anclaje_ref: str = Field(
+        "auto", title="Anclaje",
+        description="auto = el M12 más corto cuyo tfix cubre la base del pie + calza_mm; o una "
+                    "ref de anclaje (error si su tfix no alcanza). Con anclaje: true",
+        json_schema_extra=lambda schema: schema.update({"enum": _anclajes()}),
+    )
+    calza_mm: float = Field(
+        0, ge=0, le=100, title="Calza bajo la base",
+        description="mm de calza o mortero de nivelación que irá bajo la base de los pies en "
+                    "obra (no se modela; la ETA del anclaje la cuenta en el espesor a fijar): el "
+                    "anclaje auto la fija junto con la base. Con anclaje: true",
+    )
     # F6, FUERA del schema (criterio de Apolo, no del modelador): eje trabado entre dos tuercas
     # con separadores, 6201 de compra en el alojamiento de la tapa, contratuerca del pie y
     # anclajes de compra por fuera de la placa de la pata. Lo pone el sello de entrada
@@ -151,4 +172,11 @@ class CreateRollerConveyorParams(BaseModel):
     def _motor_conocido(cls, v: str) -> str:
         if v not in _motores():
             raise ValueError(f"motor '{v}': usa uno de {', '.join(_motores())}")
+        return v
+
+    @field_validator("anclaje_ref")
+    @classmethod
+    def _anclaje_conocido(cls, v: str) -> str:
+        if v not in _anclajes():
+            raise ValueError(f"anclaje_ref '{v}': usa uno de {', '.join(_anclajes())}")
         return v

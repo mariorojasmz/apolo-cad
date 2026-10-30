@@ -60,3 +60,16 @@ families:
     specs_common: {tipo: "anclaje de expansión", material: "acero zincado", norma: "EAD 330232 (ETA del fabricante)", cotas_verificadas: false}
     variants:
       - {ref: "ANCLA-EXP-M12", d: 12, length: 115, sobre: 25, across_flats: 19, nut_h: 10, washer_d: 24, washer_t: 3, df: 14, hef: 70, tfix_max: 20, par_instalacion_nm: 60, linea_referencia: "del orden de Hilti HST3 M12x115/20 o Fischer FAZ II 12/20", cost: 1.6}
+  # LARGOS MAYORES de la misma familia (2026-10-29: una calza o un mortero de nivelación bajo la
+  # base también es espesor a fijar —la ETA lo cuenta en tfix— y el M12x115 sólo fija 20 mm).
+  # Fuentes, con el mismo hef 70 (misma capacidad a tracción y corte que el de 115):
+  # - Hilti HST3 (ETA-98/0001, EAD 330232): designación «M12×L tfix(hef 50)/tfix(hef 70)»; en
+  #   stock M12x115 40/20 (art. 2105719), M12x125 50/30, M12x145 70/50 (art. 2105851) y M12x165
+  #   (art. 2105852). Largo = sobre 25 + tfix + hef 70, la relación del M12x115 de arriba.
+  # - fischer FAZ II Plus (ETA-19/0520 de DIBt, 24-05-2023): tabla A2.1, M12 con B = hef + tfix =
+  #   100 / 120 / 140 para tfix 30 / 50 / 70 → hef 70 (las «12/30», «12/50», «12/70»); tabla B2.1,
+  #   M12: taladro d0 12, agujero en la placa df ≤ 14, par de instalación 60 N·m, hef 50–125.
+  # El 3D sigue siendo representativo (`cotas_verificadas: false`: arandela y tuerca).
+      - {ref: "ANCLA-EXP-M12-125", d: 12, length: 125, sobre: 25, across_flats: 19, nut_h: 10, washer_d: 24, washer_t: 3, df: 14, hef: 70, tfix_max: 30, par_instalacion_nm: 60, linea_referencia: "del orden de Hilti HST3 M12x125 50/30 o fischer FAZ II Plus 12/30", fuente: "ETA-98/0001 (Hilti HST3) · ETA-19/0520 tablas A2.1 y B2.1 (fischer FAZ II Plus)", cost: 1.75}
+      - {ref: "ANCLA-EXP-M12-145", d: 12, length: 145, sobre: 25, across_flats: 19, nut_h: 10, washer_d: 24, washer_t: 3, df: 14, hef: 70, tfix_max: 50, par_instalacion_nm: 60, linea_referencia: "del orden de Hilti HST3 M12x145 70/50 o fischer FAZ II Plus 12/50", fuente: "ETA-98/0001 (Hilti HST3) · ETA-19/0520 tablas A2.1 y B2.1 (fischer FAZ II Plus)", cost: 2.0}
+      - {ref: "ANCLA-EXP-M12-165", d: 12, length: 165, sobre: 25, across_flats: 19, nut_h: 10, washer_d: 24, washer_t: 3, df: 14, hef: 70, tfix_max: 70, par_instalacion_nm: 60, linea_referencia: "del orden de Hilti HST3 M12x165 o fischer FAZ II Plus 12/70", fuente: "ETA-98/0001 (Hilti HST3) · ETA-19/0520 tablas A2.1 y B2.1 (fischer FAZ II Plus)", cost: 2.25}

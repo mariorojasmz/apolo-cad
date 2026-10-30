@@ -42,7 +42,7 @@ def disposicion_de(p: CreateRollerConveyorParams):
 
     return disposicion(p.largo, p.ancho_util, p.paso, p.rodillo, p.altura, p.carga_kg,
                        p.motriz == "cadena", p.motor, p.velocidad_m_s, p.anclaje, p.taller, p.eje,
-                       p.pie, p.red_v, p.union, p.mantenimiento)
+                       p.pie, p.red_v, p.union, p.mantenimiento, p.anclaje_ref, p.calza_mm)
 
 
 def sellar(params: dict, material_de) -> dict:

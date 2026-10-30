@@ -24,6 +24,10 @@ dado entren sobre cada anclaje con la misma cifra de F6. Se nivela girando el v�
 contratuerca suelta, sin tocar los anclajes; luego se aprieta la contratuerca. La tuerca del
 vástago sigue SOLDADA bajo la placa de la pata: tuerca y placa son de acero negro, sin zincar.
 
+Anclaje (`elegir_anclaje`): el M12 de expansión cuyo tfix cubre la base (o la placa de piso) más
+la calza o el mortero de nivelación que se ponga debajo en obra (`calza_mm`, no se modela: la ETA
+la cuenta en tfix); «auto» toma el más corto, que sin calza es el `ANCLAJE_REF` de siempre.
+
 Familia: la menor cuyo `carga_kg` cubre (masa de la máquina + carga) / patas × `IMPACTO`. La
 masa sale de `masa_estimada` (catálogo + chapa de las cotas, × `MARGEN_MASA`). Si ninguna la
 cubre, la mayor: lo marca el `engineering_check` (`rodillos_cadena_reglas`) y el log sigue
@@ -33,7 +37,7 @@ regenerando, como el FS < 1 de la cadena en F4.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .catalog import CATALOG
 from .engineering.bolts import clearance_hole_mm
@@ -56,6 +60,40 @@ RHO = 7.85e-6              # kg/mm³, acero
 ANCLAJE_REF = "ANCLA-EXP-M12"
 ACCESO_ANCLAJE = 30.0
 BORDE_ANCLAJE = 25.0
+# El anclaje fija la base del pie (o la placa de piso) y la calza o el mortero de nivelación que
+# vaya debajo en obra: la ETA cuenta toda capa no estructural en el espesor a fijar (tfix).
+# «auto» = el M12 MÁS CORTO cuyo `tfix_max` cubre ese espesor; sin calza es el `ANCLAJE_REF` de
+# siempre (base ≤ 14 mm, placa de piso 10 ≤ 20), así que un log sin el campo regenera igual.
+ANCLAJE_AUTO = "auto"
+
+
+def anclajes() -> list[str]:
+    """Los anclajes de expansión M12 del catálogo (los que caben en el agujero Ø14 de la base y
+    de la placa de piso), del más corto al más largo."""
+    refs = [r for r, c in CATALOG.items() if c.specs.get("tipo") == "anclaje de expansión"
+            and float(c.specs.get("d", 0)) == 12.0]
+    return sorted(refs, key=lambda r: float(CATALOG[r].specs["length"]))
+
+
+def elegir_anclaje(espesor: float, ref: str = ANCLAJE_AUTO) -> str:
+    """El anclaje que fija `espesor` mm: `ref` si su tfix lo cubre (si no, `ValueError` con los
+    que sí) o, con «auto», el más corto que lo cubre."""
+    def tfix(r: str) -> float:
+        return float(CATALOG[r].specs["tfix_max"])
+
+    sirven = [r for r in anclajes() if tfix(r) >= espesor - 1e-6]
+    if ref != ANCLAJE_AUTO:
+        if ref not in anclajes():
+            raise ValueError(f"anclaje_ref '{ref}': usa auto o uno de {', '.join(anclajes())}")
+        if ref in sirven:
+            return ref
+    if not sirven:
+        raise ValueError(f"ningún anclaje M12 del catálogo fija {espesor:g} mm (el más largo, "
+                         f"{anclajes()[-1]}, fija {tfix(anclajes()[-1]):g}): baja la calza")
+    if ref != ANCLAJE_AUTO:
+        raise ValueError(f"{ref} fija hasta {tfix(ref):g} mm y hay que fijar {espesor:g} (base o "
+                         f"placa + calza): usa {', '.join(sirven)} o auto")
+    return sirven[0]
 
 
 def familias(base: bool = False) -> list[str]:
@@ -93,6 +131,13 @@ class Pies:
     z_contratuerca: float = 0.0  # centro de la contratuerca (sólo con `taller`)
     base: bool = False     # F8: pie con base de anclaje anclada directo al piso (sin placa de piso)
     paso_agujeros: float = 0.0   # entre los 2 agujeros de la base (sólo con `base`)
+    anclaje_ref: str = ANCLAJE_REF  # el anclaje elegido (`elegir_anclaje`)
+    calza: float = 0.0     # calza o mortero bajo la base/placa en obra: el anclaje también la fija
+
+    @property
+    def espesor_fijado(self) -> float:
+        """Lo que fija cada anclaje: la base del pie (F8) o la placa de piso, más la calza."""
+        return (self.disco_t if self.base else PLACA_PISO_T) + self.calza
 
     @property
     def placa_pata(self) -> float:
@@ -226,7 +271,8 @@ def masa_estimada(d, pie: Pies) -> float:
                 + _kg(pie.tuerca)
                 + (RHO * px * py * PLACA_PISO_T if pie.anclaje and not pie.base else 0.0))
     if pie.taller:  # la contratuerca y, con anclaje, los 2 anclajes de expansión
-        por_pata += _kg(pie.tuerca) + (len(pie.anclajes) * _kg(ANCLAJE_REF) if pie.anclaje else 0.0)
+        por_pata += _kg(pie.tuerca) + (len(pie.anclajes) * _kg(pie.anclaje_ref)
+                                       if pie.anclaje else 0.0)
     ne = len(d.estaciones)
     total += 2 * ne * por_pata + ne * _kg(rc.PATA, d.travesano_largo)
     m = d.motriz
@@ -240,14 +286,21 @@ def masa_estimada(d, pie: Pies) -> float:
     return total * MARGEN_MASA
 
 
-def elegir(d, anclaje: bool, taller: bool = False, base: bool = False) -> Pies:
+def elegir(d, anclaje: bool, taller: bool = False, base: bool = False,
+           anclaje_ref: str = ANCLAJE_AUTO, calza: float = 0.0) -> Pies:
     """El pie de cada pata: el menor que lleva (masa + `d.carga_kg`) / patas × `IMPACTO`; si
     ninguno, el mayor (el `engineering_check` lo da en error). Con `base` y `anclaje` (F8), de
-    los de base de anclaje."""
+    los de base de anclaje. Con `anclaje`, el anclaje que fija su base (o la placa de piso) más
+    la `calza` (`elegir_anclaje`: `anclaje_ref` o «auto»)."""
+    if not anclaje and (anclaje_ref != ANCLAJE_AUTO or calza > 0.0):
+        raise ValueError("anclaje_ref y calza_mm son del anclaje al piso: van con anclaje: true")
     n = 2 * len(d.estaciones)
     out = None
     for ref in familias(base and anclaje):
         p = pila(ref, anclaje, taller, base)
+        if anclaje:
+            p = replace(p, calza=calza)
+            p = replace(p, anclaje_ref=elegir_anclaje(p.espesor_fijado, anclaje_ref))
         masa = masa_estimada(d, p)
         por_pie = (masa + d.carga_kg) / n * IMPACTO
         cap = float(CATALOG[ref].specs["carga_kg"])

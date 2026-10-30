@@ -288,7 +288,8 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
                 velocidad_m_s: float | None = None, anclaje: bool = True,
                 taller: bool = False, eje: str = "roscado", pie: str = "disco",
                 red_v: float = 220.0, union: str = "soldado",
-                mantenimiento: bool = False) -> Disposicion:
+                mantenimiento: bool = False, anclaje_ref: str = "auto",
+                calza_mm: float = 0.0) -> Disposicion:
     """Todas las cotas del transportador; `ValueError` accionable si no se puede fabricar.
     `velocidad_m_s` (D6) elige el piñón del motor; sin ella, el de siempre (`PINON_MOTRIZ`).
     El pie nivelador de las patas (D10) sale de la carga por pata; `anclaje` pone una placa de
@@ -301,7 +302,8 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     «base» (F8, sellado también; pide `taller`): con `anclaje`, el pie de base de anclaje va
     anclado directo al piso, sin placa de piso ni soldadura. F9: `motor` «auto» elige el sinfín
     por cuenta a la tensión `red_v` (`rodillos_cadena_sinfin`); `union` «empernado» y
-    `mantenimiento` (E15–E18) los lee la receta (`receta_rodillos_bastidor`/`_servicio`)."""
+    `mantenimiento` (E15–E18) los lee la receta (`receta_rodillos_bastidor`/`_servicio`).
+    `anclaje_ref`/`calza_mm`: el anclaje que fija base + calza (`rodillos_cadena_pies`)."""
     from . import rodillos_cadena_eje as hx
 
     if union not in UNIONES:
@@ -421,7 +423,7 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         taller=taller, eje_hex=eje_hex, union=union, mantenimiento=mantenimiento, red_v=red_v,
     )
     # D10: el pie sale de la carga por pata; la pata crece lo que la pila baja
-    pies = elegir_pies(prov, anclaje, taller, base)
+    pies = elegir_pies(prov, anclaje, taller, base, anclaje_ref, calza_mm)
     pata = z_bajo_larguero - pies.z_pata0
     if mot is None:
         estaciones = _estaciones(largo, xs, None, vano, pies.z_pata0 + pata / 2.0)
