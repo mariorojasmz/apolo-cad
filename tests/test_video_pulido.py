@@ -379,6 +379,22 @@ def test_plantillas_del_catalogo_cifra_por_cifra():
     assert plantilla("Base del motor", ["b1"], datos) is None  # sin plantilla: el conteo
 
 
+def test_tornilleria_que_ya_dice_su_metrica_no_la_repite():
+    perno = {"d": 10, "norma": "DIN 933"}
+    piezas = {f"b{i}": Pieza(f"Perno M10x25 DIN 933 ({i})", ref="PERNO-M10", specs=perno)
+              for i in range(4)}
+    datos = _datos(**piezas)
+    assert plantilla("Perno M10x25 DIN 933", list(piezas), datos) is None
+    assert plantilla("Perno de anclaje", list(piezas), datos).desc == "M10"
+    pasos = [_p(1, roles=("Perno M10x25 DIN 933",), agregados=tuple(piezas))]
+    assert texto_etapa(pasos, datos) == "Se suman 4 pernos M10x25 DIN 933."
+
+
+def test_el_rotulo_concuerda_el_adjetivo():
+    pasos = [_p(1, roles=("Pie nivelador",), agregados=tuple(f"p{i}" for i in range(4)))]
+    assert texto_etapa(pasos) == "Se suman 4 pies niveladores."
+
+
 def test_perfil_con_largos_distintos_da_el_rango():
     tubo = CATALOG["TUBO-2X2"]
     datos = _datos(a=Pieza("Travesaño", ref=tubo.ref, nombre_cat=tubo.name, largo_mm=571.2),

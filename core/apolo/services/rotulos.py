@@ -5,7 +5,8 @@ publicacion-tienda, F1 · D2 y D3, y video-montaje-pulido, F1 · D1). Puro: reci
 **Rol** (`rol`): sale del NOMBRE de la pieza. Es lo que sigue al último « · » (las piezas de un
 super-comando se llaman «Transportador · Rodillo (7)»), sin el sufijo de instancia que agregan
 patrones, espejos y copias («(7)», «(1,2)», «(espejo)», «(copia)», «(+Y)») ni un número final
-suelto («Rodillo 7»; «Perno M10» queda entero). Sin nombre, el sufijo del id sin dígitos
+suelto («Rodillo 7»; «Perno M10» y «Perno M10x25 DIN 933» quedan enteros: el número que sigue a
+una sigla de norma, `_NORMAS`, es la norma). Sin nombre, el sufijo del id sin dígitos
 (`c3_rod7` → «rod»). Agrupa el revelado escalonado de un super-comando (D2). **Base** (`base`):
 el rol sin el paréntesis final («Pata (-Y, alimentación)» → «Pata»): con ella se cuentan las
 piezas del rótulo. **Familia** (`familia`): la primera palabra de la base, en minúscula y sin
@@ -41,7 +42,10 @@ from dataclasses import dataclass, field
 SEPARADOR = " · "
 _INSTANCIA = re.compile(
     r"\s*\((?:\d+(?:\s*,\s*\d+)*|espejo|copia|[+\-−±]?\s*[XYZxyz])\)\s*$")
-_NUMERO_FINAL = re.compile(r"\s+#?\d+$")
+_NUMERO_FINAL = re.compile(r"(\S*)\s+#?\d+$")
+#: Siglas de norma: el número que las sigue es la norma, no la instancia («DIN 933»).
+_NORMAS = {"DIN", "ISO", "EN", "ASTM", "AISI", "SAE", "ANSI", "ASME", "UNE", "JIS", "IEC",
+           "NTP", "BS", "GB", "NFPA", "AWS", "API", "IRAM", "ABNT", "NCh", "NOM"}
 _PARENTESIS_FINAL = re.compile(r"\s*\([^()]*\)\s*$")
 _TILDES = str.maketrans("áéíóúÁÉÍÓÚ", "aeiouAEIOU")
 NBSP = chr(0xA0)
@@ -64,7 +68,8 @@ def rol(nombre: str | None, fid: str = "", command_id: str = "") -> str:
     while previo != base_:  # «Rodillo (2) (copia)»: los sufijos se apilan
         previo = base_
         base_ = _INSTANCIA.sub("", base_).strip()
-    base_ = _NUMERO_FINAL.sub("", base_).strip()
+    base_ = _NUMERO_FINAL.sub(lambda m: m.group(0) if m.group(1) in _NORMAS else m.group(1),
+                              base_).strip()
     if base_:
         return base_
     sufijo = fid[len(command_id) + 1:] if command_id and fid.startswith(command_id + "_") else fid
@@ -147,22 +152,50 @@ def con_articulo(rol_: str) -> str:
     return f"{'la' if femenina else 'el'} {texto}"
 
 
+#: Terminaciones de ADJETIVO: la palabra que sigue al sustantivo y acaba así concuerda en
+#: plural («Pie nivelador» → «pies niveladores»); la que no, es un sustantivo en aposición y
+#: queda («placas base», «tubos guía»).
+_ADJETIVO = ("or", "ora", "ado", "ada", "ido", "ida", "al", "ar", "ble", "ivo", "iva", "ico",
+             "ica", "triz")
+#: Sustantivos con esa terminación que en una máquina van en aposición («Soporte motor»,
+#: «Guarda lado motor»): ante la duda, quedan como están.
+_NO_ADJETIVO = {"motor", "motorreductor", "reductor", "sensor", "tambor", "rotor", "variador",
+                "actuador", "contactor", "conector", "interruptor", "lado", "canal", "pedestal"}
+
+
+def _plural_palabra(palabra: str) -> str:
+    """Plural de UNA palabra; una sigla, una cifra o lo que acaba en s o x queda igual."""
+    if not palabra or not palabra[-1].isalpha() or palabra.isupper():
+        return palabra
+    final = palabra[-1].lower()
+    if final in "aeiouáéó":
+        return palabra + "s"
+    if final == "z":
+        return palabra[:-1] + "ces"
+    if final in "sx":
+        return palabra
+    if len(palabra) > 1 and palabra[-2] in "áéíóú":  # aguda: pierde la tilde
+        palabra = palabra[:-2] + palabra[-2].translate(_TILDES) + palabra[-1]
+    return palabra + "es"
+
+
+def _es_adjetivo(palabra: str) -> bool:
+    return (palabra.isalpha() and palabra.islower() and palabra not in _NO_ADJETIVO
+            and palabra.endswith(_ADJETIVO))
+
+
 def plural(rol_: str) -> str:
-    """Plural español de un rol, en minúscula, pluralizando la primera palabra
-    («Placa base» → «placas base», «Unión» → «uniones», «Motorreductor» → «motorreductores»).
-    Una sigla («UCP») o una palabra que acaba en s o x queda igual."""
-    primera, _, resto = _minuscula(rol_).partition(" ")
-    if primera and primera[-1].isalpha() and not primera.isupper():
-        final = primera[-1].lower()
-        if final in "aeiouáéó":
-            primera += "s"
-        elif final == "z":
-            primera = primera[:-1] + "ces"
-        elif final not in "sx":
-            if len(primera) > 1 and primera[-2] in "áéíóú":  # aguda: pierde la tilde
-                primera = primera[:-2] + primera[-2].translate(_TILDES) + primera[-1]
-            primera += "es"
-    return f"{primera} {resto}" if resto else primera
+    """Plural español de un rol, en minúscula: la primera palabra y los ADJETIVOS que la siguen
+    (`_ADJETIVO`: «Pie nivelador» → «pies niveladores»); un sustantivo en aposición corta la
+    concordancia («Placa base» → «placas base»). «Unión» → «uniones», «Motorreductor» →
+    «motorreductores»; una sigla («UCP») o una palabra que acaba en s o x queda igual."""
+    palabras = _minuscula(rol_).split(" ")
+    palabras[0] = _plural_palabra(palabras[0])
+    for i in range(1, len(palabras)):
+        if not _es_adjetivo(palabras[i]):
+            break
+        palabras[i] = _plural_palabra(palabras[i])
+    return " ".join(palabras)
 
 
 # ------------------------------------------------------------------ datos y plantillas (D1)
@@ -269,6 +302,9 @@ def _plantilla_catalogo(b: str, fids: list, piezas: list[Pieza],
         return Frase(f"{serie} Z{specs['z']}")
     if isinstance(specs.get("d"), (int, float)) and isinstance(specs.get("norma"), str) \
             and "DIN" in specs["norma"]:  # tornillería
+        metrica = re.escape(f"{float(specs['d']):g}")
+        if re.search(rf"\bM{metrica}(?![\d.])", b.replace(",", "."), re.I):
+            return None  # el rol ya dice la métrica («Perno M10x25 DIN 933»): no se repite
         return Frase(f"M{cifra(specs['d'], 1)}")
     largos = [p.largo_mm for p in piezas if p.largo_mm]
     if p0.nombre_cat and len(largos) == len(piezas):

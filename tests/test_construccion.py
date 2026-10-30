@@ -183,6 +183,10 @@ def test_un_log_con_run_script_recorre():
     ("Pata (1,2)", "Pata"),
     ("Pata (espejo)", "Pata"),
     ("Chumacera (UCP205)", "Chumacera (UCP205)"),
+    ("Larguero 2", "Larguero"),
+    # el número que sigue a una sigla de norma es la norma, no la instancia
+    ("Perno M10x25 DIN 933", "Perno M10x25 DIN 933"),
+    ("Tornillo M8x20 ISO 4017 (3)", "Tornillo M8x20 ISO 4017"),
 ])
 def test_rol(nombre, esperado):
     assert rol(nombre) == esperado
@@ -197,6 +201,11 @@ def test_rol_sin_nombre_usa_el_sufijo_del_id():
     ("Rodillo", "rodillos"), ("Unión", "uniones"), ("Motorreductor", "motorreductores"),
     ("Placa base", "placas base"), ("UCP", "UCP"), ("Luz", "luces"), ("Tornillos", "tornillos"),
     ("Riel", "rieles"), ("Travesaño", "travesaños"),
+    # el adjetivo que sigue concuerda; el sustantivo en aposición, no
+    ("Pie nivelador", "pies niveladores"), ("Larguero lateral", "largueros laterales"),
+    ("Barra roscada", "barras roscadas"), ("Rodillo motriz", "rodillos motrices"),
+    ("Tubo guía", "tubos guía"), ("Perfil C", "perfiles C"), ("Soporte motor", "soportes motor"),
+    ("Eje del rodillo", "ejes del rodillo"), ("Perno M10x25 DIN 933", "pernos M10x25 DIN 933"),
 ])
 def test_plural(singular, esperado):
     assert plural(singular) == esperado
