@@ -48,7 +48,7 @@ def test_el_accesorio_con_no_decide_el_material(texto, clave):
     ("Rueda con banda de PU", "acero"),
     ("Rueda con banda de caucho", "acero"),
     ("Rueda de caucho con centro de acero", "caucho"),
-    ("Recubrimiento del tambor con poliuretano", "pvc"),  # el forro nombra SU material
+    ("Recubrimiento del tambor con poliuretano", "poliuretano"),  # el forro nombra SU material
     ("Recubrimiento del tambor motriz", "caucho"),
     ("Guía de nylon 30x10x500", "poliamida"),
     ("Rueda de poliamida 100x100x30", "poliamida"),

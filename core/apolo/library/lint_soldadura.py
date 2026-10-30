@@ -17,7 +17,8 @@ from .rules import _check
 _FAMILIA = {"acero": "ferroso", "acero inoxidable": "ferroso", "aluminio": "aluminio"}
 #: lo que no se suelda (un metal sin tabla —latón, zinc— o un material desconocido no se acusa)
 _NO_SOLDABLE = ("madera", "copaiba", "haya", "radiata", "eucalipto", "caucho", "pvc", "vidrio",
-                "carton", "cable")
+                "carton", "cable", "contrachapado fenolico", "contrachapado", "mdf", "osb",
+                "poliuretano", "policarbonato", "epdm")
 
 
 def motivo_no_soldable(mat_a: str, mat_b: str) -> str | None:

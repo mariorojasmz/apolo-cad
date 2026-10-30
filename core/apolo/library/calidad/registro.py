@@ -88,7 +88,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "32"  # 32: normas EN/IEC/ASTM… de compra (historial en historial_registro.py)
+VERSION_REGISTRO = "33"  # 33: tableros, latón, cobre y grupo E.010 (historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 

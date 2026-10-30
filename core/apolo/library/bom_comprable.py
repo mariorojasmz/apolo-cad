@@ -10,19 +10,27 @@ Por tipo de fila:
 - **ref de catálogo**: la ref ES el código; la cortable (perfil, tubo), además su largo;
 - **chapa** con ficha: espesor y desarrollo;
 - **a medida** de METAL o de MADERA: la norma del material (D3: el grado o la del genérico por
-  forma; la madera, la norma o la clase que escribe su material). El caucho, la lona o el plástico
-  sólo piden un material conocido (`material.conocido`, D1). Una fila sin medida, tampoco se corta.
+  forma; el latón, su aleación; la madera, la norma, la clase EN o el grupo E.010 que escriben su
+  material o su nombre, D1 y D2 de puerta-fuera-de-catalogo; un grupo MEJOR que el que la E.010
+  da a la especie falla). El caucho, la lona o el plástico sólo piden un material conocido
+  (`material.conocido`, D1). Una fila sin medida, tampoco se corta.
 
 Una ref de catálogo con OTRO material ya sale «… pedir la equivalente» (R2 del plan) y alcanza.
 """
 
 from __future__ import annotations
 
-from .bom_compra import es_de_madera, es_de_metal
+from .bom_compra import _cabeza_material, es_de_madera, es_de_metal
 from .designacion_comercial import se_pide_por_largo
+from .madera_clase import grupo_contradice, grupo_e010, sugerencia
+from .materials import _norm
 
 COMPRA = "COMPRA"
 A_MEDIDA = "A-MEDIDA"
+#: cómo se declara cada metal (D1 de puerta-fuera-de-catalogo: el latón por su aleación)
+_DECLARA_ACERO = "el acero base («acero A36», «inox AISI 304»)"
+_DECLARA_METAL = {"laton": "la aleación («latón CW614N (EN 12164)», «latón CuZn37 (EN 1652)»)",
+                  "cobre": "la aleación («cobre Cu-ETP (CW004A)»)"}
 
 
 def motivo(fila: dict) -> str | None:
@@ -47,12 +55,16 @@ def motivo(fila: dict) -> str | None:
             return "chapa sin desarrollo"
         if not fila.get("longitud_mm"):
             return "pieza a medida sin medida de corte"
+        clave = _norm(_cabeza_material(material))
         if es_de_metal(material) and not fila.get("norma"):
-            return (f"a medida de «{material}» sin norma ni grado: declara el acero base («acero "
-                    "A36», «inox AISI 304») o compra la pieza «(compra, Marca código)»")
-        if es_de_madera(material) and not fila.get("norma"):
-            return (f"madera «{material}» sin norma ni clase resistente: declárala en el material "
-                    "(«pino radiata C16 (EN 338)», «triplay EN 636-2»)")
+            return (f"a medida de «{material}» sin norma ni grado: declara "
+                    f"{_DECLARA_METAL.get(clave, _DECLARA_ACERO)} o compra la pieza «(compra, "
+                    "Marca código)»")
+        if es_de_madera(material):
+            if not fila.get("norma"):
+                return (f"madera «{material}» sin norma ni clase resistente: declárala en el "
+                        f"material o en el nombre de la pieza ({sugerencia(clave)})")
+            return grupo_contradice(clave, grupo_e010(fila["norma"]))  # «copaiba Grupo A»
         return None
     comp = CATALOG.get(ref)
     if comp is not None and comp.cuttable and not fila.get("longitud_mm"):

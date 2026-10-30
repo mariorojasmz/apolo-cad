@@ -100,7 +100,10 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   masa, costeo, corte, planos vía `meta["material_vertical"]` y apariencia); `None` =
   desconocido, la heurística vieja. Polímero, caucho (rol anclado: «Engomado…», «Recubrimiento
   del tambor») y vidrio miran el ROL. [defectos](../../../docs/defectos.md) (F6)
-- `_norm` devuelve la primera clave que sea SUBCADENA: las especies van ANTES de `"madera"`.
+- `_norm` devuelve la primera clave que sea SUBCADENA: el TABLERO (`_producto`) antes que la
+  especie y ésta antes de `"madera"`. La madera se compra con norma, clase EN o grupo E.010
+  (`madera_clase.py`, también desde el nombre); el latón, con su aleación.
+  [puerta-fuera-de-catalogo](../../../docs/plans/puerta-fuera-de-catalogo.md) (D1, D2)
 - Un material sin densidad tabulada se pesa como ACERO: fuera de la puerta sólo avisa
   (`aviso_material`), en la puerta FALLA `material.conocido`. Una especie nueva entra con la cita
   de cada cifra en los dicts, `HATCH`, `lint_soldadura._NO_SOLDABLE` y `apariencia`.

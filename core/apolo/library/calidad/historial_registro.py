@@ -88,5 +88,14 @@ lavadora de bandejas, que caía al casco convexo a través de un larguero, ahora
 9 de una máquina real) `bom.comprable` reconoce la norma de compra de toda sigla de
 `siglas_norma` en mayúscula con su número (EN, UNE, ASTM, JIS, IEC, NTP, BS…, además de DIN, ISO,
 ASME y ANSI: «Bomba centrífuga EN 733 … (compra)» salía compra sin norma); AISI y SAE son el grado
-del material y no designan la compra, y la «EN» mayúscula ya no corta la cabeza como preposición.
+del material y no designan la compra, y la «EN» mayúscula ya no corta la cabeza como preposición;
+v33 (puerta-fuera-de-catalogo F1, D1 y D2) `material.conocido` y `bom.comprable` conocen los
+tableros por su PRODUCTO antes que la especie (contrachapado EN 636, fenólico EN 314-2, MDF EN
+622-5, OSB EN 300: «contrachapado de copaiba» es contrachapado), el poliuretano (deja de pesar
+como PVC; un «sellador PU» pesaba como acero), el policarbonato, el EPDM, el cobre (Cu-ETP) y el
+latón por su aleación (CW614N, EN 12164), cada uno con su fuente en `materials`; la madera acepta
+el grupo de la norma peruana, «Grupo C (E.010)», además de la clase EN 338 / EN 14080, y su norma
+también se lee del NOMBRE de la pieza (sólo normas de producto de madera: «Repisa (triplay
+fenólico 18 mm EN 314-2)» pasa); un grupo mejor que el que la E.010 da a la especie (copaiba =
+C) falla; el latón a medida pide su aleación y el cobre sin calificar es Cu-ETP.
 """

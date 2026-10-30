@@ -69,7 +69,19 @@ _GRADO_EN_RE = re.compile(r"\b(S(?:235|275|355)(?:JR|J0|J2)?)\b", re.I)
 _TUBO_RE = re.compile(r"^(tubos?|tuber[ií]as?|ca[ñn]os?)\b|\btubos?\s+(\d|ø|cuadrad|redond|"
                       r"rectangular|inox|de\s+acero|estructural|hss)", re.I)
 #: los metales de `materials.DENSITY_KG_MM3` (lo que pide norma o grado, D4)
-_METALES = {"acero", "acero inoxidable", "aluminio", "laton", "zinc"}
+_METALES = {"acero", "acero inoxidable", "aluminio", "laton", "cobre", "zinc"}
+#: latón y cobre (D1 de puerta-fuera-de-catalogo): la norma del producto (EN 12164 barra de
+#: mecanizado, EN 12163/12165/12168, EN 1652/13599 plancha, EN 13600 tubo, EN 13601 barra de
+#: cobre, EN 13602 alambre de conductores, ASTM B…, IEC 60228 conductor) y la designación de la
+#: aleación (CW614N / CuZn39Pb3, Cu-ETP / CW004A, UNS C36000 / C11000)
+_NORMA_CU_RE = re.compile(r"\b(EN\s*(?:1652|1653|1654|12163|12164|12165|12167|12168|12449|"
+                          r"13599|13600|13601|13602)|ASTM\s*B\d{1,4}|IEC\s*60228)\b", re.I)
+_GRADO_CU_RE = re.compile(r"\b(CW\d{3}[A-Z]|CuZn\d+(?:Pb\d+)?(?:As)?|Cu-(?:ETP|OF|DHP|FRHC)|"
+                          r"C[1-9]\d{4})\b")
+#: el cobre sin calificar es el Cu-ETP del cálculo (`materials`: su ρ y su E), como el acero es el
+#: A36; el latón NO: el del cálculo (CW614N) es de barra y una plancha es CuZn37 (se declara)
+_COBRE_GENERICO = {"cobre", "cobre electrolitico", "cobre electrolítico", "cu"}
+GRADO_COBRE = "Cu-ETP (CW004A)"
 #: la norma de un producto de madera escrita en su material: «EN 338», «EN 636-2», «DIN 68150»
 #: (en mayúsculas: «seca en 12 %» no es una norma)
 _NORMA_MADERA_RE = re.compile(r"\b(EN|ISO|DIN|UNE|NTP|NCh|JAS)\s*-?\s*(\d{2,6}(?:[-.]\d+)*)")
@@ -109,12 +121,15 @@ def norma_de_material(material: str | None, nombre: str | None, forma: str = "pl
     3. sin norma: la de la FORMA del producto (`NORMA_FORMA`, si no `NORMA_CHAPA`) para el material
        genérico o con su grado AISI declarado («acero inoxidable AISI 304»).
 
-    La madera, la norma que escribe su material (`norma_de_madera`, D4 de hallazgos-del-revisor)."""
+    La madera, la norma que escribe su material o su nombre (`norma_de_madera`); el latón y el
+    cobre, `norma_de_cobre`."""
     from .materials import _norm
 
     if es_de_madera(material):
-        return norma_de_madera(material)
+        return norma_de_madera(material, nombre)
     textos = [t for t in (material, nombre) if t]
+    if _norm(_cabeza_material(material)) in ("laton", "cobre"):
+        return norma_de_cobre(material, nombre)
     norma = next((_limpio(m.group(1)) for t in textos if (m := _NORMA_RE.search(t))), "")
     grado = next((re.sub(r"\s+", " ", m.group(1).upper()) for t in textos
                   if (m := _GRADO_RE.search(t))), "")
@@ -156,12 +171,40 @@ def es_de_metal(material: str | None) -> bool:
     return _norm(_cabeza_material(material)) in _METALES
 
 
-def norma_de_madera(material: str | None) -> str:
+def norma_de_cobre(material: str | None, nombre: str | None) -> str:
+    """La norma del latón o del cobre a medida (D1 de puerta-fuera-de-catalogo), '' si no se sabe:
+    la norma de producto y la designación de la aleación que nombran el material o la pieza
+    («latón CW614N (EN 12164)» → «EN 12164 (CW614N)»); la designación sola alcanza («CW614N»,
+    como el SAE 1045); el cobre sin calificar es Cu-ETP (CW004A), el del cálculo."""
+    textos = [t for t in (material, nombre) if t]
+    norma = next((re.sub(r"\s+", " ", m.group(1)).upper() for t in textos
+                  if (m := _NORMA_CU_RE.search(t))), "")
+    grado = next((m.group(1) for t in textos if (m := _GRADO_CU_RE.search(t))), "")
+    if norma:
+        return f"{norma} ({grado})" if grado else norma
+    if grado:
+        return grado
+    return GRADO_COBRE if (material or "").strip().lower() in _COBRE_GENERICO else ""
+
+
+def norma_de_madera(material: str | None, nombre: str | None = None) -> str:
     """La norma de la madera que ESCRIBE su material (D4 de hallazgos-del-revisor), '' si no la
     escribe: la norma del producto («EN 636-2», «EN 622-5», «DIN 68150») con su clase resistente
-    («clase C16 (EN 338)» → «EN 338 C16»); una clase pelada es de EN 338 (C, D) o EN 14080 (GL).
-    Sólo el material: el nombre de una pieza de madera nombra la tornillería que la cruza."""
+    («clase C16 (EN 338)» → «EN 338 C16»); una clase pelada es de EN 338 (C, D) o EN 14080 (GL);
+    el grupo de la norma peruana, «Grupo C (E.010)» → «E.010 Grupo C» (D2 de
+    puerta-fuera-de-catalogo). Si el material no la escribe, la del NOMBRE de la pieza, pero sólo
+    una norma de producto de madera (`madera_clase.norma_madera_del_nombre`): el nombre de una
+    pieza de madera también nombra la tornillería que la cruza («… con tornillos DIN 7997»)."""
+    from .madera_clase import designacion_e010, grupo_e010, norma_madera_del_nombre
+
     texto = material or ""
+    if g := grupo_e010(texto):
+        return designacion_e010(g)
+    norma = _norma_madera_del_material(texto)
+    return norma or norma_madera_del_nombre(nombre)
+
+
+def _norma_madera_del_material(texto: str) -> str:
     m = _NORMA_MADERA_RE.search(texto)
     norma = f"{m.group(1).upper()} {m.group(2)}" if m else ""
     c = _CLASE_MADERA_RE.search(texto)

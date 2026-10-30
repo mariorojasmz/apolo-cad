@@ -185,21 +185,22 @@ POR_DEFECTO = "acero_pintado"
 # Señales en el texto del MATERIAL, en orden (la primera que casa gana). Sin tildes y en minúscula.
 _POR_MATERIAL: tuple[tuple[re.Pattern, str], ...] = tuple(
     (re.compile(p), k) for p, k in (
-        (r"vidrio|cristal|glass", "vidrio"),
-        (r"caucho|goma|engomado|lagging|^cable$", "caucho"),   # ^cable$: su cubierta
+        (r"vidrio|cristal|glass|policarbonato", "vidrio"),  # el PC de un resguardo: transparente
+        (r"caucho|goma|engomado|lagging|epdm|^cable$", "caucho"),   # ^cable$: su cubierta
         (r"poliamida|nylon", "plastico_gris"),  # prensaestopas RAL 7001 (V8.5 F3)
         (r"acetal|\bpom\b|delrin|polietileno|uhmw|polipropileno", "plastico_blanco"),
         (r"pvc|poliuretano|polimero", "pvc_banda"),
         (r"carton", "carton"),
         (r"concreto|hormig", "concreto"),
-        (r"madera|copaiba|haya|fagus|radiata|eucalip|eucalypt", "madera"),
+        (r"madera|copaiba|haya|fagus|radiata|eucalip|eucalypt|contrachapad|triplay|terciad|"
+         r"plywood|\bmdf\b|\bosb\b|fenolic", "madera"),
         (r"inox", "inox_cepillado"),
         (r"galvaniz", "galvanizado"),
         (r"zinc|\bgrado\b", "zincado"),   # tornillería de grado 8 / 8.8: zincada de fábrica
         (r"cromo|cromado", "cromado"),
         (r"niquel", "niquelado"),
         (r"laton", "laton"),
-        (r"bronce", "bronce"),
+        (r"bronce|cobre", "bronce"),       # el cobre, con el tono rojizo más cercano de la tabla
         (r"aluminio", "aluminio"),         # incluye «aluminio/acero» (poleas dentadas)
         (r"fundid|fundicion", "hierro_fundido"),
         (r"pavonad|\b12\.9\b|\b10\.9\b", "pavonado"),

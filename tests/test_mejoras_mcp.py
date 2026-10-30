@@ -11,7 +11,7 @@ from apolo.commands.registry import Feature, _orient_axis
 from apolo.kernel.shapes import make_cylinder
 from apolo.library import rules
 from apolo.library.bom import bom_from_scene
-from apolo.library.materials import resolve_material
+from apolo.library.materials import es_madera, resolve_material
 
 
 def _feat(name, shape, material=None, fid="x", cid="c"):
@@ -34,7 +34,9 @@ def test_seccion_de_acero_gana_sobre_palabra_de_carpinteria():
 
 def test_carpinteria_sigue_siendo_madera():
     assert resolve_material(_feat("Larguero pino", Box(100, 40, 80)), {}) == "madera"
-    assert resolve_material(_feat("Tablero MDF", Box(1200, 600, 18)), {}) == "madera"
+    # el MDF es su producto, una madera (D1 de puerta-fuera-de-catalogo)
+    assert resolve_material(_feat("Tablero MDF", Box(1200, 600, 18)), {}) == "mdf"
+    assert es_madera("mdf")
 
 
 def test_override_explicito_gana():

@@ -117,7 +117,7 @@ def test_engomado_es_caucho(nombre):
     ("Tambor motriz engomado", "acero"),         # es el TAMBOR, no su recubrimiento
     ("Tambor motriz", "acero"),
     ("Recubrimiento cerámico del tambor motriz", "acero"),
-    ("Recubrimiento de poliuretano del tambor", "pvc"),
+    ("Recubrimiento de poliuretano del tambor", "poliuretano"),  # ya no PVC (D1, puerta v33)
 ])
 def test_lo_que_no_es_el_engomado(nombre, material):
     assert resolve_material(_F(nombre), default="acero") == material

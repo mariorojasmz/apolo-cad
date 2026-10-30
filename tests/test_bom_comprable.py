@@ -187,7 +187,7 @@ def test_d5_un_grupo_taladrado_por_join_bolted_hacia_fuera_falla():
 # ---------------------------------------------------------------- el ítem
 
 def test_el_item_esta_en_el_registro_con_su_version():
-    assert VERSION_REGISTRO == "32"
+    assert VERSION_REGISTRO == "33"
     (e,) = [e for e in REGISTRO if isinstance(e, Entrada) and e.id == "bom.comprable"]
     assert e.familia == "proceso"
 
