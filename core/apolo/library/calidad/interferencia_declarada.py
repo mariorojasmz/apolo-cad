@@ -18,7 +18,9 @@ un perno aprieta lo que toca. Criterio:
   GEOMETRÍA del solape: un sólido limitado por dos cilindros coaxiales de Ø d y Ø d_broca de una
   misma métrica gruesa (± `TOL_DIAMETRO_MM`); su volumen hasta el del anillo (+ `TOL_VOLUMEN`) no
   cuenta y lo que lo supera sí (el pie nivelador M16 en su placa roscada de 12 mm deja 565,5 mm³;
-  un espárrago M10 en un buje de 21 mm, 457,7);
+  un espárrago M10 en un buje de 21 mm, 457,7). El pie nivelador publica el MISMO anillo
+  (`anillo_mm3`, una sola fórmula) desde su rosca medida en `apoyo.nivelador` (plan pie-nivelador
+  D8): un vástago que atraviesa material en vez de su rosca falla allí (D2) y aquí por su exceso;
 - es intencional la pieza ENTERA dentro de un equipo de CATÁLOGO (`alojada`): el variador en su
   tablero; el sólido de catálogo es la envolvente del equipo, no material. Una pieza a medida
   maciza que encierra otra sigue fallando.

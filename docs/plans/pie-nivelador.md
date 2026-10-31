@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0, F1 (catálogo y ficha en la BOM) y F3 (sin compra doble) mergeadas; falta la F2 (evaluador) y la F4 (verificar)
+nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0, F1, F2 (evaluador, registro v40) y F3 mergeadas; falta la F4 (verificar)
 descripcion: La puerta revisa que cada pie nivelador se pueda enroscar, quede trabado y nivele lo que pide el piso, y el catálogo trae los pies que el mercado vende
 ---
 
@@ -300,3 +300,57 @@ nivelador» o «Espárrago … del pie» no son pie. Decisiones tomadas en la fa
 Tests: `tests/test_pie_nivelador_rosca.py` (antes/después sintético pie ↔ buje con «espárrago
 M10», pie de catálogo ↔ placa, anclaje M12 de un `PIE-BA`, otra métrica en el nombre, perno común
 de un «Pie de amigo», contratuerca declarada y modelada, reconocimiento por rol y por ficha).
+
+### F2 — evaluador (2026-10-31)
+
+`apoyo.nivelador` (registro v42): `Entrada` en `library/calidad/pie_nivelador.py` junto a su
+criterio (como `apoyo.capacidad`), insumo `services/calidad_pies.py` y detector
+`pies_niveladores` {catalogo, a_medida, no_reconocido} en `puerta_hechos`. Decisiones tomadas en la
+fase (vetables):
+
+- **D1**: el ROL a mano es de pie NIVELADOR: «Pie…»/«Nivelador…» que nombra su regulación
+  (nivel, rosca, M10, husillo, vástago…). Sin esa guarda, una pata de madera «Pie (1)» con espiga
+  coaxial pasaba la prueba geométrica. La convexidad sale de la normal de la cara (no del radio).
+- **D2**: la rosca MEDIDA (solape) manda; sin solape, «roscado», «DIN 6334», «tuerca alta» o una
+  tuerca de m ≥ 1,5·d cuentan como rosca entera. Con rosca en pieza, el enganche suma la tuerca a
+  tope del lado de la carga; con sólo tuercas, una de m ≥ 0,8·d cruzada entera.
+- **D3**: cuenta también la base FIJA soldada (el disco a la placa de piso tras nivelar): el
+  testigo de rodillos de la plantilla lo hace así, sin contratuerca, y con el disco fijo el
+  vástago no gira. No vale con base articulada (de su ficha).
+- **D4**: la puerta no tiene estado AVISO: un sentido < Δ/2 es FALLA justificable por escrito
+  (regla «pie nivelador con carrera corta en un sentido», como `REGLA_SIN_CAPACIDAD`); el total
+  corto no se justifica (se declara `nivelacion_mm`). La diagonal es la mayor distancia entre pies
+  reconocidos; con uno solo, la diagonal en planta del modelo. La tuerca de bloqueo del propio pie
+  (fundida o de su ficha) ocupa lugar entre la base y la pila: se resta de lo que baja.
+- **D8**: una sola fórmula (`interferencia_declarada.anillo_mm3`); el ítem de interferencia sigue
+  reconociendo el anillo por la geometría del solape y el pie publica el mismo dato en
+  `roscas_engranadas` (test de igualdad): no hizo falta que uno lea del otro.
+- **Testigo `faja`**: pasa del criterio 5 al 7 de la plantilla. Con la 5 la placa de 8 mm de la
+  pata tenía un agujero LISO Ø12 por toda rosca (la propia plantilla lo documenta) y el ítem nuevo
+  la atrapa; la 7 trae tuerca soldada + contratuerca (−15 / +15 mm). Re-congelados los 4 testigos:
+  `apoyo.nivelador` nuevo (faja y rodillos OK, ménsulas NO_APLICA) y en la faja
+  `union.acceso_herramienta` NO_APLICA → OK (las tuercas nuevas). La 6 suma el rodillo de retorno
+  con su cuña: los dos tests que miran la geometría v4/v5 (`test_cuna_entrada`, `sin_cierres` de
+  los defectos) fijan el criterio 5. Defecto sembrado: `pie_en_placa_delgada`.
+
+Sobre la tanda (copias de la F0, modelos finales; Δ de 12,5 a 14,3 mm):
+
+| máquina | D2 | D3 | carrera −baja / +sube | ítem |
+|---|---|---|---|---|
+| ensamble-1200 | FALLA 8 < 10 (la contratuerca de arriba no carga) | contratuerca | −4 / +0 | FALLA |
+| ensamble-soldada | OK 6,4 + tuerca de abajo 10 | contratuerca | −15 / +23 | OK |
+| trabajo-soldada | OK 10 + 8 | contratuerca | −22 / +8 | OK |
+| inox-2000 | OK 34 (rosca medida en el buje ciego) | parche declarado | −21 / +24 | OK |
+| inox-poza | OK 25 («roscado») | fundida a tope | −4 / +58 | FALLA (baja < Δ/2, justificable) |
+| bolas | OK 36 (DIN 6334) | contratuerca de la pila | −50 / +120 | OK |
+| soldadura-d16 | OK tuerca soldada 10 ≥ 9,6 | contratuerca de la pila | −31 / +26 | OK |
+| soldadura-d28 | OK 12 + 13 | contratuerca | −10 / +22 | OK |
+| rodillos-cadena | OK tuerca 8,0 = 0,8·d | contratuerca | −12 / +12 | OK |
+
+Los «antes» (`*-rerevisor1.apolo`): ensamble, ensamble-soldada y trabajo-soldada FALLAN (rosca y
+sin traba, lo que vio el revisor); el inox con +11/−11 pasa (22 ≥ 14,1: lo que pide un piso de
+cocina con pendiente se declara con `nivelacion_mm`); el d16 de entonces no tenía un pie
+reconocible ni candidato (el pie no se nombraba como tal). Las 6 sin pie de la tanda (carro,
+estantería, plegables, escalera, soporte) no dan ningún candidato. Anillos de D8 = los de la F0:
+174,4 / 199,3 / 217,9 / 565,5 mm³, y 457,7 en el inox de antes (21 mm; el final engancha 34). Costo: 0,3–0,9 s por máquina (la mesa de bolas, 3,3).
+

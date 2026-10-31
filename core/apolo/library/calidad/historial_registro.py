@@ -152,4 +152,15 @@ o no suministrada («Calamina existente», «Correa delantera existente», «Mes
 suministrado)»; `library/suministro.py`) sale de la BOM, del costeo, de la lista de corte y de la
 cédula y la evidencia la nombra (`no_suministradas`); sigue en la escena para apoyo, gravedad y
 planos. La «Correa» de techo o de la cubierta ya no se compra como banda (`ROL_COMPRA`).
+v40 (pie-nivelador F2, D1–D4 y D8) `apoyo.nivelador`: cada pie nivelador (ref de
+`pies_niveladores` o pieza con rol de pie nivelador y vástago cilíndrico convexo con base coaxial;
+anclado o no) engancha su rosca en la pose de diseño (rosca en la pieza + la tuerca a tope del lado
+de la carga ≥ k·d de `agarre`, o una tuerca de altura normal m ≥ 0,8·d cruzada entera; material en
+el eje = no se puede enroscar), va trabado (contratuerca a tope de la pila, autoblocante, tuerca de
+bloqueo fundida o de su ficha, parche DIN 267-28 en la nota de la unión o la base fija soldada) y su
+carrera −baja / +sube alcanza lo que pide el piso (DIN 18202 T2 f1 + T3 f3 a la diagonal entre
+pies, o el requisito nuevo `nivelacion_mm`: falla si la suma no alcanza; un sentido < Δ/2 bloquea
+salvo justificación); lo que tiene rol de pie nivelador y no se reconoce sale SIN_EVALUAR
+justificable. El testigo `faja` pasa al criterio 7 de la plantilla (con la 5 la placa de 8 mm tenía
+un agujero liso Ø12 por toda rosca).
 """

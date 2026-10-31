@@ -120,6 +120,10 @@ def faja():
     from apolo.services.calidad_seguridad import analisis
 
     doc = Document.from_apolo_bytes(TESTIGO.read_bytes())
+    # la v5 tal cual: el testigo trae el criterio 7 (la pila de sus pies, pie-nivelador F2), que
+    # suma el rodillo de retorno del 6 con su cuña; aquí se miran las de los dos tambores
+    (cmd,) = [c for c in doc.commands if c["type"] == "create_belt_conveyor"]
+    doc.edit(cmd["id"], {**cmd["params"], "criterio": 5})
     return doc, analisis(doc)
 
 

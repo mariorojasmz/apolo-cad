@@ -26,7 +26,8 @@ Ids estables (familia):
   `plegado.posiciones` y `plegado.espesor` (función; sólo con el requisito `plegable`:
   `plegado.py`);
 - `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
-  (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado), `apoyo.capacidad`;
+  (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado), `apoyo.capacidad`,
+  `apoyo.nivelador` (rosca, traba y carrera de cada pie nivelador, `pie_nivelador.py`);
 - `fabricabilidad`, `material.conocido`, `bom.comprable`, `memoria.veredicto` y `diseno.soluciones_por_funcion`
   (proceso);
 - `diseno.sin_sobrantes` (proceso: ninguna guarda ni pieza agregada por una ronda de corrección
@@ -86,6 +87,7 @@ from . import interferencia_declarada as idc
 from . import material as mt
 from . import movimiento as mv
 from . import nombres as nb
+from . import pie_nivelador as pn
 from . import plegado as pg
 from . import puerta as p
 from . import resguardos as rg
@@ -93,7 +95,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "39"  # 39: lo existente del sitio no se compra (historial_registro.py)
+VERSION_REGISTRO = "40"  # 40: pie nivelador (historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -245,6 +247,7 @@ REGISTRO: tuple = (
     cu.ENTRADA,  # union.contacto_no_cuelga: ídem (lo-fijo-que-gira-y-lo-que-cuelga D2)
     idc.ENTRADA,  # union.interferencia_declarada: ídem (puerta-fuera-de-catalogo D6)
     ap.ENTRADA,  # apoyo.capacidad: ídem (hallazgos-del-revisor-en-la-puerta D6)
+    pn.ENTRADA,  # apoyo.nivelador: ídem (pie-nivelador D1–D4)
     Fuente("mecanica", "apolo.services.calidad_mecanica:items_funcion_mecanica", _MECANICA),
     ca.ENTRADA,  # transmision_flexible.de_su_comando: la Entrada vive junto a su criterio
     hg.ENTRADA,  # higiene.limpiable: ídem (hallazgos-del-revisor-en-la-puerta D9)

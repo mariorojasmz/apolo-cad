@@ -35,6 +35,9 @@ NUMERICAS: tuple[str, ...] = (
     "fuerza_horizontal_n", "altura_fuerza_mm", "carga_borde_n",
     # lo que mide el producto PLEGADO en su dimensión menor (plan plegables-en-la-puerta, D3)
     "espesor_plegado_mm",
+    # lo que tiene que nivelar cada pie nivelador (mm, subir + bajar; plan pie-nivelador D4): sin
+    # él, el desnivel de un piso terminado a la diagonal entre pies (DIN 18202)
+    "nivelacion_mm",
 )
 
 #: Las fuerzas de trabajo que `estructura.vuelco` suma al peso (plan puerta-fuera-de-catalogo, D8),

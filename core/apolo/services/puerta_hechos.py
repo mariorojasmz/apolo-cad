@@ -8,7 +8,7 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
   `cadenas_de_rodillos` {de_su_comando, a_mano} (toda ref CADENA-*, `calidad_cadenas`),
   `resguardos_con_interruptor` {con_junta, sin_junta} (los `add_device` resguardo, `resguardos`), `apoyos`,
   `apoyos_de_compra` {pie, pata, garrucha, rueda, regaton} (los anclados que se compran,
-  `calidad_apoyos`),
+  `calidad_apoyos`), `pies_niveladores` {catalogo, a_medida, no_reconocido} (`calidad_pies`),
   `vigas`, `columnas`, `uniones` / `uniones_apernadas` / `soldaduras`, `tornilleria`,
   `tornilleria_madera` {tornillo} (el de madera sin hexágono que sólo mide la madera,
   `calidad_tornillos_madera`), `tornilleria_llave`, `supercomandos`, `piezas` {catalogo, a_medida}, `sustitutos_animados`
@@ -131,6 +131,18 @@ def _apoyos_de_compra(doc) -> tuple[dict | None, dict]:
     return datos, elementos(datos)
 
 
+def _pies_niveladores(doc) -> tuple[dict | None, dict]:
+    """(insumo de `apoyo.nivelador`, {catalogo, a_medida, no_reconocido}); si la medida revienta,
+    (None, {sin_detectar}): el ítem aplica y sale SIN_EVALUAR (pie-nivelador D1)."""
+    from .calidad_pies import elementos, pies_niveladores
+
+    try:
+        datos = pies_niveladores(doc)
+    except Exception:  # noqa: BLE001 — aplica igual: el ítem dirá que no se midió
+        datos = None
+    return datos, elementos(datos)
+
+
 def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from apolo.commands.exec_rodillos_cadena import comandos_efectivos
     from apolo.library.calidad.nombres import elementos as elementos_operables
@@ -160,6 +172,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     de_rodillos = cadenas_de_rodillos(doc)  # lo-que-se-mueve D1: también las hechas a mano
     enclavados, de_enclavados = _resguardos(doc)  # lo-que-se-mueve D3: con interruptor
     apoyos_compra, de_apoyos = _apoyos_de_compra(doc)  # hallazgos-del-revisor D6
+    pies, de_pies = _pies_niveladores(doc)  # pie-nivelador D1
     por_cmd: dict[str, int] = {}
     for x in solidos.values():
         por_cmd[x.command_id] = por_cmd.get(x.command_id, 0) + 1
@@ -204,6 +217,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "resguardos_con_interruptor": de_enclavados,
         "apoyos": _n({"anclaje": len(doc.grounds)}),
         "apoyos_de_compra": de_apoyos,
+        "pies_niveladores": de_pies,
         "vigas": _n(vigas),
         "columnas": _columnas(doc),
         "uniones": _n({"perno": kinds.count("perno"), "soldadura": kinds.count("soldadura")}),
@@ -246,6 +260,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "cadenas_de_rodillos": de_rodillos,  # el insumo de su ítem (`_reunir` lo pasa)
         "resguardos_con_interruptor": enclavados,  # ídem (None: no se pudo resolver)
         "apoyos_de_compra": apoyos_compra,  # ídem
+        "pies_niveladores": pies,  # ídem (pie-nivelador D1)
     }
 
 

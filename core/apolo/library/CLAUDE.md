@@ -317,6 +317,11 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   la rosca engranada (anillo coaxial Ø nominal / broca DIN 336, por GEOMETRÍA) y la pieza entera
   dentro de un equipo de catálogo; no mide tornillería (Seeger, tirafondo por rol), equipo
   representativo (`FEA_HARDWARE_CATS`) ni cable 3D. [plan](../../../docs/plans/puerta-fuera-de-catalogo.md) (D6)
+- **El pie nivelador engancha, va trabado y nivela** (`calidad/pie_nivelador.py`, `apoyo.nivelador`;
+  medido en `services/calidad_pies.py`): pie = ref `pies_niveladores` o rol de pie NIVELADOR con
+  vástago convexo + base coaxial (sin rol, garruchas y caladrillos pasan), juzgado en la pose de
+  diseño; la carrera sale del MISMO umbral de la rosca y el anillo de rosca es
+  `interferencia_declarada.anillo_mm3` (una fórmula). [plan](../../../docs/plans/pie-nivelador.md) (D1–D4, D8)
 - Lo que no puede correr va en `no_aplica`: jamás cuenta verde. Un asiento ≤ `EXCESS_TOL_MM3` se
   tolera y se DECLARA (`contactos_tolerados`). Tornillería flotante = AVISO, no ROJO.
 - Exclusiones UNIFICADAS diseño + pose: par con fasten = contacto firmado; tornillería a medida =

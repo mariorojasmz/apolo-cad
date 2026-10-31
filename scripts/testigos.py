@@ -124,8 +124,11 @@ def _faja():
     from apolo.services.puerta_publicacion import poner_justificadas
 
     d = Document("faja-de-banda")
-    # v5 tal cual (con sus cierres): el sello de hoy le pondría tramos y el criterio nuevo
-    cmd = d.execute("create_belt_conveyor", {"cierres": True, "tramo_max": None, "criterio": 5})
+    # v5 con sus cierres y el criterio 7 (la pila del pie, y lo que la 6 ajustó en el bastidor y
+    # el retorno; la puerta no cambia por eso): el sello de hoy le pondría tramos y el criterio 10. Con la 5 la placa de 8 mm de la pata
+    # tenía un agujero LISO Ø12 por toda rosca del pie: `apoyo.nivelador` (pie-nivelador F2) lo
+    # atrapa; la 7 trae la tuerca soldada y la contratuerca de catálogo
+    cmd = d.execute("create_belt_conveyor", {"cierres": True, "tramo_max": None, "criterio": 7})
     _empalme_a_mano(d, cmd)
     d.set_requirements(dict(REQUISITOS))
     d.funciones = [dict(f) for f in FUNCIONES_FAJA]
@@ -167,9 +170,10 @@ def _mensula_atornillada():
 
 #: nombre → (receta, descripción, tortura)
 RECETAS = {
-    "faja": (_faja, "create_belt_conveyor v5 por defecto (con sus cierres: guardas inferiores bajo "
-                    "la ranura banda-larguero, placas de cierre de los largueros y techo de cola "
-                    "hasta la cama, F6) con el empalme de campo de la banda a mano (registro v20), "
+    "faja": (_faja, "create_belt_conveyor v5 por defecto con el criterio 7 (sus cierres: guardas "
+                    "inferiores bajo la ranura banda-larguero, placas de cierre de los largueros y "
+                    "techo de cola hasta la cama, F6; los pies con tuerca soldada y contratuerca, "
+                    "registro v42) con el empalme de campo de la banda a mano (registro v20), "
                     "requisitos y funciones D15: aprueba entera", False),
     "rodillos": (_rodillos, "create_roller_conveyor de 1500 mm con requisitos (sin D15): su "
                             "veredicto de hoy, con lo que falta", True),

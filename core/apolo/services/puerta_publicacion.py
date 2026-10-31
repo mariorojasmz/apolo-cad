@@ -17,6 +17,8 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
   mide la entrega y lo juzga `union.contacto_real` (plan uniones-que-tocan D1);
 - `apoyos_compra`: cada apoyo a tierra de compra con su reacción y su capacidad
   (`calidad_apoyos`, el detector de `puerta_hechos`), lo juzga `apoyo.capacidad`;
+- `pies_niveladores`: cada pie nivelador con lo que rodea a su vástago (`calidad_pies`, el
+  detector de `puerta_hechos`), lo juzga `apoyo.nivelador` (plan pie-nivelador D1–D4);
 - `bom`: las filas de la BOM que no alcanzan para comprar o cortar y los grupos «(compra)» que no
   se compran enteros (`calidad_bom.insumo_bom`), lo juzga `bom.comprable`;
 - `higiene`: las soldaduras y los tubos abiertos de un equipo higiénico (`calidad_higiene`, sobre
@@ -366,6 +368,7 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "sobrantes": sobra, "justificadas": justificadas_efectivas(doc),  # D9: raíces → copias
             "cadenas": h["cadenas_de_rodillos"], "resguardos": h["resguardos_con_interruptor"],
             "apoyos_compra": h["apoyos_de_compra"], "higiene": limpieza, "movimiento": mov,
+            "pies_niveladores": h["pies_niveladores"],
             "cuelga": colgado, "interferencia_declarada": solapes,
             "plegado": pliega}
 

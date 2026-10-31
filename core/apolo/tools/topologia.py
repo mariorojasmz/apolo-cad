@@ -63,7 +63,9 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         reductor) o par_salida_nm. Servicio (el FS que se pide, AGMA): tipo_carga (uniforme |
         moderada | pesada) y horas_dia; sin ellos, 1,25. Vuelco al usarla: fuerza_horizontal_n
         (lo que la empuja o tira, N), altura_fuerza_mm (sobre el piso) y carga_borde_n (alguien
-        apoyado en el canto, N); sin ellas, sólo el COG. Equipo higiénico (alimentos, farma):
+        apoyado en el canto, N); sin ellas, sólo el COG. Pies niveladores: nivelacion_mm (lo que
+        cada pie tiene que subir + bajar; sin él, el desnivel de un piso terminado a la
+        diagonal entre pies, DIN 18202). Equipo higiénico (alimentos, farma):
         higienico (sí/no; la puerta pide cada soldadura continua y cada tubo cerrado). Producto
         PLEGABLE (posición de uso y de guardado; aparte de desarmable): plegable (sí/no; la
         puerta pide un estudio con los fotogramas "posicion": "uso" y "guardado", set_motion) y

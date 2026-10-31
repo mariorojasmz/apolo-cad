@@ -183,6 +183,18 @@ def pie_de_compra_especificado(d):
     d.execute("ground", {"name": "gpie", "feature": p})
 
 
+def pie_en_placa_delgada(d):
+    """pie-nivelador D2: el M10 de la mesa de ensamble atornillada, roscado en 8 mm de placa (5
+    hilos: 8 < 1·d) con la contratuerca ENCIMA, que no carga."""
+    pl = _caja(d, "Placa de pie roscada", 80, 80, 8, 400, 0, 20)  # z 16–24
+    d.execute("drill_hole", {"feature": pl, "position": {"x": 400, "y": 0, "z": 24}, "axis": "-z",
+                             "thread": "M10", "diameter": 8})
+    d.execute("insert_component", {"component": "PIE-M10-40",  # base en z 0, vástago 12–52
+                                   "position": {"x": 400, "y": 0, "z": 32}})
+    d.execute("insert_component", {"component": "TUERCA-M10", "name": "Contratuerca del pie",
+                                   "position": {"x": 400, "y": 0, "z": 28}})
+
+
 def tornillo_que_asoma(d):
     """F8 de hallazgos-del-revisor: un tornillo de madera 4×40 en un listón de 30 (el de la
     bisagra de la escalera de la F7, que atravesaba el cabezal): la punta sale 11 mm."""
@@ -481,10 +493,12 @@ def sin_cierres(d):
     """La v5 de create_belt_conveyor sin sus cierres = la v4 TAL CUAL (F6): sin la guarda inferior
     bajo la ranura banda ↔ larguero (35 mm, abierta por abajo entre las guardas de los tambores),
     sin las placas de cierre de los largueros y con el techo de cola sólo sobre el tambor. Por ahí
-    el brazo entra al lazo y baja la mano a las cuñas: sólo se ve doblándolo."""
+    el brazo entra al lazo y baja la mano a las cuñas: sólo se ve doblándolo. Con el criterio 5
+    (el testigo trae el 7 por la pila de sus pies, pie-nivelador F2, que suma el rodillo de
+    retorno del 6): la v4 tal cual."""
     assert any(f.name.endswith("Guarda inferior (1, tramo 1)") for f in d.scene.values()), \
         "el testigo faja ya no trae sus cierres (create_belt_conveyor v5)"
-    _editar_faja(d, cierres=False)
+    _editar_faja(d, cierres=False, criterio=5)
 
 
 def acople_sin_guarda(d):
@@ -547,6 +561,8 @@ DEFECTOS = (
             {"apoyo.capacidad": FALLA}),
     Defecto("pie_de_compra_especificado", "mensula_atornillada", pie_de_compra_especificado,
             {"apoyo.capacidad": FALLA}),
+    Defecto("pie_en_placa_delgada", "mensula_atornillada", pie_en_placa_delgada,
+            {"apoyo.nivelador": FALLA}),
     Defecto("tornillo_que_asoma", "mensula_atornillada", tornillo_que_asoma,
             {"union.distancia_al_borde": FALLA}),
     Defecto("tubo_abierto_higienico", "mensula_atornillada", tubo_abierto_higienico,
