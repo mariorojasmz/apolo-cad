@@ -13,6 +13,7 @@
   "montaje.interferencia_interna": "OK",
   "union.contacto_real": "OK",
   "union.contacto_no_cuelga": "NO_APLICA",
+  "union.interferencia_declarada": "OK",
   "apoyo.capacidad": "NO_APLICA",
   "union.agarre": "OK",
   "union.retencion": "OK",

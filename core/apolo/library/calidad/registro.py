@@ -14,7 +14,8 @@ Ids estables (familia):
 - `union.acceso_herramienta`, `union.agarre`, `union.retencion`, `union.largo_comercial`,
   `union.agujeros` (montaje); `union.capacidad`, `union.soldaduras`, `union.dimensionadas`,
   `union.contacto_real`, `union.contacto_no_cuelga` (estructura: un contacto no sostiene lo que
-  cuelga);
+  cuelga); `union.interferencia_declarada` (montaje: una unión declarada no tapa un volumen
+  compartido, salvo la rosca engranada);
 - `montaje.interferencia_interna` (montaje: choques dentro de un super-comando, D13b);
 - `transmision_flexible.tension` (función: todo lazo — banda, cadena, correa, cable — con un
   tensado reconocido y carrera suficiente); `transmision_flexible.de_su_comando` (función: toda
@@ -79,6 +80,7 @@ from . import comprable as cp
 from . import contacto as ct
 from . import cuelga as cu
 from . import higiene as hg
+from . import interferencia_declarada as idc
 from . import material as mt
 from . import movimiento as mv
 from . import nombres as nb
@@ -88,7 +90,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "35"  # 35: tornillería por rol e impronta (historial en historial_registro.py)
+VERSION_REGISTRO = "36"  # 36: union.interferencia_declarada (historial en historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -235,6 +237,7 @@ REGISTRO: tuple = (
             "supercomandos"),
     ct.ENTRADA,  # union.contacto_real: la Entrada vive junto a su criterio (uniones-que-tocan)
     cu.ENTRADA,  # union.contacto_no_cuelga: ídem (lo-fijo-que-gira-y-lo-que-cuelga D2)
+    idc.ENTRADA,  # union.interferencia_declarada: ídem (puerta-fuera-de-catalogo D6)
     ap.ENTRADA,  # apoyo.capacidad: ídem (hallazgos-del-revisor-en-la-puerta D6)
     Fuente("mecanica", "apolo.services.calidad_mecanica:items_funcion_mecanica", _MECANICA),
     ca.ENTRADA,  # transmision_flexible.de_su_comando: la Entrada vive junto a su criterio

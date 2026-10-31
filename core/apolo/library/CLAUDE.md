@@ -305,6 +305,11 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   1993-1-8 §4.5.2) sobre la línea de contacto de `kernel/contacto.py`, apoyo sin punto, perno que
   cruza su hueco. El MISMO largo dimensiona el cordón (`report_uniones`) y lo propone
   `declare_structure`. Lo de una cadena no se mide. [uniones-que-tocan](../../../docs/plans/uniones-que-tocan.md)
+- **Lo declarado unido no comparte volumen** (`calidad/interferencia_declarada.py`, medido en
+  `services/calidad_interferencia_declarada.py`): par con `fasten` > `EXCESS_TOL_MM3` falla salvo
+  la rosca engranada (anillo coaxial Ø nominal / broca DIN 336, por GEOMETRÍA) y la pieza entera
+  dentro de un equipo de catálogo; no mide tornillería (Seeger, tirafondo por rol), equipo
+  representativo (`FEA_HARDWARE_CATS`) ni cable 3D. [plan](../../../docs/plans/puerta-fuera-de-catalogo.md) (D6)
 - Lo que no puede correr va en `no_aplica`: jamás cuenta verde. Un asiento ≤ `EXCESS_TOL_MM3` se
   tolera y se DECLARA (`contactos_tolerados`). Tornillería flotante = AVISO, no ROJO.
 - Exclusiones UNIFICADAS diseño + pose: par con fasten = contacto firmado; tornillería a medida =

@@ -120,4 +120,10 @@ atraviesa, y lo que sigue sin evaluar pasa justificado por escrito con la herram
 rodamiento, chumacera, rueda ni equipo unidos no es parte móvil, y la «Correa» de techo (o anclada)
 no es transmisión; la norma tras un complemento de lugar («Arandela ancha del tablero DIN 9021»)
 designa la compra.
+v36 (puerta-fuera-de-catalogo F3, D6) `union.interferencia_declarada`: entre piezas que no son
+tornillería, un par con `fasten` de cualquier tipo cuyo volumen común pasa de `EXCESS_TOL_MM3`
+falla (la entrega lo excluía entero: la silla plegable aprobó con 9 903 mm³ de travesaño dentro de
+la pata); la rosca engranada no cuenta, reconocida por la geometría del solape (anillo entre
+cilindros coaxiales de Ø nominal y broca DIN 336 de una métrica gruesa, hasta su volumen + 5 %:
+el pie M16 en su placa roscada de 12 mm, 565,5 mm³, y el espárrago M10 en su buje de 21, 457,7).
 """

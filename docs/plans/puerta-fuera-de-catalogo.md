@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0, F1 (registro v33) y F2 (v35) mergeadas; falta F3–F6
+nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0, F1 (registro v33), F2 (v35) y F3 (v36) mergeadas; falta F4–F6
 descripcion: La puerta juzga bien la madera, el plástico, el tornillo y la viga que no salen del catálogo, en vez de rechazarlos por no saber leerlos o aprobarlos sin mirarlos
 ---
 
@@ -323,3 +323,32 @@ Decisiones tomadas al implementar (vetables):
 - **«Eje»** es parte móvil sólo si una unión declarada lo liga a un rodamiento, chumacera, algo que
   gira o un equipo (o es hija de junta); la **«Correa»** de techo/existente/perfil es estructura y
   lo anclado no es lazo. `VERSION_BATERIA` 8 (el acceso de la entrega cambió).
+
+### F3 — interferencia que no se tapa (2026-10-30)
+
+`union.interferencia_declarada` (registro v36 —la rama la tomó como v35—, familia montaje): evaluador puro en
+`library/calidad/interferencia_declarada.py`, insumo en `services/calidad_interferencia_declarada.py`
+(sólo los pares con `fasten`, prefiltro exacto con umbral `EXCESS_TOL_MM3`). Decisiones tomadas al
+medir (vetables):
+
+- **Rosca engranada por geometría**: cada sólido del solape limitado por dos cilindros coaxiales de
+  Ø nominal y broca DIN 336 de una métrica gruesa (± 0,2 mm) no cuenta hasta su anillo + 5 %. Las
+  roscas de la tanda salen OK con su cifra exacta (565,5; 174,4; 199,3; 217,9 mm³).
+- **No se miden**, además de la tornillería de la entrega: la tornillería a medida por su ROL de
+  compra (Seeger DIN 472 del tensor del 38: 929,9 mm³ en una ranura que no se modela) y la de
+  madera por su rol (tirafondo, autorroscante: la silla 269 mm³ en su guía de Ø3); el equipo de
+  catálogo de geometría representativa (`FEA_HARDWARE_CATS`); el cable 3D (cruza la chapa por su
+  pasacables sin modelar). La pieza ENTERA dentro de un equipo de catálogo (variador en su
+  TABLERO-5040 macizo) está alojada.
+- **El 38 aprueba gracias a `FEA_HARDWARE_CATS`**: sin esa exclusión falla con 12 698 mm³ entre el
+  NMRV-090 y su brazo de reacción (el brazo de `run_script` modela los 6 pernos Ø9 que el builder
+  ya trae, y el cubo de la brida entra 2 mm en la placa sin su alojamiento Ø67). Es un defecto real
+  del modelo que el catálogo representativo no deja juzgar.
+- Tanda (última corrección de cada una): nuevas FALLA en las bisagras de la mesa plegable (1200 y
+  1800) y de la escalera de 3 (los dos barriles Ø10 × 16 de cada bisagra modelados enteros, 1 256 a
+  1 515 mm³); la silla 650 de la re-revisión 1 falla con sus 9 903,3 mm³; el resto, OK. El 53
+  (dos 38 viejos por `insert_project`) falla con las repisas soldadas 10 560 mm³ dentro de los
+  travesaños, corregidas después en el 38.
+- Costo: ≤ 3 s en el 38, el 72 y la tanda, salvo la mesa de bolas 600 (≈ 15 s de CPU: ~100
+  bolas de transferencia «(compra)» con su espárrago por el agujero de la plancha, una booleana
+  de ~0,15 s cada una).

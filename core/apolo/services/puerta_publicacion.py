@@ -25,6 +25,9 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
   (`calidad_movimiento`; None sin juntas de movimiento), lo juzga `movimiento.coherente`;
 - `cuelga`: cada `contacto` con carga colgada, con su centro de masa y su zona de contacto
   (`calidad_cuelga`; None sin contactos), lo juzga `union.contacto_no_cuelga`;
+- `interferencia_declarada`: el volumen común de cada par con `fasten` que no es tornillería, con
+  los anillos coaxiales de cada sólido (`calidad_interferencia_declarada`; None sin uniones), lo
+  juzga `union.interferencia_declarada` (puerta-fuera-de-catalogo D6);
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
   balance-de-producto D9);
@@ -313,6 +316,13 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             colgado = cuelga(doc) if h["elementos"]["uniones_contacto"] else None
         except Exception as exc:  # noqa: BLE001 — aplica igual: SIN_EVALUAR con el porqué
             colgado = {"error": f"{type(exc).__name__}: {exc}"[:200]}
+    with _cronometro(tiempos, "interferencia_declarada"):  # puerta-fuera-de-catalogo D6
+        from .calidad_interferencia_declarada import interferencia_declarada
+
+        try:  # sin uniones declaradas no aplica: None
+            solapes = interferencia_declarada(doc)
+        except Exception as exc:  # noqa: BLE001 — aplica igual: SIN_EVALUAR con el porqué
+            solapes = {"error": f"{type(exc).__name__}: {exc}"[:200]}
     with _cronometro(tiempos, "sobrantes"):  # D7: sólo en esta puerta, tras las fuentes
         from .calidad_sobrantes import sobrantes as probar_sobrantes
 
@@ -333,7 +343,7 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or []),
             "cadenas": h["cadenas_de_rodillos"], "resguardos": h["resguardos_con_interruptor"],
             "apoyos_compra": h["apoyos_de_compra"], "higiene": limpieza, "movimiento": mov,
-            "cuelga": colgado}
+            "cuelga": colgado, "interferencia_declarada": solapes}
 
 
 # ------------------------------------------------------------------ la marcha (D13 de la fábrica)

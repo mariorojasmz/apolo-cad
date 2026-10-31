@@ -269,6 +269,12 @@ def riostra_que_no_toca(d):  # uniones-que-tocan: la riostra soldada a 5 mm de s
                          "throat_mm": 3, "length_mm": 160})
 
 
+def travesano_metido(d):  # puerta-fuera-de-catalogo D6: la silla, 9 903 mm³ bajo su unión
+    t = _caja(d, "Travesaño", 100, 40, 40, 120, 60, 26)  # entra 6 mm en la placa base (z ≤ 12)
+    d.execute("fasten", {"name": "f_trav", "a": t, "b": _id(d, "Placa base"), "kind": "soldadura",
+                         "throat_mm": 3, "length_mm": 100})
+
+
 def perno_sin_metrica(d):  # una unión apernada declarada sin métrica: no se puede verificar
     t = _caja(d, "Tapa", 100, 100, 5, 0, 0, 24.5)
     d.execute("fasten", {"name": "ft", "a": t, "b": _id(d, "Ménsula"), "kind": "perno"})
@@ -540,6 +546,8 @@ DEFECTOS = (
     Defecto("cordon_minimo", "mensula_atornillada", cordon_minimo, {"union.soldaduras": FALLA}),
     Defecto("riostra_que_no_toca", "mensula_atornillada", riostra_que_no_toca,
             {"union.contacto_real": FALLA}),
+    Defecto("travesano_metido", "mensula_atornillada", travesano_metido,
+            {"union.interferencia_declarada": FALLA}),
     Defecto("perno_sin_metrica", "mensula_atornillada", perno_sin_metrica,
             {"union.dimensionadas": FALLA}),
     Defecto("superficie_sin_espesor", "mensula", superficie_sin_espesor,
