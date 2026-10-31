@@ -233,6 +233,18 @@ def plegada_mas_gruesa(d):
     d.set_requirements({**(d.requirements or {}), "plegable": True, "espesor_plegado_mm": 5})
 
 
+def plegable_sin_traba(d):
+    """plegables-en-la-puerta D5: el ala abatible declara su uso y su guardado (las posiciones
+    pasan) pero nada la traba abierta: la escalera de 3 con el gancho sin seguro."""
+    ala = _caja(d, "Ala abatible", 100, 80, 6, 400, 0, 3)
+    d.execute("add_joint", {"name": "j_ala", "type": "giratoria", "parent": _id(d, "Placa base"),
+                            "child": ala, "origin": {"x": 350, "y": 0, "z": 0},
+                            "axis": {"x": 0, "y": 1, "z": 0}, "lower": -90, "upper": 0})
+    d.set_motion("plegado", [{"t": 0, "values": {"j_ala": 0}, "posicion": "uso"},
+                             {"t": 1, "values": {"j_ala": -90}, "posicion": "guardado"}])
+    d.set_requirements({**(d.requirements or {}), "plegable": True})
+
+
 def brazo_fijo_que_gira(d):
     """lo-fijo-que-gira D1: un brazo hijo `fija` del eje que gira (junta continua) y empernado a la
     placa base quieta (la chumacera −Y de la lavadora, hija del eje motriz y empernada a su
@@ -571,6 +583,8 @@ DEFECTOS = (
             {"plegado.posiciones": FALLA}),
     Defecto("plegada_mas_gruesa", "mensula_atornillada", plegada_mas_gruesa,
             {"plegado.posiciones": OK, "plegado.espesor": FALLA}),
+    Defecto("plegable_sin_traba", "mensula_atornillada", plegable_sin_traba,
+            {"plegado.posiciones": OK, "plegado.traba": FALLA}),
     Defecto("brazo_fijo_que_gira", "mensula_atornillada", brazo_fijo_que_gira,
             {"movimiento.coherente": FALLA}),
     Defecto("brida_cara_a_cara", "mensula_atornillada", brida_cara_a_cara,

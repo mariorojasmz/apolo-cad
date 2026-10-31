@@ -205,6 +205,9 @@ def registrar(mcp, _api, _paso, esperar) -> dict[str, Callable]:
         juntas se validan contra las declaradas (get_kinematics). Un producto PLEGABLE
         (requisito plegable) etiqueta su pose de uso y la de guardado con "posicion": "uso" |
         "guardado" en su fotograma (una vez cada una): la puerta las pide y mide el guardado.
+        El de uso declara sus "trabas": [{"grado": junta motora, "sentido": "+"|"-", "tipo":
+        tope|sobre_centro|tirante|retenida|peso, "piezas": [ids], "nota"}], una por sentido de
+        cada grado que pliega; la puerta mide cada una (plegado.traba).
         OJO FK: una junta mueve solo sus HIJOS declarados — completa un cuerpo rígido
         multi-pieza con juntas 'fija' colgadas del conductor. Verifica el recorrido con
         scan_motion, míralo con motion_gif; en la UI aparece en el panel Cinemática."""

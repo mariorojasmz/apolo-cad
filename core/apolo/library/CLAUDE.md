@@ -387,4 +387,8 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   `posicion` «uso» y «guardado» (`plegado.posiciones`) y su caja contra `espesor_plegado_mm`
   (`plegado.espesor`). El TRÁNSITO no es ítem: lo avisa `delivery_check` con sólo los choques
   NUEVOS respecto de la pose de diseño (los pares de una misma ubicación de FK no se miden).
-  [plegables](../../../docs/plans/plegables-en-la-puerta.md) (D1–D3)
+  `plegado.traba` (`calidad/trabas.py`, medido en `services/calidad_trabas.py`): el fotograma de
+  uso declara sus `trabas` por GRADO de libertad (junta motora; `junta` = dónde actúa) y cada
+  sentido de cada grado que pliega tiene una que la medida confirma (tope ≤ 0,5 mm que bloquea,
+  sobre-centro ≥ 2° —criterio de diseño— con su tope, tirante que abre el lazo, retén por rol;
+  `peso` = aviso justificable). [plegables](../../../docs/plans/plegables-en-la-puerta.md) (D1–D6)

@@ -37,6 +37,7 @@
   "movimiento.coherente": "NO_APLICA",
   "plegado.posiciones": "NO_APLICA",
   "plegado.espesor": "NO_APLICA",
+  "plegado.traba": "NO_APLICA",
   "fabricabilidad": "OK",
   "material.conocido": "OK",
   "bom.comprable": "OK",

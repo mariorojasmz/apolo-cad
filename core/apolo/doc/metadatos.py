@@ -112,7 +112,10 @@ class MetadatosDocumento:
         (aceptarlas en silencio producía estudios que "reproducían" sin mover nada).
         Opcional `"posicion": "uso" | "guardado"` etiqueta la pose de uso y la de guardado de un
         producto plegable, una vez cada una por estudio (plan plegables-en-la-puerta, D2): un
-        manifest viejo no la trae y abre igual."""
+        manifest viejo no la trae y abre igual. Sólo el fotograma de `uso` acepta `"trabas"`
+        (D5: lo que lo traba en cada sentido de cada grado que pliega; formato y validación en
+        `library/calidad/trabas.py`)."""
+        from apolo.library.calidad.trabas import validar_trabas
         from apolo.library.requisitos import POSICIONES_PLEGADO as POSICIONES
 
         name = str(name).strip()
@@ -125,12 +128,12 @@ class MetadatosDocumento:
                 raise DocumentError(
                     'Cada fotograma debe ser un dict {"t": segundos, "values": {junta: valor}}'
                 )
-            extras = sorted(set(map(str, kf)) - {"t", "values", "posicion"})
+            extras = sorted(set(map(str, kf)) - {"t", "values", "posicion", "trabas"})
             if extras:
                 raise DocumentError(
                     f"Claves desconocidas en el fotograma: {', '.join(extras)} — los valores "
                     'de junta van ANIDADOS: {"t": segundos, "values": {junta: valor}} (y, '
-                    'opcional, "posicion": "uso" | "guardado")'
+                    'opcional, "posicion": "uso" | "guardado"; el de uso, sus "trabas")'
                 )
             posicion = kf.get("posicion")
             if posicion is not None:
@@ -143,6 +146,16 @@ class MetadatosDocumento:
                     raise DocumentError(
                         f"La posición «{posicion}» va en UN solo fotograma del estudio")
                 etiquetadas.add(posicion)
+            trabas = None
+            if "trabas" in kf:
+                if posicion != "uso":
+                    raise DocumentError(
+                        '"trabas" va sólo en el fotograma "posicion": "uso" (lo que traba la '
+                        "posición de uso de un producto plegable)")
+                try:
+                    trabas = validar_trabas(kf["trabas"], self.joints, self.scene)
+                except ValueError as exc:
+                    raise DocumentError(str(exc)) from exc
             try:
                 t = float(kf["t"])
             except (KeyError, TypeError, ValueError) as exc:
@@ -163,7 +176,8 @@ class MetadatosDocumento:
                 vals = {str(n): float(v) for n, v in values.items()}
             except (TypeError, ValueError) as exc:
                 raise DocumentError("Cada valor de junta debe ser numérico") from exc
-            clean.append({"t": t, "values": vals, **({"posicion": posicion} if posicion else {})})
+            clean.append({"t": t, "values": vals, **({"posicion": posicion} if posicion else {}),
+                          **({"trabas": trabas} if trabas is not None else {})})
         if clean and not any(k["values"] for k in clean):
             raise DocumentError(
                 "El estudio no mueve ninguna junta: todos los fotogramas tienen 'values' vacío"

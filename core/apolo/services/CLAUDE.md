@@ -131,6 +131,10 @@ transporte que los llama, en [api](../api/CLAUDE.md).
   `loads.piezas_colgadas` sobre el grafo DECLARADO; la unión de tubería que tira se declara en la
   nota del `fasten`, nunca por nombre.
   [lo-fijo-que-gira](../../../docs/plans/lo-fijo-que-gira-y-lo-que-cuelga.md) (D1, D2)
+- `plegado.traba` (`calidad_trabas.py`) mide desde la pose de USO con los lazos resueltos: el
+  tope mueve la junta SIN resolver el lazo (como la prueba de pose); el tirante resuelve por
+  continuación y corta en el primer paso que no cierra (sin solución, el solver gasta todas sus
+  evaluaciones). [plegables](../../../docs/plans/plegables-en-la-puerta.md) (D5, D6)
 - **Un ítem general nuevo = su defecto sembrado** en `tests/test_defectos_sembrados.py` (mutación
   mínima de un testigo bueno que lo pone en FALLA) o una exención con su porqué. Los testigos
   (`tests/data/testigos/`, públicos y sintéticos) congelan el veredicto por ítem: un cambio que

@@ -78,11 +78,25 @@ def estudios(doc) -> list[dict]:
     return out
 
 
+#: Un fotograma cuyos lazos ya cierran a esto (mm) no se re-resuelve (plegables F3): arrancando
+#: EN la solución, cerca del punto muerto de la rodilla, `least_squares` se pasea por residuos no
+#: derivables (normas en 0) y gasta todas sus evaluaciones: 14,7 s de CPU el uso de la mesa de
+#: 1,8 m con sus dos lazos A, para volver a donde estaba.
+YA_CIERRA_MM = 0.01
+
+
 def _valores_resueltos(doc, vals: dict) -> dict:
     """Los valores con las restricciones del lazo resueltas (si las hay), como el estudio."""
     if getattr(doc, "constraints", None):
-        from apolo.assembly.constraints import solve_constraints
+        from apolo.assembly.constraints import _residual, solve_constraints
 
+        vals = {str(k): float(v) for k, v in vals.items()}
+        activas = [c for c in doc.constraints.values() if c.get("joint") in doc.joints]
+        try:
+            if activas and max(_residual(doc.joints, vals, c) for c in activas) <= YA_CIERRA_MM:
+                return dict(vals)
+        except Exception:  # noqa: BLE001 — una restricción que no se evalúa: que resuelva
+            pass
         return solve_constraints(doc.joints, doc.constraints, vals)
     return dict(vals)
 

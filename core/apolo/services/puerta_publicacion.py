@@ -33,6 +33,8 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
 - `plegado`: las posiciones de uso y guardado de cada estudio y la caja del guardado
   (`calidad_plegado`; None sin el requisito `plegable`), lo juzgan `plegado.posiciones` y
   `plegado.espesor`; el tránsito no se mide aquí (lo avisa `delivery_check`);
+- `trabas`: lo que traba la posición de uso, medido por traba declarada (`calidad_trabas`; None
+  sin `plegable`), lo juzga `plegado.traba`;
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
 - `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
   balance-de-producto D9);
@@ -334,6 +336,13 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             pliega = posiciones_plegado(doc) if h["plegable"] else None
         except Exception as exc:  # noqa: BLE001 — aplica igual: SIN_EVALUAR con el porqué
             pliega = {"error": f"{type(exc).__name__}: {exc}"[:200]}
+    with _cronometro(tiempos, "trabas"):  # plegables-en-la-puerta D5/D6: sólo con el requisito
+        from .calidad_trabas import trabas as trabas_plegado
+
+        try:
+            traban = trabas_plegado(doc) if h["plegable"] else None
+        except Exception as exc:  # noqa: BLE001 — aplica igual: SIN_EVALUAR con el porqué
+            traban = {"error": f"{type(exc).__name__}: {exc}"[:200]}
     with _cronometro(tiempos, "cuelga"):  # lo-fijo-que-gira D2
         from .calidad_cuelga import cuelga
 
@@ -370,7 +379,7 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "apoyos_compra": h["apoyos_de_compra"], "higiene": limpieza, "movimiento": mov,
             "pies_niveladores": h["pies_niveladores"],
             "cuelga": colgado, "interferencia_declarada": solapes,
-            "plegado": pliega}
+            "plegado": pliega, "trabas": traban}
 
 
 # ------------------------------------------------------------------ la marcha (D13 de la fábrica)

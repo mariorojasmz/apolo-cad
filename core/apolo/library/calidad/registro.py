@@ -23,8 +23,8 @@ Ids estables (familia):
   `accionamiento.factor_servicio`, `ingenieria.reglas`, `funcion.escenarios` y
   `funcion.flujo_de_producto`, `higiene.limpiable` (función; sólo con el requisito `higienico`) y
   `movimiento.coherente` (función: ninguna unión rígida entre piezas que se mueven distinto),
-  `plegado.posiciones` y `plegado.espesor` (función; sólo con el requisito `plegable`:
-  `plegado.py`);
+  `plegado.posiciones`, `plegado.espesor` y `plegado.traba` (función; sólo con el requisito
+  `plegable`: `plegado.py`, `trabas.py`);
 - `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
   (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado), `apoyo.capacidad`,
   `apoyo.nivelador` (rosca, traba y carrera de cada pie nivelador, `pie_nivelador.py`);
@@ -92,10 +92,11 @@ from . import plegado as pg
 from . import puerta as p
 from . import resguardos as rg
 from . import sobrantes as so
+from . import trabas as tb
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "40"  # 40: pie nivelador (historial_registro.py)
+VERSION_REGISTRO = "41"  # 41: trabas del plegable (historial en historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -254,6 +255,7 @@ REGISTRO: tuple = (
     mv.ENTRADA,  # movimiento.coherente: ídem (lo-fijo-que-gira-y-lo-que-cuelga D1)
     pg.ENTRADA_POSICIONES,  # plegado.posiciones: ídem (plegables-en-la-puerta D2)
     pg.ENTRADA_ESPESOR,  # plegado.espesor: ídem (D3)
+    tb.ENTRADA,  # plegado.traba: ídem (D5, D6)
     Entrada("fabricabilidad", "Cada pieza es de catálogo o un sólido con material y proceso",
             "una pieza a medida que no se puede cortar, mecanizar ni comprar",
             "criterio de diseño (DFM)", "proceso", hay("piezas", "el modelo no tiene piezas"),

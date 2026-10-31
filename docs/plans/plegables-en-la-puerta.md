@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1, D3–D7 ajustadas); F2 y F4 (registro v34) y F1 (registro v40; el tránsito va a delivery_check) hechas; falta F3 y F5. La escalera de la F5 espera la F5 de puerta-fuera-de-catalogo
+nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1, D3–D7 ajustadas); F2 y F4 (registro v34), F1 (registro v40; el tránsito va a delivery_check) y F3 (registro v44, trabas por grado de libertad) hechas; falta F5. La escalera de la F5 espera la F5 de puerta-fuera-de-catalogo
 descripcion: La puerta revisa que lo que se pliega se pliegue de verdad en el modelo, recorra sin chocar, quede del tamaño pedido y se trabe abierto
 ---
 
@@ -346,3 +346,79 @@ renumera) y batería de entrega 9.
   - Defectos sembrados: `plegable_sin_juntas` y `plegada_mas_gruesa` sobre la ménsula
     atornillada.
   - Testigos re-congelados: sólo la versión y los dos ítems NO_APLICA.
+
+### F3 — trabas (2026-10-31)
+
+Registro v44 (la rama base traía v38 en el código y v40 en sus tests; las fases en paralelo
+toman otros números: quien mergea renumera). Ítem `plegado.traba` (`calidad/trabas.py`, insumo en
+`services/calidad_trabas.py`), sólo con `plegable`.
+
+- **Formato** (fotograma `posicion: "uso"`, el único que lo acepta; `set_motion` lo valida y sigue
+  rechazando lo demás; un manifest viejo abre igual):
+  `"trabas": [{"grado": junta, "sentido": "+"|"-", "tipo": tope|sobre_centro|tirante|retenida|peso,
+  "piezas": [ids], "nota": "…", "junta"?: junta}]`.
+- **Grado de libertad** = junta de movimiento que cambia entre uso y guardado y ninguna
+  restricción resuelve (la motora). Cada uno, en sus DOS sentidos, necesita una traba que la
+  medida confirme; si no, FALLA. Toda medida parte de la pose de uso con los lazos resueltos.
+- **Cómo mide cada tipo**:
+  - `tope`: la junta movida 3° (3 mm) en ese sentido SIN resolver el lazo; un par (pieza de la
+    traba, pieza que la junta mueve respecto de ella) con distancia en uso ≤ 0,5 mm y volumen
+    común que crece > 5 mm³. A más de 0,5 mm: «deja juego».
+  - `sobre_centro` (D6): en cada lazo que el grado mueve, P = origen posado de la junta del
+    brazo, K = el de la rodilla (la junta del `punto_coincidente`), Q = su punto. 180° − ∠PKQ en
+    el plano normal al eje ≥ 2° (criterio de diseño escrito como tal en el código). La rodilla
+    está en guardado del otro lado de la recta PQ. Su tope se mide como `tope` con la rodilla
+    movida hacia donde se dobla más. Sólo traba el sentido en que el grado PLIEGA.
+  - `tirante`: el grado movido 3° desde el uso, el lazo resuelto por continuación: residuo
+    > 0,5 mm.
+  - `retenida`: un retén por rol (`ejes_giro.tipo_reten`) entre las piezas, a ≤ 0,5 mm de otra
+    pieza de la traba. Sin retén, FALLA.
+  - `peso`: aviso; con su justificación escrita (regla «traba por el peso de la persona» y sus
+    piezas), OK. Sin ella, el ítem sale SIN_EVALUAR.
+- **Decidido solo**:
+  - **`sentido` es siempre el del GRADO**, también si la traba actúa en otra junta: el contrato
+    pide trabas por grado de libertad. `junta` dice dónde actúa: la rodilla de un sobre-centro, o
+    la junta que un tope frena. En ese caso el sentido de la junta sale de mover el grado 1° con
+    el lazo resuelto.
+  - **Una traba nombrada en una junta del lazo** (dependiente) no es un grado. Sale en la
+    evidencia como «ignorada», con cómo nombrarla.
+  - **El tope no se acota a los límites** de la junta: un límite declarado no es un tope físico.
+  - **El tirante corta en el primer paso que no cierra.** Sin solución, `least_squares` gasta
+    todas sus evaluaciones: 7 s de CPU los 6 pasos en la fixture, contra ≈ 1 s cortando. Si el
+    lazo no cierra a mitad de camino, el mecanismo no llega al final.
+  - **Sin lazo declarado**, `sobre_centro` y `tirante` FALLAN con cómo declararlo: la medida no
+    puede confirmarlos.
+  - **`TOL_VOL_MM3` repetido en `library`** (5 mm³, el de `calidad_movimiento`): la capa pura no
+    importa `services`. Un test vigila que sean iguales.
+  - **El tirante de una rodilla se mide por geometría.** Sus dos brazos son rígidos: cierra si
+    y sólo si |PQ| está entre la diferencia y la suma de los brazos. Se prueba en 6 puntos del
+    camino. El solver por continuación queda para otros lazos, sin cortar en un paso que no
+    cierra. En la rodilla de 2,25° de los tests el solver se estanca a +0,5° y vuelve a cerrar
+    en el paso siguiente: cortar ahí daba un tirante falso.
+  - **Un fotograma cuyos lazos ya cierran (≤ 0,01 mm) no se re-resuelve**
+    (`calidad_plegado._valores_resueltos`, también para la caja del guardado y el tránsito de la
+    F1). Arrancando en la solución, junto al punto muerto, el solver gastaba 14,7 s de CPU en el
+    uso de la mesa de 1,8 m para volver a donde estaba.
+  - **El remache del faldón en Q** (límite de la F4): no se tocó, no entraba en D5/D6.
+- **Verificado en la mesa de 1,8 m** (copia de la F0, en memoria, sin guardar). Se declararon
+  los lazos A(+Y) y A(−Y) como en la F2 y, en j_pata_A, el sobre-centro «−» (piezas c782/c783) y
+  el tope «+» con el tablero c30:
+  - sobre-centro 2,253° en las dos rodillas, del otro lado en guardado; tope de rodilla
+    c782 ↔ c301 a 0 mm, +173,2 mm³ con la rodilla a −3° (la F0 midió 173);
+  - tope testa ↔ tablero c30 ↔ c35 a 0 mm, +3 970 mm³;
+  - 0,88 s de CPU todo el insumo (15,5 s antes del atajo de arriba). La pata B, sin lazos
+    declarados, cuenta cada junta como grado y falla «sin traba declarada», como debe.
+- **Tests** (`tests/test_plegado_trabas.py`, fixtures sintéticas):
+  - topes: a 0 mm OK, el pasador a 0,12 mm OK, a 2 mm FALLA (deja juego), del otro lado y lejos
+    FALLA;
+  - gancho sin retén, con retén que toca y con retén a 3 mm;
+  - `peso` sin y con justificación;
+  - grado sin traba en un sentido y en los dos;
+  - `set_motion`: trabas sólo en el uso, cada error de validación;
+  - el manifest viejo abre igual y las trabas viajan en el `.apolo`;
+  - la rodilla de 2,25° con su tope y el tirante OK; 0°, 1,5° y tope a 2 mm FALLA; el
+    sobre-centro en el sentido que no pliega y el tirante que no limita FALLAN; una traba en una
+    junta del lazo queda ignorada;
+  - la puerta: NO_APLICA sin el requisito, SIN_EVALUAR con el peso, OK justificado.
+  - Defecto sembrado `plegable_sin_traba` sobre la ménsula atornillada. Testigos re-congelados:
+    sólo la versión y el ítem NO_APLICA.

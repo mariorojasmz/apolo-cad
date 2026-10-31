@@ -163,4 +163,13 @@ pies, o el requisito nuevo `nivelacion_mm`: falla si la suma no alcanza; un sent
 salvo justificación); lo que tiene rol de pie nivelador y no se reconoce sale SIN_EVALUAR
 justificable. El testigo `faja` pasa al criterio 7 de la plantilla (con la 5 la placa de 8 mm tenía
 un agujero liso Ø12 por toda rosca).
+v41 (plegables-en-la-puerta F3, D5 y D6) con `plegable`, `plegado.traba` pide que el fotograma de
+uso declare sus `trabas` y que cada grado de libertad que pliega (junta motora que cambia entre
+uso y guardado y ningún lazo resuelve) quede trabado en sus DOS sentidos, con la medida que lo
+confirma: `tope` (la junta movida 3° o 3 mm hace crecer el volumen común con la pieza tope más
+de 5 mm³ y ésta está a ≤ 0,5 mm en uso), `sobre_centro` (180° − ∠PKQ ≥ 2° entre brazos, criterio
+de diseño; la rodilla pasa la recta de sus pivotes al plegar y su tope existe), `tirante` (el
+lazo deja de cerrar, residuo > 0,5 mm, al mover el grado 3°), `retenida` (un pasador de aletas,
+clip R o anillo, por su rol, toca lo que retiene; el gancho sin retén falla) y `peso` (aviso que
+se justifica por escrito). La escalera de 3 y la mesa de 1,2 m (rodilla a 0°) fallan.
 """

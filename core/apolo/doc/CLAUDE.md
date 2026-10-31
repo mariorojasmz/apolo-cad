@@ -94,9 +94,10 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1d)
 - `set_motion` valida cada fotograma `{"t", "values": {junta: valor}}`: claves sueltas, juntas
   inexistentes, valores no numéricos o estudio todo vacío → `DocumentError` accionable. Aceptarlo
-  en silencio dejaba un estudio que «reproducía» sin mover nada (commit `a8593f4`). La única
-  clave opcional es `posicion` («uso» | «guardado», una vez cada una por estudio): un lector
-  nuevo de `doc.motion` la tolera. [plegables](../../../docs/plans/plegables-en-la-puerta.md) (D2)
+  en silencio dejaba un estudio que «reproducía» sin mover nada (commit `a8593f4`). Las únicas
+  claves opcionales son `posicion` («uso» | «guardado», una vez cada una por estudio) y, SÓLO en
+  el de uso, `trabas` (validadas en `library/calidad/trabas.validar_trabas`): un lector nuevo de
+  `doc.motion` las tolera. [plegables](../../../docs/plans/plegables-en-la-puerta.md) (D2, D5)
 - Variantes (`configurations`) = tabla de diseño RECTANGULAR (lógica pura en `variantes.py`;
   `Document` sólo delega): cada variante guarda sólo sus COLUMNAS, todas las mismas, y una
   columna nueva entra en las demás con la expresión actual de su variable. Nunca guardes todas
