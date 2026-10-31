@@ -26,6 +26,8 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
+from . import columnas_a_medida
+
 G = 9.81
 _PERFILES = ("rect_tube", "round_tube", "angle", "channel", "i_beam")
 _ZONA_BASE = 0.1      # la unión de la base cae en el décimo inferior del largo
@@ -118,6 +120,9 @@ def detectar_columnas(doc, catalog: dict | None = None) -> dict:
     out["det"] = det
     giran = _giran(doc)
     anclas = {g.get("feature") for g in (doc.grounds or {}).values()}
+    from .vigas_a_medida import de_plantilla
+
+    vertical, plantillas = doc.default_material(), de_plantilla(doc)
     for fid, f in det["scene"].items():
         caja = det["caja"](fid)
         if caja is None:
@@ -127,6 +132,11 @@ def detectar_columnas(doc, catalog: dict | None = None) -> dict:
         if _ROL_PATA.match(rol):  # el criterio de `report_estructura._buckling_checks`
             out["patas"] += int(caja[1][2] - caja[0][2] >= 50.0)
             continue
+        if fid not in giran and fid in det["nivel"]:  # D7: la columna a medida
+            am = columnas_a_medida.candidata(fid, f, caja, det, catalog, vertical, plantillas)
+            if am is not None:
+                _a_medida(out, fid, am, caja, det, doc, anclas)
+                continue
         comp, sec = _seccion(f, catalog)
         por_rol = bool(_ROL_COLUMNA.match(rol))
         if fid in giran or (sec is None and not por_rol) or (largo is None and not por_rol):
@@ -149,6 +159,23 @@ def detectar_columnas(doc, catalog: dict | None = None) -> dict:
         out["evaluables"].append({"fid": fid, "comp": comp, "sec": sec, "largo": largo,
                                   "base": base, "sostiene": sostiene})
     return out
+
+
+def _a_medida(out: dict, fid, am: dict, caja, det, doc, anclas) -> None:
+    """La columna a medida (D7): evaluable con su base, o no evaluada con su motivo."""
+    if "motivo" in am:
+        out["no_evaluadas"].append({"fid": fid, "motivo": am["motivo"]})
+        return
+    base, sostiene = _base(fid, caja, am["largo"], det, doc.fasteners, fid in anclas)
+    if base is None:
+        return  # se apoya sin unión: no trabaja como columna
+    if base == "atornillada":
+        out["no_evaluadas"].append({"fid": fid, "motivo": (
+            "base sólo atornillada (articulada): sin arriostramiento declarado el K de pandeo "
+            "no se determina")})
+        return
+    out["evaluables"].append({"fid": fid, "comp": None, "sec": None, "largo": am["largo"],
+                              "base": base, "sostiene": sostiene, "a_medida": am})
 
 
 def _sin_evaluar(doc, fids: list[str], motivo: str) -> dict:
@@ -207,14 +234,21 @@ def columna_rules(doc, carga_kg: float | None = None, catalog: dict | None = Non
             resumen = {"peso propio": f"{propio:.0f} N", "lo que le baja": f"{recibido:.0f} N"}
             if util_n:
                 resumen["carga útil"] = f"{util_n:.0f} N"
-            regla = regla_columna(
-                f.name or c["fid"], perfil=c["comp"].ref, area_mm2=c["sec"].area_mm2,
-                i_min_mm4=c["sec"].i_min_mm4, largo_mm=c["largo"], k=K_EMPOTRADA_LIBRE,
-                apoyos=apoyos, carga_n=carga, material=material,
-                e_mpa=young_modulus(material), fy_mpa=yield_strength(material),
-                fuente_seccion=c["sec"].norma, resumen_carga=resumen, hipotesis=hip)
+            if c.get("a_medida"):  # D7: sección medida, criterio de su material
+                ref = c["a_medida"]["sec"]["forma"]
+                regla = columnas_a_medida.regla(f.name or c["fid"], c["a_medida"],
+                                                k=K_EMPOTRADA_LIBRE, apoyos=apoyos, carga=carga,
+                                                resumen=resumen, hip=hip)
+            else:
+                ref = c["comp"].ref
+                regla = regla_columna(
+                    f.name or c["fid"], perfil=ref, area_mm2=c["sec"].area_mm2,
+                    i_min_mm4=c["sec"].i_min_mm4, largo_mm=c["largo"], k=K_EMPOTRADA_LIBRE,
+                    apoyos=apoyos, carga_n=carga, material=material,
+                    e_mpa=young_modulus(material), fy_mpa=yield_strength(material),
+                    fuente_seccion=c["sec"].norma, resumen_carga=resumen, hipotesis=hip)
             regla["piezas"] = [c["fid"]]
-            clave = (c["comp"].ref, round(c["largo"]), round(carga), regla["estado"])
+            clave = (ref, round(c["largo"]), round(carga), regla["estado"])
             grupos.setdefault(clave, []).append(regla)
         for lista in grupos.values():
             r = lista[0]

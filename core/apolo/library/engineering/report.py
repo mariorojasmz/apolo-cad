@@ -60,11 +60,13 @@ def structure_engineering_check(
     rodamientos: dict | None = None,
     uniones_verificadas: frozenset | set = frozenset(),
     cordones: dict | None = None,
+    vuelco: dict | None = None,
 ) -> list[dict]:
     """Chequeo estructural del ensamblaje completo (no exige que sea una faja).
     Devuelve reglas en el MISMO formato que conveyor_engineering_check. `uniones_verificadas`:
     las uniones perno sin métrica que otra regla dimensionó y `cordones`, el largo de cordón
-    MEDIDO de cada soldadura (`report_uniones._fastener_checks`)."""
+    MEDIDO de cada soldadura (`report_uniones._fastener_checks`). `vuelco`: las fuerzas de
+    trabajo declaradas (`requisitos.requisitos_vuelco`, D8 de puerta-fuera-de-catalogo)."""
     from ..catalog import CATALOG
     from apolo.assembly.connectivity import build_graph
 
@@ -83,5 +85,5 @@ def structure_engineering_check(
     checks += _bearing_checks(scene, catalog, carga_kg, rpm, belt_radial_n, rodamientos)
     checks += _fit_checks(scene, fasteners, joints, mates, catalog)
     checks += _buckling_checks(scene, masses, catalog, carga_kg)
-    checks += _tipping_check(scene, grounds, catalog, carga_kg, default_material)
+    checks += _tipping_check(scene, grounds, catalog, carga_kg, default_material, vuelco)
     return checks

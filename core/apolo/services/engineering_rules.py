@@ -67,7 +67,9 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
     bastidor (`vigas_rules`), el pandeo de sus columnas (`columnas_rules`), la transmisión por cadena de cada `create_chain`, la
     capacidad de cada cadena de izaje (`izaje_rules`) y los
     resultados FEA guardados (con chequeo de vigencia). Llamar bajo STATE_LOCK."""
+    from apolo.library.engineering.memo_corrida import memo_de_corrida
     from apolo.library.engineering.report import structure_engineering_check
+    from apolo.library.requisitos import requisitos_vuelco
 
     from .calidad_contacto import cordones_medidos
     from .columnas_rules import columna_rules
@@ -90,9 +92,13 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
         rodamientos=declarados,
         uniones_verificadas=pasadores,
         cordones=cordones_medidos(doc),  # uniones-que-tocan D1b: el cordón que de verdad hay
+        vuelco=requisitos_vuelco(doc.requirements),  # D8 de puerta-fuera-de-catalogo
     )
-    rules += beam_rules(doc, carga)
-    rules += columna_rules(doc, carga)  # F3f de puerta-sin-sobrediseno
+    # la sección medida de una pieza a medida (D7 de puerta-fuera-de-catalogo) se corta UNA vez
+    # aunque vigas y columnas detecten dos veces (memo de la corrida; anidable con el de la puerta)
+    with memo_de_corrida():
+        rules += beam_rules(doc, carga)
+        rules += columna_rules(doc, carga)  # F3f de puerta-sin-sobrediseno
     rules += chain_rules(doc)
     rules += izaje
     rules += fea_rules(doc)

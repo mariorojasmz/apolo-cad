@@ -227,6 +227,13 @@ transporte que los llama, en [api](../api/CLAUDE.md).
   tocan `BED_RE` o, sin cama, las más altas; el requisito `carga_sobre` manda y cada nivel recibe
   la carga entera. Piezas de `create_conveyor` → `no_aplica`. Sin vigas → `[]`.
   [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
+- La pieza A MEDIDA (sin ficha) que TRABAJA —recibe la carga útil o algo no-tornillería apoya en
+  ella— también es viga o columna (`vigas_a_medida.py`, `columnas_a_medida.py`): sección MEDIDA en
+  cortes (`seccion_medida.py`, memo de la corrida) y criterio de su material
+  (`engineering/madera_calculo.py`: metal, E.010, EN 1995; nunca mezclados). Lo de una plantilla
+  de máquina no entra (su regla manda); lo que trabaja y no se calcula sale `no_evaluada`
+  (SIN_EVALUAR justificable), nunca callado; la inclinada y la que pisa el suelo, a `no_aplica`.
+  [puerta-fuera-de-catalogo](../../../docs/plans/puerta-fuera-de-catalogo.md) (D7)
 - `columnas_rules.columna_rules`: columna = perfil de catálogo VERTICAL apoyado abajo por
   perno/soldadura (o anclado), con la carga de `vigas_rules.cargas_que_bajan`. Base sólo
   atornillada o rol «columna»/«poste» sin sección → `no_evaluada` (SIN_EVALUAR en la puerta, se

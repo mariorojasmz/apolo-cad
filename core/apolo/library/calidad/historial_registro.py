@@ -126,4 +126,16 @@ falla (la entrega lo excluía entero: la silla plegable aprobó con 9 903 mm³ d
 la pata); la rosca engranada no cuenta, reconocida por la geometría del solape (anillo entre
 cilindros coaxiales de Ø nominal y broca DIN 336 de una métrica gruesa, hasta su volumen + 5 %:
 el pie M16 en su placa roscada de 12 mm, 565,5 mm³, y el espárrago M10 en su buje de 21, 457,7).
+C) falla; el latón a medida pide su aleación y el cobre sin calificar es Cu-ETP;
+v37 (puerta-fuera-de-catalogo F4, D7 y D8) `estructura.flecha` y `estructura.pandeo` calculan la
+pieza A MEDIDA que trabaja (tablero, travesaño, montante, plancha, tubo de `run_script` o de chapa
+cerrada) con su sección MEDIDA en cortes (rectángulo macizo, tubo rectangular o redondo, barra) y
+el criterio de su material sin mezclarlos: metal, el de siempre (L/240, 0,6·fy, Euler/Johnson);
+madera por grupo, RNE E.010 (admisibles y E mínimo, Art. 17–19 y 26–30); madera de clase EN 338 o
+tablero EN, EN 1995-1-1 (§ 7.2 y § 6.3.2, kmod/γM); la que trabaja sin dos apoyos, sin sección
+constante reconocible (la plancha perforada) o de madera sin clase sale SIN_EVALUAR justificable,
+nunca NO_APLICA; el encolado es apoyo de la madera; `estructura.vuelco` suma las fuerzas de trabajo
+de los requisitos (`fuerza_horizontal_n`, `altura_fuerza_mm`, `carga_borde_n`) con EN 1990 tabla
+A1.2(A) (peso 0,9 / 1,1, variable 1,5, la favorable en 0: manda la máquina vacía); sin ellas, como
+antes y lo dice.
 """

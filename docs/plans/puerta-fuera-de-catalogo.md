@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0, F1 (registro v33), F2 (v35) y F3 (v36) mergeadas; falta F4–F6
+nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0–F4 mergeadas (registro v33, v35, v36, v37); falta F5 y F6
 descripcion: La puerta juzga bien la madera, el plástico, el tornillo y la viga que no salen del catálogo, en vez de rechazarlos por no saber leerlos o aprobarlos sin mirarlos
 ---
 
@@ -352,3 +352,29 @@ medir (vetables):
 - Costo: ≤ 3 s en el 38, el 72 y la tanda, salvo la mesa de bolas 600 (≈ 15 s de CPU: ~100
   bolas de transferencia «(compra)» con su espárrago por el agujero de la plancha, una booleana
   de ~0,15 s cada una).
+
+### F4 — estructura fuera de catálogo (2026-10-30, registro v37)
+
+- **D7**: la pieza A MEDIDA que TRABAJA (recibe la carga útil o algo que no es tornillería apoya
+  en ella) es viga o columna con su sección MEDIDA en losas de 2 mm al 25/50/75 % del largo
+  (`services/seccion_medida.py`): rectángulo macizo, tubo rectangular o redondo, barra redonda;
+  constante si las tres losas coinciden (± 3 %) y el tramo central (25–75 %) pesa A·L/2 (± 3 %:
+  los extremos con inglete o tapa no cuentan, la perforación sí). Criterio por material
+  (`library/engineering/madera_calculo.py`), nunca mezclado: metal el de siempre; grupo E.010 con
+  admisibles y Emín (Art. 17–19: (1,8·δG + δQ) ≤ L/250, δQ ≤ L/350 y 13 mm, σ ≤ fm, τ ≤ fv; columna
+  Art. 26–30); clase EN 338 o tablero EN con EN 1995-1-1 (tabla 7.2 en su extremo menos exigente,
+  kmod/γM, § 6.3.2). SIN_EVALUAR justificable: trabaja sin dos apoyos, sección no reconocida o no
+  constante (plancha perforada, chapa plegada), madera sin clase, columna que sólo cumple
+  arriostrada (K = 1). A `no_aplica`: lo de una plantilla de máquina (su regla manda), la inclinada,
+  la que pisa el suelo y la que sólo carga su peso.
+- **D8**: `fuerza_horizontal_n`, `altura_fuerza_mm`, `carga_borde_n` en `requisitos.NUMERICAS`;
+  regla nueva «estabilidad al vuelco · fuerzas de trabajo» (`engineering/vuelco_trabajo.py`) por
+  arista con EN 1990 A1.2(A); la de siempre dice cuándo no hay fuerzas declaradas.
+- **Medido sobre las 15** (último `.apolo` de cada una, `beam_rules`/`columna_rules`): de las 10
+  con `estructura.flecha` NO_APLICA en la F0, **7 pasan a calculadas** (escalera, estantería, mesa de
+  bolas, mesa inox, poza, Ø28, silla) y 2 a sólo SIN_EVALUAR (mesa plegable, Ø16); paneles sigue
+  NO_APLICA (vigas L inclinadas, de catálogo). Hallazgos nuevos: error en escalera (cabezal, E.010
+  grupo C: δ 4,6 > 2,2 mm, σ 14 > fm 9,8) y silla (apoyo del asiento, σ 10,6 > 9,8), aviso en la
+  mesa inox (tubo 40×40×1,5 de 1,9 m: L/222). Pasan de OK a pedir justificación: carro (bandejas
+  plegadas), mesas de ensamble (tablero sin apoyo declarado, placa de pie, visera, ménsulas de
+  luminaria); los montantes de la estantería piden la justificación del arriostramiento.

@@ -55,7 +55,11 @@ PAGINAS_DE_MAIN = [
       "FACTOR DE SEGURIDAD", "FS = 114.07", *_tb("2/3")], 0),
     (["2. ESTABILIDAD AL VUELCO", "OK", "DATOS DE ENTRADA", "masa total: 100.48 kg (sin producto)",
       "COG: (0, 0, 255) mm", "base de apoyo: 4 vértices, dim. menor 400 mm", "VERIFICACIÓN",
-      "COG a 200 mm del borde de la base de apoyo (mínimo requerido 40 mm; producto no incluido).",
+      # D8 de puerta-fuera-de-catalogo: sin fuerzas de trabajo declaradas, el vuelco lo dice
+      "COG a 200 mm del borde de la base de apoyo (mínimo requerido 40 mm; producto no incluido). "
+      "Sin fuerzas de",
+      "trabajo declaradas (requisitos fuerza_horizontal_n, carga_borde_n): no se verifica el "
+      "vuelco al empujarla.",
       "FÓRMULA", "margen = dist(COG_xy, borde de la base de apoyo)", "SUSTITUCIÓN",
       "margen(0, 0) sobre el casco convexo de los apoyos", "RESULTADO", "margen = 200 mm",
       "CRITERIO DE ACEPTACIÓN", "≥ 10% de la base menor = 40 mm", "NORMA DE REFERENCIA",

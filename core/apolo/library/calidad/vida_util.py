@@ -10,7 +10,7 @@ de la ficha de calidad con los umbrales de una máquina INDUSTRIAL (8–10 h/dí
 | `vida.cadena` | cadena · transmisión por cadena · cadena desfasada | FS ≥ 1,2 |
 | `vida.vuelco` | estabilidad al vuelco | margen ≥ 10 % de la base |
 | `vida.flecha` | flecha del bastidor · flecha de viga | δ ≤ L/240 |
-| `vida.pandeo` | pandeo de patas · pandeo de columna | FS ≥ 3 (la no evaluada, justificada) |
+| `vida.pandeo` | pandeo de patas · pandeo de columna | FS ≥ 3 (la madera por su norma: `fs_min` 1; la no evaluada, justificada) |
 | `vida.uniones` | unión apernada | utilización ≤ 0,7 |
 | `vida.soldaduras` | soldadura | τ en el admisible (la regla) |
 | `vida.dimensionadas` | uniones / soldaduras sin dimensionar | ninguna |
@@ -134,7 +134,10 @@ def _juzgar(iid: str, regla: dict, fs_servicio: float = FS_SERVICIO,
     if iid == "vida.pandeo":
         if fs is None:
             return _por_estado(regla), {}
-        return (OK if fs >= FS_PANDEO - 1e-6 else FALLA), {"fs": fs}
+        # la madera fuera de catálogo (puerta-fuera-de-catalogo D7) se juzga con SU norma
+        # (admisibles E.010, kmod/γM de EN 1995): su regla trae `fs_min` = 1, no el FS 3 de Euler
+        pide = float(calc.get("fs_min") or FS_PANDEO)
+        return (OK if fs >= pide - 1e-6 else FALLA), {"fs": fs}
     if iid == "vida.uniones":
         if fs is None:  # camino redundante (ok, sin carga determinable) o métrica fuera de tabla
             return _por_estado(regla), {}

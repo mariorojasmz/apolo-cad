@@ -21,6 +21,10 @@ STATE_LOCK.
   una pieza nombrada, y CADA NIVEL de ellas (misma cota superior) recibe la carga entera (un rack:
   un pallet por nivel; sin esto la carga caía en el travesaño del bastidor, el más alto).
 - **D4**: las piezas de un `create_conveyor` las verifica su regla («flecha del bastidor»).
+- **D7 de puerta-fuera-de-catalogo**: la pieza A MEDIDA que trabaja (tablero, travesaño, plancha,
+  tubo de `run_script`) también es viga, con la sección medida y el criterio de su material
+  (`vigas_a_medida.py`); la que trabaja y no se puede calcular sale en una regla `no_evaluada`
+  (SIN_EVALUAR justificable), nunca callada. Un tablero que ES la cama recibe la carga útil él.
 - Vigas con los MISMOS números salen en UNA regla que las nombra (como las cadenas).
 - Sin vigas detectadas no devuelve nada: la memoria de una máquina sin bastidor no cambia.
 """
@@ -29,6 +33,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+
+from . import vigas_a_medida as am
 
 G = 9.81
 _TOL_SOLAPE = 2.0  # mm: dos cajas a menos de esto se tocan
@@ -43,8 +49,17 @@ class _Viga:
     origen: float  # coordenada mundo del extremo x = 0
     largo: float
     rigidez: object
-    comp: object
+    comp: object  # la ficha de catálogo; None en una pieza a medida (D7)
     apoyos: dict = field(default_factory=dict)  # vecino → (x, tipo de unión)
+    peso_kg_m: float = 0.0
+    ref: str = ""  # el perfil de catálogo o la sección medida
+    material: str | None = None  # a medida: el material con el vertical (`vigas_a_medida`)
+    crit: object = None
+    seccion: dict | None = None
+
+    def __post_init__(self):
+        if self.comp is not None:
+            self.peso_kg_m, self.ref = self.comp.weight, self.comp.ref
 
 
 def _caja(f):
@@ -73,10 +88,11 @@ def _niveles(graph) -> dict:
 
 
 def _uniones_apoyo(fasteners) -> dict:
-    """{frozenset(a, b): {tipos}} de los fijadores que valen como apoyo (perno/soldadura)."""
+    """{frozenset(a, b): {tipos}} de los fijadores que valen como apoyo (perno/soldadura; el
+    encolado sólo en una viga de madera a medida: `vigas_a_medida.tipos_de_apoyo` filtra)."""
     out: dict = defaultdict(set)
     for f in fasteners.values():
-        if f.get("kind", "perno") in ("perno", "soldadura"):
+        if f.get("kind", "perno") in ("perno", "soldadura", "pegado"):
             out[frozenset((f.get("a"), f.get("b")))].add(f.get("kind", "perno"))
     return out
 
@@ -153,13 +169,16 @@ def beam_rules(doc, carga_kg: float | None = None, catalog: dict | None = None) 
     from apolo.library.engineering.viga_continua import EMPOTRAMIENTO, Apoyo
 
     det = detectar_vigas(doc, catalog)
-    if det is None or not det["vigas"]:
+    if det is None:
         return []
+    sin = am.reglas_sin_evaluar(det)
+    if not det["vigas"]:
+        return sin
     scene, graph, nivel, vigas = det["scene"], det["graph"], det["nivel"], det["vigas"]
     caja, motivos, catalog = det["caja"], det["motivos"], det["catalog"]
     portantes, p_util, origen_util = _portantes(det, carga_kg)
     return _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg,
-                     caja, motivos, catalog, Apoyo, EMPOTRAMIENTO)
+                     caja, motivos, catalog, Apoyo, EMPOTRAMIENTO) + sin
 
 
 def _portantes(det: dict, carga_kg: float | None) -> tuple[set, dict, str]:
@@ -172,9 +191,13 @@ def _portantes(det: dict, carga_kg: float | None) -> tuple[set, dict, str]:
     if not vigas:
         return set(), {}, ""
     declaradas = det.get("carga_sobre")
+    # D7: una viga a medida que ES la cama (el tablero) o que se declara recibe la carga ella
+    # misma; las de debajo la reciben por sus reacciones, no además directa
+    a_medida = {v for v in vigas if vigas[v].comp is None}
     portantes: set = set()
     if declaradas is not None:
-        portantes = {v for v in vigas if v in declaradas or graph["adj"][v] & declaradas}
+        tapan = declaradas & a_medida
+        portantes = {v for v in vigas if v in declaradas or graph["adj"][v] & (declaradas - tapan)}
         origen_util = ("las vigas que declara `carga_sobre`, la carga entera en cada nivel"
                        if portantes else "")
     if portantes:
@@ -187,7 +210,8 @@ def _portantes(det: dict, carga_kg: float | None) -> tuple[set, dict, str]:
         p = {v: float(carga_kg) * G / len(n) for n in niveles for v in n} if carga_kg else {}
         return portantes, p, origen_util
     camas = {fid for fid, f in scene.items() if BED_RE.search(f.name or "")}
-    portantes = {v for v in vigas if graph["adj"][v] & camas}
+    camas_viga = camas & a_medida
+    portantes = camas_viga | {v for v in vigas if graph["adj"][v] & (camas - camas_viga)}
     origen_util = "las vigas que tocan la cama/mesa"
     if not portantes:
         tope = max(caja(v)[1][2] for v in vigas)
@@ -246,10 +270,20 @@ def detectar_vigas(doc, catalog: dict | None = None) -> dict | None:
     motivos: dict = defaultdict(list)
     vigas: dict[str, _Viga] = {}
     en_faja: list[str] = []
+    no_evaluadas: list[dict] = []  # D7: a medida que trabaja y no se puede calcular
+    declaradas = _declaradas(doc, scene)
+    vertical, giran, plantillas = doc.default_material(), am._giran(doc), am.de_plantilla(doc)
     for fid, f in scene.items():
         if fid not in nivel:
             continue  # flota: lo dice la sujeción, no esta regla
         viga, motivo = _candidata(f, caja, catalog)
+        pre = None
+        if viga is None and motivo is None and f.command_id not in de_faja:
+            pre = am.precandidata(f, caja(fid), catalog, vertical, giran, plantillas)
+            if pre is not None:
+                lo = caja(fid)[0]
+                viga = _Viga(fid, pre.eje, lo[pre.eje], pre.largo, None, None,
+                             material=pre.material, crit=pre.crit)
         if f.command_id in de_faja and (viga or motivo):  # D4: manda la regla de la faja
             motivos["la verifica la regla del transportador (create_conveyor)"].append(f.name)
             en_faja.append(fid)
@@ -261,22 +295,44 @@ def detectar_vigas(doc, catalog: dict | None = None) -> dict | None:
         if nivel[fid] == 0:
             motivos["anclada a tierra: apoya en el piso, no flecta entre apoyos"].append(f.name)
             continue
+        hecho = None
+        if pre is not None:  # D7: la que no trabaja, la que pisa el suelo y la inclinada, fuera
+            fuera = am.fuera_de_regla(fid, f, pre, nivel, graph, declaradas, scene, catalog, caja)
+            if fuera:
+                motivos[fuera].append(f.name)
+                continue
+            hecho = am.completar(f, pre, caja(fid))
+            if isinstance(hecho, dict) and hecho.get("inclinada"):
+                motivos[hecho["motivo"]].append(f.name)
+                continue
+        de_apoyo = am.tipos_de_apoyo(pre)
         for m in graph["adj"][fid]:
-            tipos = apoyo_ok.get(frozenset((fid, m)))
+            tipos = {t for t in apoyo_ok.get(frozenset((fid, m)), ()) if t in de_apoyo}
             if nivel.get(m, 1 << 30) < nivel[fid] and tipos:
                 a, b = _intervalo(viga, caja(fid), caja(m))
                 x = (a + b) / 2.0
+                if pre is not None:  # D7: la pieza que apoya su EXTREMO sobre otra, en su extremo
+                    x = am.al_extremo(a, b, viga.largo, x)
                 x = 0.0 if x <= _TOL_SOLAPE else (viga.largo if viga.largo - x <= _TOL_SOLAPE else x)
                 viga.apoyos[m] = (x, tipos)
         xs = {round(x, 0) for x, _ in viga.apoyos.values()}
-        if len(xs) >= 2 or (len(xs) == 1 and any("soldadura" in t for _, t in viga.apoyos.values())):
-            vigas[fid] = viga
-        else:
-            motivos["menos de dos apoyos por perno o soldadura (contacto, mate o junta no "
-                    "cuentan como apoyo)"].append(f.name)
+        if not (len(xs) >= 2 or (len(xs) == 1 and any("soldadura" in t for _, t in viga.apoyos.values()))):
+            if pre is None:
+                motivos["menos de dos apoyos por perno o soldadura (contacto, mate o junta no "
+                        "cuentan como apoyo)"].append(f.name)
+            else:
+                no_evaluadas.append({"fid": fid, "motivo": am.SIN_CAMINO(pre)})
+            continue
+        if isinstance(hecho, dict):
+            no_evaluadas.append({"fid": fid, "motivo": hecho["motivo"]})
+            continue
+        if hecho is not None:
+            viga.rigidez, viga.peso_kg_m, viga.seccion = hecho
+            viga.ref = viga.seccion["forma"]
+        vigas[fid] = viga
     return {"vigas": vigas, "de_faja": en_faja, "motivos": motivos, "scene": scene,
             "graph": graph, "nivel": nivel, "caja": caja, "catalog": catalog,
-            "carga_sobre": _declaradas(doc, scene)}
+            "carga_sobre": declaradas, "no_evaluadas": no_evaluadas}
 
 
 def _declaradas(doc, scene) -> set | None:
@@ -329,7 +385,7 @@ def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_
             for m in inferiores:
                 recibido[m].append((fid, total / len(inferiores)))
             continue
-        cargas = [CargaRepartida(q_peso_propio_n_mm(viga.comp.weight))]
+        cargas = [CargaRepartida(q_peso_propio_n_mm(viga.peso_kg_m))]
         colgado_kg, n_punt, n_rep = 0.0, 0, 0
         for giver, n in recibido[fid]:
             a, b = _intervalo(viga, caja(fid), caja(giver))
@@ -347,10 +403,12 @@ def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_
         solo = len(por_x) == 1
         apoyos = [Apoyo(x, EMPOTRAMIENTO if solo else "apoyo") for x, _ in por_x.values()]
         f = scene[fid]
-        material = resolve_material(f, catalog)
+        material = viga.material or resolve_material(f, catalog)
         p_util_v = p_util.get(fid, 0.0)
         hip = [
-            "Apoyos = uniones perno/soldadura a piezas más cercanas a tierra, ARTICULADOS"
+            "Apoyos = uniones " + ("perno/soldadura/encolado" if viga.crit is not None
+                                   and viga.crit.madera else "perno/soldadura")
+            + " a piezas más cercanas a tierra, ARTICULADOS"
             + (" (una sola soldadura: empotramiento)" if solo else
                " (no se cuenta el momento de la unión: conservador en el vano)") + ".",
             "Lo que cuelga baja por el grafo de uniones repartido por igual entre los apoyos "
@@ -365,21 +423,26 @@ def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_
         else:
             hip.append("Sin carga útil declarada (`carga_kg`): peso propio y lo que cuelga.")
         resumen = {
-            "peso propio": f"{viga.comp.weight:.2f} kg/m",
+            "peso propio": f"{viga.peso_kg_m:.2f} kg/m",
             "lo que cuelga": f"{colgado_kg:.1f} kg ({n_punt} puntual(es), {n_rep} repartida(s))",
         }
         if p_util_v:
             resumen["carga útil"] = f"{p_util_v / G:.1f} kg puntual móvil"
         try:
-            regla, env = regla_viga(
-                f.name, largo_mm=viga.largo, apoyos=apoyos, cargas=cargas, carga_util_n=p_util_v,
-                rigidez=viga.rigidez, material=material, e_mpa=young_modulus(material),
-                fy_mpa=yield_strength(material), madera=hatch_pattern(material) == "madera",
-                perfil=viga.comp.ref, resumen_cargas=resumen, hipotesis=hip)
+            if viga.comp is None:  # D7: la sección medida, con el criterio de su material
+                regla, env = am.regla(viga, f, apoyos=apoyos, cargas=cargas, p_util=p_util_v,
+                                      resumen=resumen, hip=hip)
+            else:
+                regla, env = regla_viga(
+                    f.name, largo_mm=viga.largo, apoyos=apoyos, cargas=cargas,
+                    carga_util_n=p_util_v, rigidez=viga.rigidez, material=material,
+                    e_mpa=young_modulus(material), fy_mpa=yield_strength(material),
+                    madera=hatch_pattern(material) == "madera", perfil=viga.comp.ref,
+                    resumen_cargas=resumen, hipotesis=hip)
         except ValueError as exc:
             motivos[f"no se pudo resolver como viga ({exc})"].append(f.name)
             continue
-        if viga.rigidez.i_arriostrada_mm4:  # ángulo: el eje geométrico, de referencia
+        if getattr(viga.rigidez, "i_arriostrada_mm4", None):  # ángulo: el eje geométrico
             alt = envolvente(viga.largo, young_modulus(material) * viga.rigidez.i_arriostrada_mm4,
                              apoyos, cargas, p_util_v)
             d0, d1, tipo, delta_alt, _ = alt.tramos[env.tramo_critico]
@@ -392,7 +455,7 @@ def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_
             for m in vecinos:
                 recibido[m].append((fid, r / len(vecinos)))
         v = regla["viga"]
-        clave = (viga.comp.ref, v["largo_mm"], tuple(v["apoyos_mm"]), round(v["flecha_mm"], 3),
+        clave = (viga.ref, v["largo_mm"], tuple(v["apoyos_mm"]), round(v["flecha_mm"], 3),
                  round(v["momento_nmm"]), regla["estado"])
         resultados.append((clave, regla))
     return _agrupar(resultados, _no_aplica(motivos))

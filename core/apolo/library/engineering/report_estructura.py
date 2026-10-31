@@ -167,8 +167,13 @@ def _buckling_checks(scene, masses, catalog, carga_kg: float) -> list[dict]:
     return [_check("pandeo de patas", "ok", det, calc=calc)]
 
 
-def _tipping_check(scene, grounds, catalog, carga_kg: float, default_material=None) -> list[dict]:
+def _tipping_check(scene, grounds, catalog, carga_kg: float, default_material=None,
+                   vuelco: dict | None = None) -> list[dict]:
+    """El COG dentro de la base con margen (criterio de diseño) y, si los requisitos declaran
+    fuerzas de trabajo (`vuelco`), el equilibrio con ellas (`vuelco_trabajo`, D8 de
+    puerta-fuera-de-catalogo). Sin ellas lo dice en el detalle."""
     footprint: list[tuple[float, float]] = []
+    piso = None
     for g in grounds.values():
         f = scene.get(g.get("feature"))
         if f is None:
@@ -179,6 +184,7 @@ def _tipping_check(scene, grounds, catalog, carga_kg: float, default_material=No
             continue
         footprint += [(bb.min.X, bb.min.Y), (bb.max.X, bb.min.Y),
                       (bb.max.X, bb.max.Y), (bb.min.X, bb.max.Y)]
+        piso = bb.min.Z if piso is None else min(piso, bb.min.Z)
     if not footprint:
         return [_check(
             "estabilidad al vuelco", "aviso",
@@ -207,11 +213,41 @@ def _tipping_check(scene, grounds, catalog, carga_kg: float, default_material=No
     }
     det = (f"COG a {margin:.0f} mm del borde de la base de apoyo "
            f"(mínimo requerido {need:.0f} mm; producto no incluido).")
+    trabajo = _vuelco_trabajo(scene, hull, props, piso, vuelco, carga_kg) if vuelco else []
+    if not vuelco:
+        det += (" Sin fuerzas de trabajo declaradas (requisitos fuerza_horizontal_n, "
+                "carga_borde_n): no se verifica el vuelco al empujarla.")
     if margin <= 0:
         return [_check("estabilidad al vuelco", "error",
                        f"El COG cae FUERA de la base de apoyo ({margin:.0f} mm) — vuelca.",
-                       "Ensancha la base, añade apoyos o reubica el peso.", calc=calc)]
+                       "Ensancha la base, añade apoyos o reubica el peso.", calc=calc)] + trabajo
     if margin < need:
         return [_check("estabilidad al vuelco", "aviso", det,
-                       "Margen de vuelco justo: ensancha la base o baja el COG.", calc=calc)]
-    return [_check("estabilidad al vuelco", "ok", det, calc=calc)]
+                       "Margen de vuelco justo: ensancha la base o baja el COG.", calc=calc)] + trabajo
+    return [_check("estabilidad al vuelco", "ok", det, calc=calc)] + trabajo
+
+
+def _vuelco_trabajo(scene, hull, props, piso, vuelco: dict, carga_kg: float) -> list[dict]:
+    """La regla de las fuerzas de trabajo (D8): el contorno de la máquina son las esquinas de la
+    caja de cada pieza; la altura de F_h sin declarar, la del punto más alto sobre el piso."""
+    from .vuelco_trabajo import regla
+
+    if len(hull) < 3:
+        return []
+    contorno, tope = [], None
+    for f in scene.values():
+        try:
+            bb = f.shape.bounding_box()
+        except Exception:
+            continue
+        contorno += [(bb.min.X, bb.min.Y), (bb.max.X, bb.min.Y),
+                     (bb.max.X, bb.max.Y), (bb.min.X, bb.max.Y)]
+        tope = bb.max.Z if tope is None else max(tope, bb.max.Z)
+    if not contorno:
+        return []
+    com = props["total"]["com_mm"]
+    r = regla(base=hull, cog_xy=(com[0], com[1]), cog_z=com[2],
+              peso_n=props["total"]["masa_kg"] * G, contorno=contorno,
+              altura_max_mm=(tope - (piso or 0.0)), fuerzas=vuelco,
+              carga_util_n=max(carga_kg or 0.0, 0.0) * G)
+    return [r] if r else []

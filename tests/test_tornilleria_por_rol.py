@@ -253,4 +253,4 @@ def test_lo_que_sigue_sin_evaluar_se_justifica_con_la_herramienta():
 
 
 def test_registro_v34():
-    assert VERSION_REGISTRO == "36"
+    assert int(VERSION_REGISTRO) >= 35  # la F2 la subió a 35; las fases siguientes la suben más

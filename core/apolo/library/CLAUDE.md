@@ -179,6 +179,11 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   ranurado → `None` (`SIN_SECCION`), jamás la inercia del macizo. Un ángulo L flecta LIBRE por sus
   ejes principales (`angulo_libre`); criterio en `viga_bastidor.py` (vano L/240, voladizo
   2·Lv/240, σ ≤ 0.6·fy). [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
+- La madera fuera de catálogo se calcula con SU norma: grupo E.010 con admisibles y E mínimo
+  (`viga_madera.py`, `columna_madera.py`), clase EN 338 o tablero EN con EN 1995 (kmod/γM); su
+  regla de pandeo trae `calc.fs_min` = 1 (`vida_util` lo lee). El vuelco con fuerzas de trabajo
+  declaradas (`vuelco_trabajo.py`, EN 1990 A1.2(A): la carga útil no estabiliza).
+  [puerta-fuera-de-catalogo](../../../docs/plans/puerta-fuera-de-catalogo.md) (D7, D8)
 - Instalación (`installation.anchor_loads`): reparto ELÁSTICO por apoyo; N > 3 es hiperestático
   y la hipótesis se DECLARA; un R_i negativo es TRACCIÓN, jamás cero. [V7.6](../../../docs/plans/V7.6-e2-fino.md)
 

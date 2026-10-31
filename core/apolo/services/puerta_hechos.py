@@ -59,7 +59,12 @@ def _vigas(doc) -> dict:
         return {"sin_detectar": 1}
     if det is None:
         return {}
-    return {"perfil": len(det["vigas"]), "bastidor_faja": len(det["de_faja"])}
+    a_medida = sum(1 for v in det["vigas"].values() if v.comp is None)
+    sin = len(det.get("no_evaluadas") or ())
+    # D7 de puerta-fuera-de-catalogo: la pieza a medida que trabaja (calculada o no evaluada)
+    return {"perfil": len(det["vigas"]) - a_medida, "bastidor_faja": len(det["de_faja"]),
+            **({"a_medida": a_medida} if a_medida else {}),
+            **({"sin_evaluar": sin} if sin else {})}
 
 
 def _columnas(doc) -> dict:

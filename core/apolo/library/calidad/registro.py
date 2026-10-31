@@ -90,7 +90,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "36"  # 36: union.interferencia_declarada (historial en historial_registro.py)
+VERSION_REGISTRO = "37"  # 37: estructura a medida y vuelco con fuerzas (historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -167,14 +167,17 @@ _MECANICA = {
     "transmision.capacidad": General("Cada transmisión con FS ≥ 1,2", "función", ("vida.cadena",),
                                      hay("transmisiones", "sin transmisiones calculables"),
                                      "transmisiones"),
-    "estructura.vuelco": General("Estable al vuelco con margen ≥ 10 % de la base", "estructura",
+    "estructura.vuelco": General("Estable al vuelco con margen ≥ 10 % de la base y con las "
+                                 "fuerzas de trabajo declaradas (EN 1990 EQU)", "estructura",
                                  ("vida.vuelco",), hay("apoyos", "sin apoyos a tierra declarados"),
                                  "apoyos"),
-    "estructura.flecha": General("Vigas y bastidor con flecha ≤ L/240", "estructura",
+    "estructura.flecha": General("Vigas y bastidor con la flecha de su norma (L/240 el metal; "
+                                 "E.010 o EN 1995 la madera)", "estructura",
                                  ("vida.flecha",), hay("vigas", "ningún perfil horizontal apoyado en "
-                                                       "dos puntos por perno o soldadura: lo que "
-                                                       "trabaja a compresión (patas, columnas) lo "
-                                                       "mide el pandeo"),
+                                                       "dos puntos por perno o soldadura ni pieza "
+                                                       "a medida horizontal que cargue algo: lo "
+                                                       "que trabaja a compresión (patas, columnas) "
+                                                       "lo mide el pandeo"),
                                  "vigas"),
     "estructura.pandeo": General("Columnas y patas con FS de pandeo ≥ 3", "estructura",
                                  ("vida.pandeo",), hay("columnas", "sin patas ni columnas"),

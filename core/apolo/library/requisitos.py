@@ -30,7 +30,37 @@ NUMERICAS: tuple[str, ...] = (
     # el factor de servicio de una máquina que no es transportador (F3c): lo que absorbe en el eje
     # de salida del reductor (kW) o su par ahí (N·m), y las horas de servicio por día (≤ 24)
     "potencia_absorbida_kw", "par_salida_nm", "horas_dia",
+    # el vuelco por las fuerzas de TRABAJO (D8 de puerta-fuera-de-catalogo, `VUELCO`)
+    "fuerza_horizontal_n", "altura_fuerza_mm", "carga_borde_n",
 )
+
+#: Las fuerzas de trabajo que `estructura.vuelco` suma al peso (plan puerta-fuera-de-catalogo, D8),
+#: con su texto para la ficha: lo que empuja o tira de la máquina en uso y lo que se apoya en su
+#: borde. Sin `fuerza_horizontal_n` ni `carga_borde_n`, el vuelco mira sólo el centro de gravedad.
+VUELCO: dict[str, str] = {
+    "fuerza_horizontal_n": "fuerza horizontal de trabajo (N): lo que empuja o tira de la máquina "
+                           "en uso (empujar la mesa, tirar de una pieza, apoyar el cuerpo)",
+    "altura_fuerza_mm": "altura de esa fuerza sobre el piso (mm); sin ella, la del punto más alto",
+    "carga_borde_n": "carga vertical en el borde (N): alguien que se apoya o se sienta en el canto "
+                     "de la superficie, en el punto más desfavorable",
+}
+
+
+def requisitos_vuelco(requirements: dict | None) -> dict | None:
+    """{fuerza_horizontal_n, altura_fuerza_mm?, carga_borde_n} declaradas (> 0), o None si no
+    declara ninguna fuerza. Tolerante como la carga (un manifest viejo no valida)."""
+    req = requirements or {}
+    out = {}
+    for clave in VUELCO:
+        try:
+            v = float(req.get(clave))
+        except (TypeError, ValueError):
+            continue
+        if v > 0:
+            out[clave] = v
+    if not (out.get("fuerza_horizontal_n") or out.get("carga_borde_n")):
+        return None
+    return out
 
 #: El tipo de carga del servicio (AGMA): con `horas_dia`, el factor de servicio que se pide
 #: (`engineering/servicio.py`). Se acepta el masculino y «suave»/«choques» como sinónimos.
