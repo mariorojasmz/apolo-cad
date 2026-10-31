@@ -117,11 +117,17 @@ def _mascaras(rgb):
             "azul": (b > 90) & (b > 2.0 * r) & (b > 1.5 * g)}
 
 
+def _palabras(textos: list[str]) -> list[str]:
+    """Las palabras de la página en orden: dónde se parte un renglón lo mide la fuente de la
+    máquina (`texto_medido`) y cambia entre la laptop y el CI; las palabras y su orden, no."""
+    return " ".join(textos).split()
+
+
 def test_la_memoria_sale_con_las_mismas_secciones_y_textos(paginas):
     hoy = date.today().isoformat()
     pages = paginas(_mueble()[0])
-    assert [([lb.text.replace(hoy, "<HOY>") for lb in p.labels], len(p.images))
-            for p in pages] == PAGINAS_DE_MAIN
+    assert [(_palabras([lb.text.replace(hoy, "<HOY>") for lb in p.labels]), len(p.images))
+            for p in pages] == [(_palabras(t), n) for t, n in PAGINAS_DE_MAIN]
 
 
 def test_la_portada_tiene_pixeles_de_la_maquina(paginas):
