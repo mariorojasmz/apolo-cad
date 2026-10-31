@@ -39,10 +39,12 @@ def grupos_taladrados(doc) -> list[dict]:
 
 def insumo_bom(doc) -> dict:
     """{filas, incompletas: [{pieza, descripcion, ref, cantidad, motivo}], grupos_compra,
-    grupos_invalidos}."""
+    grupos_invalidos, no_suministradas: [nombre]}. Lo existente del sitio
+    (`library/suministro.no_suministrada`) no está en la BOM: se nombra aparte, no se juzga."""
     from apolo.library.bom import bom_from_scene
     from apolo.library.bom_comprable import motivo
     from apolo.library.compra_grupos import por_grupo
+    from apolo.library.suministro import no_suministrada
 
     from .tablero import incluidas
 
@@ -53,5 +55,8 @@ def insumo_bom(doc) -> dict:
         if m:
             incompletas.append({"pieza": f.get("_rep"), "descripcion": f.get("descripcion"),
                                 "ref": f.get("ref"), "cantidad": f.get("cantidad"), "motivo": m})
+    existentes = [f.name for f in doc.scene.values()
+                  if not getattr(f, "is_guide", False) and no_suministrada(f.name)]
     return {"filas": len(filas), "incompletas": incompletas,
-            "grupos_compra": len(por_grupo(doc.scene)), "grupos_invalidos": grupos_taladrados(doc)}
+            "grupos_compra": len(por_grupo(doc.scene)), "grupos_invalidos": grupos_taladrados(doc),
+            "no_suministradas": existentes}

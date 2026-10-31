@@ -28,6 +28,9 @@ cada fila alcanza para comprar o cortar lo juzga la puerta (`bom_comprable.motiv
 Plan pie-nivelador (D6): la fila de un pie nivelador de catálogo lleva su ficha de compra (rosca ×
 largo del vástago, base, material, carga de servicio, tuerca incluida) en la descripción y en
 `ficha` (`pies_ficha.py`).
+
+Lo EXISTENTE del sitio («Calamina existente», «Mesa del cliente», «(no suministrado)»:
+`suministro.no_suministrada`) no sale: la máquina no lo suministra.
 """
 
 from __future__ import annotations
@@ -64,6 +67,7 @@ from .peso_ficha import peso_de_ficha
 from .pies_ficha import ficha as ficha_pie
 from .pies_ficha import texto as texto_pie
 from .piezas_electricas import recorrido_mm
+from .suministro import no_suministrada
 
 # sufijos de instancia que añaden los patrones/espejos/copias: " (2)", " (1,2)",
 # " (espejo)", " (copia)". Se quitan para agrupar piezas idénticas en una fila.
@@ -134,6 +138,8 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             continue  # superficie desnuda o boceto-guía = geometría de construcción, no es pieza
         if sid in incluidas or sid in de_grupo:
             continue  # viene con otra pieza de compra o en su grupo de compra (su fila la nombra)
+        if no_suministrada(feat.name):
+            continue  # existente del sitio o del cliente: la máquina no la suministra
         grp = getattr(feat, "group", None) if by_group else None
         component = getattr(feat, "component", None)
         if component and component in CATALOG:

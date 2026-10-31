@@ -30,6 +30,7 @@ from .material_compra import descripcion, factor_peso, material_de_compra
 from .material_compra import norma as norma_de_compra
 from .materials import resolve_material
 from .peso_ficha import partes_de_cilindros, peso_de_ficha
+from .suministro import no_suministrada
 
 # Pieza COMERCIAL a-medida: se COMPRA, no se corta ni mecaniza — no le corresponde lámina de
 # fabricación ni fila de lista de corte. Rol de compra (lo que sigue al último " · ": "Tensor de
@@ -88,6 +89,8 @@ def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:
     for sid, f in scene.items():
         if not getattr(f, "visible", True) or sid in con_su_ref or sid in de_grupo:
             continue
+        if no_suministrada(f.name):
+            continue  # existente del sitio: ni se compra ni se corta (`suministro`)
         comp = CATALOG.get(getattr(f, "component", None) or "")
         if comp is not None and not comp.cuttable:
             continue  # herraje no cortable → cédula
@@ -150,7 +153,7 @@ def hardware_schedule(scene: dict) -> list[dict]:
     groups: dict[str, dict] = {}
     de_grupo = miembros_de_compra(scene)  # D5: un grupo «(compra)» es una fila, como en la BOM
     for sid, f in scene.items():
-        if not getattr(f, "visible", True) or sid in de_grupo:
+        if not getattr(f, "visible", True) or sid in de_grupo or no_suministrada(f.name):
             continue
         ref = getattr(f, "component", None)
         comp = CATALOG.get(ref or "")

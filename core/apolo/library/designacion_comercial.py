@@ -37,11 +37,15 @@ from .siglas_norma import NORMA_RE, SIGLAS_NORMA
 
 #: ROL de COMPRA (herraje/consumible a medida): se COMPRA, no se corta ni se mecaniza. Anclado al
 #: inicio del rol: «Tensor de cola · Eje fijo (roscado p/ perno)» NO es compra (lo usa la lista de
-#: corte, `cutlist._is_purchased_custom`).
+#: corte, `cutlist._is_purchased_custom`). La CORREA de un techo (el perfil que recibe la
+#: cubierta, como en `services/roles.py`) es estructura, no una banda: «Correa de techo C100»,
+#: «Correa de la cubierta», «Correa delantera existente». Sin «perfil» ni «C/Z nn» de `roles.py`:
+#: «Correa trapezoidal perfil SPZ» o «Correa en V Z 32» sí se compran.
 ROL_COMPRA = re.compile(
     r"^(pernos?|tornill\w*|arandelas?|tuercas?|esp[áa]rragos?|prisioneros?|"
     r"pies?\s+nivelador\w*|nivelador\w*|seegers?|circlips?|anillos?\s+(?:seeger|el[áa]stic\w*|de\s+retenci[óo]n)|"
-    r"silent[\s-]?blocks?|remaches?|rodamientos?|bandas?|correas?)\b", re.I)
+    r"silent[\s-]?blocks?|remaches?|rodamientos?|bandas?|"
+    r"correas?(?!.*\b(?:techo|de\s+(?:la\s+)?cubierta|existentes?|purlins?)\b))\b", re.I)
 
 #: siglas cuyo número es el GRADO del material («AISI 304», «SAE 1045»): no designan lo que se
 #: compra («Bisagra (pala 63 mm AISI 304, compra)» se pide por su pala, no por su acero)

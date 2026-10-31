@@ -41,7 +41,9 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   `_is_bolt` la cuenta como herraje. La compra la DECLARA el modelador (`compra_declarada`:
   «(compra)», «de compra», «tipo Marca código»), nunca se adivina por el rol. Con OTRO material
   asignado (`set_material`, `fasten.material_tornilleria` o la nota) se compra la EQUIVALENTE en
-  ese material (`material_compra.py`). [defectos](../../../docs/defectos.md) (F6)
+  ese material (`material_compra.py`). [defectos](../../../docs/defectos.md) (F6). Lo EXISTENTE
+  del sitio (`suministro.no_suministrada`: el rol o su complemento inmediato, nunca una palabra
+  suelta) no sale en BOM, costeo, corte ni cédula; sigue en la escena.
 - El aire en `library/`: la BOM (`bom_electrico._racores`) suma un racor por extremo de tubo en
   un puerto ROSCADO (`specs.racor_rosca`/`racor_tubo_mm`) y lee un tubo SIN largo hacia un
   silenciador como roscado directo. El cilindro (`builders_neumatica.py`) lee sus cotas de los

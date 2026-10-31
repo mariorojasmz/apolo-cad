@@ -146,4 +146,10 @@ plegable sin juntas, que daba `movimiento.coherente` NO_APLICA, ahora falla «se
 y no en el modelo»), y `plegado.espesor` mide la caja del guardado contra `espesor_plegado_mm`
 (su dimensión menor mayor que lo pedido falla). El tránsito uso → guardado no es ítem: lo avisa
 `delivery_check` (batería 9) con los choques nuevos respecto de la pose de diseño.
+v39 (fix directo, lavadora y estructura solar) `bom.comprable` no le pide designación de compra a lo
+EXISTENTE del sitio: la pieza cuyo rol o su complemento inmediato la declara existente, del cliente
+o no suministrada («Calamina existente», «Correa delantera existente», «Mesa del cliente», «(no
+suministrado)»; `library/suministro.py`) sale de la BOM, del costeo, de la lista de corte y de la
+cédula y la evidencia la nombra (`no_suministradas`); sigue en la escena para apoyo, gravedad y
+planos. La «Correa» de techo o de la cubierta ya no se compra como banda (`ROL_COMPRA`).
 """

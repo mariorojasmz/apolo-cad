@@ -9,6 +9,10 @@ Falla:
   lo que el taller taladra se fabrica, no se compra entero (riesgo de D5).
 
 No se justifica: una fila que no compra es un dato que falta, no un aviso.
+
+Lo EXISTENTE del sitio que la máquina no suministra («Calamina existente», «Mesa del cliente»:
+`library/suministro.py`) no está en la BOM y no se juzga; la evidencia lo nombra
+(`no_suministradas`).
 """
 
 from __future__ import annotations
@@ -33,6 +37,8 @@ def bom_comprable(ins: dict) -> dict:
     grupos = list(bom.get("grupos_invalidos") or [])
     ev = {"filas": bom.get("filas", 0), "grupos_compra": bom.get("grupos_compra", 0),
           "elemento": "fila"}
+    if existentes := list(bom.get("no_suministradas") or []):  # fuera de la BOM, nombradas
+        ev["no_suministradas"] = {"n": len(existentes), "piezas": existentes[:10]}
     if malas or grupos:
         partes = []
         if malas:
