@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1, D3–D7 ajustadas); F2 y F4 mergeadas (registro v34); falta F1, F3 y F5. La escalera de la F5 espera la F5 de puerta-fuera-de-catalogo
+nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1, D3–D7 ajustadas); F2 y F4 (registro v34) y F1 (registro v40; el tránsito va a delivery_check) hechas; falta F3 y F5. La escalera de la F5 espera la F5 de puerta-fuera-de-catalogo
 descripcion: La puerta revisa que lo que se pliega se pliegue de verdad en el modelo, recorra sin chocar, quede del tamaño pedido y se trabe abierto
 ---
 
@@ -295,3 +295,54 @@ Registro v34 (una sola subida para las dos fases; la rama la tomó como v36 y se
     que cierra sobre una pieza que se mueve. La chumacera arrastrada sigue FALLA.
   - `tests/test_remache_ciego_eje.py`, sintético: la mesa real de la corrección 2 pesa 173 piezas
     y está fuera del repo.
+
+### F1 — posiciones (2026-10-31)
+
+Registro v40 (las fases en paralelo de puerta-fuera-de-catalogo tomaron v37 y v39: quien mergea
+renumera) y batería de entrega 9.
+
+- **D1**: `plegable` (sí/no) y `espesor_plegado_mm` (en `NUMERICAS`) en `requisitos.py`;
+  `plegable` entra a `FICHA` después de `desarmable` y `COMO_FICHA` lo pregunta aparte. La pregunta
+  «ficha» del revisor de taller lo nombra.
+- **D2**: el fotograma acepta `posicion: "uso" | "guardado"`, una vez cada una por estudio
+  (repetida o con otro valor, 400); lo demás sigue rechazado. Sin la clave, el estudio es el de
+  siempre. Ítem `plegado.posiciones` (`calidad/plegado.py`, insumo en
+  `services/calidad_plegado.py`): sin juntas, sin las dos posiciones, con un valor fuera de
+  `[lower, upper]` (una `continua` no tiene) o sin junta que cambie → FALLA «se pliega en la ficha
+  y no en el modelo».
+- **D3**: ítem `plegado.espesor` (aplica con `plegable` y `espesor_plegado_mm`). Caja = la del
+  producto posado en el guardado del primer estudio válido (lazo resuelto como en `scan_motion`),
+  alineada con los ejes del modelo. Su dimensión menor > pedido + 0,5 mm → FALLA. La caja se
+  publica en `plegado.posiciones`.
+- **El tránsito** va a `delivery_check` como AVISO («plegado · choque en el tránsito»), no a la
+  puerta: `delivery_inputs(transito=False)` lo apaga en `puerta_publicacion`.
+  - 6 intervalos, del uso al guardado (7 poses).
+  - En cada pose sólo se miden los pares cuyas piezas tienen distinta ubicación de FK. Los de una
+    misma ubicación están como en diseño.
+  - Un choque es nuevo si su solape supera el de diseño en más de `EXCESS_TOL_MM3`.
+  - El herraje de catálogo queda fuera, como en `scan_collisions`.
+- **Medido** (copias de la F0, en memoria, `process_time`):
+  - mesa de 1,8 m (173 piezas): 7,1 s de CPU las 7 poses, ≈ 1 s por paso contra 15–17 s de la
+    F0. Ningún choque nuevo, como la F0. Caja del guardado 137,6 × 800 × 1 800 mm.
+  - escalera de 7 (180 piezas): 19,5 s (≈ 2,8 s por paso). Avisa los peldaños traseros que el
+    larguero atraviesa al plegar (11 913 mm³ a t = 0,33), el defecto que trae del modelado (D9 de
+    puerta-fuera-de-catalogo).
+  - Cabe sin opción: corre por defecto en `delivery_check` y sólo con `plegable`.
+- **Decidido solo**:
+  - **Dos ítems, no uno**: posiciones y espesor son modos de falla distintos.
+  - **Caja alineada con los ejes, no la orientada mínima**: es determinista y se explica en una
+    línea. El guardado se modela apoyado en los ejes del producto.
+  - **El primer estudio válido** (por nombre) da la caja y el tránsito.
+  - **Las restricciones del lazo** se resuelven en el guardado y en cada paso del tránsito, como
+    el GIF y `scan_motion`.
+  - **La UI no cambia**: el panel Cinemática reenvía los demás fotogramas tal cual, con su
+    etiqueta. Recapturar en la UI el fotograma etiquetado la pierde (pendiente menor, sin
+    plan). El tipo TS no nombra `posicion`.
+- **Tests**:
+  - `tests/test_plegado_posiciones.py`: requisitos; `set_motion` con y sin `posicion`; manifest
+    viejo; silla sin juntas FALLA; los tres motivos de estudio inválido; OK con la caja; espesor
+    FALLA, OK y SIN_EVALUAR; la puerta con y sin el requisito; tránsito con sólo el eje de la
+    bisagra (sin aviso) y con un travesaño a media carrera (AVISO).
+  - Defectos sembrados: `plegable_sin_juntas` y `plegada_mas_gruesa` sobre la ménsula
+    atornillada.
+  - Testigos re-congelados: sólo la versión y los dos ítems NO_APLICA.

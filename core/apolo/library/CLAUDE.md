@@ -375,3 +375,9 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   declarada no se juzga. Tirafondo y remache CIEGO no son eje (falla con la salida de mercado).
   [plan](../../../docs/plans/hallazgos-del-revisor-en-la-puerta.md) (D8) ·
   [plegables](../../../docs/plans/plegables-en-la-puerta.md) (D7)
+- **Lo plegable se pliega en el modelo** (`calidad/plegado.py`; medido en
+  `services/calidad_plegado.py`), sólo con el requisito `plegable`: un estudio con los fotogramas
+  `posicion` «uso» y «guardado» (`plegado.posiciones`) y su caja contra `espesor_plegado_mm`
+  (`plegado.espesor`). El TRÁNSITO no es ítem: lo avisa `delivery_check` con sólo los choques
+  NUEVOS respecto de la pose de diseño (los pares de una misma ubicación de FK no se miden).
+  [plegables](../../../docs/plans/plegables-en-la-puerta.md) (D1–D3)

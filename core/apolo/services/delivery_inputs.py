@@ -175,10 +175,11 @@ def reglas_de_extensiones(doc) -> dict | None:
     return {"version": E.version(), "reglas": reglas}
 
 
-def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
+def delivery_inputs(doc, *, expand, tiempos: dict | None = None, transito: bool = True) -> dict:
     """Los kwargs de `delivery_report` (todos salvo `gravedad`) para `doc`. Llamar bajo
     STATE_LOCK; `expand` resuelve nombres de grupo (lo inyecta la API). Con `tiempos` (un dict)
-    anota los segundos de cada regla: lo que la puerta tarda y dónde."""
+    anota los segundos de cada regla: lo que la puerta tarda y dónde. `transito=False` no recorre
+    el plegado uso → guardado (la puerta de publicación: plegables-en-la-puerta D3)."""
     from apolo.assembly.connectivity import build_graph, soundness_report
     from apolo.commands.expressions import resolve_params
     from apolo.library import interference_report
@@ -258,6 +259,12 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         integridad = doc.check_integrity()
     with _cronometro(tiempos, "poses"):
         poses = delivery_poses(doc, fasten_pairs, bolt_ids, expand=expand)
+    plegado = None  # plegables-en-la-puerta D3: sólo plegable con sus dos posiciones
+    if transito:
+        from .calidad_plegado import transito as transito_plegado
+
+        with _cronometro(tiempos, "transito"):
+            plegado = transito_plegado(doc)
     from apolo.library import entrega_extension
 
     de_ext = None  # sin extensiones con reglas, los kwargs (y los tiempos) de siempre
@@ -273,6 +280,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         **({"nombres": nombres} if nombres is not None else {}),
         **({"acceso_herramienta": acceso} if acceso is not None else {}),
         **({"uniones": uniones} if uniones is not None else {}),
+        **({"transito": plegado} if plegado is not None else {}),
         n_solidos=len(doc.scene),
         interferencias=rep_inter["interferencias"],
         interferencias_truncado=bool(rep_inter.get("truncado")),

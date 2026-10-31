@@ -211,7 +211,7 @@ def test_sin_extensiones_la_puerta_de_entrega_es_identica(cargar, extensiones_ai
     assert "version_bateria" not in antes
     assert cargar()["cargada"]
     con = _entrega(d)
-    assert con["version_bateria"] == "8+ext-prueba.1"
+    assert con["version_bateria"] == "9+ext-prueba.1"
     assert con["resumen"]["chequeos_ok"] == [*antes["resumen"]["chequeos_ok"],
                                              "Nota de entrega de prueba"]
     assert {k: v for k, v in con.items() if k not in ("resumen", "version_bateria")} == \
@@ -224,7 +224,7 @@ def test_una_regla_pone_el_semaforo_en_rojo_por_la_ruta(cargar, monkeypatch):
     monkeypatch.setattr(api, "DOC", d)
     c = TestClient(api.app)
     out = c.post("/api/delivery-check", json={}).json()
-    assert out["version_bateria"] == "8+ext-prueba.1"
+    assert out["version_bateria"] == "9+ext-prueba.1"
     assert "extensiones" in out["tiempos_s"]["por_regla"]
     assert not [b for b in out["bloqueantes"] if b.get("origen") == ORIGEN]
     d.ext["ext-prueba"] = {"bloquea_entrega": True}
@@ -258,7 +258,7 @@ def test_una_regla_rota_queda_sin_verificar_nunca_verde(cargar):
 
 def test_la_version_de_la_entrega_sube_la_de_la_bateria(cargar):
     assert cargar("ENTREGA_V2")["cargada"]
-    assert _entrega(_mesa())["version_bateria"] == "8+ext-prueba.2"
+    assert _entrega(_mesa())["version_bateria"] == "9+ext-prueba.2"
 
 
 def test_la_puerta_de_publicacion_lee_la_misma_entrega(cargar):

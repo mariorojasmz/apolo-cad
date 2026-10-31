@@ -3,8 +3,9 @@
 `Document.requirements` es metadato de manifest con endpoint (`set_requirements`), nunca
 comando del log. Aquí vive cómo se valida lo que entra; `Document.set_requirements` delega.
 
-La ficha (plan revision-de-taller, D1) son las cinco claves que el agente necesita del cliente
-antes de modelar: `carga_kg`, `ancho_producto_mm`, `desarmable`, `instalacion` y `entorno`. Lo
+La ficha (plan revision-de-taller, D1) son las claves que el agente necesita del cliente antes
+de modelar: `carga_kg`, `ancho_producto_mm`, `desarmable`, `plegable` (plegables-en-la-puerta
+D1), `instalacion` y `entorno`. Lo
 que el cliente no dio, el agente lo ASUME y lo marca: `{"carga_kg": {"valor": 15, "asumido":
 true}}` al entrar; se guarda plano (`carga_kg: 15.0`) más la lista `asumidos`, para que todo
 lector de `requirements[...]` siga recibiendo un escalar. También entra `asumidos` directo,
@@ -32,6 +33,8 @@ NUMERICAS: tuple[str, ...] = (
     "potencia_absorbida_kw", "par_salida_nm", "horas_dia",
     # el vuelco por las fuerzas de TRABAJO (D8 de puerta-fuera-de-catalogo, `VUELCO`)
     "fuerza_horizontal_n", "altura_fuerza_mm", "carga_borde_n",
+    # lo que mide el producto PLEGADO en su dimensión menor (plan plegables-en-la-puerta, D3)
+    "espesor_plegado_mm",
 )
 
 #: Las fuerzas de trabajo que `estructura.vuelco` suma al peso (plan puerta-fuera-de-catalogo, D8),
@@ -69,9 +72,11 @@ _TIPOS_CARGA = {"uniforme": "uniforme", "suave": "uniforme", "moderada": "modera
                 "moderado": "moderada", "pesada": "pesada", "pesado": "pesada",
                 "choques": "pesada", "fuerte": "pesada"}
 
-#: Las claves de la ficha del encargo (D1), en el orden en que se piden.
-FICHA: tuple[str, ...] = ("carga_kg", "ancho_producto_mm", "desarmable", "instalacion",
-                          "entorno")
+#: Las claves de la ficha del encargo (D1), en el orden en que se piden. `plegable` se pregunta
+#: APARTE de `desarmable` (plan plegables-en-la-puerta, D1 y su F0: las dos sillas plegables
+#: declaraban `desarmable: true` y nada decía que se plegaban).
+FICHA: tuple[str, ...] = ("carga_kg", "ancho_producto_mm", "desarmable", "plegable",
+                          "instalacion", "entorno")
 
 INSTALACIONES: tuple[str, ...] = ("piso", "anclado", "móvil")
 
@@ -98,6 +103,14 @@ _COMO_CARGA_SOBRE = ("El requisito 'carga_sobre' es una lista de ids de pieza, c
 #: hallazgos-del-revisor-en-la-puerta D9); sin él, ese ítem no aplica.
 HIGIENICO = "higienico"
 
+#: El producto tiene una posición de USO y una de GUARDADO (se pliega, se cierra, se recoge): sí/no,
+#: por defecto no. Con él la puerta pide las dos posiciones en un estudio de movimiento
+#: (`calidad/plegado.py`, plan plegables-en-la-puerta D1–D3); sin él, esos ítems no aplican.
+PLEGABLE = "plegable"
+ESPESOR_PLEGADO = "espesor_plegado_mm"
+#: Lo que etiqueta un fotograma de un estudio de movimiento (`posicion`, `doc.set_motion`, D2).
+POSICIONES_PLEGADO: tuple[str, ...] = ("uso", "guardado")
+
 ASUMIDOS = "asumidos"
 #: La solución por función (D15 de la puerta de publicación) es un metadato propio, no un requisito.
 FUNCIONES = "funciones"
@@ -111,7 +124,9 @@ _NO = {"no", "false", "0", "n"}
 COMO_FICHA = (
     "Pide lo que falte al cliente; si no lo da, asúmelo con criterio y márcalo con "
     "set_requirements: {\"carga_kg\": {\"valor\": 15, \"asumido\": true}}. desarmable: sí/no; "
-    "instalacion: piso | anclado | móvil; ancho_producto_mm: el ancho MÁXIMO del producto."
+    "plegable: sí/no, aparte de desarmable (¿tiene una posición de uso y una de guardado: se "
+    "pliega, se cierra, se recoge?); instalacion: piso | anclado | móvil; ancho_producto_mm: el "
+    "ancho MÁXIMO del producto."
 )
 
 
@@ -211,7 +226,7 @@ def _valor(key: str, value):
         return _numero(key, value)
     if key == SENTIDO:
         return vector_sentido(value)
-    if key in (REVERSIBLE, HIGIENICO):
+    if key in (REVERSIBLE, HIGIENICO, PLEGABLE):
         return _si_no(key, value)
     if key == "desarmable":
         return _si_no(key, value)
@@ -282,13 +297,32 @@ def normalizar_requisitos(fields) -> dict:
     return clean
 
 
-def es_higienico(requirements: dict | None) -> bool:
-    """¿El encargo pide equipo higiénico? Tolerante como la carga (un manifest viejo no valida):
-    True o un «sí» escrito; cualquier otra cosa, o ausente, no."""
-    valor = (requirements or {}).get(HIGIENICO)
+def _es_si(requirements: dict | None, clave: str) -> bool:
+    valor = (requirements or {}).get(clave)
     if isinstance(valor, bool):
         return valor
     return str(valor).strip().lower() in _SI if valor is not None else False
+
+
+def es_higienico(requirements: dict | None) -> bool:
+    """¿El encargo pide equipo higiénico? Tolerante como la carga (un manifest viejo no valida):
+    True o un «sí» escrito; cualquier otra cosa, o ausente, no."""
+    return _es_si(requirements, HIGIENICO)
+
+
+def es_plegable(requirements: dict | None) -> bool:
+    """¿El producto tiene posición de uso y de guardado? Tolerante como `es_higienico`."""
+    return _es_si(requirements, PLEGABLE)
+
+
+def espesor_plegado(requirements: dict | None) -> float | None:
+    """El espesor plegado pedido (mm), o None si no se pidió o no es un número > 0 (tolerante)."""
+    valor = (requirements or {}).get(ESPESOR_PLEGADO)
+    try:
+        num = float(valor) if valor is not None and not isinstance(valor, bool) else None
+    except (TypeError, ValueError):
+        return None
+    return num if num is not None and num > 0 else None
 
 
 def estado_ficha(requirements: dict | None) -> dict:

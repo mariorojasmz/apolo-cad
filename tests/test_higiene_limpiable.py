@@ -196,7 +196,7 @@ def test_sin_el_requisito_no_aplica_y_no_se_mide():
                     sobrantes=False)
     assert ins["higiene"] is None
     r = evaluar(ins)
-    assert r["version_registro"] == VERSION_REGISTRO == "37"
+    assert r["version_registro"] == VERSION_REGISTRO == "38"
     it = {i["id"]: i for i in r["items"]}["higiene.limpiable"]
     assert it["estado"] == NO_APLICA and "higienico" in it["detalle"]
 

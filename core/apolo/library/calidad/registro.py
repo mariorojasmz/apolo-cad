@@ -22,7 +22,9 @@ Ids estables (familia):
   cadena de rodillos sale de `create_chain`/`create_hoist_chain`, `cadenas.py`); `transmision.capacidad`, `elementos_rodantes.l10`,
   `accionamiento.factor_servicio`, `ingenieria.reglas`, `funcion.escenarios` y
   `funcion.flujo_de_producto`, `higiene.limpiable` (función; sólo con el requisito `higienico`) y
-  `movimiento.coherente` (función: ninguna unión rígida entre piezas que se mueven distinto);
+  `movimiento.coherente` (función: ninguna unión rígida entre piezas que se mueven distinto),
+  `plegado.posiciones` y `plegado.espesor` (función; sólo con el requisito `plegable`:
+  `plegado.py`);
 - `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
   (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado), `apoyo.capacidad`;
 - `fabricabilidad`, `material.conocido`, `bom.comprable`, `memoria.veredicto` y `diseno.soluciones_por_funcion`
@@ -84,13 +86,14 @@ from . import interferencia_declarada as idc
 from . import material as mt
 from . import movimiento as mv
 from . import nombres as nb
+from . import plegado as pg
 from . import puerta as p
 from . import resguardos as rg
 from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "37"  # 37: estructura a medida y vuelco con fuerzas (historial_registro.py)
+VERSION_REGISTRO = "38"  # 38: posiciones del plegable (historial en historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -246,6 +249,8 @@ REGISTRO: tuple = (
     ca.ENTRADA,  # transmision_flexible.de_su_comando: la Entrada vive junto a su criterio
     hg.ENTRADA,  # higiene.limpiable: ídem (hallazgos-del-revisor-en-la-puerta D9)
     mv.ENTRADA,  # movimiento.coherente: ídem (lo-fijo-que-gira-y-lo-que-cuelga D1)
+    pg.ENTRADA_POSICIONES,  # plegado.posiciones: ídem (plegables-en-la-puerta D2)
+    pg.ENTRADA_ESPESOR,  # plegado.espesor: ídem (D3)
     Entrada("fabricabilidad", "Cada pieza es de catálogo o un sólido con material y proceso",
             "una pieza a medida que no se puede cortar, mecanizar ni comprar",
             "criterio de diseño (DFM)", "proceso", hay("piezas", "el modelo no tiene piezas"),

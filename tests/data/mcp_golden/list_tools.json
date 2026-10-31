@@ -1994,7 +1994,7 @@
  },
  {
   "name": "set_motion",
-  "description": "Define (o borra, con lista vacía) un ESTUDIO DE MOVIMIENTO con nombre — autoría de\ncinemática sin salir del MCP (V6.8-C). Fotograma: {\"t\": segundos, \"values\": {junta:\nvalor}} — los valores van ANIDADOS en \"values\" (el formato plano se rechaza) y las\njuntas se validan contra las declaradas (get_kinematics). OJO FK: una junta mueve solo\nsus HIJOS declarados — completa un cuerpo rígido multi-pieza con juntas 'fija' colgadas\ndel conductor. Verifica el recorrido con scan_motion, míralo con motion_gif; en la UI\naparece en el panel Cinemática.",
+  "description": "Define (o borra, con lista vacía) un ESTUDIO DE MOVIMIENTO con nombre — autoría de\ncinemática sin salir del MCP (V6.8-C). Fotograma: {\"t\": segundos, \"values\": {junta:\nvalor}} — los valores van ANIDADOS en \"values\" (el formato plano se rechaza) y las\njuntas se validan contra las declaradas (get_kinematics). Un producto PLEGABLE\n(requisito plegable) etiqueta su pose de uso y la de guardado con \"posicion\": \"uso\" |\n\"guardado\" en su fotograma (una vez cada una): la puerta las pide y mide el guardado.\nOJO FK: una junta mueve solo sus HIJOS declarados — completa un cuerpo rígido\nmulti-pieza con juntas 'fija' colgadas del conductor. Verifica el recorrido con\nscan_motion, míralo con motion_gif; en la UI aparece en el panel Cinemática.",
   "inputSchema": {
    "properties": {
     "name": {

@@ -138,4 +138,12 @@ nunca NO_APLICA; el encolado es apoyo de la madera; `estructura.vuelco` suma las
 de los requisitos (`fuerza_horizontal_n`, `altura_fuerza_mm`, `carga_borde_n`) con EN 1990 tabla
 A1.2(A) (peso 0,9 / 1,1, variable 1,5, la favorable en 0: manda la máquina vacía); sin ellas, como
 antes y lo dice.
+v38 (plegables-en-la-puerta F1, D1–D3) con el requisito
+`plegable` (la ficha del encargo lo pregunta aparte de `desarmable`), `plegado.posiciones` pide
+al menos un estudio de movimiento con un fotograma `posicion: "uso"` y otro `"guardado"`, sus
+valores dentro de los límites de cada junta y al menos una junta que cambie entre ellos (la silla
+plegable sin juntas, que daba `movimiento.coherente` NO_APLICA, ahora falla «se pliega en la ficha
+y no en el modelo»), y `plegado.espesor` mide la caja del guardado contra `espesor_plegado_mm`
+(su dimensión menor mayor que lo pedido falla). El tránsito uso → guardado no es ítem: lo avisa
+`delivery_check` (batería 9) con los choques nuevos respecto de la pose de diseño.
 """

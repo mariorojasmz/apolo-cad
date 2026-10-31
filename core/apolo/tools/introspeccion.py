@@ -202,10 +202,12 @@ def registrar(mcp, _api, _paso, esperar) -> dict[str, Callable]:
         """Define (o borra, con lista vacía) un ESTUDIO DE MOVIMIENTO con nombre — autoría de
         cinemática sin salir del MCP (V6.8-C). Fotograma: {"t": segundos, "values": {junta:
         valor}} — los valores van ANIDADOS en "values" (el formato plano se rechaza) y las
-        juntas se validan contra las declaradas (get_kinematics). OJO FK: una junta mueve solo
-        sus HIJOS declarados — completa un cuerpo rígido multi-pieza con juntas 'fija' colgadas
-        del conductor. Verifica el recorrido con scan_motion, míralo con motion_gif; en la UI
-        aparece en el panel Cinemática."""
+        juntas se validan contra las declaradas (get_kinematics). Un producto PLEGABLE
+        (requisito plegable) etiqueta su pose de uso y la de guardado con "posicion": "uso" |
+        "guardado" en su fotograma (una vez cada una): la puerta las pide y mide el guardado.
+        OJO FK: una junta mueve solo sus HIJOS declarados — completa un cuerpo rígido
+        multi-pieza con juntas 'fija' colgadas del conductor. Verifica el recorrido con
+        scan_motion, míralo con motion_gif; en la UI aparece en el panel Cinemática."""
         payload = _api("PUT", "/api/motion", json={"name": name, "keyframes": keyframes}).json()
         estudios = [
             {"name": s["name"], "duration": s["duration"], "n_fotogramas": len(s["keyframes"])}

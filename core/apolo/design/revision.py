@@ -114,8 +114,9 @@ PREGUNTAS_POR_PIEZA: list[dict[str, str]] = [
     {
         "clave": "ficha",
         "titulo": "Ficha del encargo",
-        "pregunta": "¿Cumple la ficha (carga, ancho de producto, desarmable, instalación, "
-        "entorno)? Lo que la ficha marca como asumido se revisa igual y se señala.",
+        "pregunta": "¿Cumple la ficha (carga, ancho de producto, desarmable, plegable, "
+        "instalación, entorno)? Si se pliega, ¿el modelo lo pliega (estudio con las posiciones "
+        "uso y guardado)? Lo que la ficha marca como asumido se revisa igual y se señala.",
         "como": "get_requirements + measure (ancho útil, alturas) + engineering_check.",
     },
 ]

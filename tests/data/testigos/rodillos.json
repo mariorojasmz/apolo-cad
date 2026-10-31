@@ -34,6 +34,8 @@
   "transmision_flexible.de_su_comando": "OK",
   "higiene.limpiable": "NO_APLICA",
   "movimiento.coherente": "NO_APLICA",
+  "plegado.posiciones": "NO_APLICA",
+  "plegado.espesor": "NO_APLICA",
   "fabricabilidad": "OK",
   "material.conocido": "OK",
   "bom.comprable": "OK",

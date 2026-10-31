@@ -24,13 +24,14 @@ VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 #: La versión de la batería del núcleo: súbela si cambia un chequeo o su umbral. Sólo se publica
 #: con reglas de extensión (`version_bateria` = «1+nombre.version_entrega»); sin ellas, el
 #: resultado es el de siempre (plan puntos-de-extension-entregables, D3).
-VERSION_BATERIA = 8  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
+VERSION_BATERIA = 9  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
 #                      enclavamiento de los resguardos (plan mandos-de-seguridad, F2b); 4: los
 #                      nombres por función (plan nombres-por-funcion, D8); 5: el ERC exige el hilo
 #                      PE de cada cable en un borne de tierra en sus dos extremos; 6: las poses
 #                      abierto/cerrado de cada resguardo con su junta (plan lo-que-se-mueve, D3);
 #                      7: lo declarado unido se toca (plan uniones-que-tocan, D2); 8: el acceso
-#                      de herramienta por la impronta y por su perno (puerta-fuera-de-catalogo D4)
+#                      de herramienta por la impronta y por su perno (puerta-fuera-de-catalogo D4);
+#                      9: el tránsito uso → guardado de un plegable (plegables-en-la-puerta D3)
 
 # Umbral de sujeción (compartido con la alarma ambiental de la capa API): bajo esto
 # —un croquis de 2-3 piezas— exigir anclajes sería ruido. Conservador a propósito:
@@ -115,6 +116,7 @@ def delivery_report(
     enclavamientos: list[dict] | None = None,
     nombres: dict | None = None,
     uniones: list[dict] | None = None,
+    transito: dict | None = None,
 ) -> dict:
     """Agrega los chequeos de cierre en un SEMÁFORO. Entradas (todas computadas por
     el llamador — aquí no corre ningún motor):
@@ -168,6 +170,10 @@ def delivery_report(
         uniones declaradas: lo de siempre. Una soldadura sin cordón real, un apoyo sin área o un
         perno que no cruza el hueco bloquean (ROJO) con el par y la cifra (plan uniones-que-tocan
         D2; el criterio, `calidad/contacto.py`, el mismo de `union.contacto_real`).
+      - `transito`: el recorrido uso → guardado de un producto plegable
+        (`services/calidad_plegado.transito`); None = no es plegable o no declara sus dos
+        posiciones: lo de siempre. Un choque NUEVO respecto de la pose de diseño da AVISO (plan
+        plegables-en-la-puerta D3: no va a la puerta de publicación; `calidad/plegado.py`).
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
     `no_aplica_piezas` (sólo si hay): `[{no_aplica, regla, piezas}]`, la sección y los ids de cada
     `no_aplica` que nombra piezas, para justificarlo por escrito (D11 de puerta-sin-sobrediseno).
@@ -305,6 +311,15 @@ def delivery_report(
                       + (f" · contactos de asiento tolerados: {tolerados}" if tolerados else ""))
         elif not poses:
             no_aplica.append("poses (los estudios no declaran ninguna pose no-cero)")
+    if transito is not None:  # plegables-en-la-puerta D3: el tránsito del plegado, AVISO
+        from .calidad.plegado import regla_entrega as transito_plegado
+
+        fila = transito_plegado(transito)
+        if fila["estado"] == "aviso":
+            avisos.append({"regla": fila["regla"], "piezas": _nombres(fila["piezas"], nombre_de),
+                           "detalle": fila["detalle"]})
+        else:
+            ok.append(fila["detalle"])
 
     # 6 · gravedad (opt-in) -----------------------------------------------------
     if gravedad is None:

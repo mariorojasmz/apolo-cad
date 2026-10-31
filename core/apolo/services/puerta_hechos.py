@@ -18,7 +18,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
   familia de máquinas nueva suma aquí su clase** (p. ej. `transmisiones_flexibles["correa"]`), nunca un ítem al registro;
 - `familias_funcion`: {familia D15: [piezas]} (sólo las que el modelo tiene);
 - banderas: `pocos_solidos`, `sin_estudios`, `sin_poses`, `carril`, `escenarios`, `higienico`
-  (el requisito, `requisitos.es_higienico`), `memoria_aplica`, `mueve_producto` (productos en los escenarios o bandas con tablero:
+  (el requisito, `requisitos.es_higienico`), `plegable` y `plegado_espesor` (el requisito y,
+  con él, `espesor_plegado_mm`: plegables-en-la-puerta D1/D3), `memoria_aplica`, `mueve_producto` (productos en los escenarios o bandas con tablero:
   `flujo_producto.mueve_producto`, plan balance-de-producto D9).
 
 Cada detector usa el MISMO criterio que el control que lo evalúa (la tornillería:
@@ -135,6 +136,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from apolo.library.calidad.nombres import elementos as elementos_operables
     from apolo.library.catalog import CATALOG
     from apolo.library.delivery import MIN_SOLIDOS_SUJECION
+    from apolo.library.requisitos import espesor_plegado
 
     from . import marcha_ejemplo
     from .calidad_cadenas import cadenas_de_rodillos
@@ -143,6 +145,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from .calidad_higiene import requiere as higienico
     from .calidad_juntas import clasificar
     from .calidad_movimiento import juntas_de_movimiento
+    from .calidad_plegado import requiere as plegable
     from .calidad_pernos import tipo_de_tornilleria
     from .calidad_tensores import lazos_banda
     from .calidad_tornillos_madera import es_tornillo_de_madera
@@ -232,6 +235,9 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "carril": tiene_carril(doc),
         "escenarios": bool(doc.escenarios),
         "higienico": higienico(doc),  # hallazgos-del-revisor D9: el requisito, no un detector
+        # plegables-en-la-puerta D1/D3: el requisito (y el espesor plegado pedido con él)
+        "plegable": plegable(doc),
+        "plegado_espesor": plegable(doc) and espesor_plegado(doc.requirements) is not None,
         "mueve_producto": mueve_producto(doc, len(bandas)),
         "memoria_aplica": bool(mecanismo or elementos["uniones"] or doc.requirements
                                or doc.grounds),

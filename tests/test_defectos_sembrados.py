@@ -203,6 +203,24 @@ def tubo_abierto_higienico(d):
     d.set_requirements({**(d.requirements or {}), "higienico": True})
 
 
+def plegable_sin_juntas(d):
+    """plegables-en-la-puerta D2: el encargo dice que se pliega y el modelo no tiene juntas (la
+    silla plegable alta: `movimiento.coherente` NO_APLICA y nada más lo veía)."""
+    d.set_requirements({**(d.requirements or {}), "plegable": True})
+
+
+def plegada_mas_gruesa(d):
+    """plegables-en-la-puerta D3: un ala abatible con su estudio uso/guardado, pero el encargo pide
+    un espesor plegado menor que lo que mide la ménsula plegada."""
+    ala = _caja(d, "Ala abatible", 100, 80, 6, 400, 0, 3)
+    d.execute("add_joint", {"name": "j_ala", "type": "giratoria", "parent": _id(d, "Placa base"),
+                            "child": ala, "origin": {"x": 350, "y": 0, "z": 0},
+                            "axis": {"x": 0, "y": 1, "z": 0}, "lower": -90, "upper": 0})
+    d.set_motion("plegado", [{"t": 0, "values": {"j_ala": 0}, "posicion": "uso"},
+                             {"t": 1, "values": {"j_ala": -90}, "posicion": "guardado"}])
+    d.set_requirements({**(d.requirements or {}), "plegable": True, "espesor_plegado_mm": 5})
+
+
 def brazo_fijo_que_gira(d):
     """lo-fijo-que-gira D1: un brazo hijo `fija` del eje que gira (junta continua) y empernado a la
     placa base quieta (la chumacera −Y de la lavadora, hija del eje motriz y empernada a su
@@ -533,6 +551,10 @@ DEFECTOS = (
             {"union.distancia_al_borde": FALLA}),
     Defecto("tubo_abierto_higienico", "mensula_atornillada", tubo_abierto_higienico,
             {"higiene.limpiable": FALLA}),
+    Defecto("plegable_sin_juntas", "mensula_atornillada", plegable_sin_juntas,
+            {"plegado.posiciones": FALLA}),
+    Defecto("plegada_mas_gruesa", "mensula_atornillada", plegada_mas_gruesa,
+            {"plegado.posiciones": OK, "plegado.espesor": FALLA}),
     Defecto("brazo_fijo_que_gira", "mensula_atornillada", brazo_fijo_que_gira,
             {"movimiento.coherente": FALLA}),
     Defecto("brida_cara_a_cara", "mensula_atornillada", brida_cara_a_cara,

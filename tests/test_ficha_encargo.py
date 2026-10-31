@@ -1,6 +1,7 @@
 """Ficha del encargo en los requisitos (plan revision-de-taller, F2: D1).
 
-Las cinco claves (`carga_kg`, `ancho_producto_mm`, `desarmable`, `instalacion`, `entorno`) se
+Las claves (`carga_kg`, `ancho_producto_mm`, `desarmable`, `plegable` —plegables-en-la-puerta
+D1—, `instalacion`, `entorno`) se
 validan; lo que el agente supone entra como `{"valor": …, "asumido": true}` y se guarda plano
 más la lista `asumidos` (los lectores de `requirements[...]` siguen viendo un escalar). Es
 metadato: nunca entra al log. Un manifest viejo sin esas claves abre igual, y el briefing de
@@ -96,7 +97,7 @@ def test_manifest_viejo_sin_ficha_abre_igual():
     doc = Document.from_apolo_bytes(_con_requisitos_viejos(viejo))
     assert doc.requirements == viejo
     assert estado_ficha(doc.requirements) == {
-        "faltan": ["ancho_producto_mm", "desarmable", "instalacion", "entorno"],
+        "faltan": ["ancho_producto_mm", "desarmable", "plegable", "instalacion", "entorno"],
         "asumidos": [], "como": estado_ficha({})["como"]}
 
 
@@ -111,7 +112,8 @@ def test_manifest_viejo_con_valores_libres_no_se_revalida_al_abrir():
 
 
 def test_estado_ficha_completa_no_trae_como():
-    req = normalizar_requisitos({k: v for k, v in zip(FICHA, (15, 450, "no", "anclado", "x"))}
+    req = normalizar_requisitos({k: v for k, v in zip(FICHA, (15, 450, "no", "no", "anclado",
+                                                               "x"))}
                                 | {"asumidos": ["entorno"]})
     assert estado_ficha(req) == {"faltan": [], "asumidos": ["entorno"]}
 
@@ -121,7 +123,7 @@ def test_el_briefing_de_open_project_trae_la_ficha():
     api.DOC.set_requirements({"carga_kg": {"valor": 15, "asumido": True}, "entorno": "interior"})
     b = api._open_briefing()
     assert b["requisitos"]["asumidos"] == ["carga_kg"]
-    assert b["ficha"]["faltan"] == ["ancho_producto_mm", "desarmable", "instalacion"]
+    assert b["ficha"]["faltan"] == ["ancho_producto_mm", "desarmable", "plegable", "instalacion"]
     assert b["ficha"]["asumidos"] == ["carga_kg"]
     assert "asumido" in b["ficha"]["como"]
 

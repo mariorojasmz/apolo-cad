@@ -37,6 +37,8 @@ _REQ_LABELS = {
     "temperatura_c": "Temperatura ambiente",
     "ancho_producto_mm": "Ancho máximo de producto",
     "desarmable": "Desarmable",
+    "plegable": "Plegable",
+    "espesor_plegado_mm": "Espesor plegado",
     "instalacion": "Instalación",
     "producto": "Producto",
     "entorno": "Entorno",
@@ -46,7 +48,7 @@ _REQ_LABELS = {
 _REQ_UNITS = {
     "carga_kg": "kg", "largo_paquete_mm": "mm", "ancho_paquete_mm": "mm",
     "alto_paquete_mm": "mm", "velocidad_m_s": "m/s", "inclinacion_deg": "°",
-    "temperatura_c": "°C", "ancho_producto_mm": "mm",
+    "temperatura_c": "°C", "ancho_producto_mm": "mm", "espesor_plegado_mm": "mm",
 }
 _ESTADO = {"ok": "OK", "aviso": "AVISO", "error": "ERROR"}
 

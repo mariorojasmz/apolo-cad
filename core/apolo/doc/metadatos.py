@@ -109,22 +109,40 @@ class MetadatosDocumento:
         geometría). Lista vacía → borra el estudio. Pueden coexistir varios estudios.
         Formato de fotograma: {"t": segundos, "values": {junta: valor}} — los valores de
         junta van ANIDADOS en "values"; claves sueltas al nivel superior se RECHAZAN
-        (aceptarlas en silencio producía estudios que "reproducían" sin mover nada)."""
+        (aceptarlas en silencio producía estudios que "reproducían" sin mover nada).
+        Opcional `"posicion": "uso" | "guardado"` etiqueta la pose de uso y la de guardado de un
+        producto plegable, una vez cada una por estudio (plan plegables-en-la-puerta, D2): un
+        manifest viejo no la trae y abre igual."""
+        from apolo.library.requisitos import POSICIONES_PLEGADO as POSICIONES
+
         name = str(name).strip()
         if not name:
             raise DocumentError("El estudio de movimiento necesita un nombre")
         clean: list[dict] = []
+        etiquetadas: set[str] = set()
         for kf in keyframes:
             if not isinstance(kf, dict):
                 raise DocumentError(
                     'Cada fotograma debe ser un dict {"t": segundos, "values": {junta: valor}}'
                 )
-            extras = sorted(set(map(str, kf)) - {"t", "values"})
+            extras = sorted(set(map(str, kf)) - {"t", "values", "posicion"})
             if extras:
                 raise DocumentError(
                     f"Claves desconocidas en el fotograma: {', '.join(extras)} — los valores "
-                    'de junta van ANIDADOS: {"t": segundos, "values": {junta: valor}}'
+                    'de junta van ANIDADOS: {"t": segundos, "values": {junta: valor}} (y, '
+                    'opcional, "posicion": "uso" | "guardado")'
                 )
+            posicion = kf.get("posicion")
+            if posicion is not None:
+                posicion = str(posicion).strip().lower()
+                if posicion not in POSICIONES:
+                    raise DocumentError(
+                        f"'posicion' del fotograma es {' | '.join(POSICIONES)} (la pose de uso y "
+                        f"la de guardado de un producto plegable), no «{kf.get('posicion')}»")
+                if posicion in etiquetadas:
+                    raise DocumentError(
+                        f"La posición «{posicion}» va en UN solo fotograma del estudio")
+                etiquetadas.add(posicion)
             try:
                 t = float(kf["t"])
             except (KeyError, TypeError, ValueError) as exc:
@@ -145,7 +163,7 @@ class MetadatosDocumento:
                 vals = {str(n): float(v) for n, v in values.items()}
             except (TypeError, ValueError) as exc:
                 raise DocumentError("Cada valor de junta debe ser numérico") from exc
-            clean.append({"t": t, "values": vals})
+            clean.append({"t": t, "values": vals, **({"posicion": posicion} if posicion else {})})
         if clean and not any(k["values"] for k in clean):
             raise DocumentError(
                 "El estudio no mueve ninguna junta: todos los fotogramas tienen 'values' vacío"

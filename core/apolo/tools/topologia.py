@@ -64,7 +64,10 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         moderada | pesada) y horas_dia; sin ellos, 1,25. Vuelco al usarla: fuerza_horizontal_n
         (lo que la empuja o tira, N), altura_fuerza_mm (sobre el piso) y carga_borde_n (alguien
         apoyado en el canto, N); sin ellas, sólo el COG. Equipo higiénico (alimentos, farma):
-        higienico (sí/no; la puerta pide cada soldadura continua y cada tubo cerrado). Las
+        higienico (sí/no; la puerta pide cada soldadura continua y cada tubo cerrado). Producto
+        PLEGABLE (posición de uso y de guardado; aparte de desarmable): plegable (sí/no; la
+        puerta pide un estudio con los fotogramas "posicion": "uso" y "guardado", set_motion) y
+        espesor_plegado_mm (la dimensión menor plegado). Las
         funciones y sus alternativas NO van aquí: set_functions. Con esto `engineering_check()` y
         `calc_report()` funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.
         `comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;
