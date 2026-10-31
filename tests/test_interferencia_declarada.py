@@ -196,7 +196,7 @@ def test_sin_medir_y_con_error_sale_sin_evaluar():
 
 # ------------------------------------------------------------------ en el registro
 def test_el_item_esta_en_el_registro_y_no_aplica_sin_uniones():
-    assert VERSION_REGISTRO == "35"
+    assert VERSION_REGISTRO == "36"
     assert idc.ENTRADA in REGISTRO
     r = evaluar({"hechos": {"uniones_declaradas": False}}, registro=(idc.ENTRADA,))
     (it,) = r["items"]

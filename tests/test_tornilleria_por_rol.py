@@ -253,4 +253,4 @@ def test_lo_que_sigue_sin_evaluar_se_justifica_con_la_herramienta():
 
 
 def test_registro_v34():
-    assert VERSION_REGISTRO == "35"
+    assert VERSION_REGISTRO == "36"

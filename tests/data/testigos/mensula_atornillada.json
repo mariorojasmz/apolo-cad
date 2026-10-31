@@ -3,7 +3,7 @@
  "descripcion": "ménsula unida a una placa base anclada con join_bolted M10: se aprueba",
  "tortura": false,
  "aprobado": true,
- "version_registro": "35",
+ "version_registro": "36",
  "firma": "689bff0ea93efa99e842",
  "items": {
   "entrega.semaforo": "OK",
