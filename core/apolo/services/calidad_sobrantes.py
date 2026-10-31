@@ -7,7 +7,10 @@ corrida de la puerta (`doc.puerta_primera.ultimo_comando`: el comando de mayor n
 esa corrida; sin el dato, ninguna «agregada»; lo eléctrico —el `layout_tablero`, los
 dispositivos— no cuenta como agregado: `del_carril`). Nunca son candidatas la tornillería (va con
 lo que une), lo que gira o se mueve (es el peligro, no su resguardo), la banda ni los tensores (los
-tensores que sobran son una nota del ítem de tensión: F1).
+tensores que sobran son una nota del ítem de tensión: F1). Tampoco lo agregado que es un
+componente COMPRADO que entrega una función declarada o recibe la carga útil, con las copias de su
+patrón (`entregan_funcion`: ningún control mide la función, así que no empeorar sin él no prueba
+nada); la evidencia lo lista por raíz (`por_funcion`).
 
 **Prueba** (sobre una COPIA del modelo sin la candidata, sin los `fasten`/`ground` que la nombran
 y sin la tornillería que sólo la unía a ella: la de su `join_bolted` y la que no une otra cosa): la
@@ -48,9 +51,12 @@ from apolo.library.seguridad.iso13857 import ALCANCE_BRAZO_MM, ALCANCE_DESDE_MUN
 from .calidad_sobrantes_candidatas import (  # noqa: F401 — re-exportados por identidad
     MASA_MIN_KG,
     _tornilleria,
+    agregadas,
     candidatas,
     del_carril,
+    entregan_funcion,
     marcar_primera_corrida,
+    por_raiz,
     numero,
     ultimo_comando,
 )
@@ -439,7 +445,10 @@ def sobrantes(doc, contexto) -> dict:
     if sondas is None:
         return {"error": "las sondas de seguridad no corrieron en esta puerta"}
     hardware, jb = _tornilleria(doc, an["dc"]["piezas"])
-    cands = candidatas(doc, an, hardware)
+    funcionales = entregan_funcion(doc)
+    cands = candidatas(doc, an, hardware, funcionales)
+    por_funcion = por_raiz(doc, funcionales,
+                           set(funcionales) & agregadas(doc, an["dc"]["piezas"]) - hardware)
     prueba = Prueba(doc, an, sondas, hardware, jb)
     sobran, necesarias = [], []
     pendientes, vueltas = cands, 0
@@ -463,7 +472,7 @@ def sobrantes(doc, contexto) -> dict:
         pendientes = [n for n in quedan if n["la_pide"] in ("sujeción", "guardas")] if sobro else []
     necesarias.sort(key=lambda c: (-c["masa_kg"], c["id"]))
     return {"candidatas": len(cands), "sobrantes": sobran, "necesarias": necesarias,
-            "vueltas": vueltas,
+            "vueltas": vueltas, **({"por_funcion": por_funcion} if por_funcion else {}),
             "quitadas": sorted(prueba.quitadas),
             "agregadas_desde": (getattr(doc, "puerta_primera", None) or {}).get("ultimo_comando"),
             "ms": round((time.perf_counter() - t0) * 1000.0),

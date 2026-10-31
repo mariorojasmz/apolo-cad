@@ -115,7 +115,9 @@ transporte que los llama, en [api](../api/CLAUDE.md).
   Un apoyo redundante NO sobra, pero corre las sondas sin él y sin lo que sostiene
   (`tambien_tapa`/`solo_apoyo` en la evidencia, sin cambiar el estado: `calidad_sobrantes_apoyo.py`,
   [lo-que-se-mueve](../../../docs/plans/lo-que-se-mueve.md) D6). Un control nuevo que una pieza pueda empeorar entra ahí. Lo
-  eléctrico (`del_carril`) no es «agregado»; un objetivo de enganche descartado por caer en una
+  eléctrico (`del_carril`) no es «agregado», ni lo COMPRADO que entrega una función declarada o
+  recibe la carga útil, con las copias de su patrón (`entregan_funcion`: ningún control mide la
+  función; nunca por familia ni por la tornillería del nombre; registro v42); un objetivo de enganche descartado por caer en una
   holgura ≤ 4 mm (`calidad_sondas.fuera_de_holguras`) se re-sondea si se quita una de sus
   paredes. `reunir` abre `mass.memo_de_geometria` y los memos de `engineering/memo_corrida.py`
   (sólo lo puro e inmutable, la forma por `is`). Todo atajo da IGUAL al recalculado y entra con

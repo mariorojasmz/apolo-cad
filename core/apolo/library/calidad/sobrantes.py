@@ -7,7 +7,9 @@ se agregó para aprobar tiene que seguir siendo necesario para aprobar. Sobrante
 esté JUSTIFICADA por escrito (`{pieza, porque}`: guía del producto, pedido del cliente, polvo…).
 La evidencia dice, de cada candidata, qué control la pide (o «ninguna prueba de la puerta»), y
 copia como NOTA los tensores que no hacen falta según el ítem de tensión (D2/D6: un tensor que
-sobra no es FALLA, quitarlo cambia los apoyos del eje).
+sobra no es FALLA, quitarlo cambia los apoyos del eje). Lo comprado que entrega una función
+declarada no es candidato (ningún control mide la función): la evidencia lo lista por raíz en
+`no_candidatas_por_funcion`.
 """
 
 from __future__ import annotations
@@ -49,6 +51,7 @@ def sin_sobrantes(ins: dict) -> dict:
           "necesarias": rec["casos"],
           **({"necesarias_omitidas": rec["casos_omitidos"]} if "casos_omitidos" in rec else {}),
           **({"justificadas": justificadas} if justificadas else {}),
+          **({"no_candidatas_por_funcion": s["por_funcion"]} if s.get("por_funcion") else {}),
           **({"nota_tensores_que_no_hacen_falta": t} if (t := _tensores_de_mas(ins)) else {}),
           "ms": s.get("ms"), "por_etapa": s.get("por_etapa") or {}}
     if sobran:
@@ -57,6 +60,8 @@ def sin_sobrantes(ins: dict) -> dict:
         nombres = ", ".join(f"{c.get('nombre')} ({c.get('masa_kg')} kg)" for c in sobran[:4])
         return _r(FALLA, f"{len(sobran)} pieza(s) sobran: sin ellas ningún control de la puerta "
                          f"empeora ({nombres}). Quítalas o justifícalas en `justificadas` "
-                         "({pieza, porque})", ev, [c["id"] for c in sobran])
+                         "({pieza, porque}); si una es el componente comprado que entrega una "
+                         "función, decláralo en `funciones` (set_functions)", ev,
+                 [c["id"] for c in sobran])
     extra = f"; {len(justificadas)} sobrante(s) justificada(s)" if justificadas else ""
     return _r(OK, f"{s['candidatas']} candidata(s): a cada una la pide un control{extra}", ev)

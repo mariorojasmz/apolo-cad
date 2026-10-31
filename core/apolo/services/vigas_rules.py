@@ -337,25 +337,14 @@ def detectar_vigas(doc, catalog: dict | None = None) -> dict | None:
 
 def _declaradas(doc, scene) -> set | None:
     """Las piezas que el requisito `carga_sobre` nombra (id, command_id o grupo); None sin él."""
-    from apolo.assembly.groups import group_features, resolve_group
     from apolo.library.requisitos import CARGA_SOBRE
+
+    from .raices import piezas_nombradas
 
     tokens = (getattr(doc, "requirements", None) or {}).get(CARGA_SOBRE)
     if not isinstance(tokens, (list, tuple)) or not tokens:
         return None
-    grupos = getattr(doc, "groups", None) or {}
-    out: set = set()
-    for t in tokens:
-        t = str(t)
-        if t in scene:
-            out.add(t)
-            continue
-        g = resolve_group(grupos, t)
-        if g is not None:
-            out |= set(group_features(scene, grupos, g))
-            continue
-        out |= {fid for fid, f in scene.items() if f.command_id == t}
-    return out
+    return piezas_nombradas(scene, getattr(doc, "groups", None) or {}, tokens)
 
 
 def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_kg, caja,

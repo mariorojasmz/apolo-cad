@@ -172,4 +172,13 @@ de diseño; la rodilla pasa la recta de sus pivotes al plegar y su tope existe),
 lazo deja de cerrar, residuo > 0,5 mm, al mover el grado 3°), `retenida` (un pasador de aletas,
 clip R o anillo, por su rol, toca lo que retiene; el gancho sin retén falla) y `peso` (aviso que
 se justifica por escrito). La escalera de 3 y la mesa de 1,2 m (rodilla a 0°) fallan.
+v42 (fix directo, mesa de bolas de transferencia) `diseno.sin_sobrantes` ya no prueba el componente
+COMPRADO (ref de catálogo que no se corta, o compra declarada en el nombre) que es la solución de
+una función declarada (`funciones[].piezas`, salvo `resguardo` y `estructura`, que la prueba sí
+mide) o que recibe la carga útil (`carga_sobre`), ni las copias de su patrón (la raíz manda): ningún
+control mide la función, así que «sin ella nada empeora» no prueba que sobre. En v32 la bola salía
+de las candidatas por accidente (la «tuerca» de su descripción la hacía tornillería); la v34
+(tornillería por ROL) la volvió candidata y la v41 daba 96 bolas «sobrantes» de 212 candidatas en
+122 s (cada una re-corría toda la ingeniería). La evidencia lista lo excluido por raíz
+(`no_candidatas_por_funcion`) y la FALLA sugiere declarar la función.
 """
