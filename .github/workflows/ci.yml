@@ -102,11 +102,30 @@ jobs:
 
       - name: pytest (Linux, bajo Xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" python -m pytest tests -q -n auto
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" python -m pytest tests -q -n auto --junitxml=junit.xml
 
       - name: pytest (Windows)
         if: runner.os == 'Windows'
-        run: python -m pytest tests -q -n auto
+        run: python -m pytest tests -q -n auto --junitxml=junit.xml
+
+      # Los logs de un job piden iniciar sesión en GitHub; las anotaciones, no. Cada test que falla
+      # sale como anotación (con el comienzo de su error) para leerlo sin credenciales.
+      - name: Tests que fallaron, como anotaciones
+        if: failure()
+        shell: python
+        run: |
+          import pathlib, xml.etree.ElementTree as ET
+          p = pathlib.Path("junit.xml")
+          if p.exists():
+              n = 0
+              for caso in ET.parse(p).iter("testcase"):
+                  for malo in list(caso.iter("failure")) + list(caso.iter("error")):
+                      nombre = f"{caso.get('classname')}::{caso.get('name')}"
+                      texto = (malo.get("message") or "").replace("\n", " ")[:300]
+                      print(f"::error title={nombre}::{texto}")
+                      n += 1
+                      if n >= 25:
+                          raise SystemExit(0)
 
   ui:
     name: UI (vitest + build)
