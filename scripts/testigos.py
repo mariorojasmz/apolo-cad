@@ -173,7 +173,7 @@ RECETAS = {
     "faja": (_faja, "create_belt_conveyor v5 por defecto con el criterio 7 (sus cierres: guardas "
                     "inferiores bajo la ranura banda-larguero, placas de cierre de los largueros y "
                     "techo de cola hasta la cama, F6; los pies con tuerca soldada y contratuerca, "
-                    "registro v42) con el empalme de campo de la banda a mano (registro v20), "
+                    "registro v40) con el empalme de campo de la banda a mano (registro v20), "
                     "requisitos y funciones D15: aprueba entera", False),
     "rodillos": (_rodillos, "create_roller_conveyor de 1500 mm con requisitos (sin D15): su "
                             "veredicto de hoy, con lo que falta", True),

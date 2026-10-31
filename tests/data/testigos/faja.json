@@ -1,10 +1,10 @@
 {
  "testigo": "faja",
- "descripcion": "create_belt_conveyor v5 por defecto con el criterio 7 (sus cierres: guardas inferiores bajo la ranura banda-larguero, placas de cierre de los largueros y techo de cola hasta la cama, F6; los pies con tuerca soldada y contratuerca, registro v42) con el empalme de campo de la banda a mano (registro v20), requisitos y funciones D15: aprueba entera",
+ "descripcion": "create_belt_conveyor v5 por defecto con el criterio 7 (sus cierres: guardas inferiores bajo la ranura banda-larguero, placas de cierre de los largueros y techo de cola hasta la cama, F6; los pies con tuerca soldada y contratuerca, registro v40) con el empalme de campo de la banda a mano (registro v20), requisitos y funciones D15: aprueba entera",
  "tortura": false,
  "aprobado": true,
- "version_registro": "39",
- "firma": "2b20aa4ca546b1f58f4c",
+ "version_registro": "41",
+ "firma": "0bf7bf2acb60b2800f4c",
  "items": {
   "entrega.semaforo": "OK",
   "entrega.gravedad": "OK",

@@ -3,7 +3,7 @@
  "descripcion": "una ménsula suelta anclada: pieza estática que se aprueba",
  "tortura": false,
  "aprobado": true,
- "version_registro": "39",
+ "version_registro": "41",
  "firma": "d126fa5ab614e0d5c317",
  "items": {
   "entrega.semaforo": "OK",

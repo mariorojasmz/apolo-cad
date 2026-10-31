@@ -349,4 +349,4 @@ def test_sin_pies_no_aplica_y_el_registro_lo_lleva():
     assert pn.ENTRADA in REGISTRO and int(VERSION_REGISTRO) >= 40  # la F2 la subió a 40
     from apolo.library.calidad import historial_registro
 
-    assert "v42 (pie-nivelador F2" in historial_registro.__doc__
+    assert "v40 (pie-nivelador F2" in historial_registro.__doc__
