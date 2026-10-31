@@ -218,4 +218,7 @@ def test_real_el_contrachapado_de_copaiba_pesa_como_contrachapado():
 
 
 def test_el_registro_sube_a_33():
-    assert VERSION_REGISTRO == "33"
+    """La F1 subió el registro a 33; las fases siguientes lo suben más (D10): no baja de 33 y
+    el historial la nombra."""
+    from apolo.library.calidad.historial_registro import __doc__ as historial
+    assert int(VERSION_REGISTRO) >= 33 and "v33 (puerta-fuera-de-catalogo F1" in historial
