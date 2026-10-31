@@ -366,8 +366,9 @@ los puertos de D5/D6, el append atómico de D7 y su test en F1, y los números d
   `import apolo.projects` tardó 19,5 s en frío. Los candados se leen y borran con SQL directo
   sobre `project_leases`; los tests lo cruzan con `ProjectStore`.
   - *arrancar*: valida el tope, que los ids existan y no se repitan; elige puertos LIBRES desde
-    `--puerto-base` (8100): ni escuchados (`netstat -ano` por la dirección remota `0.0.0.0:0`,
-    porque el estado «LISTENING» viene traducido; `/proc` en Linux; `lsof` en el resto) ni
+    `--puerto-base` (8100): ni escuchados (`GetExtendedTcpTable` por ctypes en Windows —el
+    `netstat -ano` de Windows 11 pierde filas y les cambia el estado con mucho TIME_WAIT, y daba
+    falsos zombie-socket; queda de respaldo—; `/proc` en Linux; `lsof` en el resto) ni
     imposibles de abrir en exclusiva (atrapa los rangos que reserva Hyper-V/WSL), nunca el 8000
     (D6) ni uno de la flota. Lanza `python -B -m uvicorn` sin `--reload`, con `APOLO_PROJECT`,
     `APOLO_PORT`, `APOLO_DB` y `PYTHONPATH=<repo>/core`, la salida a `data/flota/api-<puerto>.log`

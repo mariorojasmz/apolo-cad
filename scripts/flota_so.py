@@ -2,9 +2,11 @@
 que no es dependencia de Apolo): quién escucha en un puerto, el árbol de procesos, matar un
 árbol, núcleos y RAM libre. Plan `docs/plans/varias-maquinas-a-la-vez.md` (F3).
 
-- **Quién escucha**: Windows con `netstat -ano` (el estado «LISTENING» viene traducido según el
-  idioma del sistema; se reconoce por la dirección remota `0.0.0.0:0` / `[::]:0`), Linux con
-  `/proc/net/tcp{,6}` + los `fd` de `/proc`, y el resto con `lsof`.
+- **Quién escucha**: Windows con `GetExtendedTcpTable` (ctypes, sólo las escuchas, con su pid)
+  y `netstat -ano` de respaldo: en Windows 11 el `netstat` con muchas conexiones en TIME_WAIT
+  PIERDE filas y les cambia el estado (una API viva salía «CLOSED» o no salía, y la flota la
+  rechazaba como zombie-socket). Linux con `/proc/net/tcp{,6}` + los `fd` de `/proc`, y el resto
+  con `lsof`.
 - **Árbol**: Windows con un snapshot de Toolhelp (ctypes); POSIX con `/proc/<pid>/stat` o `ps`.
   Hace falta porque el `python.exe` de un venv en Windows es un LANZADOR que arranca el
   intérprete real con otro pid (F2), y la API arranca además su worker del sandbox.
@@ -16,6 +18,7 @@ import os
 import re
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import time
@@ -25,23 +28,80 @@ _ES_WINDOWS = os.name == "nt"
 
 # ── quién escucha en un puerto ───────────────────────────────────────────────
 
-def _escuchas_windows() -> dict[int, set[int]]:
-    salida = subprocess.run(["netstat", "-ano"], capture_output=True, text=True,
-                            errors="replace", check=False).stdout
+_AF_INET, _AF_INET6 = 2, 23
+_TCP_TABLE_OWNER_PID_LISTENER = 3
+#: (bytes por fila, offset del puerto local, offset del pid): MIB_TCPROW_OWNER_PID (6 DWORD) y
+#: MIB_TCP6ROW_OWNER_PID (dirección de 16 bytes + scope + puerto, ídem remota, estado, pid)
+_FILA_TCP = {_AF_INET: (24, 8, 20), _AF_INET6: (56, 20, 52)}
+
+
+def _parsear_tabla_tcp(buf: bytes, familia: int) -> dict[int, set[int]]:
+    """{puerto: pids} de un MIB_TCP(6)TABLE_OWNER_PID: un DWORD con las filas y las filas."""
+    tam, off_puerto, off_pid = _FILA_TCP[familia]
+    escuchas: dict[int, set[int]] = {}
+    (filas,) = struct.unpack_from("<I", buf, 0)
+    for i in range(filas):
+        base = 4 + i * tam
+        (puerto,) = struct.unpack_from(">H", buf, base + off_puerto)  # orden de red
+        (pid,) = struct.unpack_from("<I", buf, base + off_pid)
+        pids = escuchas.setdefault(puerto, set())
+        if pid:
+            pids.add(pid)
+    return escuchas
+
+
+def _tabla_tcp_windows(familia: int) -> dict[int, set[int]]:
+    """Los sockets en LISTEN de `familia` con su pid, leídos del kernel (`GetExtendedTcpTable`)."""
+    import ctypes
+    from ctypes import wintypes
+
+    f = ctypes.WinDLL("iphlpapi").GetExtendedTcpTable
+    f.argtypes = (ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD), wintypes.BOOL,
+                  wintypes.ULONG, ctypes.c_int, wintypes.ULONG)
+    f.restype = wintypes.DWORD
+    tam = wintypes.DWORD(0)
+    for _ in range(8):  # la tabla puede crecer entre la consulta del tamaño y la lectura
+        buf = ctypes.create_string_buffer(max(tam.value, 4))
+        r = f(buf, ctypes.byref(tam), False, familia, _TCP_TABLE_OWNER_PID_LISTENER, 0)
+        if r == 0:
+            return _parsear_tabla_tcp(buf.raw, familia)
+        if r != 122:  # ERROR_INSUFFICIENT_BUFFER
+            raise OSError(r, "GetExtendedTcpTable falló")
+    raise OSError(122, "GetExtendedTcpTable: la tabla no deja de crecer")
+
+
+def _parsear_netstat(salida: str) -> dict[int, set[int]]:
+    """{puerto: pids} de `netstat -ano`. Escucha = TCP con remota `<dirección>:0` (0.0.0.0, [::],
+    127.0.0.1…): el estado viene traducido y, en Windows 11, a veces CAMBIADO («CLOSED»,
+    «FIN_WAIT_1» en un socket que escucha); un pid 0 es un dueño que no se ve: ocupa el puerto."""
     escuchas: dict[int, set[int]] = {}
     for linea in salida.splitlines():
         partes = linea.split()
         if len(partes) < 5 or not partes[0].upper().startswith("TCP"):
             continue
         local, remota, pid = partes[1], partes[2], partes[-1]
-        if remota not in ("0.0.0.0:0", "[::]:0") or not pid.isdigit():
+        if not remota.endswith(":0") or not pid.isdigit():
             continue
         try:
             puerto = int(local.rsplit(":", 1)[1])
         except (IndexError, ValueError):
             continue
-        escuchas.setdefault(puerto, set()).add(int(pid))
+        pids = escuchas.setdefault(puerto, set())
+        if int(pid):
+            pids.add(int(pid))
     return escuchas
+
+
+def _escuchas_windows() -> dict[int, set[int]]:
+    try:
+        escuchas = _tabla_tcp_windows(_AF_INET)
+        for puerto, pids in _tabla_tcp_windows(_AF_INET6).items():
+            escuchas.setdefault(puerto, set()).update(pids)
+        return escuchas
+    except (OSError, AttributeError):  # sin iphlpapi: el netstat, que a veces pierde filas
+        salida = subprocess.run(["netstat", "-ano"], capture_output=True, text=True,
+                                errors="replace", check=False).stdout
+        return _parsear_netstat(salida)
 
 
 def _escuchas_linux() -> dict[int, set[int]]:

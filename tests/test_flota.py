@@ -93,6 +93,60 @@ def test_problema_de_dueno_ve_el_zombie_y_el_proceso_ajeno(monkeypatch):
                                                                {**padres, 9: 1})
 
 
+def test_escuchas_ve_un_socket_de_este_proceso_en_cada_familia():
+    """El dueño real de una escucha: en Windows 11 el `netstat` perdía la fila de una API viva o
+    la daba «CLOSED» (falso zombie-socket); la tabla del kernel no."""
+    familias = [(socket.AF_INET, "127.0.0.1")]
+    if socket.has_ipv6:
+        familias.append((socket.AF_INET6, "::1"))
+    for familia, host in familias:
+        s = socket.socket(familia, socket.SOCK_STREAM)
+        try:
+            try:
+                s.bind((host, 0))
+            except OSError:  # sin ::1 en la máquina
+                continue
+            s.listen(1)
+            puerto = s.getsockname()[1]
+            assert os.getpid() in so.escuchas().get(puerto, set()), (host, puerto)
+        finally:
+            s.close()
+
+
+def test_parsear_la_tabla_tcp_del_kernel():
+    import struct
+
+    v4 = struct.pack("<I", 2) + b"".join(
+        struct.pack("<II", 2, 0x0100007F) + struct.pack(">H", p) + b"\0\0"
+        + struct.pack("<III", 0, 0, pid) for p, pid in ((8490, 30776), (135, 0)))
+    assert so._parsear_tabla_tcp(v4, 2) == {8490: {30776}, 135: set()}  # pid 0: no se ve
+    v6 = struct.pack("<I", 1) + bytes(16) + struct.pack("<I", 0) + struct.pack(">H", 8491) \
+        + b"\0\0" + bytes(16) + struct.pack("<III", 0, 0, 2) + struct.pack("<I", 4242)
+    assert so._parsear_tabla_tcp(v6, 23) == {8491: {4242}}
+
+
+def test_parsear_netstat_de_windows_11_con_estados_cambiados():
+    """Salidas reales de la laptop (netstat en español con APIs vivas): la API de 8490 salía
+    «CLOSED» y la de 8403 «FIN_WAIT_1»; escuchas con remota `127.0.0.1:0` y pid 0."""
+    salida = """
+Conexiones activas
+
+  Proto  Dirección local          Dirección remota        Estado           PID
+  TCP    0.0.0.0:3389           0.0.0.0:0              LISTENING       8768
+  TCP    127.0.0.1:8400         0.0.0.0:0              LISTENING       16408
+  TCP    127.0.0.1:8403         0.0.0.0:0              FIN_WAIT_1      5088
+  TCP    127.0.0.1:8490         0.0.0.0:0              CLOSED          30776
+  TCP    127.0.0.1:55321        127.0.0.1:0            LISTENING       0
+  TCP    127.0.0.1:56470        127.0.0.1:8490         TIME_WAIT       0
+  TCP    127.0.0.1:55354        127.0.0.1:55355        ESTABLISHED     5088
+  TCP    [::]:445               [::]:0                 LISTENING       4
+  TCP    [::1]:8491             [::]:0                 ESCUCHANDO      77
+  UDP    0.0.0.0:5353           *:*                                    4728
+"""
+    assert so._parsear_netstat(salida) == {3389: {8768}, 8400: {16408}, 8403: {5088},
+                                           8490: {30776}, 55321: set(), 445: {4}, 8491: {77}}
+
+
 def test_puertos_libres_saltan_el_8000_los_que_escuchan_y_los_evitados():
     escuchando = so.escuchas()
     puertos = flota.puertos_libres(3, 7998, evitar={7999})
