@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 medida (2026-10-30, bitácora). Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29 «tú toma las decisiones a partir de ahora»); D1–D6 siguen vetables por Mario. MERGEADAS F1 (D1, caja memoizada: replay de la lavadora 348 → 80 s), F2 (D2–D3: barreno sin perno 103 → 3,4 s, delivery_check 172 → 67 s) y F3 (D4–D5: check_interference acotado 139 → 0,6 s; delivery_check como job con recibo y deduplicado). Sin lanzar - F4 (volver a medir; sobrantes ~700 s y la F2 de puerta-rapida)
+nota: TERMINADO salvo lo que la F4 mandó a otros planes. Contrato aprobado por el escritorio con la delegación de Mario (2026-10-29); D1–D6 siguen vetables. MERGEADAS F1 (caja memoizada), F2 (barreno sin perno, delivery_check), F3 (check_interference acotado, lecturas largas como job); F4 medida en la laptop (2026-10-31, Bitácora): replay y edición ~5× más rápidos que la F0, entrega ~3×, puerta sin sobrantes ~2,8×; `sobrantes` sigue en ~76 % de la puerta → índice espacial exacto en la F2 de puerta-rapida; modo sin mallas para el `scene_payload` de una mutación por MCP → contrato propio
 descripcion: En una máquina de ~700 piezas, editar el principio del log, delivery_check, check_interference, engineering_check y la puerta terminan en minutos y sin cortarse por tiempo, con los mismos resultados
 ---
 
@@ -425,3 +425,42 @@ código de F1 + F3, en el escritorio:
 primera variable × 1,1) lo rechaza el MODELO: «el taladro no toca el sólido» en `c977`. El
 documento quedó intacto (resumen y 1505 comandos iguales). No es de F3. La API se paró al
 terminar.
+
+### F4 (2026-10-31, laptop)
+
+Laptop (i7-1355U, 16 GB) con otras suites corriendo (~10 procesos python, hasta 0,5 GB libres):
+pared 1,2–2,3× sobre el CPU, así que manda `process_time`. Lavadora de la ronda 9 (731 sólidos,
+1505 comandos), `main` = `a82bd28b`, offline. Factor laptop/escritorio ≈ 3× en CPU (mismo código:
+2,8–3,0×; código previo a la F1 contra la F0: 3,0–3,5×). Entre paréntesis, el equivalente en el
+escritorio (CPU ÷ 3, ±30 %).
+
+| etapa | F0 CPU s | antes en la laptop (`ad8b1a6`) CPU s | hoy en la laptop CPU s |
+|---|---|---|---|
+| replay frío | 326–330 | — | 179,6 (~60) |
+| editar `c86` | 325–328 | — | 180,1 (~60) |
+| `scene_payload` tras editar | 29–33 | — | 62–77 (~21–26); sin malla 4,8 |
+| interferencia acotada `c53,c88` | 7,3 | 25,8 | 1,2 |
+| `engineering_check` (estructura + lints) | 46 + 93 | 159,9 + 305,3 | 64,2 + 13,9 (~26) |
+| `delivery_check` | 203–208 | — | 193,1 (~64), VERDE |
+| puerta sin sobrantes | 668 | — | 722,8 (~241) |
+| `sobrantes` | 958 (172 candidatas) | — | 2292,6 (~764; 186 candidatas, 104 sobran, 2 vueltas) |
+
+- `sobrantes` no se movió desde la F2 y es el 76 % de la puerta. Con contadores `process_time`:
+  `Trazador._candidatas` (losas numpy contra ~6900 cajas de cara, 367 000 rayos) 1273 s = **56 %**
+  (1096 en las sondas con codo); el campo de la muñeca 540 (24 %); `_vida` 189 (8 %); `Perform` de
+  OCCT 77 (3 %); construir el `Trazador` (197 veces) 71 (3 %). Por etapa, «apoyo» 46 % y «codo» 40 %.
+- **F2 de puerta-rapida**: la máscara del `Trazador` compartido ahorra ~3 %. La palanca es un índice
+  espacial EXACTO de las cajas de cara (mismas candidatas y mismo orden), con la igualdad de
+  `sobrantes` y de `fuentes.seguridad` como vara; después, el campo de la muñeca (24 %).
+- **`scene_payload` de una mutación por MCP**: el 92 % es teselar y armar 22 MB que el MCP descarta;
+  volumen y caja de todo son 4,8 s. Un modo sin mallas (`armar=` con el brief de lo afectado, como
+  `remove`/`undo`/`redo` con `?detail=diff`) quita ~25 % del `STATE_LOCK` de cada edición. Va con su
+  propio contrato.
+- Quedan cuatro llamadores de `bounding_box()` sin pasar a `caja()` en la puerta
+  (`installation_data`, `calidad_pernos.__init__`, `process._sheet_is_bent`, `bom_from_scene`): ~30 s
+  en el escritorio. Fix directo.
+- Lo que queda del replay es `drill_hole` + `join_bolted` (139 de 180 s); las cajas de las piezas
+  recién taladradas, 90 s.
+- Medidas guardadas en la laptop (`C:\t\mg-f4\`: `hoy-*.json`, `antes-checks.json`, scripts
+  `medir_trazador.py` y `medir_payload.py`); `hoy-trazador.json` es la base de igualdad de la F2 de
+  puerta-rapida.
