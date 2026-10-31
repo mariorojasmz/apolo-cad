@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1–D5, D7, D8 ajustadas); F1 (catálogo + ficha en la BOM) implementada, sin mergear; falta F2–F4. La F2 espera la F2 de puerta-fuera-de-catalogo
+nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0, F1 (catálogo y ficha en la BOM) y F3 (sin compra doble) mergeadas; falta la F2 (evaluador) y la F4 (verificar)
 descripcion: La puerta revisa que cada pie nivelador se pueda enroscar, quede trabado y nivele lo que pide el piso, y el catálogo trae los pies que el mercado vende
 ---
 
@@ -277,3 +277,26 @@ apoyos en `apoyo.capacidad` y sin lámina de instalación.
 - Para la F2: `fijadores_geom.reconocer_fijadores` no ve dos hexágonos coaxiales de entrecaras
   DISTINTO en un sólido (el de llave y la tuerca del `PIE-ART`): la tuerca incluida se lee de la
   ficha (`tuerca_incluida`, `tuerca_m`, `tuerca_sw`), no de la geometría.
+
+### F3 — la rosca no se compra dos veces (2026-10-31)
+
+`library/tornilleria_declarada.py`: una unión `perno` declarada sin pieza modelada entre un pie
+nivelador y cualquier otra pieza no compra fijador si la métrica de la unión es la del vástago (o
+el vástago no la dice). El pie se reconoce por la ficha (categoría `pies_niveladores`, métrica de
+`rosca`) o por el ROL anclado del nombre («Pie nivelador…», «Pie articulado nivelador…»,
+«Nivelador…», «Leveling foot»: `_es_pie_nivelador`); «Pie de amigo», «Pata…», «Placa del pie
+nivelador» o «Espárrago … del pie» no son pie. Decisiones tomadas en la fase:
+
+- no se usa `apoyos.clase_de_rol` tal cual: su clase «pie» incluye cualquier «Pie …» (una pata), y
+  quitar el perno de una pata atornillada sería una compra de menos; se exige «nivelador»;
+- una unión de OTRA métrica que el vástago sigue comprando (los pernos de anclaje de la base de
+  un `PIE-BA-*`: M12 por agujeros Ø14 de un pie M10);
+- la tuerca que la nota declara (contratuerca, tuerca soldada) sigue comprándose si nadie la
+  modeló; modelada sale por su fila de la BOM, como siempre;
+- **registro sin subir**: `bom.comprable` juzga `bom_from_scene` (`services/calidad_bom.insumo_bom`)
+  y no ve las filas declaradas (sólo BOM, CSV y costeo, por `services/bom_filas.filas_extra`): la
+  puerta no cambia.
+
+Tests: `tests/test_pie_nivelador_rosca.py` (antes/después sintético pie ↔ buje con «espárrago
+M10», pie de catálogo ↔ placa, anclaje M12 de un `PIE-BA`, otra métrica en el nombre, perno común
+de un «Pie de amigo», contratuerca declarada y modelada, reconocimiento por rol y por ficha).

@@ -28,7 +28,12 @@ ninguna otra, y una pieza de otra métrica no cuenta (F6, mezcladora 2026-10-27:
 guías cruzaban la caja de la caja de compuerta y le «cubrían» 6 de sus 8 M8×25).
 
 Qué NO se compra: la nota que dice que la tornillería viene con la pieza («(incluido)», «incluido
-con el detector») o que no hay perno suelto («sin perno suelto»).
+con el detector») o que no hay perno suelto («sin perno suelto»); y el fijador de una unión de un
+PIE NIVELADOR de su misma métrica (plan pie-nivelador D7: el vástago del pie ES el fijador, como
+«eje roscado»; la mesa inox compraba un «Espárrago M10» por pie además del pie). El pie se
+reconoce por su ficha (categoría `pies_niveladores`, métrica de `rosca`) o por su ROL («Pie
+nivelador…», `_es_pie_nivelador`), nunca por una palabra suelta; una unión de OTRA métrica (los
+pernos de anclaje de una base) sigue comprando, y la tuerca declarada (la contratuerca) también.
 
 El MATERIAL (F6): el campo `material_tornilleria` de la unión gana; si no, el de la nota (A2/A4
 con su clase, AISI 304/316, «inox» → acero inoxidable); si no, el de la ficha (acero 8.8). Con
@@ -64,6 +69,10 @@ _INOX_CLASE = re.compile(r"(?<![A-Za-z0-9])A([24])(?:-(\d{2}))?(?![\w-])")
 _AISI = re.compile(r"\bAISI\s*(3\d\d)(L?)\b", re.I)
 _INOX = re.compile(r"\binox", re.I)
 _METRICA = re.compile(r"(?<![A-Za-z])M(\d{1,2})(?!\d)")
+#: el ROL de un pie nivelador (anclado: «Pie de amigo» o «Pata» no lo son; «Pie nivelador
+#: articulado M12x100», «Pie articulado nivelador», «Nivelador M10», «Leveling foot»)
+_PIE_NIVELADOR = re.compile(r"^(?:pies?\s+(?:\w+\s+)?nivelador\w*|nivelador(?:es|a|as)?\b|"
+                            r"leveling\s+f(?:oo|ee)t)", re.I)
 
 
 def material_de_nota(nota: str | None) -> str | None:
@@ -132,6 +141,35 @@ def _tipo_modelado(feat) -> str | None:
     if es_nombre_de_tornilleria(nombre) and categoria_de_compra(nombre) == "pernos":
         return "fijador"
     return None
+
+
+def _es_pie_nivelador(feat) -> tuple[bool, str | None]:
+    """(¿es un pie nivelador?, la métrica de su vástago o None si no se lee): por la ficha
+    (`pies_niveladores`, su `rosca`) o por el ROL del nombre (D7 de pie-nivelador)."""
+    if feat is None:
+        return False, None
+    comp = CATALOG.get(getattr(feat, "component", None) or "")
+    if comp is not None:
+        if comp.category != "pies_niveladores":
+            return False, None
+        rosca = (comp.specs or {}).get("rosca")
+        try:
+            return True, f"M{int(float(rosca))}" if rosca else _metrica(feat)
+        except (TypeError, ValueError):
+            return True, _metrica(feat)
+    if _PIE_NIVELADOR.match(piece_role(getattr(feat, "name", "") or "").strip()):
+        return True, _metrica(feat)
+    return False, None
+
+
+def _rosca_del_pie(scene: dict, par, size: str) -> bool:
+    """¿Una pieza del par es un pie nivelador cuyo vástago es de la métrica de la unión (o no se
+    lee)? Entonces la unión es su rosca y el fijador es el pie."""
+    for pieza in par:
+        es, metrica = _es_pie_nivelador(scene.get(pieza))
+        if es and metrica in (None, size):
+            return True
+    return False
 
 
 def _lo_declarado(f: dict) -> tuple[dict | None, bool]:
@@ -244,9 +282,11 @@ def filas_declaradas(scene: dict, fasteners: dict) -> list[dict]:
         union = str(f.get("name") or "")
         qty = int(f.get("qty") or 1)
         fijador, con_tuerca = _lo_declarado(f)
+        par = (f.get("a"), f.get("b"))
+        if fijador is not None and _rosca_del_pie(scene, par, size):
+            fijador = None  # el vástago del pie ES el fijador (D7 de pie-nivelador)
         zona = _zona(ca, cb, 3.0 * float(size[1:]))
         faltan = {"fijador": qty if fijador is not None else 0, "tuerca": qty if con_tuerca else 0}
-        par = (f.get("a"), f.get("b"))
         del_par = usados.setdefault(tuple(sorted(map(str, par))), set())
         for pieza in par:  # la unión nombra a la tornillería misma («perno ↔ eje roscado»)
             if (t := modelado.get(pieza)) is not None:
