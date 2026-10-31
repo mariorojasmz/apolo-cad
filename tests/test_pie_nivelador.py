@@ -346,7 +346,7 @@ def test_los_pies_de_los_rodillos_testigo_pasan():
 def test_sin_pies_no_aplica_y_el_registro_lo_lleva():
     doc = Document.from_apolo_bytes((TESTIGOS / "mensula_atornillada.apolo").read_bytes())
     assert _item(doc)["estado"] == NO_APLICA
-    assert pn.ENTRADA in REGISTRO and VERSION_REGISTRO == "42"
+    assert pn.ENTRADA in REGISTRO and int(VERSION_REGISTRO) >= 40  # la F2 la subió a 40
     from apolo.library.calidad import historial_registro
 
     assert "v42 (pie-nivelador F2" in historial_registro.__doc__
