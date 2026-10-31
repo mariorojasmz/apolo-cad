@@ -28,6 +28,10 @@ _ROLES_NOMBRE = (
               r"varilla\s+roscada|bolts?|screws?|studs?"),
     ("chumacera", r"chumaceras?|soporte\s+de\s+rodamiento|pillow\s*block|uc[pft]l?\d*"),
     ("eje", r"ejes?|flechas?|[aá]rbol|shaft|axle"),
+    # la CORREA de un techo (el perfil que recibe la cubierta) es estructura, no un lazo
+    # (plan puerta-fuera-de-catalogo D3: «Correa delantera existente» salía transmisión)
+    ("estructura", r"correas?\b(?=.*\b(?:techo|cubierta|existentes?|perfil\w*|purlins?|"
+                   r"[CZ]\s*\d+))"),
     ("flexible", r"cadenas?|correas?|bandas?|fajas?|cintas?|chain|belt"),
     ("equipo", r"moto-?reductor(es)?|motor(es)?|reductor(es)?|gear-?motor"),
     ("guarda", r"guardas?|cubiertas?|protecci[oó]n|cubre\w*|c[aá]rter|bandejas?|resguardo|guard"),

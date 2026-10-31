@@ -121,7 +121,7 @@ def test_all_new_families_present():
     assert len(refs_in_category("bisagras")) == 14
     assert len(refs_in_category("tiradores")) == 7
     assert len(refs_in_category("correderas")) == 2
-    assert len(refs_in_category("tornilleria_madera")) == 8  # + 4 DIN 571 (union-en-perfil-hueco)
+    assert len(refs_in_category("tornilleria_madera")) == 20  # + 4 DIN 571 (union-en-perfil-hueco) + 12 EN 14592
     assert len(refs_in_category("cerraduras")) == 2
     assert len(refs_in_category("imanes_topes")) == 2
     # herraje de puerta corrediza/colgante (Ducasse U-100 / D-100)
@@ -150,7 +150,7 @@ def test_all_new_families_present():
     # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
     # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR); +5 prensaestopas M16–M40 (V8.5 F3)
     # +2 cables sin PE para aparatos de clase II (CABLE-5X1, CABLE-7X1)
-    assert len(CATALOG) == 508  # + 3 anclajes M12 largos (tfix 30/50/70, calza bajo la base), + 27 de bom-de-compra-fiel D5 (9 DIN 985, 18 DIN 125-A) + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago, + 1 empalme de campo de la banda (faja-compacta F1b)
+    assert len(CATALOG) == 520  # + 12 EN 14592 (puerta-fuera-de-catalogo D5), + 3 anclajes M12 largos (tfix 30/50/70, calza bajo la base), + 27 de bom-de-compra-fiel D5 (9 DIN 985, 18 DIN 125-A) + 3 pies con base de anclaje (plantilla-rodillos-cadena F8), + 1 rodamiento 6202-HEX11 (plantilla-rodillos-cadena F7), + 1 anclaje de expansión (plantilla-rodillos-cadena F6), + 1 interruptor de posición (lo-que-se-mueve F2), + 6 amortiguadores hidráulicos (amortiguador-externo), + 7 bloqueos de vástago, + 1 empalme de campo de la banda (faja-compacta F1b)
 
 
 def test_door_sliding_hardware():

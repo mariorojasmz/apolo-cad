@@ -6,7 +6,9 @@ dejó 128 sin medir (la estantería entera va con ellos). Aquí entran:
 
 - la ref de catálogo `tornilleria_madera` sin `llave` (el tornillo avellanado, `wood_screw`);
 - un sólido a medida cuyo ROL es de tornillo de madera (`ejes_giro.es_tirafondo`: «Tirafondo…»,
-  «Tornillo para madera…», DIN 571/96/7997) que `calidad_pernos` no midió.
+  «Tornillo para madera…», DIN 571/96/7997) que `calidad_pernos` no midió (desde la D3 de
+  puerta-fuera-de-catalogo, `calidad_pernos` los mide como `madera` con esta misma geometría:
+  aquí queda el que no reconoció).
 
 Su eje es el de su cilindro más largo (el vástago) y la CABEZA, el extremo más ancho (la cabeza
 avellanada; la punta es un cono que cierra en el eje): `t` = 0 en la cara alta de la cabeza. Lo
@@ -16,8 +18,6 @@ tornillo sin cabeza reconocible se cuenta, nunca bloquea.
 """
 
 from __future__ import annotations
-
-import math
 
 
 def es_tornillo_de_madera(feat, catalog) -> bool:
@@ -32,38 +32,24 @@ def es_tornillo_de_madera(feat, catalog) -> bool:
 
 def geometria_avellanado(solid) -> dict | None:
     """{asiento, dir (hacia la punta), cabeza, d, s, largo, tuercas: []} del tornillo de
-    cabeza avellanada (formato de `calidad_pernos.geometria_perno`) o None."""
-    from .calidad_pernos import _add, _cilindros, _dot, _sub
+    cabeza avellanada (formato de `calidad_pernos.geometria_perno`) o None. La cabeza la lee
+    `library/cabeza_revolucion.py` (también el acceso por impronta)."""
+    from apolo.library.cabeza_revolucion import cabeza_de_revolucion
 
-    cils = _cilindros(solid)
-    if not cils:
-        return None
-    vs = [(v.X, v.Y, v.Z) for v in solid.vertices()]
-
-    def extension(c) -> float:
-        ts = [_dot(_sub(v, c["p"]), c["eje"]) for v in c["vs"]]
-        return max(ts) - min(ts) if ts else 0.0
-
-    vastago = max(cils, key=extension)
-    p, e, r = vastago["p"], vastago["eje"], vastago["r"]
-    ts = [_dot(_sub(v, p), e) for v in vs]
-    t_lo, t_hi = min(ts), max(ts)
-
-    def radial(v, t) -> float:
-        w = _sub(v, p)
-        return math.sqrt(max(0.0, _dot(w, w) - t * t))
-
-    tol = 0.05 * max(t_hi - t_lo, 1.0)
-    r_lo = max((radial(v, t) for v, t in zip(vs, ts, strict=True) if t <= t_lo + tol), default=0.0)
-    r_hi = max((radial(v, t) for v, t in zip(vs, ts, strict=True) if t >= t_hi - tol), default=0.0)
-    if abs(r_hi - r_lo) < 0.3 or max(r_hi, r_lo) < r + 0.3:
+    c = cabeza_de_revolucion(solid)
+    if c is None:
         return None  # sin un extremo más ancho que el vástago: no se sabe dónde está la cabeza
-    if r_hi > r_lo:
-        asiento, dir_, s = _add(p, e, t_hi), (-e[0], -e[1], -e[2]), 2.0 * r_hi
-    else:
-        asiento, dir_, s = _add(p, e, t_lo), e, 2.0 * r_lo
-    return {"asiento": asiento, "dir": dir_, "cabeza": "avellanada", "d": 2.0 * r, "s": s,
-            "largo": t_hi - t_lo, "tuercas": []}
+    a = c["afuera"]
+    return {"asiento": c["tope"], "dir": (-a[0], -a[1], -a[2]), "cabeza": "avellanada",
+            "d": c["d"], "s": c["s"], "largo": c["largo"], "tuercas": []}
+
+
+def cabeza_conica(solid, g: dict) -> bool:
+    """¿La cabeza de `g` (`geometria_avellanado`) es AVELLANADA? (`cabeza_revolucion.es_avellanada`)"""
+    from apolo.library.cabeza_revolucion import es_avellanada
+
+    d = g["dir"]
+    return es_avellanada(solid, {"tope": g["asiento"], "afuera": (-d[0], -d[1], -d[2]), "d": g["d"]})
 
 
 def insumos_tornillos_madera(doc, esc, medidos: set[str]) -> tuple[list[dict], int]:

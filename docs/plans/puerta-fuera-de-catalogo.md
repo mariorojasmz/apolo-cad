@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0 hecha (Bitácora, D1–D8 ajustadas); falta F1–F6
+nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0, F1 (registro v33) y F2 (v35) mergeadas; falta F3–F6
 descripcion: La puerta juzga bien la madera, el plástico, el tornillo y la viga que no salen del catálogo, en vez de rechazarlos por no saber leerlos o aprobarlos sin mirarlos
 ---
 
@@ -299,3 +299,27 @@ Por modo (las piezas de cada máquina, para los tests de cada fase, en el report
 - `bom.comprable` le pide comprable a un elemento EXISTENTE del sitio (la cubierta sobre la que
   apoya la estructura de paneles): fix directo aparte.
 - La oreja del portamotor de rodillos: fix directo en curso (no es de este plan).
+
+### F2 — tornillería por rol e impronta (2026-10-30, registro v35: la rama la tomó como v34 y se renumeró al mergear, tras la v34 de plegables)
+
+Decisiones tomadas al implementar (vetables):
+
+- **Rol** = la palabra de tornillería ENCABEZA `piece_role` (`lints.es_nombre_de_tornilleria`);
+  «tirafondo» se suma a las palabras. La tuerca, sólo si encabeza (`tipo_de_tornilleria`; el
+  `_es_tuerca` de los tramos del agarre sigue por todo el nombre). «Tornillo autoperforante» sigue
+  siendo `perno` (no es madera; su serie queda fuera de esta fase).
+- **Tornillo de madera a medida**: geometría de cabeza avellanada (`cabeza_revolucion.py`: largo
+  TOTAL) o hexagonal (DIN 571, bajo cabeza). Su retención: el avellanado, rosca del lado de la
+  punta ≥ 6·d (EN 1995-1-1 § 8.7.2(3)), no los 2/3 de DIN 571 (que sigue para el hexagonal). El
+  avellanado de CATÁLOGO sigue fuera del agarre (sólo bordes), como antes.
+- **D5**: `TORNILLO-MADERA-{TX|PZ}-{d}` (Ø3–6) con `largos_mm` de la DoP de ETA-12/0114 tal cual
+  (Ø4,5 sin 65, Ø5 desde 25: la lista de productos no los trae), f_ax,k 14,0 / 12,0 y ρa 350. Los
+  4 `TIRAFONDO-*`: DIN 7997, huella PZ. Sin bump de `GEOM_CACHE_EPOCH`: ninguna geometría
+  existente cambia (refs y builder `countersunk_wood_screw` nuevos; los TIRAFONDO sólo ganan specs).
+- **D4**: Allen con l2 de ISO 2936 (más largo que la tabla anterior); destornillador = hoja (serie
+  B y serie A de ISO 8764-2) + mango y mano Ø40 × 100 (criterio de diseño), basta uno libre; Torx
+  por el n.º equivalente de PH/PZ (criterio). La justificación de un no evaluado tiene que nombrar
+  la herramienta (`puerta._HERRAMIENTA_RE`). Un avellanado de catálogo con `huella` entra al acceso.
+- **«Eje»** es parte móvil sólo si una unión declarada lo liga a un rodamiento, chumacera, algo que
+  gira o un equipo (o es hija de junta); la **«Correa»** de techo/existente/perfil es estructura y
+  lo anclado no es lazo. `VERSION_BATERIA` 8 (el acceso de la entrega cambió).

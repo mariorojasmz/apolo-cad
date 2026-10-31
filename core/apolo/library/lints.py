@@ -28,7 +28,7 @@ _AXIS_VEC = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
 # nombre — un barreno con un perno así NO está «sin perno» (falso positivo en la faja 38).
 # `s?` cubre plurales («pernos») y «tornillería» va aparte: la c704 del 38 se llama
 # «Tornillería ménsula soporte motor» y el \b de «tornillo» no la muerde (brecha 1).
-_BOLT_NAME_RE = re.compile(r"\b(perno|tornillo|tuerca|bulón|bulon|esp[aá]rrago|allen|"
+_BOLT_NAME_RE = re.compile(r"\b(perno|tornillo|tuerca|bulón|bulon|esp[aá]rrago|allen|tirafondo|"
                            r"bolt|screw|stud|nut)s?\b|torniller[ií]a", re.I)
 # lo que sólo MENCIONA la tornillería no es tornillería: «Eje fijo de cola Ø25 g6 (roscado p/
 # perno)» es un EJE que recibe el perno del tensor (plan puerta-de-publicacion D2: era el «1
@@ -40,20 +40,26 @@ _BOLT_NAME_RE = re.compile(r"\b(perno|tornillo|tuerca|bulón|bulon|esp[aá]rrago
 # es un tope que trae su espárrago, no tornillería suelta.
 _MENCION_RE = re.compile(r"(?<!\w)(p/|para|por|con)\s+(el\s+|los\s+|un\s+|su\s+)?"
                          r"(perno|tornillo|bulón|bulon|esp[aá]rrago|allen)s?\b", re.I)
+#: un CONJUNTO de tornillería: la palabra que encabeza es el juego, no la pieza
+_JUEGO_RE = re.compile(r"^(juegos?|kits?|sets?|conjuntos?|lotes?)\s+(de\s+)?", re.I)
 _EJE_ROL_RE = re.compile(r"^\s*(eje|árbol|arbol|shaft|bujes?|casquillos?|manguitos?|separador(es)?|"
                          r"espaciador(es)?|distanciador(es)?|bushings?|spacers?|sleeves?)\b", re.I)
 
 
 def es_nombre_de_tornilleria(nombre: str | None) -> bool:
-    """¿El NOMBRE dice que la pieza ES tornillería (no que la menciona)?"""
+    """¿El NOMBRE dice que la pieza ES tornillería (no que la menciona)? Por su ROL: la palabra
+    de tornillería ENCABEZA el rol (plan puerta-fuera-de-catalogo D3). «Arandela de perno…»,
+    «Taco … para tornillo» o «Pie nivelador higiénico M10 (compra: … espárrago M10x60 …)» nombran
+    tornillería sin serlo: el pie es un apoyo (lo saltaba `installation_data`)."""
     from .materials import piece_role, sin_especificacion
 
     # lo que la ESPECIFICACIÓN lista no es lo que la pieza es: «Pie nivelador · AISI 304,
     # espárrago M12x20 A2, …» es un pie, no un espárrago (F8 de hallazgos-del-revisor)
-    nombre = sin_especificacion(nombre)
-    if _EJE_ROL_RE.match(piece_role(nombre)):
+    rol = piece_role(sin_especificacion(nombre))
+    if _EJE_ROL_RE.match(rol):
         return False
-    return bool(_BOLT_NAME_RE.search(_MENCION_RE.sub(" ", nombre)))
+    rol = _JUEGO_RE.sub("", _MENCION_RE.sub(" ", rol).lstrip())  # «Juego de pernos M10» lo es
+    return bool(_BOLT_NAME_RE.match(rol))
 
 
 def _is_bolt(feat, catalog) -> bool:

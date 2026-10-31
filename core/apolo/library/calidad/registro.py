@@ -88,7 +88,7 @@ from . import sobrantes as so
 from .entrada import Entrada, Predicado, hay, hay_alguno, hecho, siempre  # noqa: F401 (re-export)
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "34"  # 34: pivote de lazo y remache ciego (historial en historial_registro.py)
+VERSION_REGISTRO = "35"  # 35: tornillería por rol e impronta (historial en historial_registro.py)
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 
@@ -225,7 +225,7 @@ REGISTRO: tuple = (
             "proceso", siempre, p.no_aplica_justificado),
     Entrada("union.acceso_herramienta", "Cada fijador evaluado y con una llave que entra y gira",
             "no se puede armar ni desarmar: la llave no alcanza la tuerca o la cabeza",
-            "criterio de taller (DFA, acceso de herramienta)", "montaje",
+            "criterio de taller (DFA, acceso de herramienta) · ISO 2936 · ISO 8764-2", "montaje",
             hay("tornilleria_llave", "sin tornillería de llave"), p.acceso_herramienta,
             "tornilleria_llave"),
     Entrada("montaje.interferencia_interna", "Sin choques entre las piezas de un mismo super-comando",

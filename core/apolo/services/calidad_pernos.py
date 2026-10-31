@@ -61,9 +61,16 @@ def _base_perp(eje):
 
 
 def tipo_de_tornilleria(feat, catalog) -> str | None:
-    """'perno' | 'madera' | 'esparrago' | None (no es un perno que el control mida)."""
+    """'perno' | 'madera' | 'esparrago' | None (no es un perno que el control mida).
+
+    A medida, por el ROL (plan puerta-fuera-de-catalogo D3): el tornillo de madera
+    («Tornillo para madera…», «Tirafondo…», «Tornillo autorroscante…», DIN 571/96/7997:
+    `ejes_giro.es_tirafondo`) es 'madera' y se mide con su serie de largos; la tuerca es la que
+    ENCABEZA el rol («Perno M8 con tuerca» es un perno)."""
+    from apolo.library.ejes_giro import es_tirafondo
     from apolo.library.esparrago import es_esparrago
     from apolo.library.lints import es_nombre_de_tornilleria
+    from apolo.library.materials import piece_role
 
     comp = catalog.get(getattr(feat, "component", None) or "")
     if comp is not None:
@@ -74,7 +81,11 @@ def tipo_de_tornilleria(feat, catalog) -> str | None:
             return "madera" if specs.get("llave") else None
         return None
     nombre = getattr(feat, "name", "") or ""
-    if _TUERCA_RE.search(nombre) or not es_nombre_de_tornilleria(nombre):
+    if _TUERCA_RE.match(piece_role(nombre)):
+        return None
+    if es_tirafondo(nombre):
+        return "madera"
+    if not es_nombre_de_tornilleria(nombre):
         return None
     return "esparrago" if es_esparrago(nombre) else "perno"
 
@@ -266,6 +277,21 @@ def geometria_perno(solid) -> dict | None:
             "largo": largo, "tuercas": tuercas}
 
 
+def _geometria_madera(solid) -> dict | None:
+    """El tornillo de MADERA (D3 de puerta-fuera-de-catalogo): con cabeza hexagonal (DIN 571), la
+    de un perno (largo bajo cabeza); avellanado, la de `calidad_tornillos_madera` (t = 0 en la
+    cara de arriba de la cabeza: su largo nominal es el total, la cabeza incluida)."""
+    from .calidad_tornillos_madera import cabeza_conica, geometria_avellanado
+
+    g = geometria_perno(solid)
+    if g is not None and g["cabeza"] == "hex":
+        return g
+    ga = geometria_avellanado(solid)
+    if ga is not None and (g is None or cabeza_conica(solid, ga)):
+        return ga
+    return g
+
+
 def _metrica(d: float) -> tuple[float, float]:
     """(Ø nominal, paso grueso) más cercanos a `d` medido."""
     from apolo.library.engineering.threads import COARSE
@@ -376,12 +402,16 @@ def insumo_perno(esc: _Escena, fid: str, feat, solid, tipo: str, esperadas: list
     `geometria` (formato de `geometria_perno`) la da quien ya la midió (el tornillo de madera
     avellanado de `calidad_tornillos_madera`)."""
     from apolo.library.materials import resolve_material
+    from apolo.library.tornillo_madera import huella_del_nombre
 
     base = {"fid": fid, "nombre": getattr(feat, "name", fid), "ref": feat.component,
             "madera_screw": tipo == "madera", "esperadas": esperadas}
+    if tipo == "madera":
+        base["huella"] = huella_del_nombre(base["nombre"])
     try:
         g = (geometria if geometria is not None else
              geometria_esparrago(esc, solid, catalog) if tipo == "esparrago"
+             else _geometria_madera(solid) if tipo == "madera"
              else geometria_perno(solid))
     except Exception:  # noqa: BLE001 — geometría rara: no evaluable, nunca rompe la puerta
         g = None

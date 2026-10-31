@@ -1,14 +1,55 @@
 category: tornilleria_madera
 # Tirafondos / tornillos de madera (cabeza avellanada plana). Pieza fija; peso total.
+# Norma y huella completadas (plan puerta-fuera-de-catalogo D5): tornillo para madera avellanado
+# de ranura en cruz DIN 7997, huella Pozidriv; ids estables. La geometría no cambia.
 families:
   - family: "TIRAFONDO"
     name_tpl: "Tirafondo {d}×{length}"
-    description_tpl: "Tornillo de madera Ø{d}×{length} mm, cabeza avellanada Ø{head_d}."
+    description_tpl: "Tornillo de madera Ø{d}×{length} mm, cabeza avellanada Ø{head_d}, DIN 7997, huella PZ."
     builder: wood_screw
     param_keys: [d, length, head_d]
-    specs_common: {tipo: "tirafondo (madera)", material: "acero zincado"}
+    specs_common: {tipo: "tirafondo (madera)", material: "acero zincado", norma: "DIN 7997", huella: "PZ"}
     variants:
-      - {ref: "TIRAFONDO-3x16", d: 3.0, length: 16, head_d: 6, weight: 0.001}
-      - {ref: "TIRAFONDO-4x40", d: 4.0, length: 40, head_d: 8, weight: 0.004}
-      - {ref: "TIRAFONDO-45x50", d: 4.5, length: 50, head_d: 9, weight: 0.006}
-      - {ref: "TIRAFONDO-5x60", d: 5.0, length: 60, head_d: 10, weight: 0.009}
+      - {ref: "TIRAFONDO-3x16", d: 3.0, length: 16, head_d: 6, punta: "PZ1", weight: 0.001}
+      - {ref: "TIRAFONDO-4x40", d: 4.0, length: 40, head_d: 8, punta: "PZ2", weight: 0.004}
+      - {ref: "TIRAFONDO-45x50", d: 4.5, length: 50, head_d: 9, punta: "PZ2", weight: 0.006}
+      - {ref: "TIRAFONDO-5x60", d: 5.0, length: 60, head_d: 10, punta: "PZ2", weight: 0.009}
+
+  # Tornillo para madera EN 14592, cabeza avellanada, huella Torx (TX) o Pozidriv (PZ), de LARGO
+  # A MEDIDA (plan puerta-fuera-de-catalogo D5): `length` (de insert_component) = largo nominal TOTAL (la cabeza
+  # avellanada incluida) y sólo los de `largos_mm` se compran. Fuente de largos y de f_ax,k: DoP
+  # n.º 1 de tornillo EN 14592 bajo ETA-12/0114 (lista de productos; f_ax,k = 14,0 N/mm² para
+  # 2,5 ≤ d < 6 y 12,0 para 6 ≤ d ≤ 8); ρa = 350 kg/m³, la densidad de los ensayos EN 1382 que
+  # declaran las DoP EN 14592. Ø cabeza ≈ 2·d y punta TX/PZ por Ø: del orden de esa misma
+  # familia (REFERENCIAL; verificar con el proveedor). La ficha guarda f_ax,k y ρa, no una carga:
+  # bajo Ø6 la capacidad sale de EN 1995-1-1+A1 ec. 8.40a con la densidad de la madera que se une
+  # (`library/tornillo_madera.py`). cost = USD REFERENCIAL por unidad.
+  - family: "TORNILLO-MADERA-TX"
+    name_tpl: "Tornillo para madera EN 14592 avellanado TX Ø{d:g}"
+    description_tpl: "Tornillo para madera EN 14592, cabeza avellanada Ø{head_d}, huella {punta}, acero zincado; largo nominal total (cabeza incluida) de la serie de la ficha."
+    builder: countersunk_wood_screw
+    param_keys: [d, head_d, largo_ref]
+    weight_formula: "7.85e-6 * 0.785 * d * d * largo_ref"
+    specs_common: {tipo: "tornillo para madera avellanado", material: "acero zincado", norma: "EN 14592", huella: "TX", rho_a_kg_m3: 350}
+    variants:
+      - {ref: "TORNILLO-MADERA-TX-3", d: 3.0, head_d: 6.0, largo_ref: 30, punta: "TX10", f_ax_k_mpa: 14.0, cost: 0.02, largos_mm: [15, 16, 20, 25, 30, 35, 40, 45]}
+      - {ref: "TORNILLO-MADERA-TX-3.5", d: 3.5, head_d: 7.0, largo_ref: 35, punta: "TX15", f_ax_k_mpa: 14.0, cost: 0.02, largos_mm: [16, 20, 25, 30, 35, 40, 45, 50, 55]}
+      - {ref: "TORNILLO-MADERA-TX-4", d: 4.0, head_d: 8.0, largo_ref: 40, punta: "TX20", f_ax_k_mpa: 14.0, cost: 0.03, largos_mm: [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80]}
+      - {ref: "TORNILLO-MADERA-TX-4.5", d: 4.5, head_d: 9.0, largo_ref: 50, punta: "TX20", f_ax_k_mpa: 14.0, cost: 0.03, largos_mm: [20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80]}
+      - {ref: "TORNILLO-MADERA-TX-5", d: 5.0, head_d: 10.0, largo_ref: 60, punta: "TX25", f_ax_k_mpa: 14.0, cost: 0.04, largos_mm: [25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 100, 110, 120]}
+      - {ref: "TORNILLO-MADERA-TX-6", d: 6.0, head_d: 12.0, largo_ref: 80, punta: "TX30", f_ax_k_mpa: 12.0, cost: 0.06, largos_mm: [20, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200, 220, 240, 250, 260, 280, 300]}
+
+  - family: "TORNILLO-MADERA-PZ"
+    name_tpl: "Tornillo para madera EN 14592 avellanado PZ Ø{d:g}"
+    description_tpl: "Tornillo para madera EN 14592, cabeza avellanada Ø{head_d}, huella {punta}, acero zincado; largo nominal total (cabeza incluida) de la serie de la ficha."
+    builder: countersunk_wood_screw
+    param_keys: [d, head_d, largo_ref]
+    weight_formula: "7.85e-6 * 0.785 * d * d * largo_ref"
+    specs_common: {tipo: "tornillo para madera avellanado", material: "acero zincado", norma: "EN 14592", huella: "PZ", rho_a_kg_m3: 350}
+    variants:
+      - {ref: "TORNILLO-MADERA-PZ-3", d: 3.0, head_d: 6.0, largo_ref: 30, punta: "PZ1", f_ax_k_mpa: 14.0, cost: 0.02, largos_mm: [15, 16, 20, 25, 30, 35, 40, 45]}
+      - {ref: "TORNILLO-MADERA-PZ-3.5", d: 3.5, head_d: 7.0, largo_ref: 35, punta: "PZ1", f_ax_k_mpa: 14.0, cost: 0.02, largos_mm: [16, 20, 25, 30, 35, 40, 45, 50, 55]}
+      - {ref: "TORNILLO-MADERA-PZ-4", d: 4.0, head_d: 8.0, largo_ref: 40, punta: "PZ2", f_ax_k_mpa: 14.0, cost: 0.03, largos_mm: [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80]}
+      - {ref: "TORNILLO-MADERA-PZ-4.5", d: 4.5, head_d: 9.0, largo_ref: 50, punta: "PZ2", f_ax_k_mpa: 14.0, cost: 0.03, largos_mm: [20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80]}
+      - {ref: "TORNILLO-MADERA-PZ-5", d: 5.0, head_d: 10.0, largo_ref: 60, punta: "PZ2", f_ax_k_mpa: 14.0, cost: 0.04, largos_mm: [25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 100, 110, 120]}
+      - {ref: "TORNILLO-MADERA-PZ-6", d: 6.0, head_d: 12.0, largo_ref: 80, punta: "PZ3", f_ax_k_mpa: 12.0, cost: 0.06, largos_mm: [20, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200, 220, 240, 250, 260, 280, 300]}

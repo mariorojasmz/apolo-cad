@@ -275,8 +275,10 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
   Revisa ≤ `MAX_PAIRS` por página (`desde`, orden estable); si recorta lo declara
   (`parejas_sin_revisar`, `desde_siguiente`) y la puerta lo dice.
 - `lints.predelivery_lints`: «barreno de paso Ø7-22 sin perno en su eje» y «pieza sin grupo NI
-  unión declarada» (excluye guías, superficies y herraje). Reconoce tornillería a medida por
-  NOMBRE (`_is_bolt`) y, por la MISMA medida de `union.agujeros` (inyectada:
+  unión declarada» (excluye guías, superficies y herraje). Reconoce tornillería a medida por el
+  ROL que ENCABEZA el nombre (`_is_bolt`: «Arandela de perno» o un pie con «espárrago» no lo son;
+  el tornillo de madera es `madera` con la serie de su ficha, `tornillo_madera.py`) y, por la
+  MISMA medida de `union.agujeros` (inyectada:
   `services/calidad_agujeros.agujeros_atribuidos`), la que un `fasten` perno declara sin modelar.
   Todo matcher por nombre nuevo lleva guarda de anclaje/plurales y un test con el nombre REAL.
   «Soldadura imposible» (`lint_soldadura.py`) es el único lint ERROR (bloqueante en `delivery.py`);
@@ -310,8 +312,11 @@ Catálogo, builders, materiales, chapa y cálculo (`engineering/`). Lo transvers
 - **¿Entra la llave?** (`acceso_herramienta.py`): la tuerca/cabeza se reconoce por GEOMETRÍA
   (`fijadores_geom.py`: 3 pares de caras a 60°), no por catálogo; sus fantasmas
   (`fantasmas_herramienta.py`) se cruzan con los vecinos. La pieza de asiento NO se excluye
-  entera: los fantasmas arrancan a 1 mm del asiento. Ninguna libre = ROJO, sólo boca = aviso,
-  sin hexágono = no evaluado. Varios hexágonos coaxiales en un sólido son varios fijadores
+  entera: los fantasmas arrancan a 1 mm del asiento. Ninguna libre = ROJO, sólo boca = aviso.
+  Sin hexágono, la impronta DECLARADA (ficha `huella` o nombre: TX, PZ, PH, ranura, Allen) va con
+  destornillador o punta en línea con el eje y la tuerca martillo/de barril/inserto, por su perno
+  (`acceso_impronta.py`); lo demás, no evaluado, justificable con la herramienta escrita
+  ([puerta-fuera-de-catalogo](../../../docs/plans/puerta-fuera-de-catalogo.md) D4). Varios hexágonos coaxiales en un sólido son varios fijadores
   (`reconocer_fijadores`). Sin hexágono: un remache (`herramienta: remachadora`) se lee por su
   cilindro mayor con la remachadora coaxial; un DIN 571 (`llave: true`) es tornillería de llave;
   un DIN 603 lo aprieta su tuerca, como el espárrago

@@ -75,6 +75,9 @@ _MEDIDA_RE = re.compile(r"\b\d+(?:[.,]\d+)?\s*[x×]\s*\d+")
 #: minúscula: «EN 10088-2» es la norma (`siglas_norma`), no la preposición
 _COMPLEMENTO_RE = re.compile(r"\s*\(|\s+(?:con|para|sin|y|e|del|al|por|sobre|bajo|entre|tras|"
                              r"contra|(?-i:en)|de\s+(?:la|las|los|el|un|una))\b", re.I)
+#: el complemento que nombra OTRA pieza (o la ubicación entre paréntesis): ahí la norma ya no es
+#: de la pieza
+_OTRA_PIEZA_RE = re.compile(r"\s*\(|\s+(?:con|para|sin|y|e)\b", re.I)
 #: roles que se FABRICAN aunque nombren una norma (la de otra pieza o la de su plano)
 _FABRICADO = re.compile(r"^(ejes?|placas?|soportes?|m[ée]nsulas?|chapas?|tapas?|guardas?|"
                         r"bastidor\w*|largueros?|travesa[ñn]os?|perfil\w*|tubos?|barras?|bridas?|"
@@ -135,10 +138,23 @@ def _declaracion(nombre: str | None) -> str:
 
 
 def cabeza(nombre: str | None) -> str:
-    """El rol hasta su primer complemento: lo que DESIGNA a la pieza."""
+    """El rol hasta su primer complemento: lo que DESIGNA a la pieza. Si la cabeza no trae norma
+    y el complemento es de LUGAR («del», «en», «sobre»…), la norma que lo sigue dentro de ese
+    tramo es de la pieza y no se corta (plan puerta-fuera-de-catalogo D3, ajuste F0): «Arandela
+    ancha del tablero DIN 9021 M6» → «Arandela ancha DIN 9021 M6». Un paréntesis o un «con»,
+    «para», «y»… nombran OTRA pieza: ahí se corta («… (topes con anillos DIN 471)»)."""
     rol = piece_role(nombre or "")
     m = _COMPLEMENTO_RE.search(rol)
-    return (rol[:m.start()] if m else rol).strip()
+    if m is None:
+        return rol.strip()
+    cab = rol[:m.start()].strip()
+    if NORMA_RE.search(cab) or _OTRA_PIEZA_RE.match(rol[m.start():]):
+        return cab
+    resto = rol[m.end():]
+    corte = _OTRA_PIEZA_RE.search(resto)
+    tramo = resto[:corte.start()] if corte else resto
+    n = NORMA_RE.search(tramo)
+    return f"{cab} {tramo[n.start():].strip()}" if n else cab
 
 
 def norma_del_nombre(nombre: str | None) -> str:

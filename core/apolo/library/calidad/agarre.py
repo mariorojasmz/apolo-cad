@@ -28,11 +28,13 @@ evidencia con sus números):
   entraba por UNA aleta del tensor: la otra aleta estaba pasada la punta).
 - **retención**: con tuerca, le sobran ≥ 2 pasos de hilo; sin tuerca, la rosca engancha
   ≥ 1·d en acero y ≥ 1,5·d en aluminio o fundición (VDI 2230 / criterio de taller); en madera,
-  ≥ 2/3 del largo dentro (DIN 571, el criterio de `fijacion.tornillo_madera`). El perno o pasador
+  ≥ 2/3 del largo dentro (DIN 571, el criterio de `fijacion.tornillo_madera`) y, el avellanado
+  (`cabeza: "avellanada"`), ≥ 6·d de rosca del lado de la punta (EN 1995-1-1 § 8.7.2(3)). El perno o pasador
   que es EJE de una junta de giro, además, va TRABADO (tuerca autoblocante, contratuerca, pasador
   de aletas o anillo de retención) y no es un tirafondo, un tornillo de madera ni un remache
   ciego (`library/ejes_giro.py`); si no, FALLA con la junta y el motivo.
-- **largo**: el largo es de la serie (ISO 4014/4017/4762; DIN 571) y el catálogo lo vende; el
+- **largo**: el largo es de la serie (ISO 4014/4017/4762; DIN 571; el tornillo de madera a
+  medida, la de la ficha de su tipo: `largos_perno.ref_para(madera=True)`) y el catálogo lo vende; el
   ESPÁRRAGO (`cabeza: "esparrago"`, t = 0 en su base y su tuerca en la punta: F3c), de la serie
   de espárragos, sin ficha.
 """
@@ -146,7 +148,11 @@ def _retencion(p, largo, d, paso, piezas, tuercas, tramos) -> tuple[tuple, str |
     if mejor is None:
         return (FALLA, _NADA, {"largo_mm": round(largo, 1)}), None
     t, eng = mejor
-    if p.get("madera_screw"):
+    if p.get("madera_screw") and p.get("cabeza") == "avellanada":  # D3 de fuera-de-catalogo
+        from ..tornillo_madera import NORMA_RETENCION, PENETRACION_MIN_D
+
+        pide, regla = PENETRACION_MIN_D * d, NORMA_RETENCION
+    elif p.get("madera_screw"):
         pide, regla = FRACCION_MADERA * largo, "≥ 2/3 del largo dentro de la madera (DIN 571)"
     else:
         k = _k_material(t.get("material"))
@@ -207,7 +213,8 @@ def _pasador(p: dict) -> tuple:
 def _largo(p: dict, largo: float, d: float) -> tuple:
     if p.get("cabeza") == "esparrago":
         return _largo_esparrago(p, largo, d)
-    ref = p.get("ref") or ref_para(d, p.get("cabeza", "hex"))
+    ref = p.get("ref") or ref_para(d, p.get("cabeza", "hex"), bool(p.get("madera_screw")),
+                                   p.get("huella"))
     nums = {"largo_mm": round(largo, 1), "ref": ref}
     anclaje = _anclaje_de_catalogo(ref)
     if anclaje is not None:  # se compra por su ficha: el largo medido (sin la camisa) no es ISO
@@ -262,10 +269,11 @@ _CONTROLES = {
                   "madera) y la articulación se suelta",
                   "VDI 2230 (enganche de rosca) · criterio de taller (≥ 2 hilos fuera de la "
                   "tuerca; eje de giro con DIN 985 / ISO 7040, contratuerca, DIN 94 o DIN 471) "
-                  "· DIN 571 (madera)"),
+                  "· DIN 571 / EN 1995-1-1 § 8.7.2(3) (madera)"),
     "largo": ("agarre.largo", "Largo de perno de la serie comercial y del catálogo",
               "perno que no se puede comprar o que el modelo dibujó de un largo inventado",
-              "ISO 4014 / ISO 4017 / ISO 4762 (serie de largos) · DIN 571"),
+              "ISO 4014 / ISO 4017 / ISO 4762 (serie de largos) · DIN 571 · EN 14592 (la serie "
+              "de su ficha)"),
 }
 
 

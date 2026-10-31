@@ -52,8 +52,9 @@ def es_tornilleria(p: Pieza) -> bool:
 
 def clase_flexible(p: Pieza) -> str | None:
     """«banda» (la banda del transportador: superficie de trabajo), «transmision» (cadena o
-    correa de transmisión) o None."""
-    if p.rol != "flexible" and p.categoria != "transmision":
+    correa de transmisión) o None. Lo ANCLADO a tierra no es un lazo que se mueve (una «Correa»
+    de techo existente; plan puerta-fuera-de-catalogo D3)."""
+    if (p.rol != "flexible" and p.categoria != "transmision") or getattr(p, "anclada", False):
         return None
     if p.categoria == "transmision":
         return "transmision" if p.rol == "flexible" else None

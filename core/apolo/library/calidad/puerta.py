@@ -11,6 +11,8 @@ Ninguno decide NO_APLICA: eso lo dice sólo el `aplica_si` de su entrada en el r
 
 from __future__ import annotations
 
+import re
+
 from .item import FALLA, OK, SIN_EVALUAR, recortar
 
 VERDE = "VERDE"
@@ -133,30 +135,59 @@ def no_aplica_justificado(ins: dict) -> dict:
               {"justificados": justificados})
 
 
+#: la justificación de un fijador sin evaluar escribe la HERRAMIENTA con que se aprieta (D4 de
+#: puerta-fuera-de-catalogo): sin ella, «no aplica» no explica cómo se arma
+_HERRAMIENTA_RE = re.compile(r"\b(llaves?|destornillador\w*|puntas?|allen|torx|pozidriv|phillips|"
+                             r"\bTX\d*|\bPZ\d*|\bPH\d*|copas?|vasos?|dados?|remachadora|"
+                             r"atornillador\w*|herramientas?|a\s+mano)\b", re.I)
+REGLA_ACCESO = "union.acceso_herramienta"
+
+
 def acceso_herramienta(ins: dict) -> dict:
-    """Todo fijador de llave EVALUADO y con herramienta que entre (un «no evaluado» se resuelve:
-    D2). Sólo boca = FALLA también (la puerta de entrega lo deja en aviso)."""
+    """Todo fijador EVALUADO (llave por su hexágono, destornillador o punta por su impronta, la
+    tuerca martillo por su perno) y con herramienta que entre (D2). Sólo boca = FALLA también (la
+    puerta de entrega lo deja en aviso). Lo que siga sin evaluar pasa si está JUSTIFICADO por
+    escrito con la herramienta (regla `union.acceso_herramienta`, con o sin `pieza`: D4 de
+    puerta-fuera-de-catalogo)."""
+    from .justificadas import citar, del_aviso
+
     rep = ins.get("acceso") or {}
     sin = rep.get("sin_herramienta") or []
     boca = rep.get("solo_boca") or []
     no_ev = rep.get("no_evaluados") or []
     ev = {"evaluados": rep.get("evaluados", 0), "sin_herramienta": len(sin),
           "solo_boca": len(boca), "no_evaluados": len(no_ev)}
+    ev.update({k: rep[k] for k in ("por_impronta", "por_su_perno") if rep.get(k)})
     if sin or boca:
         casos = [{"id": e.get("id"), "nombre": e.get("nombre"), "llave_mm": e.get("llave_mm"),
-                  "bloquean": (e.get("bloquean") or [])[:5], "problema": problema}
+                  **({"herramienta": e["herramienta"]} if e.get("herramienta") else {}),
+                  "bloquean": (e.get("bloquean") or [])[:5],
+                  "problema": problema if e.get("llave_mm") is not None or lista is boca
+                  else "el destornillador no entra"}
                  for lista, problema in ((sin, "la llave no entra"), (boca, "sólo llave de boca"))
                  for e in lista]
         return _r(FALLA, f"{len(sin)} sin herramienta que entre y {len(boca)} sólo con llave de "
                          "boca", {**ev, **recortar(casos)}, [e.get("id") for e in [*sin, *boca]])
-    if no_ev:
-        casos = [{"id": e.get("id"), "nombre": e.get("nombre"), "motivo": e.get("motivo")}
-                 if isinstance(e, dict) else {"id": str(e)} for e in no_ev]
-        return _r(SIN_EVALUAR, f"{len(no_ev)} fijador(es) sin evaluar (hexágono no reconocido o "
-                               "fuera de tabla): arregla el reconocimiento o el modelo",
+    js = [j for j in (ins.get("justificadas") or []) if _HERRAMIENTA_RE.search(j.get("porque", ""))]
+    casos, justificados = [], []
+    for e in no_ev:
+        caso = ({"id": e.get("id"), "nombre": e.get("nombre"), "motivo": e.get("motivo")}
+                if isinstance(e, dict) else {"id": str(e)})
+        j = del_aviso(REGLA_ACCESO, [caso["id"]], js)
+        (justificados.append({**caso, "justificacion": citar(j)}) if j else casos.append(caso))
+    if justificados:
+        ev["justificados"] = justificados[:20]
+    if casos:
+        return _r(SIN_EVALUAR, f"{len(casos)} fijador(es) sin evaluar (sin hexágono ni impronta "
+                               "reconocible, o fuera de tabla): arregla el reconocimiento o el "
+                               "modelo, o justifícalo por escrito con la herramienta con que se "
+                               f"aprieta (set_justifications, regla «{REGLA_ACCESO}» y `pieza`)",
                   {**ev, **recortar(casos)},
                   [c.get("id") for c in casos])
-    return _r(OK, f"{ev['evaluados']} fijador(es) con copa o anillo que entra y gira", ev)
+    extra = "".join((f"; {rep['por_impronta']} por su impronta" if rep.get("por_impronta") else "",
+                     f"; {len(justificados)} justificado(s) con su herramienta" if justificados
+                     else ""))
+    return _r(OK, f"{ev['evaluados']} fijador(es) con copa o anillo que entra y gira{extra}", ev)
 
 
 def interferencia_interna(ins: dict) -> dict:

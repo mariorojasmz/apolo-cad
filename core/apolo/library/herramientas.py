@@ -13,6 +13,10 @@ taller, no la de pared mínima. Columnas (mm):
 - `anillo_d`: Ø exterior de la cabeza de anillo de la combinada (≈ 1.5·s, D1).
 - `boca_b`: ancho exterior de la cabeza de boca (llave abierta).
 - `espesor`: grosor de la cabeza (anillo y boca) a lo largo del eje del perno.
+
+La llave Allen y el destornillador (Torx, Pozidriv, Phillips, ranura) van con su fuente junto a
+su tabla (plan puerta-fuera-de-catalogo D4): ISO 2936 (brazo corto l2), ISO 8764-2 (hoja PH/PZ);
+lo que no tiene norma (Torx, la mano) va como criterio de diseño, escrito como tal.
 """
 
 from __future__ import annotations
@@ -45,11 +49,75 @@ _LLAVES: dict[float, tuple[float, float, float, float]] = {
     46.0: (62.0, 69.0, 97.0, 20.0),
 }
 
-# llave Allen (entrecaras) → largo del brazo CORTO de la L (el que entra al hueco)
+# llave Allen (entrecaras) → largo del brazo CORTO de la L (el que entra al hueco): l2 de ISO
+# 2936:2014 Tabla 1 (plan puerta-fuera-de-catalogo D4; antes, una envolvente de catálogo menor)
 _ALLEN: dict[float, float] = {
-    2.0: 15.0, 2.5: 18.0, 3.0: 20.0, 4.0: 25.0, 5.0: 28.0, 6.0: 32.0, 8.0: 36.0,
-    10.0: 40.0, 12.0: 45.0, 14.0: 56.0, 17.0: 63.0, 19.0: 70.0, 22.0: 80.0,
+    2.0: 18.0, 2.5: 20.5, 3.0: 23.0, 4.0: 29.0, 5.0: 33.0, 6.0: 38.0, 8.0: 44.0,
+    10.0: 50.0, 12.0: 57.0, 14.0: 70.0, 17.0: 80.0, 19.0: 89.0, 22.0: 102.0,
 }
+# llave Allen del tornillo de cabeza cilíndrica ISO 4762 / DIN 912 por su Ø nominal (s de la
+# norma): para la cabeza Allen que el nombre declara y la geometría no modela (el hueco)
+ALLEN_ISO4762: dict[float, float] = {
+    3.0: 2.5, 4.0: 3.0, 5.0: 4.0, 6.0: 5.0, 8.0: 6.0, 10.0: 8.0, 12.0: 10.0, 14.0: 12.0,
+    16.0: 14.0, 20.0: 17.0, 24.0: 19.0,
+}
+
+# DESTORNILLADOR (Torx, Pozidriv, Phillips, ranura): hoja + mango y mano EN LÍNEA con el eje del
+# tornillo (plan puerta-fuera-de-catalogo D4). Largo de la hoja PH/PZ: ISO 8764-2:2004 Tabla 1
+# (serie A 25 mm, «de bolsillo»; serie B por número de punta). Torx no tiene largo normalizado
+# (ISO 10664 sólo fija la impronta) y la mano tampoco: CRITERIO DE DISEÑO, el de la punta PH/PZ
+# del mismo tamaño y un mango corriente Ø 28–38 mm con la mano alrededor.
+MANO_D_MM = 40.0   # criterio de diseño: mango + mano que lo envuelve
+MANO_L_MM = 100.0  # criterio de diseño: lo que ocupan el mango y el puño en línea con el eje
+# n.º de punta → (Ø de la hoja: criterio de diseño, envolvente de catálogo; serie A; serie B)
+_HOJA: dict[int, tuple[float, float | None, float]] = {
+    0: (3.0, 25.0, 60.0), 1: (4.5, 25.0, 75.0), 2: (6.0, 25.0, 100.0), 3: (8.0, None, 150.0),
+    4: (10.0, None, 200.0),
+}
+PUNTA_RANURA_MM = 10.0  # criterio de diseño: la hoja plana barre al girar un disco del Ø de la cabeza
+
+
+@dataclass(frozen=True)
+class Destornillador:
+    """Envolvente coaxial de un destornillador: tramos (radio, z0, z1) desde la cabeza."""
+
+    nombre: str
+    tramos: tuple[tuple[float, float, float], ...]
+
+
+def numero_de_punta(huella: str, d: float, tamano: int | None = None) -> int:
+    """El n.º de punta PH/PZ (o su equivalente para Torx y ranura): el del nombre si lo dice
+    («PZ2»; Torx: TX ≤ 15 → 1, ≤ 30 → 2, ≤ 45 → 3); si no, por el Ø del tornillo (ISO 4757 /
+    fabricantes: Ø ≤ 3,5 → 1, ≤ 5 → 2, ≤ 8 → 3, más → 4)."""
+    if tamano is not None:
+        if huella == "TX":
+            return 1 if tamano <= 15 else 2 if tamano <= 30 else 3 if tamano <= 45 else 4
+        if huella in ("PZ", "PH") and tamano in _HOJA:
+            return tamano
+    return 1 if d <= 3.5 else 2 if d <= 5.0 else 3 if d <= 8.0 else 4
+
+
+def destornilladores(huella: str, d: float, cabeza_d: float, tamano: int | None = None,
+                     holgura: float = 1.0) -> list[Destornillador]:
+    """Los destornilladores que pueden apretar la impronta (basta UNO libre): hoja larga (serie
+    B) y de bolsillo (serie A), cada uno con su mano en línea. `holgura`: desde la cara de la
+    cabeza (la de `acceso_herramienta.HOLGURA_ASIENTO_MM`)."""
+    n = numero_de_punta(huella, d, tamano)
+    hoja_d, serie_a, serie_b = _HOJA[n]
+    out = []
+    for serie, largo in (("B", serie_b), ("A", serie_a)):
+        if largo is None:
+            continue
+        tramos = []
+        z = holgura
+        if huella == "ranura":  # la punta plana gira: barre el Ø de la cabeza
+            tramos.append((cabeza_d / 2.0, z, z + PUNTA_RANURA_MM))
+            z += PUNTA_RANURA_MM
+        tramos.append((hoja_d / 2.0, z, holgura + largo))
+        tramos.append((MANO_D_MM / 2.0, holgura + largo, holgura + largo + MANO_L_MM))
+        out.append(Destornillador(f"destornillador {huella} n.º {n} (serie {serie}, hoja "
+                                  f"{largo:g} mm)", tuple(tramos)))
+    return out
 
 
 @dataclass(frozen=True)

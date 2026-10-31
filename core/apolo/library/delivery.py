@@ -24,12 +24,13 @@ VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 #: La versión de la batería del núcleo: súbela si cambia un chequeo o su umbral. Sólo se publica
 #: con reglas de extensión (`version_bateria` = «1+nombre.version_entrega»); sin ellas, el
 #: resultado es el de siempre (plan puntos-de-extension-entregables, D3).
-VERSION_BATERIA = 7  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
+VERSION_BATERIA = 8  # 2: el balance de producto (plan balance-de-producto, D10); 3: el
 #                      enclavamiento de los resguardos (plan mandos-de-seguridad, F2b); 4: los
 #                      nombres por función (plan nombres-por-funcion, D8); 5: el ERC exige el hilo
 #                      PE de cada cable en un borne de tierra en sus dos extremos; 6: las poses
 #                      abierto/cerrado de cada resguardo con su junta (plan lo-que-se-mueve, D3);
-#                      7: lo declarado unido se toca (plan uniones-que-tocan, D2)
+#                      7: lo declarado unido se toca (plan uniones-que-tocan, D2); 8: el acceso
+#                      de herramienta por la impronta y por su perno (puerta-fuera-de-catalogo D4)
 
 # Umbral de sujeción (compartido con la alarma ambiental de la capa API): bajo esto
 # —un croquis de 2-3 piezas— exigir anclajes sería ruido. Conservador a propósito:
@@ -66,11 +67,14 @@ def _acceso(rep: dict, bloqueantes, avisos, no_aplica, ok, nombre_de) -> None:
     sin, boca = rep.get("sin_herramienta") or [], rep.get("solo_boca") or []
     if sin:
         p = sin[0]
+        # la impronta (D4 de puerta-fuera-de-catalogo) no tiene entrecaras: dice su huella
+        llave = (f"llave {p['llave_mm']:g} mm" if p.get("llave_mm") is not None
+                 else f"huella {p.get('tipo')}")
         bloqueantes.append({
             "regla": "acceso de herramienta · la llave no entra",
             "piezas": _nombres(list(dict.fromkeys(e["id"] for e in sin)), nombre_de),
             "detalle": f"{len(sin)} tuerca(s)/cabeza(s) sin copa, anillo ni boca que entre y "
-                       f"gire (la primera: {p.get('nombre')}, llave {p.get('llave_mm'):g} mm); "
+                       f"gire (la primera: {p.get('nombre')}, {llave}); "
                        f"estorban: {estorban(sin)}. No se puede armar ni desarmar: da holgura "
                        "a la herramienta (cambia el perfil, mueve la pieza o voltea el perno).",
         })
@@ -84,7 +88,7 @@ def _acceso(rep: dict, bloqueantes, avisos, no_aplica, ok, nombre_de) -> None:
         })
     if rep.get("no_evaluados"):
         no_aplica.append(f"acceso de herramienta: {len(rep['no_evaluados'])} fijador(es) sin "
-                         "hexágono reconocible o fuera de tabla (no evaluados)")
+                         "hexágono ni impronta reconocible o fuera de tabla (no evaluados)")
     if rep.get("evaluados") and not sin and not boca:
         ok.append(f"acceso de herramienta ({rep['evaluados']} fijador(es))")
 

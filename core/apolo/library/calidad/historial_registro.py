@@ -106,4 +106,18 @@ pieza raíz; si no, SIN_EVALUAR con el porqué (`calidad_lazos.py`; el compás d
 1,8 m con su lazo declarado deja de fallar como alojamiento arrastrado); y `agarre.retencion` falla
 el REMACHE CIEGO (DIN 7337, ISO 15973–15984, ficha de remachadora) que es eje de una junta de
 giro, con la salida de mercado (remache de hombro o perno de hombro ISO 7379 con autoblocante).
+v35 (puerta-fuera-de-catalogo F2, D3–D5; la v33 es su F1) la tornillería a medida se clasifica por
+el ROL que encabeza el nombre (`lints.es_nombre_de_tornilleria`: «Arandela de perno…», un taco o
+un pie nivelador con «espárrago» en el paréntesis ya no son pernos; la tuerca, si encabeza): el
+tornillo de madera a medida («Tornillo para madera…», «Tirafondo…», «autorroscante», DIN 571/96/
+7997) es `madera` en `union.agarre`/`retencion`/`largo_comercial`, con la geometría de su cabeza
+(avellanada: largo total, rosca del lado de la punta ≥ 6·d por EN 1995-1-1 § 8.7.2(3); hexagonal:
+DIN 571 y 2/3) y la serie de largos de la ficha de su tipo (EN 14592 `TORNILLO-MADERA-*`, DIN 571),
+no PERNO-M; `union.acceso_herramienta` evalúa la impronta declarada (TX, PZ, PH, ranura, Allen:
+destornillador o punta en línea con el eje, hoja ISO 8764-2 y llave Allen ISO 2936 l2; Torx y
+mano, criterio de diseño), la tuerca martillo, de barril y el inserto por el perno que los
+atraviesa, y lo que sigue sin evaluar pasa justificado por escrito con la herramienta; un «Eje» sin
+rodamiento, chumacera, rueda ni equipo unidos no es parte móvil, y la «Correa» de techo (o anclada)
+no es transmisión; la norma tras un complemento de lugar («Arandela ancha del tablero DIN 9021»)
+designa la compra.
 """

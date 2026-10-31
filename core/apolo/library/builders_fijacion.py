@@ -60,6 +60,23 @@ def hex_wood_screw(d: float, across_flats: float, head_h: float, length: float =
     return build
 
 
+def countersunk_wood_screw(d: float, head_d: float, largo_ref: float = 40.0):
+    """Tornillo para madera EN 14592 de cabeza AVELLANADA (90°) de largo a medida, por revolución
+    (plan puerta-fuera-de-catalogo D5): `largo` = largo NOMINAL TOTAL, la cabeza incluida (así se
+    vende el avellanado); sin él, `largo_ref`. La huella no se modela (la dice la ficha). ORIGEN =
+    cara de arriba de la cabeza, vástago hacia −Z."""
+    from apolo.kernel.shapes import make_revolution
+
+    def build(largo=None):
+        L = float(largo) if largo else largo_ref
+        cabeza = (head_d - d) / 2.0
+        punta = min(d, L / 3.0)
+        pts = [(0, -L), (d / 2.0, -L + punta), (d / 2.0, -cabeza), (head_d / 2.0, 0.0), (0, 0.0)]
+        return make_revolution(pts)
+
+    return build
+
+
 def carriage_bolt(d: float, head_d: float, head_k: float, neck_v: float, neck_f: float,
                   length: float = 50.0):
     """Perno de cuello cuadrado DIN 603 («de coche»): cabeza de hongo Ø head_d × head_k (casquete
@@ -128,4 +145,5 @@ def flat_washer(d1: float, d2: float, h: float):
 
 BUILDERS = {"blind_rivet": blind_rivet, "hex_wood_screw": hex_wood_screw,
             "carriage_bolt": carriage_bolt, "expansion_anchor": expansion_anchor,
-            "leveling_foot_base": leveling_foot_base, "flat_washer": flat_washer}
+            "leveling_foot_base": leveling_foot_base, "flat_washer": flat_washer,
+            "countersunk_wood_screw": countersunk_wood_screw}

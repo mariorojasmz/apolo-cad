@@ -24,13 +24,16 @@ def _es_madera(comp) -> bool:
 
 
 def serie(ref: str | None = None, catalog=None) -> list[float]:
-    """La serie nominal: la de ISO para pernos; la de DIN 571 para el tornillo para madera."""
+    """La serie nominal: la de ISO para pernos; para el tornillo para madera, la que declara su
+    ficha (`largos_mm`: EN 14592, plan puerta-fuera-de-catalogo D5) o la de DIN 571."""
     from .catalog import CATALOG
     from .fijacion import TIRAFONDO_LARGOS
 
     catalog = catalog if catalog is not None else CATALOG
-    if _es_madera(catalog.get(ref or "") if ref else None):
-        return [float(s) for s in TIRAFONDO_LARGOS]
+    comp = catalog.get(ref or "") if ref else None
+    if _es_madera(comp):
+        declarados = (comp.specs or {}).get("largos_mm")
+        return [float(s) for s in (declarados or TIRAFONDO_LARGOS)]
     return [float(s) for s in SERIE_ISO]
 
 
@@ -46,7 +49,7 @@ def largos_catalogo(ref: str | None, catalog=None) -> list[float]:
     comp = catalog.get(ref or "") if ref else None
     if comp is None:
         return []
-    if _es_madera(comp):  # DIN 571: los largos de `fijacion.TIRAFONDO_LARGOS` (espejo del YAML)
+    if _es_madera(comp):  # los de su ficha o DIN 571 (`fijacion.TIRAFONDO_LARGOS`)
         return serie(ref, catalog)
     specs = comp.specs or {}
     if specs.get("length") is not None:
@@ -61,9 +64,14 @@ def en_catalogo(ref: str | None, largo: float, catalog=None) -> bool:
     return any(abs(largo - s) <= _TOL for s in largos_catalogo(ref, catalog))
 
 
-def ref_para(d: float, cabeza: str) -> str:
+def ref_para(d: float, cabeza: str, madera: bool = False, huella: str | None = None) -> str:
     """La ficha de catálogo de un perno a medida por su Ø y su cabeza («hex» → DIN 933,
-    «allen» → DIN 912 de largo a medida)."""
+    «allen» → DIN 912 de largo a medida). Un tornillo de MADERA se compra por la de su tipo
+    (D3 de puerta-fuera-de-catalogo): hexagonal → DIN 571, avellanado → EN 14592 de su huella."""
+    if madera:
+        from .tornillo_madera import ref_de_familia
+
+        return ref_de_familia(d, cabeza, huella)
     m = f"M{d:g}"
     return f"PERNO-HEX-{m}" if cabeza == "hex" else f"PERNO-{m}"
 

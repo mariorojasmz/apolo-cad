@@ -6,8 +6,10 @@ Qué gira (`giratorias`), por este orden de señales:
    peligro: ISO 12100, la parte móvil accionada; plan puerta-sin-sobrediseno F3b);
 2. rol «gira» (`roles.rol_union`: tambor, rodillo, polea, piñón…), catálogo `rodillos`,
    `tambores` o `transmision` (no flexible);
-3. eje (rol «eje») que NO es fijo: fijo = «fijo» en el nombre o atornillado/soldado directo a la
-   estructura (el eje de un rodillo libre, `create_roller_conveyor`), salvo que sea hija de junta;
+3. eje (rol «eje») que NO es fijo y tiene con qué girar (`eje_que_gira`: unido a un rodamiento,
+   una chumacera, algo que gira o un equipo; plan puerta-fuera-de-catalogo D3): fijo = «fijo» en
+   el nombre o atornillado/soldado directo a la estructura (el eje de un rodillo libre,
+   `create_roller_conveyor`), salvo que sea hija de junta;
 4. pieza REDONDA que toca una banda (el tubo de un tambor de desvío sin rol en el nombre);
 y se propaga por juntas `fija` (padre → hija) y por soldadura/pegado, sin entrar nunca en la
 estructura, el equipo, las chumaceras, los rodamientos de catálogo, la tornillería, lo flexible,
@@ -69,6 +71,25 @@ def eje_fijo(p: Pieza, piezas: dict[str, Pieza], uniones: list[dict], hijas_giro
     return False
 
 
+def eje_que_gira(p: Pieza, piezas: dict[str, Pieza], uniones: list[dict]) -> bool:
+    """¿El «eje» (por su ROL) tiene con qué girar? Un rodamiento, una chumacera, algo que gira o
+    un equipo unido a él (declarado) o que lo toca (cajas que se cruzan: el eje metido en sus
+    chumaceras sin unión declarada) — plan puerta-fuera-de-catalogo D3. La barra portarrollos que
+    apoya en dos ménsulas se llama «Eje» y no gira: no es parte móvil por su nombre."""
+    def mueve(o: Pieza | None) -> bool:
+        return o is not None and (o.rol in _MUEVEN_EJE or o.categoria in _CATS_MUEVEN_EJE)
+
+    for u in uniones:
+        if p.id in (u["a"], u["b"]) and mueve(piezas.get(u["b"] if u["a"] == p.id else u["a"])):
+            return True
+    return any(mueve(o) and o.id != p.id and _solapan(p.caja, o.caja, 0.5) for o in piezas.values())
+
+
+_MUEVEN_EJE = {"chumacera", "rodamiento", "gira", "equipo"}
+_CATS_MUEVEN_EJE = {"rodamientos", "chumaceras", "rodillos", "tambores", "transmision",
+                    "motorreductores", "motorreductores_sinfin"}
+
+
 def giratorias(piezas: dict[str, Pieza], juntas: list[dict], uniones: list[dict],
                tocan_banda: set[str] = frozenset()) -> set[str]:
     """Los ids de lo que gira (reglas en el docstring del módulo), acoples incluidos."""
@@ -92,7 +113,8 @@ def giro(piezas: dict[str, Pieza], juntas: list[dict], uniones: list[dict],
         if i in fijos or es_tornilleria(p):
             continue
         if p.rol == "gira" or p.categoria in ("rodillos", "tambores") or \
-                (p.categoria == "transmision" and p.rol != "flexible") or p.rol == "eje":
+                (p.categoria == "transmision" and p.rol != "flexible") or \
+                (p.rol == "eje" and eje_que_gira(p, piezas, uniones)):
             semillas.add(i)
     semillas |= {i for i in tocan_banda if i in piezas and not bloquea(piezas[i])}
     adj = vecinos(uniones, SOLDADAS)

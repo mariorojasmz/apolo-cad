@@ -42,7 +42,7 @@ def test_tabla_de_llaves():
     mid = llave_para(14.5)                                 # entre 13 y 16: interpola
     assert llave_para(13).copa_d < mid.copa_d < llave_para(16).copa_d
     assert llave_para(3) is None and llave_para(80) is None  # fuera de tabla: no extrapola
-    assert brazo_allen(10) == 40.0 and brazo_allen(1) is None
+    assert brazo_allen(10) == 50.0 and brazo_allen(1) is None
 
 
 # ------------------------------------------------------------------ reconocimiento

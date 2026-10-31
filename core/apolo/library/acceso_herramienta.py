@@ -56,9 +56,10 @@ class _Solido:
 
 
 def es_tornilleria_de_llave(feat, catalog) -> bool:
-    """Tornillería que se aprieta con LLAVE (o se coloca con remachadora): catálogo
-    (tuercas/pernos/tornillería) o a medida por nombre (misma convención `_is_bolt` de los
-    lints). Los tirafondos avellanados no; el de cabeza hexagonal DIN 571 sí (`llave: true`)."""
+    """Tornillería que se aprieta con LLAVE, destornillador o punta (o se coloca con
+    remachadora): catálogo (tuercas/pernos/tornillería; el tornillo de madera de llave —DIN 571,
+    `llave: true`— o con su `huella` en la ficha: D4 de puerta-fuera-de-catalogo) o a medida por
+    el ROL de su nombre (misma convención `_is_bolt` de los lints)."""
     from .lints import es_nombre_de_tornilleria
 
     comp = catalog.get(getattr(feat, "component", None) or "") if catalog else None
@@ -66,7 +67,7 @@ def es_tornilleria_de_llave(feat, catalog) -> bool:
         if comp.category in _CATS_LLAVE:
             return True
         if comp.category == "tornilleria_madera":
-            return bool((comp.specs or {}).get("llave"))
+            return bool((comp.specs or {}).get("llave") or (comp.specs or {}).get("huella"))
     return es_nombre_de_tornilleria(getattr(feat, "name", "") or "")
 
 
@@ -217,6 +218,49 @@ def _vecinos(propio: _Solido, todos: list[_Solido], c, r: float) -> list[_Solido
             and o.bbox.min.Z <= hi[2] and o.bbox.max.Z >= lo[2]]
 
 
+def _sin_hexagono(propio: _Solido, feat, todos: list[_Solido], candidatos: set, catalog,
+                  fx: Fantasmas) -> dict:
+    """El fijador sin hexágono (D4 de puerta-fuera-de-catalogo, `acceso_impronta.py`):
+    {estado: por_su_perno | ok | sin_herramienta | no_evaluado, …}."""
+    from . import acceso_impronta as ai
+    from .cabeza_revolucion import cabeza_de_revolucion
+
+    if ai.por_su_perno(propio.nombre):
+        perno = next((o for o in todos if o is not propio and o.fid in candidatos
+                      and not ai.por_su_perno(o.nombre) and ai.atraviesa(o.bbox, propio.bbox)),
+                     None)
+        if perno is not None:
+            return {"estado": "por_su_perno", "perno": perno.fid}
+        return {"estado": "no_evaluado", "motivo": "la aprieta la cabeza de su perno y ningún "
+                                                   "perno modelado la atraviesa"}
+    imp = ai.impronta(feat, catalog)
+    if imp is None:
+        return {"estado": "no_evaluado", "motivo": "sin hexágono reconocible ni impronta "
+                                                   "declarada (TX, PZ, PH, ranura, Allen)"}
+    try:
+        cab = cabeza_de_revolucion(propio.solid)
+    except Exception:  # noqa: BLE001 — geometría rara: no evaluable, nunca rompe la puerta
+        cab = None
+    if cab is None:
+        return {"estado": "no_evaluado", "motivo": f"impronta {imp[0]} declarada, sin cabeza de "
+                                                   "revolución reconocible en la geometría"}
+    tools = ai.herramientas(imp[0], imp[1], cab, HOLGURA_ASIENTO_MM)
+    if not tools:
+        return {"estado": "no_evaluado", "motivo": f"impronta {imp[0]} fuera de tabla"}
+    mrc = marco(cab["tope"], cab["afuera"], ai.eje_x(cab["afuera"]))
+    bloquean: list[_Solido] = []
+    for nombre, tramos in tools:
+        vecinos = _vecinos(propio, todos, cab["tope"], ai.alcance(tramos))
+        choque = next((o for r, z0, z1 in tramos
+                       if (o := _choque(fx.cilindro(r, z0, z1), mrc, vecinos)) is not None), None)
+        if choque is None:
+            return {"estado": "ok", "huella": imp[0], "herramienta": nombre}
+        if choque not in bloquean:
+            bloquean.append(choque)
+    return {"estado": "sin_herramienta", "huella": imp[0], "bloquean": bloquean,
+            "probadas": [n for n, _t in tools]}
+
+
 def tool_access_report(scene: dict, *, catalog=None) -> dict | None:
     """Acceso de herramienta de toda la tornillería de llave de la escena; None si no hay
     ninguna (la puerta de entrega queda EXACTAMENTE como antes).
@@ -246,9 +290,24 @@ def tool_access_report(scene: dict, *, catalog=None) -> dict | None:
         if not fjs and _cuello_cuadrado(scene[propio.fid], catalog):
             rep["cuello_cuadrado"] = rep.get("cuello_cuadrado", 0) + 1  # ídem (rodillos F9)
             continue
-        if not fjs:
-            rep["no_evaluados"].append({"id": propio.fid, "nombre": propio.nombre,
-                                        "motivo": "sin hexágono reconocible"})
+        if not fjs:  # D4 de puerta-fuera-de-catalogo: su perno, o su impronta
+            res = _sin_hexagono(propio, scene[propio.fid], todos, candidatos, catalog, fx)
+            if res["estado"] == "por_su_perno":
+                rep["por_su_perno"] = rep.get("por_su_perno", 0) + 1
+            elif res["estado"] == "no_evaluado":
+                rep["no_evaluados"].append({"id": propio.fid, "nombre": propio.nombre,
+                                            "motivo": res["motivo"]})
+            else:
+                rep["evaluados"] += 1
+                rep["por_impronta"] = rep.get("por_impronta", 0) + 1
+                if res["estado"] == "ok":
+                    rep["ok"] += 1
+                else:
+                    rep["sin_herramienta"].append({
+                        "id": propio.fid, "nombre": propio.nombre, "tipo": res["huella"],
+                        "llave_mm": None, "herramienta": res["probadas"],
+                        "bloquean": sorted({o.nombre for o in res["bloquean"]})})
+            continue
         for fj in fjs:
             res = _evaluar(fj, _vecinos(propio, todos, fj.base, _alcance(fj)), fx)
             if res["estado"] == "no_evaluado":
