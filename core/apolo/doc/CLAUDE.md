@@ -82,6 +82,11 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   materiales, ocultos y notas del agente viven en el manifest, FUERA del log y de los checkpoints
   (por qué: raíz). Un metadato nuevo sigue el patrón de `motion` (setter que valida + endpoint),
   no un comando.
+- Material y color de la RAÍZ de un patrón (un id que no es pieza y sí es el comando de piezas)
+  van POR COMANDO (`materiales_por_comando`/`colores_por_comando`, `por_comando.py`; en el
+  manifest sólo si hay): la pieza gana al comando y éste al executor. Quien lee colores usa
+  `colores_efectivos(doc)`, nunca `doc.colors`; quien firma materiales suma `para_firma(doc)`.
+  [D9](../../../docs/plans/puerta-fuera-de-catalogo.md)
 - `ext` (`ext_manifest.py`): `{extensión: dict de JSON plano}` que el núcleo NO interpreta y
   conserva siempre, también la de una extensión ausente (todo abrir/guardar pasa por
   `to_apolo_bytes`/`from_apolo_bytes`; un camino nuevo que copie metadatos a mano la tiene que

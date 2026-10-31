@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from apolo.commands.state import RegenState
-from apolo.doc import carril, ext_manifest, solo_lectura, variantes
+from apolo.doc import carril, ext_manifest, por_comando, solo_lectura, variantes
 from apolo.doc.errors import DocumentError
 
 if TYPE_CHECKING:
@@ -80,6 +80,7 @@ class PersistenciaDocumento:
                         "configurations_format": variantes.FORMATO,  # tabla de columnas
                         "colors": self.colors,
                         "materials": self.materials,
+                        **por_comando.al_manifest(self),  # D9: sólo si hay (si no, el de siempre)
                         "sketch_guides": sorted(self.sketch_guides),
                         "vertical": self.vertical,
                         "motion": self.motion,
@@ -136,6 +137,7 @@ class PersistenciaDocumento:
         doc.configurations = variantes.cargar(manifest, commands)  # sin bandera: migra fotos
         doc.colors = manifest.get("colors", {})
         doc.materials = manifest.get("materials", {})
+        por_comando.de_manifest(doc, manifest)  # D9: un .apolo viejo no lo trae → vacíos
         # sketch_guides (command_ids) poda las huérfanas de cirugías SOLO en la carga: el metadato
         # no viaja en los snapshots de undo y podarlo al mutar lo perdería al deshacer. Criterio de
         # _cmd_alive: id del log o sintético '{cmd}_{orig}' de insert_project con prefijo vivo.

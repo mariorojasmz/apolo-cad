@@ -114,7 +114,9 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         sección. Pasa `feature` (uno) o `features` (lote — N piezas en 1 llamada, atómico:
         un id inexistente no aplica nada), no ambos. material=None vuelve al automático
         (catálogo o heurística por nombre). Ej.: 'acero', 'aluminio', 'acero inoxidable',
-        'laton', 'madera', 'vidrio'."""
+        'laton', 'madera', 'vidrio'. La RAÍZ de un patrón (el id de su comando, «c34») lo
+        fija a todas sus copias, también las que nazcan al subir la variable; una copia con
+        material propio lo conserva."""
         ids = _one_or_many(feature, features)
         payload = _api("POST", "/api/features/material", json={"ids": ids, "material": material}).json()
         out = _scene_brief(payload)
@@ -129,7 +131,8 @@ def registrar(mcp, _api) -> dict[str, Callable]:
     ) -> str:
         """Color de VISUALIZACIÓN de uno o VARIOS sólidos ('#rrggbb'; None = volver al color
         automático). Pasa `feature` (uno) o `features` (lote — atómico), no ambos. Solo
-        apariencia del viewport/render — no toca material, BOM ni peso."""
+        apariencia del viewport/render — no toca material, BOM ni peso. La raíz de un patrón
+        («c34») pinta todas sus copias, también las que nazcan al subir la variable."""
         ids = _one_or_many(feature, features)
         payload = _api("POST", "/api/features/color", json={"ids": ids, "color": color}).json()
         return json.dumps(_scene_brief(payload, "summary"), ensure_ascii=False)

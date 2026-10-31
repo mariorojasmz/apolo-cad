@@ -96,8 +96,22 @@ def _ancestors(joints: Joints, link: str):
 
 def _require(scene: Scene, feature_id: str) -> Feature:
     if feature_id not in scene:
-        raise CommandError(f"No existe el sólido '{feature_id}' en la escena")
+        raise CommandError(f"No existe el sólido '{feature_id}' en la escena"
+                           + _pista_de_copia(scene, feature_id))
     return scene[feature_id]
+
+
+def _pista_de_copia(scene: Scene, feature_id: str) -> str:
+    """Si `feature_id` es una copia `{raíz}_{n}` que el patrón ya no crea (bajó su count), cómo
+    seguirlo: nombrar la raíz (D9 de puerta-fuera-de-catalogo). Vacío si no lo parece."""
+    raiz, _, n = str(feature_id).rpartition("_")
+    if not raiz or not n.isdigit():
+        return ""
+    copias = sum(1 for f in scene.values() if f.command_id == raiz and f.id.startswith(raiz + "_"))
+    if not copias:
+        return ""
+    return (f": es una copia del patrón '{raiz}', que en este punto del log crea {copias}; "
+            f"nombra la raíz '{raiz}' para que siga a la variable (una por copia)")
 
 
 def _instanced(scene: Scene, cmd_id: str, name: str, base, key: str, position, rotation, **extra) -> None:

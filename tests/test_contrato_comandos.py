@@ -272,7 +272,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "add_constraint": (1, "18a7bd522aeca52f"),
     "add_device": (1, "d824d9f16db621b8"),
     "add_joinery": (1, "6ccbf5bbf26c1cb1"),
-    "add_joint": (1, "7569d5069e5caaeb"),
+    "add_joint": (1, "9f4162ab1f1ccc17"),
     "add_mate": (1, "a3596f3795b93db8"),
     "add_rail_constraint": (1, "591f0dc2cac566fe"),
     "add_program": (1, "d824d9f16db621b8"),
@@ -324,7 +324,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "fasten": (1, "6d432ee113ee4f64"),
     "fill_surface": (1, "16418efc4d5e7384"),
     "fillet": (1, "f63f072057031b48"),
-    "ground": (1, "afb091e73600725e"),
+    "ground": (1, "7e3411db6cda00ea"),
     "import_step": (1, "d75412508c6ccfdd"),
     # v2: anclas de perfil abierto; criterio 2 (F6): un log viejo trae 1 → misma geometría y firma
     "insert_component": (2, "26b05f2f1a36a2ed"),

@@ -216,7 +216,7 @@
  },
  {
   "name": "set_material",
-  "description": "Fija (anula) el material de uno o VARIOS sólidos para el BOM/peso/rayado de\nsección. Pasa `feature` (uno) o `features` (lote — N piezas en 1 llamada, atómico:\nun id inexistente no aplica nada), no ambos. material=None vuelve al automático\n(catálogo o heurística por nombre). Ej.: 'acero', 'aluminio', 'acero inoxidable',\n'laton', 'madera', 'vidrio'.",
+  "description": "Fija (anula) el material de uno o VARIOS sólidos para el BOM/peso/rayado de\nsección. Pasa `feature` (uno) o `features` (lote — N piezas en 1 llamada, atómico:\nun id inexistente no aplica nada), no ambos. material=None vuelve al automático\n(catálogo o heurística por nombre). Ej.: 'acero', 'aluminio', 'acero inoxidable',\n'laton', 'madera', 'vidrio'. La RAÍZ de un patrón (el id de su comando, «c34») lo\nfija a todas sus copias, también las que nazcan al subir la variable; una copia con\nmaterial propio lo conserva.",
   "inputSchema": {
    "properties": {
     "feature": {
@@ -278,7 +278,7 @@
  },
  {
   "name": "set_color",
-  "description": "Color de VISUALIZACIÓN de uno o VARIOS sólidos ('#rrggbb'; None = volver al color\nautomático). Pasa `feature` (uno) o `features` (lote — atómico), no ambos. Solo\napariencia del viewport/render — no toca material, BOM ni peso.",
+  "description": "Color de VISUALIZACIÓN de uno o VARIOS sólidos ('#rrggbb'; None = volver al color\nautomático). Pasa `feature` (uno) o `features` (lote — atómico), no ambos. Solo\napariencia del viewport/render — no toca material, BOM ni peso. La raíz de un patrón\n(«c34») pinta todas sus copias, también las que nazcan al subir la variable.",
   "inputSchema": {
    "properties": {
     "color": {
@@ -4202,7 +4202,7 @@
  },
  {
   "name": "set_justifications",
-  "description": "Declara lo que se acepta POR ESCRITO en la puerta de publicación. `modo=\"reemplazar\"`\n(por defecto) cambia la lista ENTERA (`[]` la borra); `modo=\"agregar\"` suma cada entrada\no reemplaza la de su mismo par (regla, pieza) sin tocar las demás. La respuesta cuenta\nlas que `quedaron` y las `borradas` (o `agregadas`/`reemplazadas`); para verlas sin\ntocarlas, get_justifications. Cada entrada es {regla?, pieza?, porque}: con `regla` (el\ntexto EXACTO de `casos[].regla` en la evidencia de entrega.semaforo, riesgos.electrico o\ningenieria.reglas) un AVISO de esa regla deja de bloquear —con `pieza`, sólo el aviso\nsobre esas piezas: el id o, en lo eléctrico, la designación que muestra la evidencia\n(«-MM1»)—; lo que entrega.no_evaluado lista sin evaluar se justifica igual, con\nla regla que muestra su `como_justificar` (y, con `pieza`, cada pieza que nombra); con\n`pieza` sola, una pieza que diseno.sin_sobrantes halla sobrante deja de ser FALLA. Un\nERROR nunca se justifica. `porque` (20 a 600 caracteres) dice la razón\nverificable: la norma, la guía del producto, el pedido del cliente. Primero CORRIGE el\nmodelo; justifica sólo lo que de verdad no aplica (nunca agregues una pieza para callar un\naviso). Metadato: no entra al log ni al deshacer.",
+  "description": "Declara lo que se acepta POR ESCRITO en la puerta de publicación. `modo=\"reemplazar\"`\n(por defecto) cambia la lista ENTERA (`[]` la borra); `modo=\"agregar\"` suma cada entrada\no reemplaza la de su mismo par (regla, pieza) sin tocar las demás. La respuesta cuenta\nlas que `quedaron` y las `borradas` (o `agregadas`/`reemplazadas`); para verlas sin\ntocarlas, get_justifications. Cada entrada es {regla?, pieza?, porque}: con `regla` (el\ntexto EXACTO de `casos[].regla` en la evidencia de entrega.semaforo, riesgos.electrico o\ningenieria.reglas) un AVISO de esa regla deja de bloquear —con `pieza`, sólo el aviso\nsobre esas piezas: el id o, en lo eléctrico, la designación que muestra la evidencia\n(«-MM1»); la RAÍZ de un patrón («c34») o un conjunto («c11+c57») vale por todas sus\ncopias, también las que nazcan al subir la variable—; lo que entrega.no_evaluado lista sin evaluar se justifica igual, con\nla regla que muestra su `como_justificar` (y, con `pieza`, cada pieza que nombra); con\n`pieza` sola, una pieza que diseno.sin_sobrantes halla sobrante deja de ser FALLA. Un\nERROR nunca se justifica. `porque` (20 a 600 caracteres) dice la razón\nverificable: la norma, la guía del producto, el pedido del cliente. Primero CORRIGE el\nmodelo; justifica sólo lo que de verdad no aplica (nunca agregues una pieza para callar un\naviso). Metadato: no entra al log ni al deshacer.",
   "inputSchema": {
    "properties": {
     "justificadas": {

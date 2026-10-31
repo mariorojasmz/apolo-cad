@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0–F4 mergeadas (registro v33, v35, v36, v37); falta F5 y F6
+nota: contrato APROBADO por Mario (2026-10-30, «Apruebo»); F0–F5 mergeadas (registro v33, v35, v36, v37; la F5 no lo sube); falta la F6 (verificar)
 descripcion: La puerta juzga bien la madera, el plástico, el tornillo y la viga que no salen del catálogo, en vez de rechazarlos por no saber leerlos o aprobarlos sin mirarlos
 ---
 
@@ -378,3 +378,29 @@ medir (vetables):
   mesa inox (tubo 40×40×1,5 de 1,9 m: L/222). Pasan de OK a pedir justificación: carro (bandejas
   plegadas), mesas de ensamble (tablero sin apoyo declarado, placa de pie, visera, ménsulas de
   luminaria); los montantes de la estantería piden la justificación del arriostramiento.
+
+### F5 — la raíz del patrón (2026-10-30, sin registro nuevo)
+
+Decisiones tomadas al implementar (vetables):
+
+- **Raíz** = la de `fasten` (`exec_uniones.piezas_de`): el comando del patrón, sus copias
+  `{raíz}_{n}` SIN la fuente (se suma con `+`), o un conjunto. `ground` y `add_joint` registran uno
+  por instancia, `{name}[k]`, re-expandido en cada regenerate; una pieza suelta da el dict de
+  siempre.
+- **`add_joint` = una junta por copia**, no una que arrastre las copias: cada copia gira sobre su
+  eje (peldaños, puertas). `origin` es el de la primera instancia y el de cada otra se traslada
+  con su pieza (centro de la caja; exacto en patrones, que sólo trasladan). `arrastrar` corre por
+  instancia. Una junta que nombra una copia que el patrón ya no crea sigue fallando, pero el error
+  nombra la raíz (`escena._pista_de_copia`).
+- **Material y color** de la raíz: metadato POR COMANDO (`doc/por_comando.py`, manifest
+  `materiales_por_comando`/`colores_por_comando` sólo si hay). Precedencia: pieza → comando →
+  executor. Sólo un id que NO es pieza y sí es el comando de piezas va por comando (también un
+  `pattern_group`); la fuente del patrón no se hereda: cambiaría el material de las copias de
+  los `.apolo` guardados. El material por comando entra a las firmas de la puerta, la marcha y
+  los escenarios sólo si hay (sin él, la de siempre).
+- **Justificaciones**: se guarda la raíz o el conjunto (así sigue a la variable) y la puerta lee
+  las piezas (`services/raices.justificadas_efectivas`).
+- **Sin `version` ni epoch**: `ground`/`add_joint` sólo cambian para un log que antes fallaba (no
+  hay caché de un regenerate fallido); se actualizó la huella. **Sin registro nuevo**: ningún
+  ítem, umbral ni `aplica_si` cambia y ningún modelo guardado cambia de veredicto (las ocho
+  máquinas de la tanda abren con la misma firma y los mismos materiales).

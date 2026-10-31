@@ -10,6 +10,19 @@ from __future__ import annotations
 
 from apolo.doc import variantes
 from apolo.doc.errors import DocumentError
+from apolo.doc.por_comando import de_la_pieza, piezas_del_comando
+
+
+def _destino(scene: dict, feature_id: str) -> tuple[bool, list[str]]:
+    """(¿por pieza?, piezas que toca) de un set de apariencia: un id de pieza es POR PIEZA; la
+    raíz de un patrón (el comando de unas piezas que no es pieza), POR COMANDO (D9 de
+    puerta-fuera-de-catalogo, `doc/por_comando.py`)."""
+    if feature_id in scene:
+        return True, [feature_id]
+    piezas = piezas_del_comando(scene, feature_id)
+    if not piezas:
+        raise DocumentError(f"No existe el sólido '{feature_id}'")
+    return False, piezas
 
 
 class MetadatosDocumento:
@@ -60,22 +73,27 @@ class MetadatosDocumento:
         del self.configurations[name]
 
     def set_color(self, feature_id: str, color: str | None) -> None:
-        if feature_id not in self.scene:
-            raise DocumentError(f"No existe el sólido '{feature_id}'")
+        """Por pieza; con la raíz de un patrón, por comando (lo heredan sus copias: D9)."""
+        por_pieza, _ = _destino(self.scene, feature_id)
+        destino = self.colors if por_pieza else self.colores_por_comando
         if color:
-            self.colors[feature_id] = color
+            destino[feature_id] = color
         else:
-            self.colors.pop(feature_id, None)
+            destino.pop(feature_id, None)
 
     def set_material(self, feature_id: str, material: str | None) -> None:
-        if feature_id not in self.scene:
-            raise DocumentError(f"No existe el sólido '{feature_id}'")
+        """Por pieza; con la raíz de un patrón, por comando (lo heredan sus copias, también las
+        que nacen al subir la variable; una copia con material propio lo conserva: D9)."""
+        por_pieza, piezas = _destino(self.scene, feature_id)
+        destino = self.materials if por_pieza else self.materiales_por_comando
         if material:
-            self.materials[feature_id] = material
-            self.scene[feature_id].material = material
+            destino[feature_id] = material
         else:
-            self.materials.pop(feature_id, None)
-            self.scene[feature_id].material = None
+            destino.pop(feature_id, None)
+        for fid in piezas:  # la copia con material propio lo conserva
+            feat = self.scene[fid]
+            feat.material = de_la_pieza(fid, feat.command_id, self.materials,
+                                        self.materiales_por_comando)
 
     def set_vertical(self, vertical: str) -> None:
         if vertical not in ("metalmecanica", "carpinteria"):

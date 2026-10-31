@@ -24,6 +24,7 @@ from apolo.doc.edicion import EdicionDocumento
 from apolo.doc.errors import ContractError, DocumentError  # noqa: F401 — se re-exportan
 from apolo.doc.integridad import IntegridadDocumento
 from apolo.doc.metadatos import MetadatosDocumento
+from apolo.doc.por_comando import de_la_pieza
 from apolo.doc.persistencia import (  # noqa: F401 — se re-exportan (casa: persistencia)
     _CID_RE,
     FORMAT_VERSION,
@@ -64,6 +65,9 @@ class Document(EdicionDocumento, MetadatosDocumento, IntegridadDocumento, Persis
         self.configurations: dict[str, dict[str, str]] = {}  # variante → {variable: expresión}
         self.colors: dict[str, str] = {}  # feature_id → color hex (apariencia)
         self.materials: dict[str, str] = {}  # feature_id → material (override BOM/peso)
+        # D9 de puerta-fuera-de-catalogo: los de la RAÍZ de un patrón, que heredan sus copias
+        self.materiales_por_comando: dict[str, str] = {}  # command_id → material (doc/por_comando)
+        self.colores_por_comando: dict[str, str] = {}  # command_id → color hex
         self.sketch_guides: set[str] = set()  # command_ids de boceto-guía (blockout): fuera de BOM/masa/interferencia/FEA; el agente los consume y borra
         self.vertical: str = "metalmecanica"  # default de material para piezas no reconocidas
         self.motion: dict[str, list[dict]] = {}  # estudios con nombre → fotogramas [{t, values:{junta:valor}}]
@@ -254,8 +258,11 @@ class Document(EdicionDocumento, MetadatosDocumento, IntegridadDocumento, Persis
         for fid, feat in scene.items():
             feat.visible = fid not in self.hidden
             # .get con default: un executor puede haber seteado ya el material de la
-            # pieza (insert_project importa los del proyecto origen) — no pisarlo
-            feat.material = self.materials.get(fid, feat.material)
+            # pieza (insert_project importa los del proyecto origen) — no pisarlo. La pieza
+            # gana a su comando (la raíz de un patrón: doc/por_comando.py)
+            mat = de_la_pieza(fid, feat.command_id, self.materials, self.materiales_por_comando)
+            if mat is not None:
+                feat.material = mat
             # boceto-guía DERIVADO por command_id (como la membresía de grupos)
             feat.is_guide = feat.command_id in self.sketch_guides
         # variables resueltas en LOCAL (antes de tocar self: si truena, self intacto)
@@ -364,6 +371,7 @@ class Document(EdicionDocumento, MetadatosDocumento, IntegridadDocumento, Persis
         clone.variables_raw = dict(self.variables_raw)
         clone.attachments = dict(self.attachments)  # import_step/insert_project los leen
         clone.materials, clone.vertical, clone.scene = dict(self.materials), self.vertical, self.scene
+        clone.materiales_por_comando = dict(self.materiales_por_comando)
         clone.sketch_guides = set(self.sketch_guides)
         clone._regen_sigs = list(self._regen_sigs)
         clone._regen_ckpts = dict(self._regen_ckpts)  # comparte refs de shape OCCT (read-only)

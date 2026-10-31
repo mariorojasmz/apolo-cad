@@ -30,12 +30,20 @@ class AddJointParams(BaseModel):
     giratoria/continua: valor + = rotación HORARIA mirando desde el extremo
     positivo del eje (convención Rotation de build123d) — calíbralo contra
     get_kinematics, no contra un render. Prismática desliza en mm a lo largo
-    del eje. Cada sólido solo puede ser hijo de UNA junta (árbol)."""
+    del eje. Cada sólido solo puede ser hijo de UNA junta (árbol). EN LOTE (piezas
+    repetidas): `parent` y/o `child` aceptan la RAÍZ de un patrón (el id de su comando:
+    sus copias, sin la fuente) o un CONJUNTO ('c147+c152'), como fasten, y el comando
+    declara UNA junta por instancia, `{name}[k]`, re-expandida en cada regenerate (subir
+    N suma la de la copia nueva). `origin` es el de la PRIMERA instancia; el de cada
+    otra se traslada con su pieza. Una junta que nombra una copia suelta ('c152_3')
+    queda colgando cuando el patrón ya no la crea: nombra la raíz."""
 
     name: str = Field(..., pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=40, title="Nombre")
     type: JOINT_TYPES = Field("giratoria", title="Tipo")
-    parent: str = Field(..., title="Sólido padre", description="id de feature")
-    child: str = Field(..., title="Sólido hijo", description="id de feature")
+    parent: str = Field(..., title="Sólido padre",
+                        description="id de feature, la raíz de un patrón o un conjunto")
+    child: str = Field(..., title="Sólido hijo",
+                       description="id de feature, la raíz de un patrón o un conjunto")
     origin: Vec3 = Field(default_factory=Vec3, title="Origen", description="punto del eje, coords. mundo")
     axis: Vec3 = Field(default_factory=lambda: Vec3(z=1), title="Eje", description="dirección")
     lower: float = Field(-180, title="Límite inferior", description="grados o mm")
@@ -214,8 +222,11 @@ class InsertProjectParams(BaseModel):
 class GroundParams(BaseModel):
     """Ancla un sólido a TIERRA (fijo al piso/cimiento). En la validación de ensamblaje las
     piezas ancladas son el origen del 'camino de sujeción': una pieza está bien sujeta si
-    se conecta (por juntas/mates/fijadores) hasta alguna pieza anclada."""
+    se conecta (por juntas/mates/fijadores) hasta alguna pieza anclada. `feature` acepta
+    también la RAÍZ de un patrón (sus copias) o un conjunto ('c110+c34'), como fasten: un
+    anclaje por instancia, `{name}[k]`, que sigue a la variable del patrón."""
 
     name: str = Field(..., pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=40, title="Nombre")
-    feature: str = Field(..., title="Sólido anclado", description="id de feature")
+    feature: str = Field(..., title="Sólido anclado",
+                         description="id de feature, la raíz de un patrón o un conjunto")
     nota: str = Field("", max_length=500, title="Nota")

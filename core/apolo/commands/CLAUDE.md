@@ -135,6 +135,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   instancia, re-expandida en cada regenerate. Dos piezas sueltas = el dict de siempre (un log
   viejo regenera igual). En un lote, cada término `$k` se resuelve (`$1+$2`: `apolo/batch.py`).
   [plan](../../../docs/plans/uniones-en-lote.md)
+- `ground` y `add_joint` aceptan lo mismo (`exec_uniones.piezas_de`): uno por instancia,
+  `{name}[k]`; la junta traslada `origin` con su pieza desde la PRIMERA instancia
+  (`juntas_en_lote.py`). Una pieza suelta = el dict de siempre (sin `version`: un log que nombraba
+  la raíz antes fallaba). [D9](../../../docs/plans/puerta-fuera-de-catalogo.md)
 - `join_bolted` (`exec_union.py`) taladra AMBAS piezas EN SITIO, inserta la fijación de catálogo
   y declara el `fasten` `jb_{cmd_id}`. Contacto y patrón por solape de cajas (borde ≥ 1.5·d, paso
   ≥ 2.5·d, n·m ≤ 100, asientos planos ≥ 50 % de la huella). Campo OCULTO `criterio`: 1 (log

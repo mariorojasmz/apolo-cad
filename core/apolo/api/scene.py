@@ -208,8 +208,9 @@ def scene_payload(known: dict | None = None) -> dict:
     payload COMPLETO idéntico al de siempre + el campo ``rev`` por feature (aditivo)."""
     from apolo.kernel.matrix import to_column_major16
     from apolo.library.zonas import zona_de_color
-    from apolo.services.apariencia import apariencias_documento, zonas_documento
+    from apolo.services.apariencia import apariencias_documento, colores_efectivos, zonas_documento
 
+    colores = colores_efectivos(S.doc)  # el de la pieza o el de su comando (D9)
     known_revs = (known or {}).get("revs") or {}
     known_defs = set((known or {}).get("defs") or [])
 
@@ -225,7 +226,7 @@ def scene_payload(known: dict | None = None) -> dict:
     for i, feat in enumerate(S.doc.scene.values()):
         live.add(feat.id)
         rev = _geom_rev(feat.id, feat.shape)
-        color = S.doc.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
+        color = colores.get(feat.id) or PALETTE[i % len(PALETTE)]
         ap = aps[feat.id]
         con_zonas = feat.id in aps_zonas
         def_mesh = None
@@ -384,5 +385,8 @@ def _open_briefing() -> dict:
 def _feature_colors() -> dict:
     """Color por pieza IDÉNTICO al viewport web (DOC.colors asignados, o paleta por índice de
     escena) para que el sombreado del plano coincida con lo que el usuario ve en 3D."""
-    return {feat.id: S.doc.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
+    from apolo.services.apariencia import colores_efectivos
+
+    colores = colores_efectivos(S.doc)
+    return {feat.id: colores.get(feat.id) or PALETTE[i % len(PALETTE)]
             for i, feat in enumerate(S.doc.scene.values())}

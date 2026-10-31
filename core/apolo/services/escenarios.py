@@ -32,6 +32,8 @@ import json
 import re
 import time
 
+from apolo.doc.por_comando import para_firma
+
 from .errors import ServiceError
 
 SIN_CORRER, VENCIDO = "sin_correr", "vencido"
@@ -102,7 +104,10 @@ def _sin_texto(cmd: dict) -> dict:
 
 def _hash(comandos, doc, fichas) -> str:
     comandos = [_sin_texto(c) for c in comandos]
-    texto = json.dumps([comandos, doc.materials, fichas], sort_keys=True, default=str)
+    datos = [comandos, doc.materials, fichas]
+    if para_firma(doc):  # D9 de puerta-fuera-de-catalogo: sólo si hay (la firma de siempre)
+        datos.append(para_firma(doc))
+    texto = json.dumps(datos, sort_keys=True, default=str)
     return hashlib.sha256(texto.encode()).hexdigest()[:20]
 
 

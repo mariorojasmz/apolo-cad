@@ -116,6 +116,13 @@ def _joint_drag(scene: Scene, joints: Joints, fasteners: dict, grounds: dict,
 
 def _exec_add_joint(ctx: ExecContext, cmd_id: str, p: AddJointParams) -> None:
     scene, joints = ctx.scene, ctx.joints
+    from .exec_uniones import pares_de_union
+    from .juntas_en_lote import juntas_en_lote
+
+    pares = pares_de_union(scene, p.parent, p.child)
+    if pares is not None:  # D9: raíz de patrón o conjunto → una junta por instancia
+        juntas_en_lote(ctx, cmd_id, p, pares, _register_joint, _joint_drag)
+        return
     _register_joint(
         scene, joints, cmd_id,
         {
@@ -188,11 +195,22 @@ def _exec_add_constraint(ctx: ExecContext, cmd_id: str, p: AddConstraintParams) 
 
 
 def _exec_ground(ctx: ExecContext, cmd_id: str, p: GroundParams) -> None:
-    """Ancla una pieza a tierra (origen del camino de sujeción)."""
+    """Ancla una pieza a tierra (origen del camino de sujeción), o una por instancia si
+    `feature` es la raíz de un patrón o un conjunto (D9: `{name}[k]`, re-expandido en cada
+    regenerate, como `fasten`)."""
     from apolo.assembly.connectivity import ConnectivityError, register_ground
 
+    from .exec_uniones import piezas_de
+
+    spec = {"name": p.name, "feature": p.feature, "nota": p.nota}
+    ids = piezas_de(ctx.scene, p.feature)
     try:
-        register_ground(ctx.grounds, cmd_id, {"name": p.name, "feature": p.feature, "nota": p.nota})
+        if ids is None:  # una pieza: el dict de siempre (un log viejo regenera igual)
+            register_ground(ctx.grounds, cmd_id, spec)
+            return
+        for k, fid in enumerate(ids):
+            register_ground(ctx.grounds, cmd_id, {**spec, "name": f"{p.name}[{k}]", "feature": fid,
+                                                  "conjunto": p.name, "indice": k})
     except ConnectivityError as exc:
         raise CommandError(str(exc)) from exc
 

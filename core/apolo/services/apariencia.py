@@ -9,13 +9,14 @@ colores asignados y el material por defecto de su vertical.
 
 from __future__ import annotations
 
+from apolo.doc.por_comando import colores_efectivos
 from apolo.library.apariencia import PALETTE, apariencias_de_zonas, apariencias_escena
 
 
 def apariencias_documento(doc) -> dict:
     """{fid: {acabado, color, metalness, roughness, opacidad}} de cada pieza de `doc.scene`
     (el llamador sostiene `STATE_LOCK` si el documento es el de la API)."""
-    return apariencias_escena(doc.scene, getattr(doc, "colors", None) or {},
+    return apariencias_escena(doc.scene, colores_efectivos(doc),
                               default_material=doc.default_material())
 
 
@@ -26,7 +27,7 @@ def zonas_documento(doc) -> dict[str, dict[str, dict]]:
     pierde): eso lo decide quien tesela, con `library.zonas.zona_por_cara`."""
     from apolo.library.catalog import CATALOG
 
-    colores = getattr(doc, "colors", None) or {}
+    colores = colores_efectivos(doc)
     out: dict[str, dict[str, dict]] = {}
     for i, feat in enumerate(doc.scene.values()):
         comp = CATALOG.get(feat.component) if getattr(feat, "component", None) else None

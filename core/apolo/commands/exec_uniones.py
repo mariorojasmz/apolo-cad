@@ -112,6 +112,11 @@ def _lado(scene: dict, texto: str) -> list[str] | None:
     return None
 
 
+#: Nombre público de `_lado` (D9 de puerta-fuera-de-catalogo): `ground`, `add_joint` y las
+#: justificaciones resuelven la raíz de un patrón o un conjunto con la MISMA regla que `fasten`.
+piezas_de = _lado
+
+
 def pares_de_union(scene: dict, a: str, b: str) -> list[tuple[str, str]] | None:
     """Los pares (a_k, b_k) de un fasten en lote, o None si son dos piezas sueltas."""
     la, lb = _lado(scene, a), _lado(scene, b)

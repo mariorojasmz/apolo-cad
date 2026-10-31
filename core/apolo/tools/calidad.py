@@ -128,7 +128,8 @@ def registrar(mcp, esperar, api=None) -> None:
         texto EXACTO de `casos[].regla` en la evidencia de entrega.semaforo, riesgos.electrico o
         ingenieria.reglas) un AVISO de esa regla deja de bloquear —con `pieza`, sólo el aviso
         sobre esas piezas: el id o, en lo eléctrico, la designación que muestra la evidencia
-        («-MM1»)—; lo que entrega.no_evaluado lista sin evaluar se justifica igual, con
+        («-MM1»); la RAÍZ de un patrón («c34») o un conjunto («c11+c57») vale por todas sus
+        copias, también las que nazcan al subir la variable—; lo que entrega.no_evaluado lista sin evaluar se justifica igual, con
         la regla que muestra su `como_justificar` (y, con `pieza`, cada pieza que nombra); con
         `pieza` sola, una pieza que diseno.sin_sobrantes halla sobrante deja de ser FALLA. Un
         ERROR nunca se justifica. `porque` (20 a 600 caracteres) dice la razón

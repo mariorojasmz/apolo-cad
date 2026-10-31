@@ -94,18 +94,23 @@ def firma_modelo(commands: list, manifest: dict) -> str:
         datos.append({"ext": manifest["ext"]})
     if manifest.get("justificadas"):  # D11 de puerta-sin-sobrediseno, igual: sólo si hay
         datos.append({"justificadas": manifest["justificadas"]})
+    if manifest.get("materiales_por_comando"):  # D9 de puerta-fuera-de-catalogo, igual
+        datos.append({"materiales_por_comando": manifest["materiales_por_comando"]})
     return hashlib.sha256(json.dumps(datos, sort_keys=True, default=str).encode()).hexdigest()[:20]
 
 
 def firma(doc) -> str:
     """`firma_modelo` con lo que el `.apolo` de este documento guardaría."""
+    from apolo.doc.por_comando import para_firma
+
     manifest = {"hidden": sorted(doc.hidden), "materials": doc.materials,
                 "vertical": doc.vertical, "motion": doc.motion,
                 "requirements": doc.requirements, "fea": doc.fea, "stackups": doc.stackups,
                 "escenarios": doc.escenarios, "tensores": getattr(doc, "tensores", None) or [],
                 "funciones": getattr(doc, "funciones", None) or [],
                 "ext": getattr(doc, "ext", None) or {},
-                "justificadas": getattr(doc, "justificadas", None) or []}
+                "justificadas": getattr(doc, "justificadas", None) or [],
+                **para_firma(doc)}
     return firma_modelo(doc.commands, manifest)
 
 
@@ -160,11 +165,16 @@ def cambiar_justificadas(doc, valor, modo: str = "reemplazar") -> dict:
         limpio = validar_justificadas(valor)
     except ValueError as exc:
         raise ServiceError(400, str(exc)) from exc
+    from .raices import es_raiz_o_conjunto
+
     piezas = {j["pieza"] for j in limpio if "pieza" in j} - set(doc.scene)
     faltan = sorted(piezas - nombres_del_tablero(doc)) if piezas else []
+    faltan = [p for p in faltan if not es_raiz_o_conjunto(doc.scene, p)]  # D9: la raíz sirve
     if faltan:
         raise ServiceError(400, f"justificadas: pieza(s) inexistente(s) {', '.join(faltan)}: "
-                                "`pieza` es el id de una pieza (c12) o la designación de un "
+                                "`pieza` es el id de una pieza (c12), la raíz de un patrón (c34: "
+                                "vale para todas sus copias, también las que nazcan al subir la "
+                                "variable), un conjunto (c11+c57) o la designación de un "
                                 "aparato o cable del tablero (-Q1), tal como la muestra la evidencia")
     previas = list(getattr(doc, "justificadas", None) or [])
     if modo == "agregar":
@@ -263,6 +273,7 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
     from .delivery_inputs import delivery_inputs
     from .memoria_reglas import veredicto_memoria
     from .puerta_hechos import fabricacion, hechos
+    from .raices import justificadas_efectivas
 
     tiempos = {} if tiempos is None else tiempos
     contexto = Contexto()
@@ -340,7 +351,7 @@ def _reunir(doc, *, expand, gravedad: dict, registro, tiempos: dict | None,
             "interna": interna, "memoria": memoria,
             "fuentes": fuentes, "fabricacion": fab, "bom": bom, "flujo": flujo,
             "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos,
-            "sobrantes": sobra, "justificadas": list(getattr(doc, "justificadas", None) or []),
+            "sobrantes": sobra, "justificadas": justificadas_efectivas(doc),  # D9: raíces → copias
             "cadenas": h["cadenas_de_rodillos"], "resguardos": h["resguardos_con_interruptor"],
             "apoyos_compra": h["apoyos_de_compra"], "higiene": limpieza, "movimiento": mov,
             "cuelga": colgado, "interferencia_declarada": solapes}

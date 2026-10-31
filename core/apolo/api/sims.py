@@ -100,7 +100,7 @@ def _dynamics(body: DynamicsIn, *, con_escena: bool = False):
     from apolo.physics import PhysicsError
     from apolo.physics.dinamica import prepare_dynamics, simulate_dynamics
     from apolo.physics.gif_dinamica import extraer_gif_dinamica
-    from apolo.services.apariencia import apariencias_documento
+    from apolo.services.apariencia import apariencias_documento, colores_efectivos
     from apolo.services.definiciones import definiciones_de
     from apolo.services.delivery_inputs import tornilleria_join_bolted
 
@@ -113,7 +113,7 @@ def _dynamics(body: DynamicsIn, *, con_escena: bool = False):
             snap = prepare_dynamics(d.scene, d.joints, d.fasteners, d.grounds, peticion, mates=d.mates,
                                     sujetas=tornilleria_join_bolted(d))
             if con_escena and snap.early is None:   # colores: los del viewport
-                escena = extraer_gif_dinamica(d.scene, snap.piezas, d.colors,
+                escena = extraer_gif_dinamica(d.scene, snap.piezas, colores_efectivos(d),
                                               apariencias=apariencias_documento(d),
                                               definiciones=definiciones_de(d.scene))
         with PHYSICS_LOCK:
@@ -133,7 +133,12 @@ HZ_SERIE = 50
 def firma_dinamica(doc) -> str:
     """Huella de lo que decide la marcha: el log (geometría, juntas, uniones, variables) y los
     materiales (la masa). Color y ocultos no cuentan: no cambian la física."""
-    texto = json.dumps([doc.commands, doc.materials], sort_keys=True, default=str)
+    from apolo.services.escenarios import para_firma
+
+    datos = [doc.commands, doc.materials]
+    if para_firma(doc):  # D9 de puerta-fuera-de-catalogo: sólo si hay (la firma de siempre)
+        datos.append(para_firma(doc))
+    texto = json.dumps(datos, sort_keys=True, default=str)
     return hashlib.sha256(texto.encode()).hexdigest()[:20]
 
 

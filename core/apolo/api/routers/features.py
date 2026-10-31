@@ -194,6 +194,19 @@ def near_endpoint(
     return {**modo, "radius": radius, "cercanas": cercanas}
 
 
+def _es_destino(fid: str) -> bool:
+    """Un id de pieza o la raíz de un patrón con piezas (D9 de puerta-fuera-de-catalogo: su
+    material y su color los heredan las copias, `doc/por_comando.py`)."""
+    from apolo.services.raices import piezas_del_comando
+
+    return fid in S.doc.scene or bool(piezas_del_comando(S.doc.scene, fid))
+
+
+def _comando_de(fid: str) -> str:
+    feat = S.doc.scene.get(fid)
+    return feat.command_id if feat is not None else fid
+
+
 class ColorIn(BaseModel):
     color: str | None = None  # null = volver al color automático
 
@@ -218,11 +231,11 @@ def set_color_bulk(body: BulkColorIn) -> dict:
 
     def run():
         for fid in body.ids:
-            if fid not in S.doc.scene:
+            if not _es_destino(fid):
                 raise _not_found(fid)
         for fid in body.ids:
             S.doc.set_color(fid, body.color)
-        return sorted({S.doc.scene[fid].command_id for fid in body.ids})
+        return sorted({_comando_de(fid) for fid in body.ids})
 
     return _state_or_error(run)
 
@@ -250,7 +263,7 @@ def _aviso_material(material: str | None, out: dict) -> dict:
 def set_feature_material(feature_id: str, body: MaterialIn) -> dict:
     def run():
         S.doc.set_material(feature_id, body.material)
-        return S.doc.scene[feature_id].command_id
+        return _comando_de(feature_id)
     return _aviso_material(body.material, _state_or_error(run))
 
 
@@ -268,11 +281,11 @@ def set_material_bulk(body: BulkMaterialIn) -> dict:
 
     def run():
         for fid in body.ids:
-            if fid not in S.doc.scene:
+            if not _es_destino(fid):
                 raise _not_found(fid)
         for fid in body.ids:
             S.doc.set_material(fid, body.material)
-        return sorted({S.doc.scene[fid].command_id for fid in body.ids})
+        return sorted({_comando_de(fid) for fid in body.ids})
 
     return _aviso_material(body.material, _state_or_error(run))
 

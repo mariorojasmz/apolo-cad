@@ -68,6 +68,7 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
     from .calidad_movimiento import pernos_y_ejes
     from .calidad_tensores import lazos
     from .engineering_rules import servicio_declarado
+    from .raices import justificadas_efectivas
 
     if reglas is None:
         reglas = reglas_de_ingenieria(doc)
@@ -83,5 +84,5 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
             + controlar_agujeros(insumos_agujeros(doc))
             + controlar_tensores(lazos(doc))
             + controlar_vida_util(reglas, hay_motor=hay_motor, hay_uniones=hay_uniones,
-                                  justificadas=getattr(doc, "justificadas", None) or [],
+                                  justificadas=justificadas_efectivas(doc),  # D9: raíces → copias
                                   fs_servicio=servicio_declarado(doc)[0]))
