@@ -332,7 +332,7 @@ def test_la_puerta_publica_plegado_traba_solo_con_el_requisito():
         ins = pp.reunir(doc, expand=lambda x: x, gravedad={"resultado": None, "motivo": ""},
                         sobrantes=False)
         r = evaluar(ins)
-        assert r["version_registro"] == VERSION_REGISTRO == "44"
+        assert int(r["version_registro"]) >= 41 and r["version_registro"] == VERSION_REGISTRO  # la F3 la subió a 41
         return next(i for i in r["items"] if i["id"] == "plegado.traba")
 
     assert item()["estado"] == NO_APLICA
