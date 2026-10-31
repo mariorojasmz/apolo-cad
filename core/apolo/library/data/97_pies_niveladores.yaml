@@ -1,14 +1,34 @@
 category: pies_niveladores
-# Pies niveladores ajustables: vástago roscado (eje Z) sobre un disco de apoyo.
-# Builder leveling_foot.
+# Pies niveladores ajustables: vástago roscado (eje Z) sobre un disco o una base de apoyo.
+# Builders leveling_foot (library/builders_estructura.py) y leveling_foot_base
+# (library/builders_fijacion.py).
+#
+# LA FICHA DE CADA PIE (plan pie-nivelador D5/D6; la fila de compra la lee library/pies_ficha.py):
+#   rosca, altura (largo del vástago roscado), base (disco fijo | articulada | placa de anclaje,
+#   con disco_d o base_l x base_b), articulacion_grados (si la ficha la da), sw (hexágono de llave
+#   con que se gira el vástago), tuerca_incluida (la tuerca de bloqueo viene con el pie o no) y
+#   tuerca, material (el del VÁSTAGO: el que rosca; la base de otro material va en material_base),
+#   carga_kg = carga de SERVICIO por pie (la que juzga `apoyo.capacidad` con su FS 1,5) y la cifra
+#   de la ficha de la que sale (carga_estatica_kn admisible, o carga_rotura_n con su factor),
+#   fuente y cotas_verificadas.
+#
+# CÓMO SE MODELA (builder leveling_foot, de abajo arriba): disco_d x disco_t, cuerpo de la base
+# cuerpo_d x cuerpo_h (rótula, manguito), hexágono de llave sw x sw_h y el vástago Ø rosca x
+# altura; la tuerca de bloqueo INCLUIDA (tuerca_sw x tuerca_m) va enroscada con su cara de arriba
+# a MEDIA rosca: la pose de diseño es la mitad de la carrera. Lo que la ficha no publica (el
+# reparto de alturas dentro de la base, la altura del hexágono, el Ø de la rótula) es
+# REPRESENTATIVO y cada familia lo dice en `no_publicado`.
 families:
+  # Los PIE-M* de siempre (ids estables, geometría congelada en tests/test_pies_niveladores.py):
+  # genéricos sin fabricante citado; cotas y carga del orden de los pies de disco fijo de acero.
   - family: "PIE"
     name_tpl: "Pie nivelador {ref}"
     description_tpl: "Pie nivelador M{rosca}, ajuste {altura} mm, disco Ø{disco_d} mm."
     builder: leveling_foot
     param_keys: [rosca, altura, disco_d, disco_t]
     weight_formula: "7.85e-6 * 0.785 * (rosca * rosca * altura + disco_d * disco_d * disco_t)"
-    specs_common: {tipo: "pie nivelador", material: "acero zincado", ajustable: true}
+    specs_common: {tipo: "pie nivelador", material: "acero zincado", ajustable: true,
+                   base: "disco fijo", tuerca_incluida: false, cotas_verificadas: false}
     variants:
       - {ref: "PIE-M8-30", rosca: 8, altura: 30, disco_d: 60, disco_t: 10, carga_kg: 120}
       - {ref: "PIE-M10-40", rosca: 10, altura: 40, disco_d: 75, disco_t: 12, carga_kg: 200}
@@ -28,9 +48,186 @@ families:
     param_keys: [rosca, altura, base_l, base_b, disco_t, agujero_d, paso_agujeros]
     weight_formula: "7.85e-6 * (0.785 * rosca * rosca * altura + (base_l * base_b - 2 * 0.785 * agujero_d * agujero_d) * disco_t)"
     specs_common: {tipo: "pie nivelador con base de anclaje", material: "acero zincado", ajustable: true,
+                   base: "placa de anclaje", tuerca_incluida: false,
                    anclaje: "ANCLA-EXP-M12", cotas_verificadas: false,
                    linea_referencia: "del orden de los pies niveladores con base de fijación al piso de Elesa o Ganter"}
     variants:
       - {ref: "PIE-BA-M8-30", rosca: 8, altura: 30, base_l: 190, base_b: 80, disco_t: 10, agujero_d: 14, paso_agujeros: 140, carga_kg: 120}
       - {ref: "PIE-BA-M10-40", rosca: 10, altura: 40, base_l: 190, base_b: 80, disco_t: 12, agujero_d: 14, paso_agujeros: 140, carga_kg: 200}
       - {ref: "PIE-BA-M12-50", rosca: 12, altura: 50, base_l: 190, base_b: 80, disco_t: 14, agujero_d: 14, paso_agujeros: 140, carga_kg: 350}
+
+  # -------------------------------------------------------------------------------------------
+  # PIE ARTICULADO DE ESPÁRRAGO, BASE DE ACERO (del orden de Ganter GN 343.2, tipo OS sin
+  # casquete). Ficha: Ganter GN 343.1 / GN 343.2 «Leveling Feet, Steel», tabla métrica
+  # (catálogo J.W. Winco § 3.4; copia en la F0 del plan pie-nivelador). Leído de la ficha:
+  #   d1 (Ø base) 25–60; rosca M6–M24; l1 (largo del espárrago) por rosca y base: M8 40/50/63,
+  #   M10 50/63/80, M12 63/80/100, M16 63/80/100 (d1 50) u 80/100/125 (d1 60), M20–M24
+  #   98/138/158; l2 (altura de la base, tipo OS) 19/23/26/28/36 y l4 (espesor del ala de la
+  #   base) 4/5/6/7/8,5 para d1 25/32/40/50/60; A/F 12–24; espárrago clase 5.8 zincado; base de
+  #   acero zincada; incluye tuerca hexagonal ISO 4032.
+  #   Carga estática: 14 kN (M8), 23 (M10), 33 (M12), 40 (M16 d1 50), 62 (M16 d1 60), 95 (M20).
+  #   La ficha la da como ADMISIBLE («results from the permissible load capacity of the threaded
+  #   stud (property class 5.8)»), para carga puramente vertical sobre la rótula: carga_kg =
+  #   carga estática / g, sin otro factor (la puerta ya aplica FS 1,5 sobre la reacción). Con carga
+  #   inclinada o flexión la ficha avisa que baja: es lo que cubre ese FS.
+  #   ISO 4032 (m máx / s): M8 6,8/13 · M10 8,4/16 · M12 10,8/18 · M16 14,8/24 · M20 18,0/30.
+  # Ojo: la designación de espárrago es GN 343.2 (GN 343.1 es la de rosca INTERIOR).
+  - family: "PIE-ART"
+    name_tpl: "Pie nivelador articulado {ref}"
+    description_tpl: "Pie nivelador articulado de espárrago M{rosca} × {altura} mm (clase 5.8 zincado), base de acero Ø{disco_d} mm, hexágono SW{sw}, tuerca ISO 4032 incluida; carga estática admisible {carga_estatica_kn:g} kN. Del orden de {designacion_fabricante}."
+    builder: leveling_foot
+    param_keys: [rosca, altura, disco_d, disco_t, cuerpo_d, cuerpo_h, sw, sw_h, tuerca_sw, tuerca_m]
+    weight_formula: "7.85e-6 * (0.785 * (rosca * rosca * altura + disco_d * disco_d * disco_t + cuerpo_d * cuerpo_d * cuerpo_h) + 0.866 * sw * sw * sw_h + (0.866 * tuerca_sw * tuerca_sw - 0.785 * rosca * rosca) * tuerca_m)"
+    specs_common:
+      tipo: "pie nivelador articulado de espárrago"
+      material: "acero zincado"
+      clase_esparrago: "5.8"
+      ajustable: true
+      base: "articulada"
+      tuerca_incluida: true
+      fabricante: "Ganter (Elesa+Ganter)"
+      serie: "GN 343.2"
+      fuente: "ficha Ganter GN 343.1 / GN 343.2, tabla métrica (catálogo J.W. Winco § 3.4)"
+      carga_fuente: "carga estática ADMISIBLE de la ficha (espárrago clase 5.8, carga vertical) / g"
+      cotas_verificadas: true
+      no_publicado: "ángulo de articulación; Ø de la rótula (cuerpo_d ≈ 0,6·d1) y altura del hexágono (sw_h ≈ 0,5·SW) representativos; el hexágono se modela en el espárrago sobre la base"
+      linea_referencia: "del orden de Ganter GN 343.2 tipo OS (pie articulado de espárrago con base de acero)"
+    variants:
+      - {ref: "PIE-ART-32-M8-50", designacion_fabricante: "GN 343.2-32-M8-50-OS", rosca: 8, altura: 50, disco_d: 32, disco_t: 5, cuerpo_d: 19, cuerpo_h: 18, sw: 12, sw_h: 6, tuerca_sw: 13, tuerca_m: 6.8, tuerca: "ISO 4032 M8", carga_estatica_kn: 14, carga_kg: 1427}
+      - {ref: "PIE-ART-40-M10-50", designacion_fabricante: "GN 343.2-40-M10-50-OS", rosca: 10, altura: 50, disco_d: 40, disco_t: 6, cuerpo_d: 24, cuerpo_h: 20, sw: 15, sw_h: 8, tuerca_sw: 16, tuerca_m: 8.4, tuerca: "ISO 4032 M10", carga_estatica_kn: 23, carga_kg: 2345}
+      - {ref: "PIE-ART-40-M10-63", designacion_fabricante: "GN 343.2-40-M10-63-OS", rosca: 10, altura: 63, disco_d: 40, disco_t: 6, cuerpo_d: 24, cuerpo_h: 20, sw: 15, sw_h: 8, tuerca_sw: 16, tuerca_m: 8.4, tuerca: "ISO 4032 M10", carga_estatica_kn: 23, carga_kg: 2345}
+      - {ref: "PIE-ART-40-M10-80", designacion_fabricante: "GN 343.2-40-M10-80-OS", rosca: 10, altura: 80, disco_d: 40, disco_t: 6, cuerpo_d: 24, cuerpo_h: 20, sw: 15, sw_h: 8, tuerca_sw: 16, tuerca_m: 8.4, tuerca: "ISO 4032 M10", carga_estatica_kn: 23, carga_kg: 2345}
+      - {ref: "PIE-ART-50-M12-63", designacion_fabricante: "GN 343.2-50-M12-63-OS", rosca: 12, altura: 63, disco_d: 50, disco_t: 7, cuerpo_d: 30, cuerpo_h: 21, sw: 17, sw_h: 9, tuerca_sw: 18, tuerca_m: 10.8, tuerca: "ISO 4032 M12", carga_estatica_kn: 33, carga_kg: 3365}
+      - {ref: "PIE-ART-50-M12-80", designacion_fabricante: "GN 343.2-50-M12-80-OS", rosca: 12, altura: 80, disco_d: 50, disco_t: 7, cuerpo_d: 30, cuerpo_h: 21, sw: 17, sw_h: 9, tuerca_sw: 18, tuerca_m: 10.8, tuerca: "ISO 4032 M12", carga_estatica_kn: 33, carga_kg: 3365}
+      - {ref: "PIE-ART-50-M12-100", designacion_fabricante: "GN 343.2-50-M12-100-OS", rosca: 12, altura: 100, disco_d: 50, disco_t: 7, cuerpo_d: 30, cuerpo_h: 21, sw: 17, sw_h: 9, tuerca_sw: 18, tuerca_m: 10.8, tuerca: "ISO 4032 M12", carga_estatica_kn: 33, carga_kg: 3365}
+      - {ref: "PIE-ART-50-M16-63", designacion_fabricante: "GN 343.2-50-M16-63-OS", rosca: 16, altura: 63, disco_d: 50, disco_t: 7, cuerpo_d: 30, cuerpo_h: 21, sw: 17, sw_h: 9, tuerca_sw: 24, tuerca_m: 14.8, tuerca: "ISO 4032 M16", carga_estatica_kn: 40, carga_kg: 4078}
+      - {ref: "PIE-ART-50-M16-80", designacion_fabricante: "GN 343.2-50-M16-80-OS", rosca: 16, altura: 80, disco_d: 50, disco_t: 7, cuerpo_d: 30, cuerpo_h: 21, sw: 17, sw_h: 9, tuerca_sw: 24, tuerca_m: 14.8, tuerca: "ISO 4032 M16", carga_estatica_kn: 40, carga_kg: 4078}
+      - {ref: "PIE-ART-50-M16-100", designacion_fabricante: "GN 343.2-50-M16-100-OS", rosca: 16, altura: 100, disco_d: 50, disco_t: 7, cuerpo_d: 30, cuerpo_h: 21, sw: 17, sw_h: 9, tuerca_sw: 24, tuerca_m: 14.8, tuerca: "ISO 4032 M16", carga_estatica_kn: 40, carga_kg: 4078}
+      - {ref: "PIE-ART-60-M16-80", designacion_fabricante: "GN 343.2-60-M16-80-OS", rosca: 16, altura: 80, disco_d: 60, disco_t: 8.5, cuerpo_d: 36, cuerpo_h: 27.5, sw: 24, sw_h: 12, tuerca_sw: 24, tuerca_m: 14.8, tuerca: "ISO 4032 M16", carga_estatica_kn: 62, carga_kg: 6322}
+      - {ref: "PIE-ART-60-M16-100", designacion_fabricante: "GN 343.2-60-M16-100-OS", rosca: 16, altura: 100, disco_d: 60, disco_t: 8.5, cuerpo_d: 36, cuerpo_h: 27.5, sw: 24, sw_h: 12, tuerca_sw: 24, tuerca_m: 14.8, tuerca: "ISO 4032 M16", carga_estatica_kn: 62, carga_kg: 6322}
+      - {ref: "PIE-ART-60-M16-125", designacion_fabricante: "GN 343.2-60-M16-125-OS", rosca: 16, altura: 125, disco_d: 60, disco_t: 8.5, cuerpo_d: 36, cuerpo_h: 27.5, sw: 24, sw_h: 12, tuerca_sw: 24, tuerca_m: 14.8, tuerca: "ISO 4032 M16", carga_estatica_kn: 62, carga_kg: 6322}
+      - {ref: "PIE-ART-60-M20-98", designacion_fabricante: "GN 343.2-60-M20-98-OS", rosca: 20, altura: 98, disco_d: 60, disco_t: 8.5, cuerpo_d: 36, cuerpo_h: 27.5, sw: 24, sw_h: 12, tuerca_sw: 30, tuerca_m: 18, tuerca: "ISO 4032 M20", carga_estatica_kn: 95, carga_kg: 9687}
+      - {ref: "PIE-ART-60-M20-138", designacion_fabricante: "GN 343.2-60-M20-138-OS", rosca: 20, altura: 138, disco_d: 60, disco_t: 8.5, cuerpo_d: 36, cuerpo_h: 27.5, sw: 24, sw_h: 12, tuerca_sw: 30, tuerca_m: 18, tuerca: "ISO 4032 M20", carga_estatica_kn: 95, carga_kg: 9687}
+      - {ref: "PIE-ART-60-M20-158", designacion_fabricante: "GN 343.2-60-M20-158-OS", rosca: 20, altura: 158, disco_d: 60, disco_t: 8.5, cuerpo_d: 36, cuerpo_h: 27.5, sw: 24, sw_h: 12, tuerca_sw: 30, tuerca_m: 18, tuerca: "ISO 4032 M20", carga_estatica_kn: 95, carga_kg: 9687}
+
+  # -------------------------------------------------------------------------------------------
+  # PIE ARTICULADO CON BASE DE TECNOPOLÍMERO (del orden de Elesa LV.A, sin disco antideslizante).
+  # Ficha: Elesa «Levelling elements» LV.A, catálogo general pág. 1192–1194 (7/2018). Leído de la
+  # ficha (columnas D d L l l1 h s, articulación en grados, «max. limit static load» y peso):
+  #   base PA con fibra de vidrio negra, vástago de acero zincado con hexágono de regulación s;
+  #   L = altura total, l = largo roscado, l1 = altura del piso al inicio de la rosca, h = altura
+  #   de la base. Serie 80-14: l1 33, h 24, s 14, 14°, 16 000 N; serie 80-24: l1 43, h 24, s 24,
+  #   24°, 18 000 N. La tuerca NO viene: es accesorio a pedido (Elesa NT., acero zincado).
+  #   ⚠ La carga de la ficha es de ROTURA («the value above which the load … may cause some
+  #   plastic material breakage»: la ficha pide aplicar un factor). Factor aplicado: 4 (criterio
+  #   de diseño: un tecnopolímero cargado en el tiempo flue y rompe por debajo de su rotura corta;
+  #   el mismo FS 4 que se pide sobre el MOR de la madera) → carga_kg = carga_rotura_n / 4 / g.
+  # REPRESENTATIVO: el reparto de la base en disco (8 mm) + cuerpo Ø D/2 (h − 8); la altura del
+  # hexágono es l1 − h. Peso: el de la ficha (sin disco antideslizante).
+  - family: "PIE-TP"
+    name_tpl: "Pie nivelador articulado de base de tecnopolímero {ref}"
+    description_tpl: "Pie nivelador articulado M{rosca} × {altura} mm (vástago de acero zincado, hexágono SW{sw}), base de tecnopolímero Ø{disco_d} mm articulada {articulacion_grados}°, sin tuerca; carga de servicio {carga_kg} kg (rotura {carga_rotura_n} N / 4). Del orden de {designacion_fabricante}."
+    builder: leveling_foot
+    param_keys: [rosca, altura, disco_d, disco_t, cuerpo_d, cuerpo_h, sw, sw_h]
+    specs_common:
+      tipo: "pie nivelador articulado de base de tecnopolímero"
+      material: "acero zincado"
+      material_base: "tecnopolímero PA (poliamida con fibra de vidrio)"
+      ajustable: true
+      base: "articulada"
+      tuerca_incluida: false
+      tuerca: "aparte (accesorio Elesa NT., acero zincado)"
+      fabricante: "Elesa (Elesa+Ganter)"
+      serie: "LV.A"
+      fuente: "ficha Elesa LV.A, catálogo general pág. 1192–1194 (7/2018)"
+      carga_fuente: "carga de ROTURA de la ficha / factor 4 (criterio de diseño) / g"
+      factor_rotura: 4
+      cotas_verificadas: true
+      no_publicado: "forma de la base (disco de 8 mm + cuerpo Ø D/2) representativa; la ficha da su Ø y su altura h"
+      linea_referencia: "del orden de Elesa LV.A (pie articulado de base de tecnopolímero)"
+    variants:
+      - {ref: "PIE-TP-80-M10-43", designacion_fabricante: "LV.A-80-14-M10x43", rosca: 10, altura: 43, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.092}
+      - {ref: "PIE-TP-80-M10-68", designacion_fabricante: "LV.A-80-14-M10x68", rosca: 10, altura: 68, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.104}
+      - {ref: "PIE-TP-80-M10-98", designacion_fabricante: "LV.A-80-14-M10x98", rosca: 10, altura: 98, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.118}
+      - {ref: "PIE-TP-80-M12-43", designacion_fabricante: "LV.A-80-14-M12x43", rosca: 12, altura: 43, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.102}
+      - {ref: "PIE-TP-80-M12-68", designacion_fabricante: "LV.A-80-14-M12x68", rosca: 12, altura: 68, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.119}
+      - {ref: "PIE-TP-80-M12-98", designacion_fabricante: "LV.A-80-14-M12x98", rosca: 12, altura: 98, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.140}
+      - {ref: "PIE-TP-80-M16-58", designacion_fabricante: "LV.A-80-24-M16x58", rosca: 16, altura: 58, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 24, sw_h: 19, articulacion_grados: 24, carga_rotura_n: 18000, carga_kg: 458, weight: 0.225}
+      - {ref: "PIE-TP-80-M16-98", designacion_fabricante: "LV.A-80-24-M16x98", rosca: 16, altura: 98, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 24, sw_h: 19, articulacion_grados: 24, carga_rotura_n: 18000, carga_kg: 458, weight: 0.276}
+      - {ref: "PIE-TP-80-M16-138", designacion_fabricante: "LV.A-80-24-M16x138", rosca: 16, altura: 138, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 24, sw_h: 19, articulacion_grados: 24, carga_rotura_n: 18000, carga_kg: 458, weight: 0.326}
+      - {ref: "PIE-TP-80-M20-98", designacion_fabricante: "LV.A-80-24-M20x98", rosca: 20, altura: 98, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 24, sw_h: 19, articulacion_grados: 24, carga_rotura_n: 18000, carga_kg: 458, weight: 0.346}
+      - {ref: "PIE-TP-80-M20-138", designacion_fabricante: "LV.A-80-24-M20x138", rosca: 20, altura: 138, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 24, sw_h: 19, articulacion_grados: 24, carga_rotura_n: 18000, carga_kg: 458, weight: 0.425}
+
+  # LA MISMA CON VÁSTAGO INOX AISI 304 (del orden de Elesa LV.A-SST). Ficha: Elesa LV.A-SST,
+  # catálogo general pág. 1195–1197 (7/2018): mismas cotas, articulación y carga de ROTURA que
+  # LV.A; vástago AISI 304; tuerca aparte (Elesa NT. AISI 304). Mismo factor 4 y misma base
+  # representativa. Peso: el de la ficha.
+  - family: "PIE-TPX"
+    name_tpl: "Pie nivelador articulado inox de base de tecnopolímero {ref}"
+    description_tpl: "Pie nivelador articulado M{rosca} × {altura} mm (vástago inox AISI 304, hexágono SW{sw}), base de tecnopolímero Ø{disco_d} mm articulada {articulacion_grados}°, sin tuerca; carga de servicio {carga_kg} kg (rotura {carga_rotura_n} N / 4). Del orden de {designacion_fabricante}."
+    builder: leveling_foot
+    param_keys: [rosca, altura, disco_d, disco_t, cuerpo_d, cuerpo_h, sw, sw_h]
+    specs_common:
+      tipo: "pie nivelador articulado inox de base de tecnopolímero"
+      material: "acero inoxidable AISI 304"
+      material_base: "tecnopolímero PA (poliamida con fibra de vidrio)"
+      ajustable: true
+      base: "articulada"
+      tuerca_incluida: false
+      tuerca: "aparte (accesorio Elesa NT., AISI 304)"
+      fabricante: "Elesa (Elesa+Ganter)"
+      serie: "LV.A-SST"
+      fuente: "ficha Elesa LV.A-SST, catálogo general pág. 1195–1197 (7/2018)"
+      carga_fuente: "carga de ROTURA de la ficha / factor 4 (criterio de diseño) / g"
+      factor_rotura: 4
+      cotas_verificadas: true
+      no_publicado: "forma de la base (disco de 8 mm + cuerpo Ø D/2) representativa; la ficha da su Ø y su altura h"
+      linea_referencia: "del orden de Elesa LV.A-SST (pie articulado de base de tecnopolímero, vástago inox)"
+    variants:
+      - {ref: "PIE-TPX-80-M10-68", designacion_fabricante: "LV.A-80-14-SST-M10x68", rosca: 10, altura: 68, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.106}
+      - {ref: "PIE-TPX-80-M12-68", designacion_fabricante: "LV.A-80-14-SST-M12x68", rosca: 12, altura: 68, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.121}
+      - {ref: "PIE-TPX-80-M12-98", designacion_fabricante: "LV.A-80-14-SST-M12x98", rosca: 12, altura: 98, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 14, sw_h: 9, articulacion_grados: 14, carga_rotura_n: 16000, carga_kg: 407, weight: 0.143}
+      - {ref: "PIE-TPX-80-M16-98", designacion_fabricante: "LV.A-80-24-SST-M16x98", rosca: 16, altura: 98, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 24, sw_h: 19, articulacion_grados: 24, carga_rotura_n: 18000, carga_kg: 458, weight: 0.280}
+      - {ref: "PIE-TPX-80-M20-138", designacion_fabricante: "LV.A-80-24-SST-M20x138", rosca: 20, altura: 138, disco_d: 80, disco_t: 8, cuerpo_d: 40, cuerpo_h: 16, sw: 24, sw_h: 19, articulacion_grados: 24, carga_rotura_n: 18000, carga_kg: 458, weight: 0.432}
+
+  # -------------------------------------------------------------------------------------------
+  # PIE HIGIÉNICO INOX (del orden de Ganter GN 20 tipo A, sin agujeros de fijación; EHEDG / 3-A
+  # 88-01 / DGUV). Ficha: Ganter GN 20 «Leveling Feet, Stainless Steel, Hygienic Design»
+  # (Elesa+Ganter, 7/2026). Leído: husillo, manguito de ajuste y placa de pie AISI 304; juntas
+  # NBR/TPU/HNBR/silicona azules (FDA); rosca M12–M24; columnas d1 (Ø placa), d2 (rosca), l1
+  # (largo), d3 (Ø manguito), l2, l3, A/F 1, A/F 2, carga estática en kN, peso.
+  # NO trae buje de soldar: el husillo rosca en un agujero roscado o en una tuerca/buje que la
+  # máquina pone aparte. La ficha no lista tuerca de bloqueo: tuerca_incluida false.
+  # ⚠ SIN VERIFICAR (cotas_verificadas false): sin el dibujo, qué mide cada columna es lectura
+  # nuestra: l1 = largo total, l3 = 35 = altura de la base (placa + manguito); el vástago
+  # libre = l1 − l3; el hexágono es el A/F 1 sobre el manguito; la placa de 8 mm y la altura del
+  # hexágono (10) son representativas. Y la CARGA es ambigua: el tipo A da 49/54/59/64 kN por
+  # rosca y el tipo B (con agujeros) 16/30/47/67 kN; se toma la MENOR de las dos por rosca
+  # (carga_estatica_kn) como admisible / g.
+  - family: "PIE-HIG"
+    name_tpl: "Pie nivelador higiénico inox {ref}"
+    description_tpl: "Pie nivelador higiénico inox AISI 304 M{rosca}, vástago libre {altura} mm, placa Ø{disco_d} mm, hexágono SW{sw}, sin agujeros de fijación ni buje de soldar, sin tuerca; carga estática {carga_estatica_kn:g} kN (la menor de los tipos A y B). Del orden de {designacion_fabricante}."
+    builder: leveling_foot
+    param_keys: [rosca, altura, disco_d, disco_t, cuerpo_d, cuerpo_h, sw, sw_h]
+    specs_common:
+      tipo: "pie nivelador higiénico"
+      material: "acero inoxidable AISI 304"
+      juntas: "NBR / TPU / HNBR / silicona, azules, FDA"
+      ajustable: true
+      base: "placa de pie con junta inferior"
+      buje_de_soldar: false
+      tuerca_incluida: false
+      fabricante: "Ganter (Elesa+Ganter)"
+      serie: "GN 20 tipo A"
+      fuente: "ficha Ganter GN 20 (Elesa+Ganter, 7/2026)"
+      carga_fuente: "carga estática de la ficha, la MENOR de los tipos A y B de la misma rosca (ambigua) / g"
+      cotas_verificadas: false
+      no_publicado: "qué cota es cada columna (sin dibujo): vástago libre = l1 − l3, placa de 8 mm, manguito Ø d3 y hexágono A/F 1 de 10 mm representativos; carga ambigua entre tipos A y B"
+      linea_referencia: "del orden de Ganter GN 20 tipo A (pie higiénico inox, diseño higiénico)"
+    variants:
+      - {ref: "PIE-HIG-60-M12-175", designacion_fabricante: "GN 20-60-M12-175-A", rosca: 12, altura: 140, largo_total: 175, disco_d: 60, disco_t: 8, cuerpo_d: 25, cuerpo_h: 17, sw: 17, sw2: 19, sw_h: 10, carga_estatica_kn: 16, carga_kg: 1631, weight: 0.660}
+      - {ref: "PIE-HIG-80-M12-225", designacion_fabricante: "GN 20-80-M12-225-A", rosca: 12, altura: 190, largo_total: 225, disco_d: 80, disco_t: 8, cuerpo_d: 25, cuerpo_h: 17, sw: 17, sw2: 19, sw_h: 10, carga_estatica_kn: 16, carga_kg: 1631, weight: 0.950}
+      - {ref: "PIE-HIG-80-M16-175", designacion_fabricante: "GN 20-80-M16-175-A", rosca: 16, altura: 140, largo_total: 175, disco_d: 80, disco_t: 8, cuerpo_d: 28, cuerpo_h: 17, sw: 18, sw2: 22, sw_h: 10, carga_estatica_kn: 30, carga_kg: 3059, weight: 0.978}
+      - {ref: "PIE-HIG-80-M16-225", designacion_fabricante: "GN 20-80-M16-225-A", rosca: 16, altura: 190, largo_total: 225, disco_d: 80, disco_t: 8, cuerpo_d: 28, cuerpo_h: 17, sw: 18, sw2: 22, sw_h: 10, carga_estatica_kn: 30, carga_kg: 3059, weight: 1.045}
+      - {ref: "PIE-HIG-100-M20-185", designacion_fabricante: "GN 20-100-M20-185-A", rosca: 20, altura: 150, largo_total: 185, disco_d: 100, disco_t: 8, cuerpo_d: 32, cuerpo_h: 17, sw: 24, sw2: 27, sw_h: 10, carga_estatica_kn: 47, carga_kg: 4792, weight: 1.352}
+      - {ref: "PIE-HIG-100-M24-235", designacion_fabricante: "GN 20-100-M24-235-A", rosca: 24, altura: 200, largo_total: 235, disco_d: 100, disco_t: 8, cuerpo_d: 36, cuerpo_h: 17, sw: 24, sw2: 30, sw_h: 10, carga_estatica_kn: 64, carga_kg: 6526, weight: 1.697}

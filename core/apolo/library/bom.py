@@ -24,6 +24,10 @@ Plan hallazgos-del-revisor-en-la-puerta (D4, D5): la compra que se pide por larg
 código» lleva su `codigo`; la banda sin fin, su designación medida (`banda_lazo.campos_banda`); la
 madera, la norma que escribe su material; y un grupo «(compra)» es UNA fila (`compra_grupos`). Si
 cada fila alcanza para comprar o cortar lo juzga la puerta (`bom_comprable.motivo`).
+
+Plan pie-nivelador (D6): la fila de un pie nivelador de catálogo lleva su ficha de compra (rosca ×
+largo del vástago, base, material, carga de servicio, tuerca incluida) en la descripción y en
+`ficha` (`pies_ficha.py`).
 """
 
 from __future__ import annotations
@@ -56,6 +60,8 @@ from .largo_tornilleria import largo_de_compra_con_aviso, largo_nominal_a_medida
 from .material_compra import ajustar_fila, material_de_compra
 from .materials import CABLE, density, resolve_material
 from .peso_ficha import peso_de_ficha
+from .pies_ficha import ficha as ficha_pie
+from .pies_ficha import texto as texto_pie
 from .piezas_electricas import recorrido_mm
 
 # sufijos de instancia que añaden los patrones/espejos/copias: " (2)", " (1,2)",
@@ -159,7 +165,7 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                 rows[key] = {
                     "ref": comp.ref,
                     "descripcion": comp.name + _medida(comp, cut)
-                    + _eslabones(comp, cut) + angs,
+                    + _eslabones(comp, cut) + angs + texto_pie(comp),  # el pie, con su ficha
                     "categoria": comp.category,
                     "material": (comp.specs or {}).get("material", ""),
                     "norma": (comp.specs or {}).get("norma", ""),
@@ -170,6 +176,7 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     "_rep": sid,  # pieza representante (globos en lámina)
                     **({"grupo": grp} if by_group else {}),
                     **({"aviso": aviso} if aviso else {}),
+                    **({"ficha": pie} if (pie := ficha_pie(comp)) else {}),
                 }
                 if ficha_otra:  # la equivalente en el material asignado (`material_compra`)
                     ajustar_fila(rows[key], mat_compra, ficha_otra)

@@ -50,13 +50,44 @@ def guard(thickness: float = 6.0, height: float = 150.0):
     return lambda length: Box(length, thickness, height)
 
 
-def leveling_foot(rosca: float, altura: float, disco_d: float, disco_t: float):
-    """Pie nivelador: vástago roscado (eje Z) sobre un disco de apoyo."""
+def leveling_foot(rosca: float, altura: float, disco_d: float, disco_t: float,
+                  cuerpo_d: float = 0.0, cuerpo_h: float = 0.0, sw: float = 0.0,
+                  sw_h: float = 0.0, tuerca_sw: float = 0.0, tuerca_m: float = 0.0):
+    """Pie nivelador: vástago roscado Ø rosca × altura (eje Z, CENTRADO en el origen) sobre un
+    disco de apoyo. Lo que su ficha trae (plan pie-nivelador D5), de abajo arriba:
+
+    - `disco_d` × `disco_t`: el disco (o la base articulada) que pisa el piso;
+    - `cuerpo_d` × `cuerpo_h`: el cuerpo de la base (la rótula de la base articulada, el manguito
+      del higiénico), sobre el disco;
+    - `sw` × `sw_h`: el hexágono de llave (SW) con que se gira el vástago, sobre el cuerpo;
+    - `tuerca_sw` × `tuerca_m`: la tuerca de bloqueo que la ficha declara incluida, enroscada
+      en el vástago con su cara de arriba a MEDIA rosca (la pose de diseño es la mitad de la
+      carrera: el pie puede subir y bajar).
+
+    Sin esos datos (todos 0) la forma es la de antes, byte a byte: vástago tangente al disco
+    (los 6 refs de siempre, `tests/test_pies_niveladores.py` la congela). Cada parte nueva entra
+    1 mm en la de abajo (más ancha): un sólido, sin cambiar la envolvente."""
 
     def build(_length=None):
         stem = Cylinder(rosca / 2.0, altura)
-        disk = Pos(0, 0, -altura / 2.0 - disco_t / 2.0) * Cylinder(disco_d / 2.0, disco_t)
-        return stem + disk
+        if not (cuerpo_h > 0 or sw_h > 0 or tuerca_m > 0):
+            disk = Pos(0, 0, -altura / 2.0 - disco_t / 2.0) * Cylinder(disco_d / 2.0, disco_t)
+            return stem + disk
+        from .builders_tornilleria import _hex_prism
+
+        z = -altura / 2.0  # techo de lo que va debajo del vástago
+        solido = Pos(0, 0, -0.5) * Cylinder(rosca / 2.0, altura + 1.0)
+        if sw_h > 0:
+            solido = solido + Pos(0, 0, z - sw_h / 2.0 - 0.5) * _hex_prism(sw, sw_h + 1.0)
+            z -= sw_h
+        if cuerpo_h > 0:
+            solido = solido + Pos(0, 0, z - cuerpo_h / 2.0 - 0.5) * Cylinder(cuerpo_d / 2.0,
+                                                                              cuerpo_h + 1.0)
+            z -= cuerpo_h
+        solido = solido + Pos(0, 0, z - disco_t / 2.0) * Cylinder(disco_d / 2.0, disco_t)
+        if tuerca_m > 0:
+            solido = solido + Pos(0, 0, -tuerca_m / 2.0) * _hex_prism(tuerca_sw, tuerca_m)
+        return solido
 
     return build
 

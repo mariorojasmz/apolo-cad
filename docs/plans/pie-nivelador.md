@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1–D5, D7, D8 ajustadas); falta F1–F4. La F2 espera la F2 de puerta-fuera-de-catalogo
+nota: contrato aprobado por Claude (delegado por Mario, 2026-10-30); F0 hecha (Bitácora: D1–D5, D7, D8 ajustadas); F1 (catálogo + ficha en la BOM) implementada, sin mergear; falta F2–F4. La F2 espera la F2 de puerta-fuera-de-catalogo
 descripcion: La puerta revisa que cada pie nivelador se pueda enroscar, quede trabado y nivele lo que pide el piso, y el catálogo trae los pies que el mercado vende
 ---
 
@@ -252,3 +252,28 @@ lee «espárrago» dentro de «(compra: …)» y saca los 4 pies de la mesa inox
 apoyos en `apoyo.capacidad` y sin lámina de instalación.
 
 **Sin medir**: el acceso de llave a la contratuerca; ISO 2306 (se usa DIN 336); la carga de GN 20.
+
+### F1 — catálogo (2026-10-30)
+
+- **D5**: `97_pies_niveladores.yaml` gana 38 refs de 4 familias, cada cifra con su ficha citada
+  en el YAML: `PIE-ART-*` (16, del orden de Ganter GN 343.2: d1 32–60, M8–M20, l1 de la serie
+  por rosca, SW 12–24, tuerca ISO 4032 incluida, carga ADMISIBLE de la ficha / g),
+  `PIE-TP-*` (11, Elesa LV.A) y `PIE-TPX-*` (5, LV.A-SST inox): su carga es de ROTURA y la de
+  servicio es rotura / **4** (criterio de diseño: fluencia del tecnopolímero, el mismo FS 4 del
+  MOR de la madera), tuerca aparte; `PIE-HIG-*` (6, Ganter GN 20 tipo A, M12–M24, vástago libre
+  hasta 200 mm) con `cotas_verificadas: false`: sin dibujo, qué mide cada columna es lectura
+  nuestra (vástago libre = l1 − l3) y la carga es ambigua entre los tipos A y B (se toma la
+  menor por rosca); sin buje de soldar. Los 6 refs de siempre quedan con sus ids y su carga, y
+  ganan `base`, `tuerca_incluida: false` y `cotas_verificadas: false` en sus specs.
+- **Builder** (`leveling_foot`): parámetros nuevos con default 0 (cuerpo de la base, hexágono de
+  llave, tuerca de bloqueo a MEDIA rosca); sin ellos la forma es la de antes byte a byte, y un
+  test congela volumen, caras y caja de los 6 refs: **sin bump** de `GEOM_CACHE_EPOCH`.
+- **D6**: la fila de BOM de un pie lleva la ficha (`library/pies_ficha.py`) en la descripción
+  («— M10 × 40 mm, disco Ø75 fijo, acero zincado, carga 200 kg/pie, sin tuerca de bloqueo») y en
+  `ficha`. `bom.comprable` no cambia (una ref de catálogo ya alcanzaba): **sin bump de registro**.
+- `create_roller_conveyor` elegía su pie entre TODA la categoría por carga y se llevaba un
+  articulado: `rodillos_cadena_pies.familias` sólo mira los de disco fijo / placa de anclaje
+  (`specs.base`), su pila de siempre; elige lo mismo que antes (sin subir su `version`).
+- Para la F2: `fijadores_geom.reconocer_fijadores` no ve dos hexágonos coaxiales de entrecaras
+  DISTINTO en un sólido (el de llave y la tuerca del `PIE-ART`): la tuerca incluida se lee de la
+  ficha (`tuerca_incluida`, `tuerca_m`, `tuerca_sw`), no de la geometría.

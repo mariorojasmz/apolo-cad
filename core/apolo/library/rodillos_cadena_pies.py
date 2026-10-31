@@ -98,9 +98,14 @@ def elegir_anclaje(espesor: float, ref: str = ANCLAJE_AUTO) -> str:
 
 def familias(base: bool = False) -> list[str]:
     """Los pies del catálogo, de menor a mayor carga: los de disco liso o, con `base` (F8), los
-    de base de anclaje (`paso_agujeros` en su ficha)."""
+    de base de anclaje (`paso_agujeros` en su ficha). Sólo los de disco FIJO o placa de anclaje
+    (`specs.base`): la pila de la plantilla (tuerca soldada + contratuerca sobre el disco) es la
+    suya; los articulados e higiénicos de mercado (plan pie-nivelador F1) traen otra base y otra
+    tuerca, y no cambian lo que la plantilla elige."""
+    tipo = "placa de anclaje" if base else "disco fijo"
     refs = [r for r, c in CATALOG.items()
-            if c.category == CATEGORIA and ("paso_agujeros" in c.specs) == base]
+            if c.category == CATEGORIA and ("paso_agujeros" in c.specs) == base
+            and c.specs.get("base") == tipo]
     return sorted(refs, key=lambda r: float(CATALOG[r].specs["carga_kg"]))
 
 
