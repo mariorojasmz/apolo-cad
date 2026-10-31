@@ -14,6 +14,8 @@ from __future__ import annotations
 import math
 import re
 
+from apolo.kernel.caja import caja
+
 # categorías de catálogo que se cortan a medida en sierra (perfiles y tubos)
 _PROFILE_CATS = {"perfiles", "perfiles_abiertos", "tubos_estructurales", "tubos_circulares"}
 # ajuste ISO 286 en el nombre («Ø35 h7», «Ø 20 k6») → superficie torneada de asiento
@@ -37,8 +39,6 @@ _RA = {"torneado": 3.2, "mecanizado": 6.3, "sierra": 12.5, "laser_pliegue": 12.5
 
 def _sorted_dims(feat) -> tuple[float, float, float] | None:
     """Dimensiones del bbox ordenadas (mm), (menor, media, mayor). None si no mide."""
-    from apolo.kernel.caja import caja
-
     try:
         bb = caja(feat.shape)
         d = sorted((bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z))
@@ -94,7 +94,7 @@ def _is_revolution(feat, name: str) -> bool:
     if not round_section:
         return False
     try:
-        bb = feat.shape.bounding_box()
+        bb = caja(feat.shape)
         bbvol = (bb.max.X - bb.min.X) * (bb.max.Y - bb.min.Y) * (bb.max.Z - bb.min.Z)
         vol = float(feat.shape.volume)
     except Exception:
@@ -108,7 +108,7 @@ def _sheet_is_bent(feat) -> bool:
     """Chapa CON pliegue real: su volumen llena mucho menos que su bbox (forma en
     L/U/C). Una placa PLANA llena su bbox (fill ≈ 1) → corte láser sin plegado."""
     try:
-        bb = feat.shape.bounding_box()
+        bb = caja(feat.shape)
         bbvol = (bb.max.X - bb.min.X) * (bb.max.Y - bb.min.Y) * (bb.max.Z - bb.min.Z)
         vol = float(feat.shape.volume)
         return bbvol > 0.0 and (vol / bbvol) < 0.75

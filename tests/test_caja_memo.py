@@ -130,14 +130,19 @@ def _llamadores():
     from apolo.commands import exec_modificar, union_taller
     from apolo.drawing import process
     from apolo.kernel import contacto, mesh
-    from apolo.library import checks
+    from apolo.library import bom, checks
     from apolo.library.engineering import mass
-    from apolo.services import calidad_agujeros, calidad_seguridad, vigas_rules
+    from apolo.services import (
+        calidad_agujeros, calidad_pernos, calidad_seguridad, installation_data, vigas_rules,
+    )
 
     return [union_taller._en_camino, exec_modificar._exec_drill_hole,
             checks.interference_report, mass._bbox, vigas_rules._caja, contacto._toca_caja,
             contacto._caja_comun, calidad_agujeros._caja, process._sorted_dims,
-            calidad_seguridad._caja, mesh.bbox_payload]
+            calidad_seguridad._caja, mesh.bbox_payload,
+            # los cuatro que la F4 midió en la puerta (y `_is_revolution`, del mismo módulo)
+            installation_data.installation_data, calidad_pernos._Escena.__init__,
+            process._sheet_is_bent, process._is_revolution, bom.bom_from_scene]
 
 
 @pytest.mark.parametrize("fn", _llamadores(), ids=lambda f: f"{f.__module__}.{f.__name__}")
@@ -225,3 +230,58 @@ def test_el_replay_da_lo_mismo_con_y_sin_memo(fuente, monkeypatch):
         assert math.isclose(v2, vol, abs_tol=1e-6) and b2 == bb, fid
     assert con["fasteners"] == sin["fasteners"]
     assert con["suprimidos"] == sin["suprimidos"]
+
+
+# ── los cuatro llamadores de la puerta (F4): la misma salida con y sin memo ───────────────────
+
+
+def test_es_un_solido():
+    from build123d import Compound, Face, Rectangle
+
+    from apolo.kernel.caja import es_un_solido
+
+    caja_ = Box(10, 10, 10)
+    assert es_un_solido(caja_) and es_un_solido(Compound([caja_]))
+    assert es_un_solido(Compound([Compound([caja_])]))
+    assert not es_un_solido(Compound([caja_, Pos(30, 0, 0) * Box(10, 10, 10)]))
+    cara_suelta = Pos(0, 0, 100) * Face(Rectangle(5, 5).wire())  # el compuesto crece en Z
+    assert not es_un_solido(Compound([caja_, cara_suelta]))
+    assert not es_un_solido(cara_suelta)
+
+
+def _salidas(doc) -> dict:
+    from apolo.drawing.process import infer_process
+    from apolo.library.bom import bom_from_scene
+    from apolo.library.catalog import CATALOG
+    from apolo.services.calidad_pernos import _Escena
+    from apolo.services.installation_data import installation_data
+
+    procesos = {fid: infer_process(f, CATALOG.get(getattr(f, "component", None) or ""))
+                for fid, f in doc.scene.items()}
+    cajas = [(fid, mn, mx) for fid, _f, _s, mn, mx, _r in _Escena(doc.scene).solidos]
+    return {"bom": bom_from_scene(doc.scene, doc.default_material()), "procesos": procesos,
+            "instalacion": installation_data(doc)[0], "cajas_pernos": cajas}
+
+
+@pytest.mark.parametrize("fuente", ["faja", "mensula_atornillada"])
+def test_los_llamadores_de_la_puerta_dan_lo_mismo_con_y_sin_memo(fuente, monkeypatch):
+    """`installation_data`, `calidad_pernos._Escena`, `process` (`_sheet_is_bent`,
+    `_is_revolution`) y `bom_from_scene` (F4 de maquinas-grandes): la misma salida que con
+    `bounding_box()`; en `_Escena`, la caja de la forma de la pieza en vez de la de su sólido."""
+    from apolo.doc import Document
+    from apolo.drawing import process
+    from apolo.library import bom
+
+    doc = Document.from_apolo_bytes((TESTIGOS / f"{fuente}.apolo").read_bytes(), tolerant=True)
+    if not doc.grounds:  # la lámina de instalación sólo mide con apoyos
+        fid = next(iter(doc.scene))
+        doc.grounds["g"] = {"feature": fid}
+    con = _salidas(doc)
+    assert con["instalacion"] and con["bom"] and con["cajas_pernos"]
+    with monkeypatch.context() as m:
+        _sin_memo(m)
+        for mod in (process, bom):
+            m.setattr(mod, "caja", lambda s: s.bounding_box())
+        m.setattr(caja_mod, "es_un_solido", lambda s: False)  # la caja de cada sólido
+        sin = _salidas(doc)
+    assert con == sin

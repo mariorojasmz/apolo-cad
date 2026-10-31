@@ -19,8 +19,8 @@ devuelva ESTA forma (`is`), el mismo `wrapped` y el mismo `TShape` (`is`) y la `
   puede dar un FALLO (se recalcula), nunca la caja de otra forma, porque todo acierto se valida.
   OCCT no es thread-safe: el llamador sostiene `STATE_LOCK`, como para `bounding_box()`.
 - Sólo LECTURAS: una mutación de la geometría dentro del mismo `TShape` (no la hace ningún
-  executor) no se detectaría. Por eso `caja()` sólo la usan los llamadores medidos en la F0
-  (`tests/test_caja_memo.py` los vigila).
+  executor) no se detectaría. Por eso `caja()` sólo la usan los llamadores medidos en la F0 y
+  la F4 (`tests/test_caja_memo.py` los vigila).
 """
 
 from __future__ import annotations
@@ -67,6 +67,31 @@ def caja(shape):
     guardada = _copia(bb.wrapped).wrapped
     _MEMO[clave] = (ref, w, w.TShape(), w.Location(), guardada)
     return bb
+
+
+def es_un_solido(shape) -> bool:
+    """¿La forma ES un sólido, o un compuesto que lo envuelve sin nada más (un solo hijo en cada
+    nivel)? Entonces su caja es la de ese sólido: las mismas caras con la misma ubicación
+    compuesta. Quien recorre `solids()` (un envoltorio NUEVO en cada llamada) pide así la caja de
+    la forma de la pieza y el memo acierta. Un compuesto con un sólido y una cara suelta, no."""
+    from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_SOLID
+    from OCP.TopoDS import TopoDS_Iterator
+
+    w = getattr(shape, "wrapped", None)
+    while w is not None and not w.IsNull():
+        tipo = w.ShapeType()
+        if tipo == TopAbs_SOLID:
+            return True
+        if tipo not in (TopAbs_COMPOUND, TopAbs_COMPSOLID):
+            return False
+        it, hijo = TopoDS_Iterator(w), None
+        while it.More():
+            if hijo is not None:
+                return False
+            hijo = it.Value()
+            it.Next()
+        w = hijo
+    return False
 
 
 def tamano_memo() -> int:

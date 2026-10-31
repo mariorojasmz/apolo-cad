@@ -15,6 +15,7 @@ def installation_data(doc) -> tuple[dict, dict]:
     holguras de servicio y suministro de catálogo— y delega el reparto de carga al motor
     puro. Devuelve ({}, {}) si el proyecto no declara ningún ground: sin anclajes no hay
     plano de instalación que valga (mejor ausente que inventado). Bajo STATE_LOCK."""
+    from apolo.kernel.caja import caja
     from apolo.library.catalog import CATALOG
     from apolo.library.engineering.installation import G_M_S2, anchor_loads
     from apolo.library.engineering.mass import scene_mass_properties
@@ -33,7 +34,7 @@ def installation_data(doc) -> tuple[dict, dict]:
         if _is_bolt(feat, CATALOG):
             continue
         try:
-            bb = feat.shape.bounding_box()
+            bb = caja(feat.shape)
         except Exception:
             continue
         supports.append({"id": fid, "name": getattr(feat, "name", fid),
@@ -59,7 +60,7 @@ def installation_data(doc) -> tuple[dict, dict]:
     z_top = z_all = 0.0
     for feat in doc.scene.values():
         try:
-            bb = feat.shape.bounding_box()
+            bb = caja(feat.shape)
         except Exception:
             continue
         z_all = max(z_all, float(bb.max.Z))
@@ -74,7 +75,7 @@ def installation_data(doc) -> tuple[dict, dict]:
         if not SERVICE_RE.search(nombre):
             continue
         try:
-            bb = feat.shape.bounding_box()
+            bb = caja(feat.shape)
         except Exception:
             continue
         servicio.append({"pieza": nombre, "holgura_mm": round(float(bb.max.Y - bb.min.Y), 0)})

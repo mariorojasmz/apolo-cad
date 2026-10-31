@@ -36,6 +36,7 @@ import csv
 import io
 import re
 
+from apolo.kernel.caja import caja
 from apolo.kernel.shapes import is_surface
 
 from .banda_lazo import campos_banda, es_banda, largo_de_lazo
@@ -196,7 +197,7 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             dims = None
             try:
                 vol = float(feat.shape.volume)
-                bb = feat.shape.bounding_box()
+                bb = caja(feat.shape)
                 dims = tuple(sorted((
                     round(bb.max.X - bb.min.X, 1),
                     round(bb.max.Y - bb.min.Y, 1),

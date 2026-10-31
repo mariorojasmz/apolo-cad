@@ -314,9 +314,11 @@ def _union(tramos: list) -> list[list[float]]:
 
 
 class _Escena:
-    """Sólidos de la escena con su caja y su `Rayos` (cargado una vez por corrida)."""
+    """Sólidos de la escena con su caja (`kernel/caja.caja`: la de la pieza si ES un sólido, pues
+    `solids()` da objetos nuevos y el memo no acertaría) y su `Rayos` (una vez por corrida)."""
 
     def __init__(self, scene) -> None:
+        from apolo.kernel.caja import caja, es_un_solido
         self.solidos = []
         for fid, feat in scene.items():
             if getattr(feat, "is_guide", False) or feat.shape is None:
@@ -325,9 +327,10 @@ class _Escena:
                 sols = list(feat.shape.solids())
             except Exception:  # noqa: BLE001
                 continue
+            uno = len(sols) == 1 and es_un_solido(feat.shape)
             for s in sols:
                 try:
-                    bb = s.bounding_box()
+                    bb = caja(feat.shape if uno else s)
                 except Exception:  # noqa: BLE001
                     continue
                 self.solidos.append((fid, feat, s, (bb.min.X, bb.min.Y, bb.min.Z),
